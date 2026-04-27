@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.library.AlbumInfo
 import com.takahashirinta.ncrust.library.LibraryManager
+import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,18 +31,46 @@ fun LibraryScreen(
     onSongClick: (SongItem) -> Unit,
     onAlbumClick: (Long) -> Unit,
     onPlayAlbum: (Long) -> Unit,
+    onPlaylistClick: (PlaylistApi.PlaylistInfo) -> Unit = {},
+    onPlayPlaylist: (Long) -> Unit = {},
     onInsertNext: (SongItem) -> Unit = {},
     onAppendToQueue: (SongItem) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var savedSongs by remember { mutableStateOf(LibraryManager.getSavedSongs(context)) }
     var savedAlbums by remember { mutableStateOf(LibraryManager.getSavedAlbums(context)) }
     var selectedCategory by remember { mutableIntStateOf(0) }
     val categories = listOf("单曲", "专辑", "歌单")
 
+    // 歌单状态
+    var playlists by remember { mutableStateOf<List<PlaylistApi.PlaylistInfo>>(emptyList()) }
+    var isLoadingPlaylists by remember { mutableStateOf(false) }
+    var playlistError by remember { mutableStateOf<String?>(null) }
+
+    // 加载歌单
+    fun loadPlaylists() {
+        coroutineScope.launch {
+            isLoadingPlaylists = true
+            playlistError = null
+            try {
+                val userId = PlaylistApi.getCurrentUserId()
+                val result = PlaylistApi.getUserPlaylists(userId)
+                playlists = result.playlists
+            } catch (e: Exception) {
+                playlistError = "加载失败: ${e.message}"
+            } finally {
+                isLoadingPlaylists = false
+            }
+        }
+    }
+
     LaunchedEffect(selectedCategory) {
         savedSongs = LibraryManager.getSavedSongs(context)
         savedAlbums = LibraryManager.getSavedAlbums(context)
+        if (selectedCategory == 2 && playlists.isEmpty() && !isLoadingPlaylists) {
+            loadPlaylists()
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF121212))) {
@@ -119,11 +149,91 @@ fun LibraryScreen(
                 }
             }
             2 -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("歌单（即将推出）", color = Color.Gray, fontSize = 16.sp)
+                if (isLoadingPlaylists) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color(0xFF1DB954))
+                    }
+                } else if (playlistError != null) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(playlistError!!, color = Color.Red, fontSize = 14.sp)
+                            Spacer(Modifier.height(8.dp))
+                            TextButton(onClick = { loadPlaylists() }) {
+                                Text("重试", color = Color(0xFF1DB954))
+                            }
+                        }
+                    }
+                } else if (playlists.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("暂无歌单", color = Color.Gray, fontSize = 16.sp)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 72.dp)
+                    ) {
+                        val rows = playlists.chunked(2)
+                        items(rows.size) { rowIndex ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                for (pl in rows[rowIndex]) {
+                                    PlaylistGridItem(
+                                        playlist = pl,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { onPlaylistClick(pl) },
+                                        onPlayAll = { onPlayPlaylist(pl.id) }
+                                    )
+                                }
+                                if (rows[rowIndex].size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun PlaylistGridItem(
+    playlist: PlaylistApi.PlaylistInfo,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    onPlayAll: () -> Unit
+) {
+    Column(modifier = modifier.clickable { onClick() }) {
+        Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
+            AsyncImage(
+                model = playlist.coverImgUrl,
+                contentDescription = "歌单封面",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp)
+                    .size(36.dp)
+                    .background(Color(0xFF1DB954), shape = CircleShape)
+                    .clickable { onPlayAll() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    "播放全部",
+                    tint = Color.Black,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(playlist.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("${playlist.trackCount}首", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
     }
 }
 

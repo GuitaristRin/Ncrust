@@ -73,6 +73,8 @@ import android.Manifest
 import android.os.Build
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
+import com.takahashirinta.ncrust.ui.screen.PlaylistDetailScreen
+import com.takahashirinta.ncrust.network.PlaylistApi
 
 // ==================== 主活动 ====================
 class MainActivity : ComponentActivity() {
@@ -142,6 +144,9 @@ fun MainScreen() {
     var selectedSongId by remember { mutableStateOf<Long?>(null) }
     var selectedAlbumId by remember { mutableStateOf<Long?>(null) }
     var selectedArtistId by remember { mutableStateOf<Long?>(null) }
+    var selectedPlaylistId by remember { mutableStateOf<Long?>(null) }
+    var selectedPlaylistName by remember { mutableStateOf("") }
+    var selectedPlaylistCover by remember { mutableStateOf("") }
     val playerViewModel: PlayerViewModel = viewModel()
     val isPlaying by playerViewModel.isPlaying.collectAsState()
     var currentSong by remember { mutableStateOf<SongItem?>(null) }
@@ -181,6 +186,8 @@ fun MainScreen() {
     // 随机播放时使用的索引列表
     var shuffledIndices by remember { mutableStateOf<List<Int>>(emptyList()) }
     var shuffledPosition by remember { mutableIntStateOf(0) }
+
+    val prefs = remember { context.getSharedPreferences("ncrust_settings", 0) }
 
     // 辅助函数
     fun songParams(s: SongItem) = Triple(
@@ -279,8 +286,9 @@ fun MainScreen() {
     }
 
     // 返回键处理
-    BackHandler(enabled = selectedArtistId != null || selectedAlbumId != null || selectedSongId != null) {
+    BackHandler(enabled = selectedPlaylistId != null || selectedArtistId != null || selectedAlbumId != null || selectedSongId != null) {
         when {
+            selectedPlaylistId != null -> selectedPlaylistId = null
             selectedArtistId != null -> selectedArtistId = null
             selectedAlbumId != null -> selectedAlbumId = null
             selectedSongId != null -> selectedSongId = null
@@ -352,6 +360,20 @@ fun MainScreen() {
         )
         return
     }
+    // 歌单详情页
+    if (selectedPlaylistId != null) {
+        PlaylistDetailScreen(
+            playlistId = selectedPlaylistId!!,
+            playlistName = selectedPlaylistName,
+            playlistCoverUrl = selectedPlaylistCover,
+            onBack = { selectedPlaylistId = null },
+            onSongClick = { song ->
+                playSongItem(song)
+                selectedPlaylistId = null
+            }
+        )
+        return
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(containerColor = Color(0xFF121212)) { innerPadding ->
@@ -369,6 +391,25 @@ fun MainScreen() {
                                 val (title, artist, artwork) = songParams(albumSongs.first())
                                 playerViewModel.playSong(albumSongs.first().id, title = title, artist = artist, artworkUrl = artwork)
                                 expandCard()
+                            }
+                        },
+                        onPlaylistClick = { pl ->
+                            selectedPlaylistId = pl.id
+                            selectedPlaylistName = pl.name
+                            selectedPlaylistCover = pl.coverImgUrl
+                        },
+                        onPlayPlaylist = { playlistId ->
+                            coroutineScope.launch {
+                                try {
+                                    val songs = PlaylistApi.getPlaylistDetail(playlistId)
+                                    for (song in songs) addToQueue(song)
+                                    if (songs.isNotEmpty()) {
+                                        currentSong = songs.first()
+                                        val (title, artist, artwork) = songParams(songs.first())
+                                        playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
+                                        expandCard()
+                                    }
+                                } catch (e: Exception) { /* ignore */ }
                             }
                         },
                         onInsertNext = { insertNext(it) },
@@ -1119,12 +1160,261 @@ fun SongSearchItem(
 @Composable fun HomeScreen(onSongClick: (SongItem) -> Unit = {}) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("首页", color = Color.White) } }
 
 // ==================== 用户页面 ====================
-@Composable fun UserScreen() {
-    val context = LocalContext.current; var cookieText by remember { mutableStateOf("") }; var showDialog by remember { mutableStateOf(false) }; var cookieInfo by remember { mutableStateOf(CookieManager.getCookieInfo(context)) }
-    if (showDialog) { AlertDialog(onDismissRequest = { showDialog = false }, title = { Text("设置 Cookie", color = Color.White) }, text = { Column { Text("请粘贴完整的浏览器 Cookie 字符串", color = Color.Gray, style = MaterialTheme.typography.bodySmall); Spacer(Modifier.height(8.dp)); OutlinedTextField(value = cookieText, onValueChange = { cookieText = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Cookie") }, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.Gray, focusedBorderColor = Color(0xFF1DB954)), maxLines = 5) } }, confirmButton = { TextButton(onClick = { if (cookieText.isNotBlank()) { CookieManager.saveCookie(context, cookieText); RetrofitClient.updateCookie(cookieText); cookieInfo = CookieManager.getCookieInfo(context); cookieText = ""; showDialog = false } }) { Text("保存", color = Color(0xFF1DB954)) } }, dismissButton = { TextButton(onClick = { cookieText = ""; showDialog = false }) { Text("取消", color = Color.Gray) } }, containerColor = Color(0xFF282828)) }
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) { Text("用户", color = Color.White, style = MaterialTheme.typography.headlineLarge); Spacer(Modifier.height(24.dp)); Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))) { Column(modifier = Modifier.padding(16.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(if (cookieInfo.hasCookie) Icons.Default.CheckCircle else Icons.Default.Error, contentDescription = null, tint = if (cookieInfo.hasCookie) Color(0xFF1DB954) else Color.Gray); Spacer(Modifier.width(8.dp)); Text(if (cookieInfo.hasCookie) "已登录" else "未登录", color = Color.White, style = MaterialTheme.typography.titleMedium) }; if (cookieInfo.hasCookie) { Spacer(Modifier.height(8.dp)); Text("MUSIC_U: ${cookieInfo.musicU?.take(20) ?: "无"}...", color = Color.Gray, style = MaterialTheme.typography.bodySmall) } } }
-        Spacer(Modifier.height(16.dp)); Button(onClick = { showDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1DB954))) { Text(if (cookieInfo.hasCookie) "更新 Cookie" else "设置 Cookie") }
-        if (cookieInfo.hasCookie) { Spacer(Modifier.height(8.dp)); OutlinedButton(onClick = { CookieManager.clearCookie(context); RetrofitClient.updateCookie(null); cookieInfo = CookieManager.getCookieInfo(context) }, modifier = Modifier.fillMaxWidth()) { Text("清除 Cookie", color = Color.Red) } }
+@Composable
+fun UserScreen() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var cookieText by remember { mutableStateOf("") }
+    var showDialog by remember { mutableStateOf(false) }
+    var showAccountDialog by remember { mutableStateOf(false) }
+    var cookieInfo by remember { mutableStateOf(CookieManager.getCookieInfo(context)) }
+
+    var userProfile by remember { mutableStateOf<PlaylistApi.UserProfile?>(null) }
+    var isLoadingProfile by remember { mutableStateOf(false) }
+
+    // 音质偏好 - 从 SharedPreferences 读取
+    val prefs = remember { context.getSharedPreferences("ncrust_settings", 0) }
+    var wifiQuality by remember { mutableIntStateOf(prefs.getInt("wifi_quality", 2)) } // 0=压缩, 1=无损, 2=高解析
+    var mobileQuality by remember { mutableIntStateOf(prefs.getInt("mobile_quality", 1)) }
+
+    val qualityOptions = listOf("压缩", "无损", "高解析")
+    val qualityValues = listOf("standard", "lossless", "hires")
+
+    fun loadProfile() {
+        if (!CookieManager.hasCookie(context)) {
+            userProfile = null
+            return
+        }
+        coroutineScope.launch {
+            isLoadingProfile = true
+            try {
+                userProfile = PlaylistApi.getUserProfile()
+            } catch (e: Exception) {
+                userProfile = null
+            } finally {
+                isLoadingProfile = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        loadProfile()
+    }
+
+    // 设置 Cookie 弹窗
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("设置 Cookie", color = Color.White) },
+            text = {
+                Column {
+                    Text("请粘贴完整的浏览器 Cookie 字符串", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = cookieText,
+                        onValueChange = { cookieText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Cookie") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.Gray,
+                            focusedBorderColor = Color(0xFF1DB954)
+                        ),
+                        maxLines = 5
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (cookieText.isNotBlank()) {
+                        CookieManager.saveCookie(context, cookieText)
+                        RetrofitClient.updateCookie(cookieText)
+                        cookieInfo = CookieManager.getCookieInfo(context)
+                        cookieText = ""
+                        showDialog = false
+                        loadProfile()
+                    }
+                }) {
+                    Text("保存", color = Color(0xFF1DB954))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { cookieText = ""; showDialog = false }) {
+                    Text("取消", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF282828)
+        )
+    }
+
+    // 账户管理弹窗
+    if (showAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showAccountDialog = false },
+            title = { Text("账户管理", color = Color.White) },
+            text = {
+                Column {
+                    if (userProfile != null) {
+                        Text("昵称: ${userProfile!!.nickname}", color = Color.White)
+                        Spacer(Modifier.height(4.dp))
+                        Text("UID: ${userProfile!!.userId}", color = Color.Gray)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    CookieManager.clearCookie(context)
+                    RetrofitClient.updateCookie(null)
+                    cookieInfo = CookieManager.getCookieInfo(context)
+                    userProfile = null
+                    showAccountDialog = false
+                }) {
+                    Text("退出登录", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAccountDialog = false }) {
+                    Text("关闭", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF282828)
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // 用户信息行
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    if (cookieInfo.hasCookie) showAccountDialog = true
+                    else showDialog = true
+                }
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 头像
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(Color(0xFF404040)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (userProfile?.avatarUrl?.isNotEmpty() == true) {
+                    AsyncImage(
+                        model = userProfile!!.avatarUrl,
+                        contentDescription = "头像",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Person,
+                        "用户",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(Modifier.weight(1f)) {
+                if (isLoadingProfile) {
+                    Text("加载中...", color = Color.Gray, style = MaterialTheme.typography.titleLarge)
+                } else if (userProfile != null) {
+                    Text(
+                        userProfile!!.nickname,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        "UID: ${userProfile!!.userId}",
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    Text(
+                        "未登录",
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        "点击登录或设置 Cookie",
+                        color = Color.Gray.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(color = Color(0xFF2A2A2A))
+        Spacer(Modifier.height(16.dp))
+
+        // 音质偏好
+        Text(
+            "音质偏好",
+            color = Color.White,
+            style = MaterialTheme.typography.titleLarge
+        )
+        Spacer(Modifier.height(12.dp))
+
+        // WLAN 音质
+        QualitySelector(
+            label = "WLAN 环境下",
+            selected = wifiQuality,
+            options = qualityOptions,
+            onSelect = { index ->
+                wifiQuality = index
+                prefs.edit().putInt("wifi_quality", index).apply()
+            }
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        // 移动数据音质
+        QualitySelector(
+            label = "移动数据环境下",
+            selected = mobileQuality,
+            options = qualityOptions,
+            onSelect = { index ->
+                mobileQuality = index
+                prefs.edit().putInt("mobile_quality", index).apply()
+            }
+        )
+    }
+}
+
+@Composable
+fun QualitySelector(
+    label: String,
+    selected: Int,
+    options: List<String>,
+    onSelect: (Int) -> Unit
+) {
+    Column {
+        Text(label, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            options.forEachIndexed { index, name ->
+                FilterChip(
+                    selected = selected == index,
+                    onClick = { onSelect(index) },
+                    label = { Text(name, fontSize = 13.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF1DB954),
+                        selectedLabelColor = Color.Black
+                    )
+                )
+            }
+        }
     }
 }
 

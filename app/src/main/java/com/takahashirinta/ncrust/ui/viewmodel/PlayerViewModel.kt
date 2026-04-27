@@ -72,10 +72,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         onSongPreviousCallback = callback
     }
 
-    fun playSong(songId: Long, title: String = "", artist: String = "", artworkUrl: String = "", quality: String = "lossless") {
+    fun playSong(songId: Long, title: String = "", artist: String = "", artworkUrl: String = "", quality: String = "") {
+        val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
+        val qualityOptions = listOf("standard", "lossless", "hires")
+        val selectedQuality = if (quality.isNotEmpty()) quality
+        else qualityOptions[prefs.getInt("wifi_quality", 2)]
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val url = SongUrlFetcher.fetchUrl(songId, quality)
+                val url = SongUrlFetcher.fetchUrl(songId, selectedQuality)
                 fetchLyrics(songId)
                 withContext(Dispatchers.Main) {
                     currentSongId.value = songId
