@@ -19,7 +19,7 @@ data class ArtistDetail(
     @SerializedName("id") val id: Long,
     @SerializedName("name") val name: String,
     @SerializedName("picUrl") val picUrl: String?,
-    @SerializedName("cover") val cover: String?,
+    @SerializedName("cover") val cover: String? = null,
     @SerializedName("albumSize") val albumSize: Int?,
     @SerializedName("musicSize") val musicSize: Int?
 )

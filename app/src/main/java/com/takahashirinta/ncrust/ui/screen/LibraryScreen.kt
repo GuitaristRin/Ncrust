@@ -24,6 +24,7 @@ import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
 import kotlinx.coroutines.launch
+import com.takahashirinta.ncrust.auth.CookieManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,39 +33,45 @@ fun LibraryScreen(
     onAlbumClick: (Long) -> Unit,
     onPlayAlbum: (Long) -> Unit,
     onPlaylistClick: (PlaylistApi.PlaylistInfo) -> Unit = {},
-    onPlayPlaylist: (Long) -> Unit = {},
-    onInsertNext: (SongItem) -> Unit = {},
-    onAppendToQueue: (SongItem) -> Unit = {}
+    onPlayPlaylist: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // 每次进入页面重新从本地加载
     var savedSongs by remember { mutableStateOf(LibraryManager.getSavedSongs(context)) }
     var savedAlbums by remember { mutableStateOf(LibraryManager.getSavedAlbums(context)) }
     var selectedCategory by remember { mutableIntStateOf(0) }
     val categories = listOf("单曲", "专辑", "歌单")
 
-    // 歌单状态
+    // 云歌单状态
     var playlists by remember { mutableStateOf<List<PlaylistApi.PlaylistInfo>>(emptyList()) }
     var isLoadingPlaylists by remember { mutableStateOf(false) }
     var playlistError by remember { mutableStateOf<String?>(null) }
 
-    // 加载歌单
     fun loadPlaylists() {
         coroutineScope.launch {
             isLoadingPlaylists = true
             playlistError = null
             try {
-                val userId = PlaylistApi.getCurrentUserId()
-                val result = PlaylistApi.getUserPlaylists(userId)
-                playlists = result.playlists
+                if (!CookieManager.hasCookie(context)) {
+                    playlistError = "未登录！请前往用户页登录"
+                } else {
+                    val userId = PlaylistApi.getCurrentUserId()
+                    val result = PlaylistApi.getUserPlaylists(userId)
+                    playlists = result.playlists
+                }
             } catch (e: Exception) {
-                playlistError = "加载失败: ${e.message}"
+                playlistError = if (!CookieManager.hasCookie(context))
+                    "未登录！请前往用户页登录"
+                else "加载失败: ${e.message}"
             } finally {
                 isLoadingPlaylists = false
             }
         }
     }
 
+    // 每次切到这个 Tab 重新刷新库结构
     LaunchedEffect(selectedCategory) {
         savedSongs = LibraryManager.getSavedSongs(context)
         savedAlbums = LibraryManager.getSavedAlbums(context)
@@ -83,12 +90,19 @@ fun LibraryScreen(
                 Tab(
                     selected = selectedCategory == index,
                     onClick = { selectedCategory = index },
-                    text = { Text(title, color = if (selectedCategory == index) Color(0xFF1DB954) else Color.Gray, fontSize = 14.sp) }
+                    text = {
+                        Text(
+                            title,
+                            color = if (selectedCategory == index) Color(0xFF1DB954) else Color.Gray,
+                            fontSize = 14.sp
+                        )
+                    }
                 )
             }
         }
 
         when (selectedCategory) {
+            // ====== 本地单曲 ======
             0 -> {
                 if (savedSongs.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -103,8 +117,6 @@ fun LibraryScreen(
                             LibrarySongListItem(
                                 song = song,
                                 onPlay = { onSongClick(song) },
-                                onInsertNext = { onInsertNext(song) },
-                                onAppendToQueue = { onAppendToQueue(song) },
                                 onRemove = {
                                     LibraryManager.removeSong(context, song.id)
                                     savedSongs = LibraryManager.getSavedSongs(context)
@@ -115,6 +127,8 @@ fun LibraryScreen(
                     }
                 }
             }
+
+            // ====== 本地专辑（从单曲派生） ======
             1 -> {
                 if (savedAlbums.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -148,47 +162,54 @@ fun LibraryScreen(
                     }
                 }
             }
+
+            // ====== 云歌单 ======
             2 -> {
-                if (isLoadingPlaylists) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFF1DB954))
+                when {
+                    isLoadingPlaylists -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color(0xFF1DB954))
+                        }
                     }
-                } else if (playlistError != null) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(playlistError!!, color = Color.Red, fontSize = 14.sp)
-                            Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = { loadPlaylists() }) {
-                                Text("重试", color = Color(0xFF1DB954))
+                    playlistError != null -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(playlistError!!, color = Color.Red, fontSize = 14.sp)
+                                Spacer(Modifier.height(8.dp))
+                                TextButton(onClick = { loadPlaylists() }) {
+                                    Text("重试", color = Color(0xFF1DB954))
+                                }
                             }
                         }
                     }
-                } else if (playlists.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("暂无歌单", color = Color.Gray, fontSize = 16.sp)
+                    playlists.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("暂无歌单", color = Color.Gray, fontSize = 16.sp)
+                        }
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = 72.dp)
-                    ) {
-                        val rows = playlists.chunked(2)
-                        items(rows.size) { rowIndex ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                for (pl in rows[rowIndex]) {
-                                    PlaylistGridItem(
-                                        playlist = pl,
-                                        modifier = Modifier.weight(1f),
-                                        onClick = { onPlaylistClick(pl) },
-                                        onPlayAll = { onPlayPlaylist(pl.id) }
-                                    )
-                                }
-                                if (rows[rowIndex].size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(bottom = 72.dp)
+                        ) {
+                            val rows = playlists.chunked(2)
+                            items(rows.size) { rowIndex ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    for (pl in rows[rowIndex]) {
+                                        PlaylistGridItem(
+                                            playlist = pl,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = { onPlaylistClick(pl) },
+                                            onPlayAll = { onPlayPlaylist(pl.id) }
+                                        )
+                                    }
+                                    if (rows[rowIndex].size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
                                 }
                             }
                         }
@@ -199,6 +220,7 @@ fun LibraryScreen(
     }
 }
 
+// ==================== 云歌单封面项 ====================
 @Composable
 fun PlaylistGridItem(
     playlist: PlaylistApi.PlaylistInfo,
@@ -237,6 +259,7 @@ fun PlaylistGridItem(
     }
 }
 
+// ==================== 库单曲行 ====================
 @Composable
 fun LibrarySongListItem(
     song: SongItem,
@@ -265,18 +288,13 @@ fun LibrarySongListItem(
             Text(song.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("$artistStr · ${song.album?.name ?: ""}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        IconButton(onClick = onInsertNext) {
-            Icon(Icons.Default.PlaylistPlay, "插播", tint = Color.White, modifier = Modifier.size(24.dp))
-        }
-        IconButton(onClick = onAppendToQueue) {
-            Icon(Icons.Default.PlaylistAdd, "加入播放列表", tint = Color.White, modifier = Modifier.size(24.dp))
-        }
-        IconButton(onClick = onRemove) {
-            Icon(Icons.Default.Delete, "移除", tint = Color.Gray, modifier = Modifier.size(20.dp))
-        }
+        IconButton(onClick = onInsertNext) { Icon(Icons.Default.PlaylistPlay, "插播", tint = Color.White, modifier = Modifier.size(24.dp)) }
+        IconButton(onClick = onAppendToQueue) { Icon(Icons.Default.PlaylistAdd, "加入播放列表", tint = Color.White, modifier = Modifier.size(24.dp)) }
+        IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, "移除", tint = Color.Gray, modifier = Modifier.size(20.dp)) }
     }
 }
 
+// ==================== 库专辑封面项 ====================
 @Composable
 fun LibraryAlbumGridItem(
     album: AlbumInfo,

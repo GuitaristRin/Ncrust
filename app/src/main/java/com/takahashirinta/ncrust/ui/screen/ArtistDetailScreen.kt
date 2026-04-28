@@ -21,6 +21,9 @@ import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.*
 import kotlinx.coroutines.launch
+import com.takahashirinta.ncrust.network.PlaylistApi
+import org.json.JSONArray
+import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,24 +46,46 @@ fun ArtistDetailScreen(
             isLoading = true
             error = null
             try {
-                val detailResponse = RetrofitClient.api.getArtistDetail(artistId)
-                android.util.Log.d("ArtistDetail", "Response code: ${detailResponse.code}")
+                val albumsResponse = RetrofitClient.api.getArtistAlbums(artistId)
+                android.util.Log.d("ArtistDetail", "Albums Response: ${albumsResponse.code}")
 
-                if (detailResponse.code == 200) {
-                    artist = detailResponse.data?.artist ?: detailResponse.artist
-                    hotSongs = detailResponse.data?.hotSongs ?: detailResponse.hotSongs ?: emptyList()
-                } else {
-                    error = "艺人数据加载失败 (code: ${detailResponse.code})"
-                }
+                if (albumsResponse.code == 200) {
+                    artist = ArtistDetail(
+                        id = albumsResponse.artist?.id ?: artistId,
+                        name = albumsResponse.artist?.name ?: "",
+                        picUrl = albumsResponse.artist?.picUrl,
+                        albumSize = albumsResponse.artist?.albumSize,
+                        musicSize = albumsResponse.artist?.musicSize
+                    )
+                    albums = albumsResponse.hotAlbums ?: emptyList()
 
-                try {
-                    val albumsResponse = RetrofitClient.api.getArtistAlbums(artistId)
-                    android.util.Log.d("ArtistAlbums", "Response code: ${albumsResponse.code}")
-                    if (albumsResponse.code == 200) {
-                        albums = albumsResponse.hotAlbums ?: albumsResponse.albums ?: emptyList()
+                    // 用艺人名搜索热门歌曲
+                    val artistName = artist?.name ?: ""
+                    if (artistName.isNotEmpty()) {
+                        try {
+                            val searchResponse = RetrofitClient.api.search(
+                                keyword = artistName,
+                                type = 1,
+                                limit = 30
+                            )
+                            val searchSongs = searchResponse.result?.songs ?: emptyList()
+                            hotSongs = searchSongs
+                                .filter { it.artists?.any { a -> a.name == artistName } == true }
+                                .map { song ->
+                                    ArtistSongItem(
+                                        id = song.id,
+                                        name = song.name,
+                                        artists = song.artists,
+                                        album = song.album,
+                                        dt = song.duration ?: 0
+                                    )
+                                }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ArtistDetail", "Hot songs search failed", e)
+                        }
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("ArtistAlbums", "Albums load error", e)
+                } else {
+                    error = "艺人数据加载失败 (code: ${albumsResponse.code})"
                 }
 
             } catch (e: Exception) {

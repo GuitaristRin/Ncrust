@@ -34,10 +34,12 @@ data class AlbumSongItem(
 // ==================== 艺人专辑列表 ====================
 data class ArtistAlbumsResponse(
     @SerializedName("code") val code: Int = 200,
+    @SerializedName("artist") val artist: ArtistDetail?,
     @SerializedName("hotAlbums") val hotAlbums: List<ArtistAlbumItem>?,
-    @SerializedName("albums") val albums: List<ArtistAlbumItem>?,
-    @SerializedName("more") val more: Boolean? = null
+    @SerializedName("more") val more: Boolean? = null,
 )
+
+
 
 data class ArtistAlbumItem(
     @SerializedName("id") val id: Long,
@@ -47,3 +49,4 @@ data class ArtistAlbumItem(
     @SerializedName("size") val size: Int?,
     @SerializedName("artist") val artist: ArtistItem? = null
 )
+

@@ -21,6 +21,8 @@ object RetrofitClient {
         currentCookie = cookie
     }
 
+
+
     fun getCookie(): String? = currentCookie
 
     val api: NcmApi by lazy {
@@ -61,6 +63,23 @@ object RetrofitClient {
             .build()
 
         return client.newCall(request).execute()
+    }
+
+    fun get(url: String): String {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .header("Referer", "https://music.163.com/")
+            .header("Cookie", currentCookie ?: "")
+            .build()
+
+        return client.newCall(request).execute().body?.string() ?: throw Exception("empty response")
     }
 
     private class CookieInterceptor : Interceptor {

@@ -75,6 +75,13 @@ import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.ui.screen.PlaylistDetailScreen
 import com.takahashirinta.ncrust.network.PlaylistApi
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.RectangleShape
+import com.takahashirinta.ncrust.ui.screen.HomeScreen
+import android.net.Uri
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.viewinterop.AndroidView
+import android.content.Context
 
 // ==================== 主活动 ====================
 class MainActivity : ComponentActivity() {
@@ -379,7 +386,37 @@ fun MainScreen() {
         Scaffold(containerColor = Color(0xFF121212)) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
                 when (selectedTab) {
-                    0 -> HomeScreen(onSongClick = { playSongItem(it) })
+                    0 -> HomeScreen(
+                        onSongClick = { playSongItem(it) },
+                        onPlaylistClick = { playlistId ->
+                            selectedPlaylistId = playlistId
+                            selectedPlaylistName = ""
+                            selectedPlaylistCover = ""
+                        },
+                        onPlayPlaylist = { playlistId ->
+                            coroutineScope.launch {
+                                try {
+                                    val songs = PlaylistApi.getPlaylistDetail(playlistId)
+                                    for (song in songs) addToQueue(song)
+                                    if (songs.isNotEmpty()) {
+                                        currentSong = songs.first()
+                                        val (title, artist, artwork) = songParams(songs.first())
+                                        playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
+                                        expandCard()
+                                    }
+                                } catch (_: Exception) { }
+                            }
+                        },
+                        onPlayDailyAll = { songs ->
+                            for (song in songs) addToQueue(song)
+                            if (songs.isNotEmpty()) {
+                                currentSong = songs.first()
+                                val (title, artist, artwork) = songParams(songs.first())
+                                playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
+                                expandCard()
+                            }
+                        }
+                    )
                     1 -> LibraryScreen(
                         onSongClick = { playSongItem(it) },
                         onAlbumClick = { selectedAlbumId = it },
@@ -409,11 +446,9 @@ fun MainScreen() {
                                         playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
                                         expandCard()
                                     }
-                                } catch (e: Exception) { /* ignore */ }
+                                } catch (_: Exception) { }
                             }
-                        },
-                        onInsertNext = { insertNext(it) },
-                        onAppendToQueue = { appendToQueue(it) }
+                        }
                     )
                     2 -> SearchScreen(
                         onSongClick = { playSongItem(it) },
@@ -1156,9 +1191,6 @@ fun SongSearchItem(
     }
 }
 
-// ==================== 首页 ====================
-@Composable fun HomeScreen(onSongClick: (SongItem) -> Unit = {}) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("首页", color = Color.White) } }
-
 // ==================== 用户页面 ====================
 @Composable
 fun UserScreen() {
@@ -1167,18 +1199,18 @@ fun UserScreen() {
     var cookieText by remember { mutableStateOf("") }
     var showDialog by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
+    var showWebLogin by remember { mutableStateOf(false) }
     var cookieInfo by remember { mutableStateOf(CookieManager.getCookieInfo(context)) }
 
     var userProfile by remember { mutableStateOf<PlaylistApi.UserProfile?>(null) }
     var isLoadingProfile by remember { mutableStateOf(false) }
 
-    // 音质偏好 - 从 SharedPreferences 读取
     val prefs = remember { context.getSharedPreferences("ncrust_settings", 0) }
-    var wifiQuality by remember { mutableIntStateOf(prefs.getInt("wifi_quality", 2)) } // 0=压缩, 1=无损, 2=高解析
+    var wifiQuality by remember { mutableIntStateOf(prefs.getInt("wifi_quality", 2)) }
     var mobileQuality by remember { mutableIntStateOf(prefs.getInt("mobile_quality", 1)) }
-
     val qualityOptions = listOf("压缩", "无损", "高解析")
-    val qualityValues = listOf("standard", "lossless", "hires")
+
+
 
     fun loadProfile() {
         if (!CookieManager.hasCookie(context)) {
@@ -1197,51 +1229,109 @@ fun UserScreen() {
         }
     }
 
-    LaunchedEffect(Unit) {
-        loadProfile()
+    fun tryExtractCookie(view: android.webkit.WebView, url: String, ctx: Context) {
+        if (!url.contains("music.163.com")) return
+        val cookieStr = android.webkit.CookieManager.getInstance().getCookie(url)
+        android.util.Log.d("WebLogin", "Cookie: ${cookieStr?.take(100)}")
+        if (cookieStr != null && cookieStr.contains("MUSIC_U=")) {
+            CookieManager.saveCookie(ctx, cookieStr)
+            RetrofitClient.updateCookie(cookieStr)
+            cookieInfo = CookieManager.getCookieInfo(ctx)
+            showWebLogin = false
+            loadProfile()
+        }
     }
 
-    // 设置 Cookie 弹窗
+    LaunchedEffect(Unit) { loadProfile() }
+
+    // 全屏 WebView 登录
+    if (showWebLogin) {
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF121212))) {
+            AndroidView(
+                factory = { ctx ->
+                    android.webkit.WebView(ctx).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        // 启用第三方 Cookie
+                        android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+
+                        webViewClient = object : android.webkit.WebViewClient() {
+                            override fun onPageFinished(view: android.webkit.WebView, url: String) {
+                                android.util.Log.d("WebLogin", "URL: $url")
+                            }
+
+                            override fun doUpdateVisitedHistory(view: android.webkit.WebView, url: String, isReload: Boolean) {
+                                super.doUpdateVisitedHistory(view, url, isReload)
+                                // 每次 URL 变化时检测 Cookie
+                                tryExtractCookie(view, url, ctx)
+                            }
+
+                            override fun onPageCommitVisible(view: android.webkit.WebView, url: String) {
+                                super.onPageCommitVisible(view, url)
+                                tryExtractCookie(view, url, ctx)
+                            }
+                        }
+
+                        // 清除旧 Cookie 避免干扰
+                        android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                        loadUrl("https://music.163.com/#/login")
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            // 关闭按钮
+            IconButton(
+                onClick = { showWebLogin = false },
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).statusBarsPadding()
+            ) {
+                Icon(Icons.Default.Close, "关闭", tint = Color.White, modifier = Modifier.size(28.dp))
+            }
+        }
+        return
+    }
+
+    // 登录选择弹窗
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text("设置 Cookie", color = Color.White) },
+            title = { Text("登录网易云音乐", color = Color.White) },
             text = {
                 Column {
-                    Text("请粘贴完整的浏览器 Cookie 字符串", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                    Button(
+                        onClick = {
+                            showDialog = false
+                            showWebLogin = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1DB954))
+                    ) { Text("浏览器登录（推荐）") }
+                    Spacer(Modifier.height(16.dp))
+                    Text("或手动粘贴 Cookie", color = Color.Gray, fontSize = 13.sp)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = cookieText,
                         onValueChange = { cookieText = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Cookie") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.Gray,
-                            focusedBorderColor = Color(0xFF1DB954)
-                        ),
-                        maxLines = 5
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.Gray, focusedBorderColor = Color(0xFF1DB954)),
+                        maxLines = 3
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    if (cookieText.isNotBlank()) {
+                if (cookieText.isNotBlank()) {
+                    TextButton(onClick = {
                         CookieManager.saveCookie(context, cookieText)
                         RetrofitClient.updateCookie(cookieText)
                         cookieInfo = CookieManager.getCookieInfo(context)
                         cookieText = ""
                         showDialog = false
                         loadProfile()
-                    }
-                }) {
-                    Text("保存", color = Color(0xFF1DB954))
+                    }) { Text("保存 Cookie", color = Color(0xFF1DB954)) }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { cookieText = ""; showDialog = false }) {
-                    Text("取消", color = Color.Gray)
-                }
+                TextButton(onClick = { cookieText = ""; showDialog = false }) { Text("取消", color = Color.Gray) }
             },
             containerColor = Color(0xFF282828)
         )
@@ -1268,28 +1358,19 @@ fun UserScreen() {
                     cookieInfo = CookieManager.getCookieInfo(context)
                     userProfile = null
                     showAccountDialog = false
-                }) {
-                    Text("退出登录", color = Color.Red)
-                }
+                }) { Text("退出登录", color = Color.Red) }
             },
             dismissButton = {
-                TextButton(onClick = { showAccountDialog = false }) {
-                    Text("关闭", color = Color.Gray)
-                }
+                TextButton(onClick = { showAccountDialog = false }) { Text("关闭", color = Color.Gray) }
             },
             containerColor = Color(0xFF282828)
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         // 用户信息行
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
                 .clickable {
                     if (cookieInfo.hasCookie) showAccountDialog = true
                     else showDialog = true
@@ -1297,57 +1378,22 @@ fun UserScreen() {
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 头像
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(Color(0xFF404040)),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.size(64.dp).background(Color(0xFF404040)), contentAlignment = Alignment.Center) {
                 if (userProfile?.avatarUrl?.isNotEmpty() == true) {
-                    AsyncImage(
-                        model = userProfile!!.avatarUrl,
-                        contentDescription = "头像",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
+                    AsyncImage(model = userProfile!!.avatarUrl, contentDescription = "头像", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
-                    Icon(
-                        Icons.Default.Person,
-                        "用户",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(36.dp)
-                    )
+                    Icon(Icons.Default.Person, "用户", tint = Color.Gray, modifier = Modifier.size(36.dp))
                 }
             }
-
             Spacer(Modifier.width(16.dp))
-
             Column(Modifier.weight(1f)) {
-                if (isLoadingProfile) {
-                    Text("加载中...", color = Color.Gray, style = MaterialTheme.typography.titleLarge)
-                } else if (userProfile != null) {
-                    Text(
-                        userProfile!!.nickname,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Text(
-                        "UID: ${userProfile!!.userId}",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                if (isLoadingProfile) Text("加载中...", color = Color.Gray, style = MaterialTheme.typography.titleLarge)
+                else if (userProfile != null) {
+                    Text(userProfile!!.nickname, color = Color.White, style = MaterialTheme.typography.titleLarge)
+                    Text("UID: ${userProfile!!.userId}", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                 } else {
-                    Text(
-                        "未登录",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Text(
-                        "点击登录或设置 Cookie",
-                        color = Color.Gray.copy(alpha = 0.6f),
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("未登录", color = Color.Gray, style = MaterialTheme.typography.titleLarge)
+                    Text("点击登录或设置 Cookie", color = Color.Gray.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -1355,37 +1401,28 @@ fun UserScreen() {
         HorizontalDivider(color = Color(0xFF2A2A2A))
         Spacer(Modifier.height(16.dp))
 
-        // 音质偏好
-        Text(
-            "音质偏好",
-            color = Color.White,
-            style = MaterialTheme.typography.titleLarge
-        )
+        if (cookieInfo.hasCookie) {
+            OutlinedButton(onClick = {
+                CookieManager.clearCookie(context)
+                RetrofitClient.updateCookie(null)
+                cookieInfo = CookieManager.getCookieInfo(context)
+                userProfile = null
+            }, modifier = Modifier.fillMaxWidth()) { Text("退出登录", color = Color.Red) }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = {
+                cookieText = CookieManager.getCookie(context) ?: ""
+                showDialog = true
+            }, modifier = Modifier.fillMaxWidth()) { Text("更新 Cookie", color = Color.White) }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Text("音质偏好", color = Color.White, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(12.dp))
 
-        // WLAN 音质
-        QualitySelector(
-            label = "WLAN 环境下",
-            selected = wifiQuality,
-            options = qualityOptions,
-            onSelect = { index ->
-                wifiQuality = index
-                prefs.edit().putInt("wifi_quality", index).apply()
-            }
-        )
-
+        QualitySelector(label = "WLAN 环境下", selected = wifiQuality, options = qualityOptions, onSelect = { wifiQuality = it; prefs.edit().putInt("wifi_quality", it).apply() })
         Spacer(Modifier.height(8.dp))
-
-        // 移动数据音质
-        QualitySelector(
-            label = "移动数据环境下",
-            selected = mobileQuality,
-            options = qualityOptions,
-            onSelect = { index ->
-                mobileQuality = index
-                prefs.edit().putInt("mobile_quality", index).apply()
-            }
-        )
+        QualitySelector(label = "移动数据环境下", selected = mobileQuality, options = qualityOptions, onSelect = { mobileQuality = it; prefs.edit().putInt("mobile_quality", it).apply() })
     }
 }
 
@@ -1401,18 +1438,31 @@ fun QualitySelector(
         Spacer(Modifier.height(4.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             options.forEachIndexed { index, name ->
-                FilterChip(
-                    selected = selected == index,
-                    onClick = { onSelect(index) },
-                    label = { Text(name, fontSize = 13.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFF1DB954),
-                        selectedLabelColor = Color.Black
+                val isSelected = selected == index
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (isSelected) Color(0xFF1DB954) else Color.Transparent,
+                            shape = RectangleShape
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = if (isSelected) Color(0xFF1DB954) else Color.Gray.copy(alpha = 0.4f),
+                            shape = RectangleShape
+                        )
+                        .clickable { onSelect(index) }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        name,
+                        fontSize = 13.sp,
+                        color = if (isSelected) Color.Black else Color.White
                     )
-                )
+                }
             }
         }
     }

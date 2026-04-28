@@ -96,6 +96,26 @@ object PlaylistApi {
         )
     }
 
+    suspend fun getArtistDetail(artistId: Long): String = withContext(Dispatchers.IO) {
+        val payload = mapOf("id" to artistId.toString())
+        val response = RetrofitClient.eapiPost(
+            "https://music.163.com/eapi/v1/artist/detail", payload
+        )
+        response.body?.string() ?: throw Exception("empty response")
+    }
+
+    suspend fun getArtistAlbums(artistId: Long): String = withContext(Dispatchers.IO) {
+        val payload = mapOf(
+            "id" to artistId.toString(),
+            "limit" to "50",
+            "offset" to "0"
+        )
+        val response = RetrofitClient.eapiPost(
+            "https://music.163.com/eapi/artist/albums", payload
+        )
+        response.body?.string() ?: throw Exception("empty response")
+    }
+
     suspend fun getPlaylistDetail(playlistId: Long): List<SongItem> = withContext(Dispatchers.IO) {
         val payload = mapOf(
             "id" to playlistId.toString(),
