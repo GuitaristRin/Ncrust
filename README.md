@@ -6,9 +6,9 @@
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-1.5%2B-blue?style=flat-square&logo=jetpackcompose)
 ![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
-![Version](https://img.shields.io/badge/Version-0.1.0--beta-orange?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.0.0-brightgreen?style=flat-square)
 
-**Material 3 设计 · 流畅动画 · 无损音质 · 本地曲库管理**
+**Metro Design · GPU 零重组动画 · 无损音质 · 本地曲库管理**
 
 纯 Kotlin/Jetpack Compose 构建 · Media3 播放引擎 · eapi 加密直连
 
@@ -30,16 +30,20 @@
 
 ### 🎵 核心功能
 
-- **🔍 多维度搜索**：单曲 / 专辑 / 艺人搜索，支持关键词匹配
-- **📚 本地曲库**：保存歌曲与专辑，自动派生专辑封面墙
-- **🎧 无损播放**：通过 eapi 加密获取 FLAC 无损流
-- **🎭 全屏播放器**：拖拽手势、封面动画、歌词滚动
-- **🎼 歌词显示**：LRC 逐行解析，自动滚动定位，用户翻页后 3 秒恢复
-- **⏯️ 播放队列**：插播 / 追加 / 移除，三种播放模式（列表循环 / 单曲循环 / 随机播放）
-- **🔔 系统媒体控制**：通知栏 / 锁屏 / 控制中心，封面提取主色调，实时进度条
-- **🔤 音频焦点管理**：与其他音乐 App 互不冲突，自动暂停/恢复
-- **🔐 Cookie 管理**：支持网易云音乐账号登录，解锁更高音质
-- **💾 状态持久化**：进程被杀后自动恢复播放进度与歌曲信息
+- **🏠 首页发现**：新歌速递、推荐歌单、日推歌曲，懒加载分页
+- **🔍 多维度搜索**：单曲 / 专辑 / 艺人搜索，500ms 防抖，三标签 Tab 切换
+- **📚 本地曲库**：单曲封面墙（两列网格）、专辑自动派生（按 albumId 去重）
+- **🎧 无损播放**：eapi 加密获取 FLAC 无损流，完整音质降级链
+- **🎭 全屏播放器**：三层图层架构，拖拽手势（25% 阈值吸附），迷你栏/全屏流畅切换
+- **🎼 歌词显示**：LRC 逐行解析，上黄金分割点自动定位，手动滚动 5 秒后恢复，上下渐变融入
+- **⏯️ 播放队列**：插播/追加/移除/点击切歌，三种模式（列表循环/单曲循环/随机），持久化存储
+- **🔔 系统媒体控制**：MediaSessionService + MediaStyle 通知，锁屏/控制中心控件，封面主色调提取，实时进度条
+- **🔤 音频焦点管理**：ExoPlayer 自动处理，多 App 互不干扰
+- **🔐 登录系统**：WebView 浏览器登录 + 手动粘贴 Cookie 降级方案，SharedPreferences 持久化
+- **💾 状态持久化**：进程被杀后自动恢复播放进度、歌曲信息、封面、歌词、播放队列
+- **📱 多屏幕适配**：21:9 基线，宽屏设备 360dp 居中限制，保持窄屏视觉比例
+- **🎨 关于页面**：内建 Markdown 渲染器，项目信息完整展示
+- **🖼️ 自定义图标**：绿色唱片风格 Adaptive Icon
 
 ### 🎼 支持音质
 
@@ -55,16 +59,19 @@
 
 ## 📱 使用说明
 
-### 获取 Cookie
+### 推荐的自动登录
+打开 Ncrust → 用户页面 → 头像 → 浏览器登录
+
+### 获取 Cookie（手动登录）
 
 1. 登录 [网易云音乐网页版](https://music.163.com)
-2. 按 `F12` → `Network` → 刷新页面
-3. 点击任意请求，在 `Request Headers` 中找到 `Cookie` 字段，复制全部值
+2. 按 `F12` → `Application` → `Cookies` → `music.163.com`
+3. 找到 `MUSIC_U` 和 `__csrf` 字段，或直接复制完整 Cookie 字符串
 4. 打开 Ncrust → 用户页面 → 粘贴 Cookie → 保存
 
 ### 安装 APK
 
-从 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 下载最新 `app-debug.apk`，允许"未知来源"安装。
+从 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 下载最新 `Ncrust-v1.0.0.apk`（17.2 MB），允许"未知来源"安装。
 
 ---
 
@@ -72,68 +79,101 @@
 
 ```
 app/src/main/java/com/takahashirinta/ncrust/
-├── MainActivity.kt            # 主入口，所有 UI 组件
+├── MainActivity.kt              # 主入口，顶层导航与状态协调
 ├── auth/
-│   └── CookieManager.kt       # Cookie 存储与验证
+│   └── CookieManager.kt         # Cookie 存储（SharedPreferences）
 ├── crypto/
-│   └── EapiCrypto.kt          # 网易云 eapi 加密
+│   └── EapiCrypto.kt            # eapi 加密（AES-128-ECB）
 ├── library/
-│   └── LibraryManager.kt      # 本地库管理 (SharedPreferences)
+│   └── LibraryManager.kt        # 本地曲库管理
 ├── lyric/
-│   └── LrcParser.kt           # LRC 歌词解析
+│   └── LrcParser.kt             # LRC 歌词解析
 ├── network/
-│   ├── NcmApi.kt              # 网易云 API 接口
-│   ├── RetrofitClient.kt      # HTTP 客户端
-│   └── SearchResponse.kt      # 搜索响应模型
+│   ├── NcmApi.kt                # Retrofit API 接口
+│   ├── PlaylistApi.kt           # 歌单/艺人 eapi 端点
+│   ├── RetrofitClient.kt        # OkHttp 客户端
+│   └── SearchResponse.kt        # 搜索响应模型
 ├── player/
-│   ├── PlaybackService.kt     # 媒体播放服务 (MediaSessionService)
-│   ├── PlaybackStateManager.kt # 播放状态持久化
-│   └── SongUrlFetcher.kt      # 歌曲 URL 获取 (eapi)
+│   ├── PlaybackService.kt       # MediaSessionService 媒体服务
+│   ├── PlaybackStateManager.kt  # 播放状态与队列持久化
+│   └── SongUrlFetcher.kt        # 歌曲 URL 获取
 └── ui/
-    ├── screen/                 # 各页面 Composable
-    └── viewmodel/              # ViewModel
+    ├── ResponsiveContent.kt     # 多屏幕适配组件
+    ├── theme/
+    │   └── MarkdownText.kt      # 简易 Markdown 渲染器
+    ├── screen/
+    │   ├── AboutScreen.kt       # 关于页面
+    │   ├── AlbumDetailScreen.kt # 专辑详情
+    │   ├── ArtistDetailScreen.kt# 艺人详情
+    │   ├── HomeScreen.kt        # 首页（新歌/推荐/日推）
+    │   ├── LibraryScreen.kt     # 本地曲库
+    │   ├── PlaylistDetailScreen.kt # 歌单详情
+    │   ├── SongDetailScreen.kt  # 歌曲详情
+    │   └── SplashScreen.kt      # 启动屏（JIT 预热 + 渐隐）
+    └── viewmodel/
+        ├── PlayerViewModel.kt   # 播放状态管理
+        └── SearchViewModel.kt   # 搜索状态管理
 ```
+
+### 核心设计决策
+
+| 决策 | 说明 |
+|------|------|
+| 三层图层架构 | 主页面 → 卡片层 → 导航栏，视觉与触摸独立 |
+| GPU 零重组动画 | `graphicsLayer` 替代 `animateFloatAsState`，组件常驻不销毁 |
+| 单 Animatable 驱动 | `progress` 0→1 控制所有播放器动画状态 |
+| Metro Design | 直角切割，纯色细线进度条，信息优先，拒绝装饰 |
+| 专辑派生 | 由本地单曲按 `albumId` 去重，非独立实体 |
+| 懒加载分页 | 新歌速递每批 10 首，日推 5 行 × N 列横向滑动 |
+| SharedPreferences + Gson | 本地存储，无数据库依赖 |
 
 ---
 
-## 📋 版本 0.1.0-beta 功能状态
+## 📋 版本 1.0.0 功能状态
 
 ### ✅ 已完成
 
 | 功能 | 状态 |
 |------|:--:|
-| 歌曲搜索（单曲/专辑/艺人） | ✅ |
+| 首页（新歌速递/推荐歌单/日推） | ✅ |
+| 单曲/专辑/艺人搜索 | ✅ |
 | 本地曲库（单曲+专辑派生） | ✅ |
-| 播放卡片动画（迷你栏/全屏拖拽） | ✅ |
-| 播放队列（插播/追加/移除） | ✅ |
+| 全屏播放卡片（拖拽手势/迷你栏切换） | ✅ |
+| 播放队列（插播/追加/移除/持久化） | ✅ |
 | 三种播放模式（列表/单曲/随机） | ✅ |
-| 歌词滚动显示 | ✅ |
-| 进度条拖拽 | ✅ |
+| 歌词滚动显示（黄金分割点定位） | ✅ |
+| 进度条拖拽跳转 | ✅ |
 | 系统媒体控制（通知栏/锁屏/控制中心） | ✅ |
-| 音频焦点管理、多 App 互不干扰 | ✅ |
-| Cookie 管理与持久化 | ✅ |
-| 进程被杀后状态恢复 | ✅ |
+| 音频焦点管理 | ✅ |
+| Cookie 管理（WebView 登录 + 手动降级） | ✅ |
+| 进程被杀后状态恢复（含队列） | ✅ |
+| 多屏幕比例适配（16:9～21:9） | ✅ |
+| 关于页面（Markdown 渲染） | ✅ |
+| 应用图标（绿色唱片 Adaptive Icon） | ✅ |
+| Splash Screen 渐隐 + JIT 预热 | ✅ |
 | 竖屏锁定 | ✅ |
+| 库页面单曲操作（插播/加队列） | ✅ |
 
-### ❌ 待完成
+### ⏳ 待完成
 
 | 功能 | 优先级 |
 |------|:--:|
-| 首页推荐 | ⭐⭐⭐ |
-| 专辑详情页（API 调试） | ⭐⭐⭐ |
-| 艺人详情页（API 调试） | ⭐⭐⭐ |
-| 歌单功能（创建/保存/播放） | ⭐⭐ |
-| 长按弹窗加入歌单 | ⭐⭐ |
-| 封面图片自定义 | ⭐ |
+| 艺人热门单曲（真实排行而非搜索过滤） | ⭐⭐⭐ |
+| 专辑/艺人搜索独立页面 | ⭐⭐⭐ |
+| 歌单创建/编辑 | ⭐⭐ |
+| 本地封面图片缓存 | ⭐⭐ |
 | Release 签名打包 | ⭐ |
 
 ### 🐛 已知问题
 
 | 问题 | 状态 |
 |------|:--:|
-| 专辑/艺人详情页 API 返回 404 | 🔧 |
-| 4GB RAM 设备易被杀进程（已通过状态持久化缓解） | ⚠️ |
-| 部分设备通知延迟显示 | ⚠️ |
+| 艺人热门单曲为搜索过滤结果，非真正热门 | 🔧 |
+| WebView Cookie 提取偶有失败 | ⚠️ |
+| 日推接口使用 eapi 替代 weapi，长期可能失效 | ⚠️ |
+| Coil 封面缓存策略待优化（偶有模糊） | ⚠️ |
+| 4GB RAM 设备进程易被杀（已通过状态持久化缓解） | ⚠️ |
+| `attributionTag` 系统日志警告（不影响功能） | ⚠️ |
 
 ---
 
@@ -161,11 +201,11 @@ cd Ncrust
 | 项目 | 说明 |
 |------|------|
 | [163CMAnalyser](https://github.com/GuitaristRin/163CMAnalyser) | Rust CLI 无损下载工具，本项目的 API 参考 |
-| [Netease_url](https://github.com/Suxiaoqinx/Netease_url) | Python 原版网易云解析 |
+| [Netease_url](https://github.com/Suxiaoqinx/Netease_url) | Python 原版网易云解析（MIT） |
 
 ---
 
-## 📜 我想说的
+## 📜 白茶
 
 我做 Ncrust 的时候，脑子里想的不是代码，不是架构，不是用户增长。
 
@@ -217,3 +257,14 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 若此工具对你有用，请赐一颗 **Star** ⭐
 
 有问题或建议，欢迎提交 [Issue](https://github.com/GuitaristRin/Ncrust/issues)。
+
+---
+
+主要更新点：
+
+1. 版本号从 0.1.0-beta 改为 1.0.0
+2. 功能状态表大幅扩充——首页发现、播放队列持久化、多屏幕适配、Splash 渐隐、应用图标、关于页面全部标为已完成
+3. 新增"核心设计决策"表，把 Metro Design、GPU 零重组、三层图层、单 Animatable 驱动这些架构灵魂写进 README
+4. 技术栈描述加了"GPU 零重组动画"和"Metro Design"
+5. 已知问题更新——旧问题已解决，新问题反映当前真实状态
+6. APK 大小标注 17.2 MB
