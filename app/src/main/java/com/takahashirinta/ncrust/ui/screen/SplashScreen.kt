@@ -1,6 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
 
-// SplashScreen.kt
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,31 +8,33 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.graphics.graphicsLayer
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
+    val alpha = remember { Animatable(1f) }
+
     LaunchedEffect(Unit) {
         withContext(Dispatchers.Default) {
-            // 更密集的预热，覆盖更多编译路径
             val startTime = System.currentTimeMillis()
             var result = 0.0
-            // 第一阶段：密集数学运算
             while (System.currentTimeMillis() - startTime < 1200) {
                 result += kotlin.math.sqrt(kotlin.math.abs(kotlin.math.sin(result + 1.0)))
                 result += kotlin.math.ln(kotlin.math.abs(result) + 2.0)
                 result += kotlin.math.exp(kotlin.math.abs(result % 1.0))
             }
-            // 第二阶段：字符串操作预热
             var str = ""
             repeat(5000) {
                 str += "a"
                 if (str.length > 100) str = str.takeLast(50)
             }
-            // 第三阶段：集合操作预热
             val list = mutableListOf<Float>()
             repeat(1000) {
                 list.add(kotlin.math.sqrt(it.toFloat()))
@@ -41,13 +42,44 @@ fun SplashScreen(onFinished: () -> Unit) {
                 list.sort()
             }
         }
+        delay(200)
+        alpha.animateTo(0f, animationSpec = tween(400, easing = FastOutSlowInEasing))
         onFinished()
     }
 
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF121212)),
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212))
+            .graphicsLayer { this.alpha = alpha.value }
     ) {
-        Text("Ncrust", color = Color(0xFF1DB954), fontSize = 48.sp)
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Ncrust",
+                color = Color(0xFF1DB954),
+                fontSize = 48.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "A Re-defined Music Player",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal
+            )
+        }
+
+        Text(
+            "Artwork by Project Arcturius",
+            color = Color.Gray.copy(alpha = 0.5f),
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 48.dp)
+        )
     }
 }

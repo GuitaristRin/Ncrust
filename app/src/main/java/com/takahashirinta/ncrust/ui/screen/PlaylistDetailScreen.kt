@@ -12,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -22,6 +21,7 @@ import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.ResponsiveContent
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,7 +37,6 @@ fun PlaylistDetailScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val coroutineScope = rememberCoroutineScope()
 
     fun loadSongs() {
@@ -74,7 +73,7 @@ fun PlaylistDetailScreen(
         },
         containerColor = Color(0xFF121212)
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        ResponsiveContent(modifier = Modifier.padding(innerPadding)) {
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFF1DB954))
@@ -103,11 +102,13 @@ fun PlaylistDetailScreen(
                             AsyncImage(
                                 model = playlistCoverUrl.ifEmpty { songs.firstOrNull()?.album?.picUrl },
                                 contentDescription = "歌单封面",
-                                modifier = Modifier.size(screenWidth * 0.5f),
+                                modifier = Modifier
+                                    .weight(0.4f)
+                                    .aspectRatio(1f),
                                 contentScale = ContentScale.Crop
                             )
                             Spacer(Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(modifier = Modifier.weight(0.6f)) {
                                 Text(
                                     playlistName.ifEmpty { "歌单" },
                                     color = Color.White,

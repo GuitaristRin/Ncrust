@@ -2,6 +2,9 @@ package com.takahashirinta.ncrust.player
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.takahashirinta.ncrust.network.SongItem
 
 object PlaybackStateManager {
     private const val PREFS_NAME = "ncrust_playback_state"
@@ -12,10 +15,15 @@ object PlaybackStateManager {
     private const val KEY_IS_PLAYING = "is_playing"
     private const val KEY_HAS_STATE = "has_state"
 
+    // 队列持久化 key
+    private const val KEY_QUEUE = "queue"
+    private const val KEY_QUEUE_INDEX = "queue_index"
+
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
+    // ---------- 单曲状态 ----------
     fun saveState(context: Context, songId: Long, title: String, artist: String, artwork: String, isPlaying: Boolean) {
         getPrefs(context).edit()
             .putBoolean(KEY_HAS_STATE, true)
@@ -57,5 +65,35 @@ object PlaybackStateManager {
             songArtwork = prefs.getString(KEY_SONG_ARTWORK, "") ?: "",
             isPlaying = prefs.getBoolean(KEY_IS_PLAYING, false)
         )
+    }
+
+    // ---------- 队列持久化 ----------
+    fun saveQueue(context: Context, queue: List<SongItem>, currentIndex: Int) {
+        val json = Gson().toJson(queue)
+        getPrefs(context).edit()
+            .putString(KEY_QUEUE, json)
+            .putInt(KEY_QUEUE_INDEX, currentIndex)
+            .apply()
+    }
+
+    fun getQueue(context: Context): Pair<List<SongItem>, Int>? {
+        val prefs = getPrefs(context)
+        val json = prefs.getString(KEY_QUEUE, null) ?: return null
+        if (json.isEmpty() || json == "[]") return null
+        return try {
+            val type = object : TypeToken<List<SongItem>>() {}.type
+            val queue: List<SongItem> = Gson().fromJson(json, type)
+            val index = prefs.getInt(KEY_QUEUE_INDEX, 0)
+            Pair(queue, index)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun clearQueue(context: Context) {
+        getPrefs(context).edit()
+            .remove(KEY_QUEUE)
+            .remove(KEY_QUEUE_INDEX)
+            .apply()
     }
 }

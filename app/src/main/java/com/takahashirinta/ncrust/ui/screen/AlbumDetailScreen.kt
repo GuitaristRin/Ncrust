@@ -12,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,6 +23,7 @@ import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumDetail
 import com.takahashirinta.ncrust.network.model.AlbumSongItem
+import com.takahashirinta.ncrust.ui.ResponsiveContent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +37,6 @@ fun AlbumDetailScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
 
     LaunchedEffect(albumId) {
         isLoading = true
@@ -73,7 +72,7 @@ fun AlbumDetailScreen(
         },
         containerColor = Color(0xFF121212)
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        ResponsiveContent(modifier = Modifier.padding(innerPadding)) {
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFF1DB954))
@@ -96,11 +95,13 @@ fun AlbumDetailScreen(
                             AsyncImage(
                                 model = album?.picUrl,
                                 contentDescription = "专辑封面",
-                                modifier = Modifier.size(screenWidth * 0.5f),
+                                modifier = Modifier
+                                    .weight(0.4f)
+                                    .aspectRatio(1f),
                                 contentScale = ContentScale.Crop
                             )
                             Spacer(Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(modifier = Modifier.weight(0.6f)) {
                                 Text(
                                     album?.name ?: "",
                                     color = Color.White,

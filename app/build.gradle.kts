@@ -15,7 +15,14 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
+    signingConfigs {
+        create("release") {
+            storeFile = file("../ncrust-release.keystore")
+            storePassword = "Rinta7355608"
+            keyAlias = "ncrust"
+            keyPassword = "Rinta7355608"
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -23,6 +30,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

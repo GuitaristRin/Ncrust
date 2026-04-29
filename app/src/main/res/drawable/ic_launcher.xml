@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="192"
+    android:viewportHeight="192">
+
+    <!-- 绿色圆形背景 -->
+    <path
+        android:fillColor="#1DB954"
+        android:pathData="M96,96m-96,0a96,96 0,1 1,192 0a96,96 0,1 1,-192 0" />
+
+    <!-- 唱片外圈 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="12"
+        android:pathData="M96,96m-64,0a64,64 0,1 1,128 0a64,64 0,1 1,-128 0" />
+
+    <!-- 唱片内圈 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M96,96m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0" />
+
+    <!-- 唱片中心孔 -->
+    <path
+        android:fillColor="#1DB954"
+        android:pathData="M96,96m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
+
+    <!-- 播放缺口 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M144,96 L128,80 L128,112 Z" />
+</vector>

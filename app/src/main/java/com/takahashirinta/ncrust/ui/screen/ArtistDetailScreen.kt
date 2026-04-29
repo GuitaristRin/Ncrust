@@ -20,10 +20,8 @@ import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.*
+import com.takahashirinta.ncrust.ui.ResponsiveContent
 import kotlinx.coroutines.launch
-import com.takahashirinta.ncrust.network.PlaylistApi
-import org.json.JSONArray
-import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +57,6 @@ fun ArtistDetailScreen(
                     )
                     albums = albumsResponse.hotAlbums ?: emptyList()
 
-                    // 用艺人名搜索热门歌曲
                     val artistName = artist?.name ?: ""
                     if (artistName.isNotEmpty()) {
                         try {
@@ -117,7 +114,7 @@ fun ArtistDetailScreen(
         },
         containerColor = Color(0xFF121212)
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        ResponsiveContent(modifier = Modifier.padding(innerPadding)) {
             when {
                 isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

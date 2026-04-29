@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.ui.viewmodel.SongViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,35 +46,36 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
         },
         containerColor = Color(0xFF121212)
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            songDetail?.let { song ->
-                Text(song.name, color = Color.White, style = MaterialTheme.typography.headlineMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    song.artists.joinToString("/") { it.name },
-                    color = Color(0xFF1DB954),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(song.album.name ?: "未知专辑", color = Color.Gray)
-                if (song.duration > 0) {
-                    Text(formatDuration(song.duration), color = Color.Gray)
+        ResponsiveContent(modifier = Modifier.padding(innerPadding)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
+            ) {
+                songDetail?.let { song ->
+                    Text(song.name, color = Color.White, style = MaterialTheme.typography.headlineMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        song.artists.joinToString("/") { it.name },
+                        color = Color(0xFF1DB954),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(song.album.name ?: "未知专辑", color = Color.Gray)
+                    if (song.duration > 0) {
+                        Text(formatDuration(song.duration), color = Color.Gray)
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("歌词", color = Color.White, style = MaterialTheme.typography.titleLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                lyric?.let { lrc ->
+                    Text(lrc, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                } ?: Text("暂无歌词", color = Color.Gray)
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("歌词", color = Color.White, style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            lyric?.let { lrc ->
-                Text(lrc, color = Color.White, style = MaterialTheme.typography.bodyMedium)
-            } ?: Text("暂无歌词", color = Color.Gray)
         }
     }
 }

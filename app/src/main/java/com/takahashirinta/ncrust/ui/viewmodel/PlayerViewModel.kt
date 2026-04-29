@@ -14,7 +14,6 @@ import com.takahashirinta.ncrust.player.PlaybackStateManager
 import com.takahashirinta.ncrust.player.SongUrlFetcher
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
     val isPlaying = MutableStateFlow(false)
@@ -139,11 +138,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun stopService() {
-        PlaybackStateManager.clearState(getApplication())
-        val intent = Intent(getApplication(), PlaybackService::class.java).apply {
+        val app = getApplication<Application>()
+        PlaybackStateManager.clearState(app)
+        PlaybackStateManager.clearQueue(app)   // 新增
+
+        val intent = Intent(app, PlaybackService::class.java).apply {
             putExtra("action", "stop")
         }
-        getApplication<Application>().startService(intent)
+        app.startService(intent)
         isPlaying.value = false
         currentSongId.value = null
         currentSongName.value = null
