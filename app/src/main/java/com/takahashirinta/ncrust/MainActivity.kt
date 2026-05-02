@@ -135,9 +135,24 @@ fun MainScreen() {
     var currentSong by remember { mutableStateOf<SongItem?>(null) }
     val context = LocalContext.current
 
-    val screenH = LocalConfiguration.current.screenHeightDp.dp
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
+
+    // ---------- 系统栏高度 ----------
+    val systemNavBarHeightDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val systemNavBarHeightPx = with(density) { systemNavBarHeightDp.toPx() }
+
+    // 卡片相关尺寸
+    val navBarHeightPx = with(density) { 56.dp.toPx() }
+    val miniBarHeightPx = with(density) { 56.dp.toPx() }
+    val fullCardExtraOffsetPx = with(density) { 48.dp.toPx() }
+    val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+
+    // 卡片收起时顶部 Y 坐标
+    val collapsedOffsetY = screenHeightPx - systemNavBarHeightPx - navBarHeightPx - miniBarHeightPx - fullCardExtraOffsetPx
+
+    val totalDragDistancePx = screenHeightPx * 0.85f
+    // ------------------------------------
 
     // 自 ViewModel 恢复 currentSong 之状态。
     LaunchedEffect(Unit) {
@@ -157,12 +172,10 @@ fun MainScreen() {
     }
 
     val progress = remember { Animatable(0f) }
-    val totalDragDistancePx = with(density) { (screenH * 0.85f).toPx() }
 
     var playbackQueue by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var currentQueueIndex by remember { mutableIntStateOf(-1) }
     var songEnded by remember { mutableStateOf(false) }
-    // 播放模式：0=列表循环，1=单曲循环，2=随机播放。
     var playMode by remember { mutableIntStateOf(0) }
     var shuffledIndices by remember { mutableStateOf<List<Int>>(emptyList()) }
     var shuffledPosition by remember { mutableIntStateOf(0) }
@@ -491,7 +504,8 @@ fun MainScreen() {
             song = currentSong,
             isPlaying = isPlaying,
             progress = progress,
-            screenH = screenH,
+            collapsedOffsetY = collapsedOffsetY,
+            screenHeightPx = screenHeightPx,
             totalDragDistancePx = totalDragDistancePx,
             playbackQueue = playbackQueue,
             currentQueueIndex = currentQueueIndex,
@@ -506,12 +520,11 @@ fun MainScreen() {
             onSavePlaylist = { /* TODO: 保存歌单 */ }
         )
 
-        // 导航栏随卡片展开而向下隐藏。
         NavigationBar(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .graphicsLayer {
-                    translationY = 56.dp.toPx() * progress.value * 2f
+                    translationY = (navBarHeightPx + systemNavBarHeightPx + with(density) { 24.dp.toPx() }) * progress.value
                 },
             containerColor = Color(0xFF1A1A1A)
         ) {
@@ -548,7 +561,8 @@ fun PlayerCardOverlay(
     song: SongItem?,
     isPlaying: Boolean,
     progress: Animatable<Float, AnimationVector1D>,
-    screenH: Dp,
+    collapsedOffsetY: Float,
+    screenHeightPx: Float,
     totalDragDistancePx: Float = 0f,
     playbackQueue: List<SongItem> = emptyList(),
     currentQueueIndex: Int = -1,
@@ -562,25 +576,17 @@ fun PlayerCardOverlay(
     onTogglePlayMode: () -> Unit = {},
     onSavePlaylist: () -> Unit = {}
 ) {
-    val density = LocalDensity.current
-    val screenHPx = with(density) { screenH.toPx() }
-    val navBarPx = with(density) { 56.dp.toPx() }
-    val miniBarPx = with(density) { 56.dp.toPx() }
-    val extraOffset = with(density) { 72.dp.toPx() }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
-                val startY = screenHPx - navBarPx - miniBarPx - extraOffset
-                val endY = 0f
-                translationY = startY + (endY - startY) * progress.value
+                translationY = collapsedOffsetY + (0f - collapsedOffsetY) * progress.value
             }
     ) {
         PlayerCard(
             song = song,
             isPlaying = isPlaying,
-            screenHDpValue = screenH.value,
+            screenHeightPx = screenHeightPx,
             progress = progress,
             totalDragDistancePx = totalDragDistancePx,
             playbackQueue = playbackQueue,
@@ -602,7 +608,7 @@ fun PlayerCardOverlay(
 fun PlayerCard(
     song: SongItem?,
     isPlaying: Boolean,
-    screenHDpValue: Float,
+    screenHeightPx: Float,
     progress: Animatable<Float, AnimationVector1D>,
     totalDragDistancePx: Float = 0f,
     playbackQueue: List<SongItem> = emptyList(),
@@ -631,10 +637,8 @@ fun PlayerCard(
 
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
-    val screenHpx = screenHDpValue * density.density
     val dp24px = with(density) { 24.dp.toPx() }
 
-    // miniScale 基于实际屏幕宽度计算。
     val miniScale = with(density) { 56.dp.toPx() } / screenWidthPx
 
     val lyricAnimProgress = remember { Animatable(1f) }
@@ -671,7 +675,7 @@ fun PlayerCard(
                 )
             }
     ) {
-        // 全屏黑色背景。
+        // 全屏黑色背景
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -684,7 +688,7 @@ fun PlayerCard(
                 .fillMaxSize()
                 .systemBarsPadding()
         ) {
-            // 迷你播放栏，卡片收起时可见。
+            // 迷你播放栏，卡片收起时可见
             if (progress.value < 0.3f) {
                 Surface(
                     modifier = Modifier
@@ -762,7 +766,7 @@ fun PlayerCard(
             if (hasSong) {
                 val s = song!!
 
-                // 顶部标题栏，含歌曲名与收起按钮。
+                // 顶部标题栏
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -801,7 +805,7 @@ fun PlayerCard(
                     }
                 }
 
-                // 歌词或队列区域。
+                // 歌词或队列区域
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -862,7 +866,7 @@ fun PlayerCard(
                     }
                 }
 
-                // 大封面模式下的歌曲信息。
+                // 大封面模式下的歌曲信息
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -891,7 +895,7 @@ fun PlayerCard(
 
                 Spacer(Modifier.height(16.dp))
 
-                // 底部播放控件。
+                // 底部播放控件
                 Box(modifier = Modifier.graphicsLayer { alpha = fullAlpha }) {
                     FullPlayerControls(
                         isPlaying = isPlaying,
@@ -925,7 +929,7 @@ fun PlayerCard(
             }
         }
 
-        // 封面图叠加层，随展开而缩放位移。
+        // 封面图叠加层
         if (hasSong) {
             val s = song!!
             AsyncImage(
@@ -941,7 +945,7 @@ fun PlayerCard(
                         val targetScale =
                             miniScale + (1f - lyricAnimValue) * (1f - miniScale)
                         val targetOffsetY =
-                            (1f - lyricAnimValue) * (screenHpx * 0.3f - screenWidthPx / 2f)
+                            (1f - lyricAnimValue) * (screenHeightPx * 0.3f - screenWidthPx / 2f)
                         scaleX = miniScale + normalizedP * (targetScale - miniScale)
                         scaleY = miniScale + normalizedP * (targetScale - miniScale)
                         translationY = targetOffsetY * normalizedP

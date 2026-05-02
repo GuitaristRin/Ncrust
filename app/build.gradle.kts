@@ -23,7 +23,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            // 移除签名配置，避免报错，需要发布时再加回来
+            // signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
