@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -25,6 +24,9 @@ import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
+import com.takahashirinta.ncrust.ui.components.SongCard
+import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -114,15 +116,24 @@ fun LibraryScreen(
                             contentPadding = PaddingValues(bottom = 72.dp)
                         ) {
                             items(savedSongs, key = { it.id }) { song ->
-                                LibrarySongListItem(
+                                SongCard(
                                     song = song,
-                                    onPlay = { onSongClick(song) },
-                                    onInsertNext = { onSongInsertNext(song) },
-                                    onAppendToQueue = { onSongAppendToQueue(song) },
-                                    onRemove = {
-                                        LibraryManager.removeSong(context, song.id)
-                                        savedSongs = LibraryManager.getSavedSongs(context)
-                                        savedAlbums = LibraryManager.getSavedAlbums(context)
+                                    style = SongCardStyle.LIST,
+                                    onClick = { onSongClick(song) },
+                                    actions = {
+                                        IconButton(onClick = { onSongInsertNext(song) }) {
+                                            Icon(Icons.Default.PlaylistPlay, "插播", tint = Color.White, modifier = Modifier.size(24.dp))
+                                        }
+                                        IconButton(onClick = { onSongAppendToQueue(song) }) {
+                                            Icon(Icons.Default.PlaylistAdd, "加入播放列表", tint = Color.White, modifier = Modifier.size(24.dp))
+                                        }
+                                        IconButton(onClick = {
+                                            LibraryManager.removeSong(context, song.id)
+                                            savedSongs = LibraryManager.getSavedSongs(context)
+                                            savedAlbums = LibraryManager.getSavedAlbums(context)
+                                        }) {
+                                            Icon(Icons.Default.Delete, "移除", tint = Color.Gray, modifier = Modifier.size(20.dp))
+                                        }
                                     }
                                 )
                             }
@@ -236,60 +247,14 @@ fun PlaylistGridItem(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(36.dp)
-                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                    .clickable { onPlayAll() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    "播放全部",
-                    tint = Color.Black,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            PlayAllCircleButton(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+                onClick = onPlayAll
+            )
         }
         Spacer(Modifier.height(8.dp))
         Text(playlist.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text("${playlist.trackCount}首", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-@Composable
-fun LibrarySongListItem(
-    song: SongItem,
-    onPlay: () -> Unit,
-    onInsertNext: () -> Unit = {},
-    onAppendToQueue: () -> Unit = {},
-    onRemove: () -> Unit
-) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onPlay() }
-            .padding(vertical = 8.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = song.album?.picUrl,
-            contentDescription = "封面",
-            modifier = Modifier.size(48.dp),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(song.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("$artistStr · ${song.album?.name ?: ""}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        IconButton(onClick = onInsertNext) { Icon(Icons.Default.PlaylistPlay, "插播", tint = Color.White, modifier = Modifier.size(24.dp)) }
-        IconButton(onClick = onAppendToQueue) { Icon(Icons.Default.PlaylistAdd, "加入播放列表", tint = Color.White, modifier = Modifier.size(24.dp)) }
-        IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, "移除", tint = Color.Gray, modifier = Modifier.size(20.dp)) }
     }
 }
 
@@ -308,22 +273,10 @@ fun LibraryAlbumGridItem(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(36.dp)
-                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                    .clickable { onPlayAll() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    "播放全部",
-                    tint = Color.Black,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            PlayAllCircleButton(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+                onClick = onPlayAll
+            )
         }
         Spacer(Modifier.height(8.dp))
         Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -85,6 +85,9 @@ dependencies {
     // MediaSession extension (for MediaSessionCompat)
     implementation("androidx.legacy:legacy-support-v4:1.0.0")
 
+    // Navigation Compose
+    implementation("androidx.navigation:navigation-compose:2.8.5")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

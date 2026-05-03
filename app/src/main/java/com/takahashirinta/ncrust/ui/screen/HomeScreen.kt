@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -27,6 +26,9 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
+import com.takahashirinta.ncrust.ui.components.SongCard
+import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -218,7 +220,16 @@ fun HomeScreen(
                                 modifier = Modifier.fillParentMaxWidth(0.9f)
                             ) {
                                 columns[colIndex].forEach { song ->
-                                    HomeSongListItem(song = song, onPlay = { onSongClick(song) })
+                                    SongCard(
+                                        song = song,
+                                        style = SongCardStyle.LIST,
+                                        onClick = { onSongClick(song) },
+                                        actions = {
+                                            IconButton(onClick = { onSongClick(song) }) {
+                                                Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                                            }
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -239,7 +250,18 @@ fun HomeScreen(
 
             // 新歌速递
             item { Text("🆕 新歌速递", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 12.dp)) }
-            items(newSongs.toList()) { song -> HomeSongListItem(song = song, onPlay = { onSongClick(song) }) }
+            items(newSongs.toList()) { song ->
+                SongCard(
+                    song = song,
+                    style = SongCardStyle.LIST,
+                    onClick = { onSongClick(song) },
+                    actions = {
+                        IconButton(onClick = { onSongClick(song) }) {
+                            Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                        }
+                    }
+                )
+            }
             if (isLoadingMore) {
                 item { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) } }
             }
@@ -251,41 +273,18 @@ fun HomeScreen(
 }
 
 @Composable
-fun DailySongCard(song: SongItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: ""
-    Column(modifier = modifier.clickable { onClick() }.padding(bottom = 8.dp)) {
-        AsyncImage(model = song.album?.picUrl, contentDescription = null, modifier = Modifier.aspectRatio(1f), contentScale = ContentScale.Crop)
-        Spacer(Modifier.height(4.dp))
-        Text(song.name, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (artistStr.isNotEmpty()) Text(artistStr, color = Color.Gray, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
 fun PlaylistCardItem(playlist: PlaylistCard, onClick: () -> Unit, onPlayAll: () -> Unit) {
     Column(modifier = Modifier.width(140.dp).clickable { onClick() }) {
         Box(modifier = Modifier.size(140.dp)) {
             AsyncImage(model = playlist.coverUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            Box(modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(30.dp).background(MaterialTheme.colorScheme.primary, shape = CircleShape).clickable { onPlayAll() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.PlayArrow, "播放全部", tint = Color.Black, modifier = Modifier.size(18.dp))
-            }
+            PlayAllCircleButton(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
+                size = 30.dp,
+                onClick = onPlayAll
+            )
         }
         Spacer(Modifier.height(6.dp))
         Text(playlist.name, color = Color.White, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text("${playlist.trackCount}首歌曲", color = Color.Gray, fontSize = 11.sp)
-    }
-}
-
-@Composable
-fun HomeSongListItem(song: SongItem, onPlay: () -> Unit) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
-    Row(modifier = Modifier.fillMaxWidth().clickable { onPlay() }.padding(vertical = 8.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        AsyncImage(model = song.album?.picUrl, contentDescription = null, modifier = Modifier.size(48.dp), contentScale = ContentScale.Crop)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(song.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("$artistStr · ${song.album?.name ?: ""}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        IconButton(onClick = onPlay) { Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp)) }
     }
 }

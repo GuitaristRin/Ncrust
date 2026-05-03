@@ -79,6 +79,13 @@ import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.theme.NcrustTheme
 import com.takahashirinta.ncrust.ui.theme.ThemeColorSelector
 import com.takahashirinta.ncrust.ui.theme.themeColorPresets
+import com.takahashirinta.ncrust.ui.components.SongCard
+import com.takahashirinta.ncrust.ui.components.SongCardStyle
+import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
+import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -126,12 +133,6 @@ fun MainScreen(
     onThemeChange: (Int) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(1) }
-    var selectedSongId by remember { mutableStateOf<Long?>(null) }
-    var selectedAlbumId by remember { mutableStateOf<Long?>(null) }
-    var selectedArtistId by remember { mutableStateOf<Long?>(null) }
-    var selectedPlaylistId by remember { mutableStateOf<Long?>(null) }
-    var selectedPlaylistName by remember { mutableStateOf("") }
-    var selectedPlaylistCover by remember { mutableStateOf("") }
     val playerViewModel: PlayerViewModel = viewModel()
     val isPlaying by playerViewModel.isPlaying.collectAsState()
     var currentSong by remember { mutableStateOf<SongItem?>(null) }
@@ -288,19 +289,6 @@ fun MainScreen(
         }
     }
 
-    // 系统返回键之处理。
-    BackHandler(
-        enabled = selectedPlaylistId != null || selectedArtistId != null
-                || selectedAlbumId != null || selectedSongId != null
-    ) {
-        when {
-            selectedPlaylistId != null -> selectedPlaylistId = null
-            selectedArtistId != null -> selectedArtistId = null
-            selectedAlbumId != null -> selectedAlbumId = null
-            selectedSongId != null -> selectedSongId = null
-        }
-    }
-
     fun expandCard() {
         coroutineScope.launch { progress.animateTo(1f, tween(250)) }
     }
@@ -344,49 +332,10 @@ fun MainScreen(
         }
     }
 
-    if (selectedSongId != null) {
-        SongDetailScreen(songId = selectedSongId!!, onBack = { selectedSongId = null })
-        return
-    }
-
-    if (selectedAlbumId != null) {
-        AlbumDetailScreen(
-            albumId = selectedAlbumId!!,
-            onBack = { selectedAlbumId = null },
-            onSongClick = { song ->
-                playSongItem(song)
-                selectedAlbumId = null
-            }
-        )
-        return
-    }
-
-    if (selectedArtistId != null) {
-        ArtistDetailScreen(
-            artistId = selectedArtistId!!,
-            onBack = { selectedArtistId = null },
-            onSongClick = { song ->
-                playSongItem(song)
-                selectedArtistId = null
-            },
-            onAlbumClick = { albumId -> selectedAlbumId = albumId }
-        )
-        return
-    }
-
-    if (selectedPlaylistId != null) {
-        PlaylistDetailScreen(
-            playlistId = selectedPlaylistId!!,
-            playlistName = selectedPlaylistName,
-            playlistCoverUrl = selectedPlaylistCover,
-            onBack = { selectedPlaylistId = null },
-            onSongClick = { song ->
-                playSongItem(song)
-                selectedPlaylistId = null
-            }
-        )
-        return
-    }
+    // ============ 导航控制器 ============
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val isInMain = navBackStackEntry?.destination?.route == NavRoutes.HOME
 
     var showAbout by remember { mutableStateOf(false) }
     if (showAbout) {
@@ -397,110 +346,93 @@ fun MainScreen(
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Scaffold(containerColor = Color.Transparent) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
-                when (selectedTab) {
-                    0 -> HomeScreen(
-                        onSongClick = { playSongItem(it) },
-                        onPlaylistClick = { playlistId ->
-                            selectedPlaylistId = playlistId
-                            selectedPlaylistName = ""
-                            selectedPlaylistCover = ""
-                        },
-                        onPlayPlaylist = { playlistId ->
-                            coroutineScope.launch {
-                                try {
-                                    val songs = PlaylistApi.getPlaylistDetail(playlistId)
-                                    for (song in songs) addToQueue(song)
-                                    if (songs.isNotEmpty()) {
-                                        currentSong = songs.first()
-                                        val (title, artist, artwork) = songParams(songs.first())
-                                        playerViewModel.playSong(
-                                            songs.first().id,
-                                            title = title,
-                                            artist = artist,
-                                            artworkUrl = artwork
-                                        )
-                                        expandCard()
-                                    }
-                                } catch (_: Exception) {
+                MainNavGraph(
+                    navController = navController,
+                    onSongClick = { playSongItem(it) },
+                    startDestination = NavRoutes.HOME
+                )
+
+                // 仅在主页时显示四个标签页内容
+                if (isInMain) {
+                    when (selectedTab) {
+                        0 -> HomeScreen(
+                            onSongClick = { playSongItem(it) },
+                            onPlaylistClick = { playlistId ->
+                                navController.navigate(NavRoutes.playlist(playlistId))
+                            },
+                            onPlayPlaylist = { playlistId ->
+                                coroutineScope.launch {
+                                    try {
+                                        val songs = PlaylistApi.getPlaylistDetail(playlistId)
+                                        for (song in songs) addToQueue(song)
+                                        if (songs.isNotEmpty()) {
+                                            currentSong = songs.first()
+                                            val (title, artist, artwork) = songParams(songs.first())
+                                            playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
+                                            expandCard()
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                            onPlayDailyAll = { songs ->
+                                for (song in songs) addToQueue(song)
+                                if (songs.isNotEmpty()) {
+                                    currentSong = songs.first()
+                                    val (title, artist, artwork) = songParams(songs.first())
+                                    playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
+                                    expandCard()
                                 }
                             }
-                        },
-                        onPlayDailyAll = { songs ->
-                            for (song in songs) addToQueue(song)
-                            if (songs.isNotEmpty()) {
-                                currentSong = songs.first()
-                                val (title, artist, artwork) = songParams(songs.first())
-                                playerViewModel.playSong(
-                                    songs.first().id,
-                                    title = title,
-                                    artist = artist,
-                                    artworkUrl = artwork
-                                )
-                                expandCard()
-                            }
-                        }
-                    )
+                        )
 
-                    1 -> LibraryScreen(
-                        onSongClick = { playSongItem(it) },
-                        onAlbumClick = { selectedAlbumId = it },
-                        onPlayAlbum = { albumId ->
-                            val albumSongs = LibraryManager.getSongsByAlbumId(context, albumId)
-                            for (song in albumSongs) addToQueue(song)
-                            if (albumSongs.isNotEmpty()) {
-                                currentSong = albumSongs.first()
-                                val (title, artist, artwork) = songParams(albumSongs.first())
-                                playerViewModel.playSong(
-                                    albumSongs.first().id,
-                                    title = title,
-                                    artist = artist,
-                                    artworkUrl = artwork
-                                )
-                                expandCard()
-                            }
-                        },
-                        onPlaylistClick = { pl ->
-                            selectedPlaylistId = pl.id
-                            selectedPlaylistName = pl.name
-                            selectedPlaylistCover = pl.coverImgUrl
-                        },
-                        onPlayPlaylist = { playlistId ->
-                            coroutineScope.launch {
-                                try {
-                                    val songs = PlaylistApi.getPlaylistDetail(playlistId)
-                                    for (song in songs) addToQueue(song)
-                                    if (songs.isNotEmpty()) {
-                                        currentSong = songs.first()
-                                        val (title, artist, artwork) = songParams(songs.first())
-                                        playerViewModel.playSong(
-                                            songs.first().id,
-                                            title = title,
-                                            artist = artist,
-                                            artworkUrl = artwork
-                                        )
-                                        expandCard()
-                                    }
-                                } catch (_: Exception) {
+                        1 -> LibraryScreen(
+                            onSongClick = { playSongItem(it) },
+                            onAlbumClick = { albumId -> navController.navigate(NavRoutes.album(albumId)) },
+                            onPlayAlbum = { albumId ->
+                                val albumSongs = LibraryManager.getSongsByAlbumId(context, albumId)
+                                for (song in albumSongs) addToQueue(song)
+                                if (albumSongs.isNotEmpty()) {
+                                    currentSong = albumSongs.first()
+                                    val (title, artist, artwork) = songParams(albumSongs.first())
+                                    playerViewModel.playSong(albumSongs.first().id, title = title, artist = artist, artworkUrl = artwork)
+                                    expandCard()
                                 }
-                            }
-                        },
-                        onSongInsertNext = { insertNext(it) },
-                        onSongAppendToQueue = { appendToQueue(it) }
-                    )
+                            },
+                            onPlaylistClick = { pl ->
+                                navController.navigate(NavRoutes.playlist(pl.id, pl.name, pl.coverImgUrl))
+                            },
+                            onPlayPlaylist = { playlistId ->
+                                coroutineScope.launch {
+                                    try {
+                                        val songs = PlaylistApi.getPlaylistDetail(playlistId)
+                                        for (song in songs) addToQueue(song)
+                                        if (songs.isNotEmpty()) {
+                                            currentSong = songs.first()
+                                            val (title, artist, artwork) = songParams(songs.first())
+                                            playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
+                                            expandCard()
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                            onSongInsertNext = { insertNext(it) },
+                            onSongAppendToQueue = { appendToQueue(it) }
+                        )
 
-                    2 -> SearchScreen(
-                        onSongClick = { playSongItem(it) },
-                        onAlbumClick = { selectedAlbumId = it },
-                        onArtistClick = { selectedArtistId = it },
-                        onInsertNext = { insertNext(it) },
-                        onAppendToQueue = { appendToQueue(it) }
-                    )
+                        2 -> SearchScreen(
+                            onSongClick = { playSongItem(it) },
+                            onAlbumClick = { albumId -> navController.navigate(NavRoutes.album(albumId)) },
+                            onArtistClick = { artistId -> navController.navigate(NavRoutes.artist(artistId)) },
+                            onInsertNext = { insertNext(it) },
+                            onAppendToQueue = { appendToQueue(it) }
+                        )
 
-                    3 -> UserScreen(
-                        onOpenAbout = { showAbout = true },
-                        themeIndex = themeIndex,
-                        onThemeChange = onThemeChange
-                    )
+                        3 -> UserScreen(
+                            onOpenAbout = { showAbout = true },
+                            themeIndex = themeIndex,
+                            onThemeChange = onThemeChange
+                        )
+                    }
                 }
             }
         }
@@ -535,25 +467,37 @@ fun MainScreen(
         ) {
             NavigationBarItem(
                 selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
+                onClick = {
+                    selectedTab = 0
+                    if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
+                },
                 icon = { Icon(Icons.Default.Home, "首页") },
                 label = { Text("首页") }
             )
             NavigationBarItem(
                 selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
+                onClick = {
+                    selectedTab = 1
+                    if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
+                },
                 icon = { Icon(Icons.Default.LibraryMusic, "库") },
                 label = { Text("库") }
             )
             NavigationBarItem(
                 selected = selectedTab == 2,
-                onClick = { selectedTab = 2 },
+                onClick = {
+                    selectedTab = 2
+                    if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
+                },
                 icon = { Icon(Icons.Default.Search, "搜索") },
                 label = { Text("搜索") }
             )
             NavigationBarItem(
                 selected = selectedTab == 3,
-                onClick = { selectedTab = 3 },
+                onClick = {
+                    selectedTab = 3
+                    if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
+                },
                 icon = { Icon(Icons.Default.Person, "用户") },
                 label = { Text("用户") }
             )
@@ -1254,47 +1198,22 @@ fun QueueView(
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             itemsIndexed(queue) { index, song ->
-                val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
-                val isCurrent = index == currentIndex
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPlayIndex(index) }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AsyncImage(
-                        model = song.album?.picUrl,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            song.name,
-                            color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            artistStr,
-                            color = Color.Gray,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                SongCard(
+                    song = song,
+                    style = SongCardStyle.COMPACT,
+                    onClick = { onPlayIndex(index) },
+                    isCurrentPlaying = index == currentIndex,
+                    actions = {
+                        IconButton(onClick = { onRemoveIndex(index) }) {
+                            Icon(
+                                Icons.Default.Close,
+                                "移除",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
-                    IconButton(onClick = { onRemoveIndex(index) }) {
-                        Icon(
-                            Icons.Default.Close,
-                            "移除",
-                            tint = Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                )
             }
         }
         Box(
@@ -1322,176 +1241,8 @@ fun QueueView(
     }
 }
 
-@Composable
-fun LibrarySongListItem(
-    song: SongItem,
-    onPlay: () -> Unit,
-    onInsertNext: () -> Unit = {},
-    onAppendToQueue: () -> Unit = {},
-    onRemove: () -> Unit
-) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onPlay() }
-            .padding(vertical = 8.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = song.album?.picUrl,
-            contentDescription = "封面",
-            modifier = Modifier.size(48.dp),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                song.name,
-                color = Color.White,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                "$artistStr · ${song.album?.name ?: ""}",
-                color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        IconButton(onClick = onInsertNext) {
-            Icon(
-                Icons.AutoMirrored.Filled.PlaylistPlay,
-                "插播",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        IconButton(onClick = onAppendToQueue) {
-            Icon(
-                Icons.AutoMirrored.Filled.PlaylistAdd,
-                "加入播放列表",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        IconButton(onClick = onRemove) {
-            Icon(
-                Icons.Default.Delete,
-                "移除",
-                tint = Color.Gray,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
 
-@Composable
-fun LibraryAlbumGridItem(
-    album: AlbumInfo,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    onPlayAll: () -> Unit
-) {
-    Column(modifier = modifier.clickable { onClick() }) {
-        Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
-            AsyncImage(
-                model = album.picUrl,
-                contentDescription = "专辑封面",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(36.dp)
-                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                    .clickable { onPlayAll() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    "播放全部",
-                    tint = Color.Black,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            album.name,
-            color = Color.White,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            "${album.artist} · ${album.songCount}首",
-            color = Color.Gray,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-fun SongGridItem(song: SongItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
-    var isPressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 1.05f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-    Column(
-        modifier = modifier
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onTap = { onClick() }
-                )
-            }
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-    ) {
-        AsyncImage(
-            model = song.album?.picUrl,
-            contentDescription = "封面",
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            song.name,
-            color = Color.White,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            "$artistStr · ${song.album?.name ?: ""}",
-            color = Color.Gray,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1669,64 +1420,38 @@ fun SongSearchItem(
     onInsertNext: () -> Unit = {},
     onAppendToQueue: () -> Unit = {}
 ) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onPlay() }
-            .padding(vertical = 8.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = song.album?.picUrl,
-            contentDescription = "封面",
-            modifier = Modifier.size(56.dp),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                song.name,
-                color = Color.White,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                "$artistStr · ${song.album?.name ?: ""}  ${
-                    song.duration?.let { formatDuration(it) } ?: ""
-                }",
-                color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+    SongCard(
+        song = song,
+        style = SongCardStyle.LIST,
+        coverSize = 56.dp,
+        onClick = onPlay,
+        actions = {
+            IconButton(onClick = onAddToLibrary) {
+                Icon(
+                    Icons.Default.Add,
+                    "加入库",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            IconButton(onClick = onInsertNext) {
+                Icon(
+                    Icons.AutoMirrored.Filled.PlaylistPlay,
+                    "插播",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            IconButton(onClick = onAppendToQueue) {
+                Icon(
+                    Icons.AutoMirrored.Filled.PlaylistAdd,
+                    "加入播放列表",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
-        IconButton(onClick = onAddToLibrary) {
-            Icon(
-                Icons.Default.Add,
-                "加入库",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        IconButton(onClick = onInsertNext) {
-            Icon(
-                Icons.AutoMirrored.Filled.PlaylistPlay,
-                "插播",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        IconButton(onClick = onAppendToQueue) {
-            Icon(
-                Icons.AutoMirrored.Filled.PlaylistAdd,
-                "加入播放列表",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-    }
+    )
 }
 
 @Composable

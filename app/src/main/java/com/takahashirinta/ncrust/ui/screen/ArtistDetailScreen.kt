@@ -2,17 +2,15 @@ package com.takahashirinta.ncrust.ui.screen
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,10 +18,11 @@ import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.*
-import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.ui.components.DetailScaffold
+import com.takahashirinta.ncrust.ui.components.SongCard
+import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistDetailScreen(
     artistId: Long,
@@ -45,8 +44,6 @@ fun ArtistDetailScreen(
             error = null
             try {
                 val albumsResponse = RetrofitClient.api.getArtistAlbums(artistId)
-                android.util.Log.d("ArtistDetail", "Albums Response: ${albumsResponse.code}")
-
                 if (albumsResponse.code == 200) {
                     artist = ArtistDetail(
                         id = albumsResponse.artist?.id ?: artistId,
@@ -61,9 +58,7 @@ fun ArtistDetailScreen(
                     if (artistName.isNotEmpty()) {
                         try {
                             val searchResponse = RetrofitClient.api.search(
-                                keyword = artistName,
-                                type = 1,
-                                limit = 30
+                                keyword = artistName, type = 1, limit = 30
                             )
                             val searchSongs = searchResponse.result?.songs ?: emptyList()
                             hotSongs = searchSongs
@@ -77,16 +72,12 @@ fun ArtistDetailScreen(
                                         dt = song.duration ?: 0
                                     )
                                 }
-                        } catch (e: Exception) {
-                            android.util.Log.e("ArtistDetail", "Hot songs search failed", e)
-                        }
+                        } catch (_: Exception) {}
                     }
                 } else {
                     error = "艺人数据加载失败 (code: ${albumsResponse.code})"
                 }
-
             } catch (e: Exception) {
-                android.util.Log.e("ArtistDetail", "Error", e)
                 error = "加载失败: ${e.message}"
             } finally {
                 isLoading = false
@@ -94,130 +85,109 @@ fun ArtistDetailScreen(
         }
     }
 
-    LaunchedEffect(artistId) {
-        loadData()
-    }
+    LaunchedEffect(artistId) { loadData() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("艺人详情", color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1A1A1A)
+    DetailScaffold(
+        title = "艺人详情",
+        onBack = onBack,
+        isLoading = isLoading,
+        error = error,
+        onRetry = { loadData() },
+        header = {
+            Column {
+                Text(
+                    artist?.name ?: "未知艺人",
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
-            )
+                Spacer(Modifier.height(4.dp))
+                Row {
+                    artist?.albumSize?.let {
+                        Text("专辑: $it", color = Color.Gray, fontSize = 14.sp)
+                        Spacer(Modifier.width(16.dp))
+                    }
+                    artist?.musicSize?.let {
+                        Text("单曲: $it", color = Color.Gray, fontSize = 14.sp)
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("专辑", color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("单曲", color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) }
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+            }
         },
-        containerColor = Color(0xFF121212)
-    ) { innerPadding ->
-        ResponsiveContent(modifier = Modifier.padding(innerPadding)) {
-            when {
-                isLoading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFF1DB954))
-                    }
-                }
-                error != null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(error!!, color = Color.Red, fontSize = 16.sp)
-                            Spacer(Modifier.height(16.dp))
-                            Button(onClick = { loadData() }) {
-                                Text("重试")
-                            }
-                        }
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp)
-                    ) {
+        content = {
+            when (selectedTab) {
+                0 -> {
+                    if (albums.isEmpty()) {
                         item {
-                            Text(
-                                artist?.name ?: "未知艺人",
-                                color = Color.White,
-                                fontSize = 36.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            )
-                            Row {
-                                artist?.albumSize?.let {
-                                    Text("专辑: $it", color = Color.Gray, fontSize = 14.sp)
-                                    Spacer(Modifier.width(16.dp))
-                                }
-                                artist?.musicSize?.let {
-                                    Text("单曲: $it", color = Color.Gray, fontSize = 14.sp)
-                                }
+                            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                                Text("暂无专辑", color = Color.Gray, fontSize = 16.sp)
                             }
-                            Spacer(Modifier.height(24.dp))
-                            TabRow(
-                                selectedTabIndex = selectedTab,
-                                containerColor = Color(0xFF121212),
-                                contentColor = Color(0xFF1DB954)
-                            ) {
-                                Tab(
-                                    selected = selectedTab == 0,
-                                    onClick = { selectedTab = 0 },
-                                    text = { Text("专辑", color = if (selectedTab == 0) Color(0xFF1DB954) else Color.Gray, fontSize = 14.sp) }
-                                )
-                                Tab(
-                                    selected = selectedTab == 1,
-                                    onClick = { selectedTab = 1 },
-                                    text = { Text("单曲", color = if (selectedTab == 1) Color(0xFF1DB954) else Color.Gray, fontSize = 14.sp) }
-                                )
+                        }
+                    } else {
+                        val rows = albums.chunked(2)
+                        items(rows.size) { rowIndex ->
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                for (album in rows[rowIndex]) {
+                                    ArtistAlbumGridItem(
+                                        album = album,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { onAlbumClick(album.id) }
+                                    )
+                                }
+                                if (rows[rowIndex].size == 1) Spacer(modifier = Modifier.weight(1f))
                             }
                             Spacer(Modifier.height(16.dp))
                         }
-
-                        when (selectedTab) {
-                            0 -> {
-                                if (albums.isEmpty()) {
-                                    item {
-                                        Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                                            Text("暂无专辑", color = Color.Gray, fontSize = 16.sp)
-                                        }
-                                    }
-                                } else {
-                                    val rows = albums.chunked(2)
-                                    items(rows.size) { rowIndex ->
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                            for (album in rows[rowIndex]) {
-                                                ArtistAlbumGridItem(album = album, modifier = Modifier.weight(1f), onClick = { onAlbumClick(album.id) })
-                                            }
-                                            if (rows[rowIndex].size == 1) Spacer(modifier = Modifier.weight(1f))
-                                        }
-                                        Spacer(Modifier.height(16.dp))
-                                    }
-                                }
-                            }
-                            1 -> {
-                                if (hotSongs.isEmpty()) {
-                                    item {
-                                        Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                                            Text("暂无单曲", color = Color.Gray, fontSize = 16.sp)
-                                        }
-                                    }
-                                } else {
-                                    items(hotSongs) { song ->
-                                        ArtistSongListItem(song = song, onPlayNext = {
-                                            val songItem = SongItem(id = song.id, name = song.name, artists = song.artists, album = song.album, duration = song.getDurationMs())
-                                            onSongClick(songItem)
-                                        })
-                                    }
-                                }
+                    }
+                }
+                1 -> {
+                    if (hotSongs.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                                Text("暂无单曲", color = Color.Gray, fontSize = 16.sp)
                             }
                         }
-                        item { Spacer(Modifier.height(80.dp)) }
+                    } else {
+                        items(hotSongs) { song ->
+                            val songItem = SongItem(
+                                id = song.id, name = song.name,
+                                artists = song.artists, album = song.album,
+                                duration = song.getDurationMs()
+                            )
+                            SongCard(
+                                song = songItem,
+                                style = SongCardStyle.COMPACT,
+                                onClick = { onSongClick(songItem) },
+                                actions = {
+                                    IconButton(onClick = { onSongClick(songItem) }) {
+                                        Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
+            item { Spacer(Modifier.height(80.dp)) }
         }
-    }
+    )
 }
 
 @Composable
@@ -229,22 +199,6 @@ fun ArtistAlbumGridItem(album: ArtistAlbumItem, modifier: Modifier = Modifier, o
         album.publishTime?.let {
             val year = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
             Text("$year · ${album.size ?: 0}首", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-@Composable
-fun ArtistSongListItem(song: ArtistSongItem, onPlayNext: () -> Unit) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
-    Row(modifier = Modifier.fillMaxWidth().clickable { onPlayNext() }.padding(vertical = 8.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        AsyncImage(model = song.album?.picUrl, contentDescription = "封面", modifier = Modifier.size(40.dp), contentScale = ContentScale.Crop)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(song.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("$artistStr · ${song.album?.name ?: ""}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        IconButton(onClick = onPlayNext) {
-            Icon(Icons.Default.PlayArrow, "下一首播放", tint = Color(0xFF1DB954), modifier = Modifier.size(28.dp))
         }
     }
 }
