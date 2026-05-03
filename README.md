@@ -258,6 +258,15 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 有问题或建议，欢迎提交 [Issue](https://github.com/GuitaristRin/Ncrust/issues)。
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=GuitaristRin%2FNcrust&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&legend=top-left" />
+ </picture>
+</a>
 ---
 
 主要更新点：
