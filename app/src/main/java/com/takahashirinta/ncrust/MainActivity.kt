@@ -37,7 +37,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -68,13 +67,18 @@ import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.ui.screen.PlaylistDetailScreen
 import com.takahashirinta.ncrust.network.PlaylistApi
 import androidx.compose.foundation.border
-import androidx.compose.ui.graphics.RectangleShape
 import com.takahashirinta.ncrust.ui.screen.HomeScreen
 import androidx.compose.ui.viewinterop.AndroidView
 import android.content.Context
 import com.takahashirinta.ncrust.player.PlaybackStateManager
 import com.takahashirinta.ncrust.ui.screen.AboutScreen
 import com.takahashirinta.ncrust.ui.screen.SplashScreen
+import com.takahashirinta.ncrust.ui.theme.getSavedThemeIndex
+import com.takahashirinta.ncrust.ui.theme.saveThemeIndex
+import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
+import com.takahashirinta.ncrust.ui.theme.NcrustTheme
+import com.takahashirinta.ncrust.ui.theme.ThemeColorSelector
+import com.takahashirinta.ncrust.ui.theme.themeColorPresets
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,32 +89,27 @@ class MainActivity : ComponentActivity() {
         RetrofitClient.init(this)
         enableEdgeToEdge()
         setContent {
-            NcrustTheme {
+            var themeIndex by remember {
+                mutableIntStateOf(getSavedThemeIndex(this@MainActivity))
+            }
+
+            NcrustTheme(primaryColor = themeColorForIndex(themeIndex)) {
                 var showSplash by remember { mutableStateOf(true) }
                 Box(modifier = Modifier.fillMaxSize()) {
-                    MainScreen()
+                    MainScreen(
+                        themeIndex = themeIndex,
+                        onThemeChange = { newIndex ->
+                            themeIndex = newIndex
+                            saveThemeIndex(this@MainActivity, newIndex)
+                        }
+                    )
                     if (showSplash) {
-                        SplashScreen(
-                            onFinished = { showSplash = false }
-                        )
+                        SplashScreen(onFinished = { showSplash = false })
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-fun NcrustTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Color(0xFF1DB954),
-            background = Color(0xFF121212),
-            surface = Color(0xFF282828),
-            surfaceVariant = Color(0xFF1A1A1A)
-        ),
-        content = content
-    )
 }
 
 fun formatDuration(ms: Long): String {
@@ -122,7 +121,10 @@ fun formatDuration(ms: Long): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    themeIndex: Int = 0,
+    onThemeChange: (Int) -> Unit = {}
+) {
     var selectedTab by remember { mutableIntStateOf(1) }
     var selectedSongId by remember { mutableStateOf<Long?>(null) }
     var selectedAlbumId by remember { mutableStateOf<Long?>(null) }
@@ -148,10 +150,11 @@ fun MainScreen() {
     val fullCardExtraOffsetPx = with(density) { 48.dp.toPx() }
     val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
 
-    // 卡片收起时顶部 Y 坐标
     val collapsedOffsetY = screenHeightPx - systemNavBarHeightPx - navBarHeightPx - miniBarHeightPx - fullCardExtraOffsetPx
 
     val totalDragDistancePx = screenHeightPx * 0.85f
+
+    val navBarHideOffset = with(density) { 132.dp.toPx() }
     // ------------------------------------
 
     // 自 ViewModel 恢复 currentSong 之状态。
@@ -391,8 +394,8 @@ fun MainScreen() {
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(containerColor = Color(0xFF121212)) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Scaffold(containerColor = Color.Transparent) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
                 when (selectedTab) {
                     0 -> HomeScreen(
@@ -494,7 +497,9 @@ fun MainScreen() {
                     )
 
                     3 -> UserScreen(
-                        onOpenAbout = { showAbout = true }
+                        onOpenAbout = { showAbout = true },
+                        themeIndex = themeIndex,
+                        onThemeChange = onThemeChange
                     )
                 }
             }
@@ -524,9 +529,9 @@ fun MainScreen() {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .graphicsLayer {
-                    translationY = (navBarHeightPx + systemNavBarHeightPx + with(density) { 24.dp.toPx() }) * progress.value
+                    translationY = navBarHideOffset * progress.value
                 },
-            containerColor = Color(0xFF1A1A1A)
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             NavigationBarItem(
                 selected = selectedTab == 0,
@@ -675,12 +680,12 @@ fun PlayerCard(
                 )
             }
     ) {
-        // 全屏黑色背景
+        // 全屏纯黑背景
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .offset(y = 24.dp)
-                .background(Color(0xFF121212))
+                .background(MaterialTheme.colorScheme.background)
         )
 
         Column(
@@ -697,7 +702,7 @@ fun PlayerCard(
                         .graphicsLayer {
                             alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
                         },
-                    color = Color(0xFF1A1A1A)
+                    color = MaterialTheme.colorScheme.surface
                 ) {
                     Row(
                         modifier = Modifier.fillMaxSize(),
@@ -842,7 +847,7 @@ fun PlayerCard(
                                             else -> Icons.Default.Repeat
                                         },
                                         "播放模式",
-                                        tint = if (playMode != 0) Color(0xFF1DB954) else Color.White,
+                                        tint = if (playMode != 0) MaterialTheme.colorScheme.primary else Color.White,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -884,7 +889,7 @@ fun PlayerCard(
                             )
                             Text(
                                 s.artists?.joinToString("/") { it.name } ?: "",
-                                color = Color(0xFF1DB954),
+                                color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.bodyLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -1049,7 +1054,7 @@ private fun FullPlayerControls(
                 Icon(
                     Icons.Default.Lyrics,
                     "歌词",
-                    tint = if (showLyrics) Color(0xFF1DB954) else Color.White,
+                    tint = if (showLyrics) MaterialTheme.colorScheme.primary else Color.White,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1062,7 +1067,7 @@ private fun FullPlayerControls(
                 Icon(
                     Icons.AutoMirrored.Filled.PlaylistPlay,
                     "队列",
-                    tint = if (showQueue) Color(0xFF1DB954) else Color.White,
+                    tint = if (showQueue) MaterialTheme.colorScheme.primary else Color.White,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1118,7 +1123,7 @@ fun SlimProgressBar(progress: Float, onSeek: (Float) -> Unit) {
             Modifier
                 .fillMaxWidth(fraction = progress)
                 .height(2.dp)
-                .background(Color(0xFF1DB954))
+                .background(MaterialTheme.colorScheme.primary)
         )
     }
 }
@@ -1191,7 +1196,7 @@ fun LyricsView(lyrics: List<LrcLine>, currentPositionMs: Long, onUserScrolled: (
                     text = line.text,
                     color = when {
                         index < currentIndex -> Color.White.copy(alpha = 0.6f)
-                        index == currentIndex -> Color(0xFF1DB954)
+                        index == currentIndex -> MaterialTheme.colorScheme.primary
                         else -> Color.Gray.copy(alpha = 0.4f)
                     },
                     fontSize = 32.sp,
@@ -1213,7 +1218,7 @@ fun LyricsView(lyrics: List<LrcLine>, currentPositionMs: Long, onUserScrolled: (
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(0xFF121212), Color.Transparent)
+                        listOf(MaterialTheme.colorScheme.background, Color.Transparent)
                     )
                 )
         )
@@ -1226,7 +1231,7 @@ fun LyricsView(lyrics: List<LrcLine>, currentPositionMs: Long, onUserScrolled: (
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, Color(0xFF121212))
+                        listOf(Color.Transparent, MaterialTheme.colorScheme.background)
                     )
                 )
         )
@@ -1268,7 +1273,7 @@ fun QueueView(
                     Column(Modifier.weight(1f)) {
                         Text(
                             song.name,
-                            color = if (isCurrent) Color(0xFF1DB954) else Color.White,
+                            color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White,
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1299,7 +1304,7 @@ fun QueueView(
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(0xFF121212), Color.Transparent)
+                        listOf(MaterialTheme.colorScheme.background, Color.Transparent)
                     )
                 )
         )
@@ -1310,7 +1315,7 @@ fun QueueView(
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, Color(0xFF121212))
+                        listOf(Color.Transparent, MaterialTheme.colorScheme.background)
                     )
                 )
         )
@@ -1404,7 +1409,7 @@ fun LibraryAlbumGridItem(
                     .align(Alignment.BottomEnd)
                     .padding(8.dp)
                     .size(36.dp)
-                    .background(Color(0xFF1DB954), shape = CircleShape)
+                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
                     .clickable { onPlayAll() },
                 contentAlignment = Alignment.Center
             ) {
@@ -1508,7 +1513,7 @@ fun SearchScreen(
     val context = LocalContext.current
     val categories = listOf("单曲", "专辑", "艺人")
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF121212))) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         OutlinedTextField(
             value = query,
             onValueChange = { viewModel.onQueryChanged(it) },
@@ -1523,7 +1528,7 @@ fun SearchScreen(
                 Row {
                     if (isLoading) CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = Color(0xFF1DB954)
+                        color = MaterialTheme.colorScheme.primary
                     )
                     if (query.isNotEmpty()) IconButton(onClick = { viewModel.clearQuery() }) {
                         Icon(Icons.Default.Clear, "清空", tint = Color.Gray)
@@ -1533,7 +1538,7 @@ fun SearchScreen(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.Gray,
-                focusedBorderColor = Color(0xFF1DB954)
+                focusedBorderColor = MaterialTheme.colorScheme.primary
             )
         )
 
@@ -1544,8 +1549,8 @@ fun SearchScreen(
                 100 -> 2
                 else -> 0
             },
-            containerColor = Color(0xFF121212),
-            contentColor = Color(0xFF1DB954)
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.primary
         ) {
             categories.forEachIndexed { index, title ->
                 Tab(
@@ -1569,9 +1574,9 @@ fun SearchScreen(
                         Text(
                             title,
                             color = when {
-                                index == 0 && currentType == 1 -> Color(0xFF1DB954)
-                                index == 1 && currentType == 10 -> Color(0xFF1DB954)
-                                index == 2 && currentType == 100 -> Color(0xFF1DB954)
+                                index == 0 && currentType == 1 -> MaterialTheme.colorScheme.primary
+                                index == 1 && currentType == 10 -> MaterialTheme.colorScheme.primary
+                                index == 2 && currentType == 100 -> MaterialTheme.colorScheme.primary
                                 else -> Color.Gray
                             },
                             fontSize = 14.sp
@@ -1725,7 +1730,11 @@ fun SongSearchItem(
 }
 
 @Composable
-fun UserScreen(onOpenAbout: () -> Unit = {}) {
+fun UserScreen(
+    onOpenAbout: () -> Unit = {},
+    themeIndex: Int = 0,
+    onThemeChange: (Int) -> Unit = {}
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var cookieText by remember { mutableStateOf("") }
@@ -1773,7 +1782,7 @@ fun UserScreen(onOpenAbout: () -> Unit = {}) {
     LaunchedEffect(Unit) { loadProfile() }
 
     if (showWebLogin) {
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF121212))) {
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             AndroidView(
                 factory = { ctx ->
                     android.webkit.WebView(ctx).apply {
@@ -1832,7 +1841,7 @@ fun UserScreen(onOpenAbout: () -> Unit = {}) {
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1DB954)
+                            containerColor = MaterialTheme.colorScheme.primary
                         )
                     ) {
                         Text("浏览器登录（推荐）")
@@ -1848,7 +1857,7 @@ fun UserScreen(onOpenAbout: () -> Unit = {}) {
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.Gray,
-                            focusedBorderColor = Color(0xFF1DB954)
+                            focusedBorderColor = MaterialTheme.colorScheme.primary
                         ),
                         maxLines = 3
                     )
@@ -1864,7 +1873,7 @@ fun UserScreen(onOpenAbout: () -> Unit = {}) {
                         showDialog = false
                         loadProfile()
                     }) {
-                        Text("保存 Cookie", color = Color(0xFF1DB954))
+                        Text("保存 Cookie", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             },
@@ -1914,6 +1923,7 @@ fun UserScreen(onOpenAbout: () -> Unit = {}) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        // [用户信息行] 保持原有逻辑不动
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2009,6 +2019,7 @@ fun UserScreen(onOpenAbout: () -> Unit = {}) {
 
         Spacer(Modifier.height(24.dp))
 
+        // ========== 音质偏好（原有逻辑不变） ==========
         Text(
             "音质偏好",
             color = Color.White,
@@ -2034,10 +2045,24 @@ fun UserScreen(onOpenAbout: () -> Unit = {}) {
             }
         )
 
+        // ========== 主题色选择器（新增） ==========
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "主题色",
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.titleLarge
+        )
+        Spacer(Modifier.height(12.dp))
+        ThemeColorSelector(
+            selectedIndex = themeIndex,
+            presets = themeColorPresets,
+            onSelect = onThemeChange
+        )
+
         Spacer(Modifier.height(32.dp))
 
         TextButton(onClick = onOpenAbout) {
-            Text("关于 Ncrust", color = Color(0xFF1DB954), fontSize = 16.sp)
+            Text("关于 Ncrust", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
         }
     }
 }
@@ -2061,15 +2086,15 @@ fun QualitySelector(
                 Box(
                     modifier = Modifier
                         .background(
-                            if (isSelected) Color(0xFF1DB954) else Color.Transparent,
-                            shape = RectangleShape
+                            if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
                         )
                         .border(
                             width = 1.dp,
-                            color = if (isSelected) Color(0xFF1DB954) else Color.Gray.copy(
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(
                                 alpha = 0.4f
                             ),
-                            shape = RectangleShape
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
                         )
                         .clickable { onSelect(index) }
                         .padding(horizontal = 16.dp, vertical = 8.dp),

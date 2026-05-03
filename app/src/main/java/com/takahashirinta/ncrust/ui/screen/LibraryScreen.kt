@@ -81,11 +81,11 @@ fun LibraryScreen(
     }
 
     ResponsiveContent {
-        Column(modifier = Modifier.fillMaxSize().background(Color(0xFF121212))) {
+        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             TabRow(
                 selectedTabIndex = selectedCategory,
-                containerColor = Color(0xFF121212),
-                contentColor = Color(0xFF1DB954)
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.primary
             ) {
                 categories.forEachIndexed { index, title ->
                     Tab(
@@ -94,7 +94,7 @@ fun LibraryScreen(
                         text = {
                             Text(
                                 title,
-                                color = if (selectedCategory == index) Color(0xFF1DB954) else Color.Gray,
+                                color = if (selectedCategory == index) MaterialTheme.colorScheme.primary else Color.Gray,
                                 fontSize = 14.sp
                             )
                         }
@@ -168,7 +168,7 @@ fun LibraryScreen(
                     when {
                         isLoadingPlaylists -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = Color(0xFF1DB954))
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             }
                         }
                         playlistError != null -> {
@@ -177,7 +177,7 @@ fun LibraryScreen(
                                     Text(playlistError!!, color = Color.Red, fontSize = 14.sp)
                                     Spacer(Modifier.height(8.dp))
                                     TextButton(onClick = { loadPlaylists() }) {
-                                        Text("重试", color = Color(0xFF1DB954))
+                                        Text("重试", color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }
@@ -241,7 +241,7 @@ fun PlaylistGridItem(
                     .align(Alignment.BottomEnd)
                     .padding(8.dp)
                     .size(36.dp)
-                    .background(Color(0xFF1DB954), shape = CircleShape)
+                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
                     .clickable { onPlayAll() },
                 contentAlignment = Alignment.Center
             ) {
@@ -313,7 +313,7 @@ fun LibraryAlbumGridItem(
                     .align(Alignment.BottomEnd)
                     .padding(8.dp)
                     .size(36.dp)
-                    .background(Color(0xFF1DB954), shape = CircleShape)
+                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
                     .clickable { onPlayAll() },
                 contentAlignment = Alignment.Center
             ) {

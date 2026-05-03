@@ -182,14 +182,16 @@ fun HomeScreen(
     }
 
     if (isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFF1DB954)) }
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
         return
     }
 
     ResponsiveContent {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().background(Color(0xFF121212)),
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 72.dp)
         ) {
             // 日推区域
@@ -201,7 +203,7 @@ fun HomeScreen(
                     ) {
                         Text("🌅 每日推荐", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         IconButton(onClick = { onPlayDailyAll?.invoke(dailySongs) }) {
-                            Icon(Icons.Default.PlayArrow, "播放全部", tint = Color(0xFF1DB954), modifier = Modifier.size(28.dp))
+                            Icon(Icons.Default.PlayArrow, "播放全部", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                         }
                     }
                 }
@@ -239,7 +241,7 @@ fun HomeScreen(
             item { Text("🆕 新歌速递", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 12.dp)) }
             items(newSongs.toList()) { song -> HomeSongListItem(song = song, onPlay = { onSongClick(song) }) }
             if (isLoadingMore) {
-                item { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFF1DB954), modifier = Modifier.size(24.dp)) } }
+                item { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) } }
             }
             if (!hasMore && newSongs.isNotEmpty()) {
                 item { Text("— 没有更多了 —", color = Color.Gray, modifier = Modifier.fillMaxWidth().padding(16.dp), textAlign = TextAlign.Center) }
@@ -264,7 +266,7 @@ fun PlaylistCardItem(playlist: PlaylistCard, onClick: () -> Unit, onPlayAll: () 
     Column(modifier = Modifier.width(140.dp).clickable { onClick() }) {
         Box(modifier = Modifier.size(140.dp)) {
             AsyncImage(model = playlist.coverUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            Box(modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(30.dp).background(Color(0xFF1DB954), shape = CircleShape).clickable { onPlayAll() }, contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(30.dp).background(MaterialTheme.colorScheme.primary, shape = CircleShape).clickable { onPlayAll() }, contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.PlayArrow, "播放全部", tint = Color.Black, modifier = Modifier.size(18.dp))
             }
         }
@@ -284,6 +286,6 @@ fun HomeSongListItem(song: SongItem, onPlay: () -> Unit) {
             Text(song.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("$artistStr · ${song.album?.name ?: ""}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        IconButton(onClick = onPlay) { Icon(Icons.Default.PlayArrow, "播放", tint = Color(0xFF1DB954), modifier = Modifier.size(28.dp)) }
+        IconButton(onClick = onPlay) { Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp)) }
     }
 }
