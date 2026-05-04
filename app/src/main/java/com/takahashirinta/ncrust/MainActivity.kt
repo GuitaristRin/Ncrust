@@ -39,6 +39,7 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.player.PlaybackStateManager
+import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
 import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
@@ -146,6 +147,7 @@ fun MainScreen(
     var playbackQueue by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var currentQueueIndex by remember { mutableIntStateOf(-1) }
     var songEnded by remember { mutableStateOf(false) }
+    var pendingPlayAllSongs by remember { mutableStateOf<List<SongItem>?>(null) }
     var playMode by remember { mutableIntStateOf(0) }
     var shuffledIndices by remember { mutableStateOf<List<Int>>(emptyList()) }
     var shuffledPosition by remember { mutableIntStateOf(0) }
@@ -296,6 +298,30 @@ fun MainScreen(
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
+    fun replaceQueueAndPlay(songs: List<SongItem>) {
+        if (songs.isEmpty()) return
+        playbackQueue = songs
+        currentQueueIndex = 0
+        if (playMode == 2) generateShuffledIndices()
+        playFromQueue(0)
+        expandCard()
+    }
+
+    fun insertAllNext(songs: List<SongItem>) {
+        if (songs.isEmpty()) return
+        if (currentQueueIndex < 0) {
+            replaceQueueAndPlay(songs)
+            return
+        }
+        val ids = songs.map { it.id }.toSet()
+        val filtered = playbackQueue.filter { it.id !in ids }.toMutableList()
+        val insertPos = (currentQueueIndex + 1).coerceAtMost(filtered.size)
+        filtered.addAll(insertPos, songs)
+        playbackQueue = filtered
+        if (playMode == 2) generateShuffledIndices()
+        PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+    }
+
     // 切换播放模式并初始化随机索引。
     val onTogglePlayMode: () -> Unit = {
         playMode = (playMode + 1) % 3
@@ -380,6 +406,8 @@ fun MainScreen(
                 MainNavGraph(
                     navController = navController,
                     onSongClick = { playSongItem(it) },
+                    onReplaceAndPlay = { replaceQueueAndPlay(it) },
+                    onInsertNext = { insertAllNext(it) },
                     startDestination = NavRoutes.HOME
                 )
 
@@ -394,13 +422,7 @@ fun MainScreen(
                                 coroutineScope.launch {
                                     try {
                                         val songs = PlaylistApi.getPlaylistDetail(playlistId)
-                                        for (song in songs) addToQueue(song)
-                                        if (songs.isNotEmpty()) {
-                                            currentSong = songs.first()
-                                            val (title, artist, artwork) = songParams(songs.first())
-                                            playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
-                                            expandCard()
-                                        }
+                                        if (songs.isNotEmpty()) pendingPlayAllSongs = songs
                                     } catch (_: Exception) {}
                                 }
                             },
@@ -420,13 +442,7 @@ fun MainScreen(
                             onAlbumClick = { albumId -> navController.navigate(NavRoutes.album(albumId)) },
                             onPlayAlbum = { albumId ->
                                 val albumSongs = LibraryManager.getSongsByAlbumId(context, albumId)
-                                for (song in albumSongs) addToQueue(song)
-                                if (albumSongs.isNotEmpty()) {
-                                    currentSong = albumSongs.first()
-                                    val (title, artist, artwork) = songParams(albumSongs.first())
-                                    playerViewModel.playSong(albumSongs.first().id, title = title, artist = artist, artworkUrl = artwork)
-                                    expandCard()
-                                }
+                                if (albumSongs.isNotEmpty()) pendingPlayAllSongs = albumSongs
                             },
                             onPlaylistClick = { pl ->
                                 navController.navigate(NavRoutes.playlist(pl.id, pl.name, pl.coverImgUrl))
@@ -435,13 +451,7 @@ fun MainScreen(
                                 coroutineScope.launch {
                                     try {
                                         val songs = PlaylistApi.getPlaylistDetail(playlistId)
-                                        for (song in songs) addToQueue(song)
-                                        if (songs.isNotEmpty()) {
-                                            currentSong = songs.first()
-                                            val (title, artist, artwork) = songParams(songs.first())
-                                            playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
-                                            expandCard()
-                                        }
+                                        if (songs.isNotEmpty()) pendingPlayAllSongs = songs
                                     } catch (_: Exception) {}
                                 }
                             },
@@ -467,6 +477,15 @@ fun MainScreen(
                     }
                 }
             }
+        }
+
+        pendingPlayAllSongs?.let { songs ->
+            PlayAllDialog(
+                songCount = songs.size,
+                onDismiss = { pendingPlayAllSongs = null },
+                onReplaceAndPlay = { replaceQueueAndPlay(songs); pendingPlayAllSongs = null },
+                onInsertNext = { insertAllNext(songs); pendingPlayAllSongs = null }
+            )
         }
 
         PlayerCardOverlay(

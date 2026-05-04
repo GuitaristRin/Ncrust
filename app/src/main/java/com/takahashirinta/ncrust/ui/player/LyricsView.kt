@@ -56,7 +56,7 @@ fun LyricsView(
         if (currentIndex >= 0) {
             smoothCurrentIndex.animateTo(
                 currentIndex.toFloat(),
-                tween(380, easing = FastOutSlowInEasing)
+                tween(180, easing = FastOutSlowInEasing)
             )
         }
     }
@@ -148,16 +148,12 @@ fun LyricsView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .graphicsLayer {
-                                // 保留你想要的平滑缩放效果，透明度仍然可选叠加
                                 val dist = abs(index.toFloat() - smoothCurrentIndex.value)
-                                val scale = lerp(1.05f, 1f, (dist / 1.5f).coerceIn(0f, 1f))
+                                // 激活行保持全尺寸，非激活行缩小；营造 Apple Music 的层次感
+                                val scale = lerp(1.0f, 0.82f, (dist / 1.8f).coerceIn(0f, 1f))
                                 scaleX = scale
                                 scaleY = scale
                                 transformOrigin = TransformOrigin(0f, 0.5f)
-
-                                // 如果还想让非当前句随着距离变淡一点，可以微调 alpha，但建议不要盖掉三色逻辑
-                                // 这里保留 1.0f，只靠上面的颜色区分
-                                alpha = 1f
                             }
                     )
                 }

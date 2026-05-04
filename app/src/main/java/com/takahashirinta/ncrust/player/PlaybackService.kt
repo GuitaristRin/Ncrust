@@ -235,7 +235,7 @@ class PlaybackService : MediaSessionService() {
                     onProgressUpdate?.invoke(player.currentPosition, player.duration)
                     updatePlaybackState()
                 }
-                delay(1000)
+                delay(250)
             }
         }
     }

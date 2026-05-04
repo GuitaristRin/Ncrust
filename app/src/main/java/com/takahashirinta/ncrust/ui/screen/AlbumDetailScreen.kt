@@ -18,6 +18,7 @@ import com.takahashirinta.ncrust.network.model.AlbumDetail
 import com.takahashirinta.ncrust.network.model.AlbumSongItem
 import com.takahashirinta.ncrust.ui.components.DetailHeader
 import com.takahashirinta.ncrust.ui.components.DetailScaffold
+import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 
@@ -25,12 +26,15 @@ import com.takahashirinta.ncrust.ui.components.SongCardStyle
 fun AlbumDetailScreen(
     albumId: Long,
     onBack: () -> Unit,
-    onSongClick: (SongItem) -> Unit
+    onSongClick: (SongItem) -> Unit,
+    onReplaceAndPlay: (List<SongItem>) -> Unit = {},
+    onInsertNext: (List<SongItem>) -> Unit = {}
 ) {
     var album by remember { mutableStateOf<AlbumDetail?>(null) }
     var songs by remember { mutableStateOf<List<AlbumSongItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showPlayAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     LaunchedEffect(albumId) {
@@ -45,6 +49,19 @@ fun AlbumDetailScreen(
         } finally {
             isLoading = false
         }
+    }
+
+    val songItems = remember(songs) {
+        songs.map { s -> SongItem(id = s.id, name = s.name, artists = s.artists, album = s.album, duration = s.getDurationMs()) }
+    }
+
+    if (showPlayAllDialog) {
+        PlayAllDialog(
+            songCount = songItems.size,
+            onDismiss = { showPlayAllDialog = false },
+            onReplaceAndPlay = { onReplaceAndPlay(songItems) },
+            onInsertNext = { onInsertNext(songItems) }
+        )
     }
 
     DetailScaffold(
@@ -66,7 +83,8 @@ fun AlbumDetailScreen(
                     }
                     album?.company?.let { add("厂牌: $it") }
                     add("${songs.size} 首歌曲")
-                }
+                },
+                onPlayAll = if (songItems.isNotEmpty()) ({ showPlayAllDialog = true }) else null
             )
         },
         content = {

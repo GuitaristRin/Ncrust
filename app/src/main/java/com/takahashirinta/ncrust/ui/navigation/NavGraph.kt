@@ -32,6 +32,8 @@ object NavRoutes {
 fun MainNavGraph(
     navController: NavHostController,
     onSongClick: (SongItem) -> Unit,
+    onReplaceAndPlay: (List<SongItem>) -> Unit = {},
+    onInsertNext: (List<SongItem>) -> Unit = {},
     startDestination: String = NavRoutes.HOME
 ) {
     NavHost(
@@ -54,7 +56,9 @@ fun MainNavGraph(
             AlbumDetailScreen(
                 albumId = albumId,
                 onBack = { navController.popBackStack() },
-                onSongClick = onSongClick
+                onSongClick = onSongClick,
+                onReplaceAndPlay = onReplaceAndPlay,
+                onInsertNext = onInsertNext
             )
         }
 
@@ -94,7 +98,9 @@ fun MainNavGraph(
                 playlistName = name,
                 playlistCoverUrl = cover,
                 onBack = { navController.popBackStack() },
-                onSongClick = onSongClick
+                onSongClick = onSongClick,
+                onReplaceAndPlay = onReplaceAndPlay,
+                onInsertNext = onInsertNext
             )
         }
 

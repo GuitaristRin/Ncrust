@@ -16,6 +16,7 @@ import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.components.DetailHeader
 import com.takahashirinta.ncrust.ui.components.DetailScaffold
+import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import kotlinx.coroutines.launch
@@ -26,11 +27,14 @@ fun PlaylistDetailScreen(
     playlistName: String = "",
     playlistCoverUrl: String = "",
     onBack: () -> Unit,
-    onSongClick: (SongItem) -> Unit
+    onSongClick: (SongItem) -> Unit,
+    onReplaceAndPlay: (List<SongItem>) -> Unit = {},
+    onInsertNext: (List<SongItem>) -> Unit = {}
 ) {
     var songs by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showPlayAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -54,6 +58,15 @@ fun PlaylistDetailScreen(
 
     val coverUrl = playlistCoverUrl.ifEmpty { songs.firstOrNull()?.album?.picUrl }
 
+    if (showPlayAllDialog) {
+        PlayAllDialog(
+            songCount = songs.size,
+            onDismiss = { showPlayAllDialog = false },
+            onReplaceAndPlay = { onReplaceAndPlay(songs) },
+            onInsertNext = { onInsertNext(songs) }
+        )
+    }
+
     DetailScaffold(
         title = "歌单详情",
         onBack = onBack,
@@ -65,7 +78,8 @@ fun PlaylistDetailScreen(
                 coverUrl = coverUrl,
                 title = playlistName.ifEmpty { "歌单" },
                 subtitle = null,
-                infoLines = listOf("${songs.size} 首歌曲")
+                infoLines = listOf("${songs.size} 首歌曲"),
+                onPlayAll = if (songs.isNotEmpty()) ({ showPlayAllDialog = true }) else null
             )
         },
         content = {

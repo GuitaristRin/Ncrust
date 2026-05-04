@@ -158,16 +158,15 @@ fun DetailHeader(
                 Text(line, color = Color.Gray, fontSize = 14.sp)
             }
             headerActions()
-        }
-    }
-
-    if (onPlayAll != null) {
-        Spacer(Modifier.height(24.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            PlayAllCircleButton(size = 56.dp, onClick = onPlayAll)
+            if (onPlayAll != null) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    PlayAllCircleButton(size = 40.dp, onClick = onPlayAll)
+                }
+            }
         }
     }
 
