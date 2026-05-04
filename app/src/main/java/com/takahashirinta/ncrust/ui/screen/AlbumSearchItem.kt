@@ -1,0 +1,64 @@
+package com.takahashirinta.ncrust.ui.components
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.network.AlbumSearchItem
+
+@Composable
+fun AlbumSearchItem(album: AlbumSearchItem, onClick: () -> Unit) {
+    val publishYear = album.publishTime?.let {
+        java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault())
+            .format(java.util.Date(it))
+    } ?: ""
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 8.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = album.picUrl,
+            contentDescription = "专辑封面",
+            modifier = Modifier.size(56.dp),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                album.name,
+                color = Color.White,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                "${album.artist?.name ?: "未知歌手"}${
+                    if (publishYear.isNotEmpty()) " · $publishYear" else ""
+                }${album.company?.let { " · $it" } ?: ""}",
+                color = Color.Gray,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        album.size?.let {
+            Text(
+                "${it}首",
+                color = Color.Gray,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}

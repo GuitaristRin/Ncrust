@@ -1,0 +1,403 @@
+package com.takahashirinta.ncrust.ui.player
+
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.library.LibraryManager
+import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
+import kotlinx.coroutines.launch
+
+@Composable
+fun PlayerCard(
+    song: SongItem?,
+    isPlaying: Boolean,
+    screenHeightPx: Float,
+    progress: Animatable<Float, AnimationVector1D>,
+    totalDragDistancePx: Float = 0f,
+    playbackQueue: List<SongItem> = emptyList(),
+    currentQueueIndex: Int = -1,
+    playMode: Int = 0,
+    onPlayPause: () -> Unit,
+    onDismiss: () -> Unit,
+    onPlayPrevious: () -> Unit = {},
+    onPlayNext: () -> Unit = {},
+    onRemoveFromQueue: (Int) -> Unit = {},
+    onPlayFromQueue: (Int) -> Unit = {},
+    onTogglePlayMode: () -> Unit = {},
+    onSavePlaylist: () -> Unit = {}
+) {
+    val hasSong = song != null
+    var showLyrics by remember { mutableStateOf(true) }
+    var showQueue by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val playerViewModel: PlayerViewModel = viewModel()
+    val lyrics by playerViewModel.lyrics.collectAsState()
+    val currentPosition by playerViewModel.currentPosition.collectAsState()
+    val playbackProgress by playerViewModel.progress.collectAsState()
+
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
+    val screenWidthPx = with(density) { screenWidthDp.toPx() }
+    val dp24px = with(density) { 24.dp.toPx() }
+
+    val miniCoverHalfPx = with(density) { 28.dp.toPx() }
+    val miniScale = miniCoverHalfPx * 2f / screenWidthPx
+    val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        .let { with(density) { it.toPx() } }
+    // 封面各状态的中心点坐标（相对于播放器卡片顶部）
+    val miniCoverCenterX = miniCoverHalfPx
+    val miniCoverCenterY = statusBarPx + miniCoverHalfPx
+    val largeCoverCenterX = screenWidthPx / 2f
+    val largeCoverCenterY = screenHeightPx * 0.3f + dp24px
+    val boundsCenter = screenWidthPx / 2f
+
+    val lyricAnimProgress = remember { Animatable(1f) }
+    LaunchedEffect(showLyrics, showQueue) {
+        val target = if (showLyrics || showQueue) 1f else 0f
+        // 收起到小封面：快出慢进，短促有力；展开到大封面：强减速收尾，扎实落定
+        lyricAnimProgress.animateTo(
+            targetValue = target,
+            animationSpec = if (target == 1f)
+                tween(durationMillis = 190, easing = FastOutSlowInEasing)
+            else
+                tween(durationMillis = 300, easing = LinearOutSlowInEasing)
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        coroutineScope.launch {
+                            progress.animateTo(
+                                if (progress.value > 0.25f) 1f else 0f,
+                                tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                            )
+                        }
+                    },
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        coroutineScope.launch {
+                            progress.snapTo(
+                                (progress.value - dragAmount / totalDragDistancePx)
+                                    .coerceIn(0f, 1f)
+                            )
+                        }
+                    }
+                )
+            }
+    ) {
+        // 全屏纯黑背景
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(y = 24.dp)
+                .background(MaterialTheme.colorScheme.background)
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+        ) {
+            if (hasSong) {
+                val s = song!!
+
+                // 顶部标题栏
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                        .padding(start = 68.dp, end = 8.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .graphicsLayer { alpha = lyricAnimProgress.value }
+                        ) {
+                            Text(
+                                s.name,
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                s.artists?.joinToString("/") { it.name } ?: "",
+                                color = Color.Gray,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                Icons.Default.KeyboardArrowDown,
+                                "收起",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                }
+
+                // 歌词或队列区域
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                ) {
+                    if (showLyrics) {
+                        LyricsView(
+                            lyrics = lyrics,
+                            currentPositionMs = currentPosition,
+                            onUserScrolled = {}
+                        )
+                    } else if (showQueue) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "播放列表",
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(onClick = onTogglePlayMode) {
+                                    Icon(
+                                        when (playMode) {
+                                            0 -> Icons.Default.Repeat
+                                            1 -> Icons.Default.RepeatOne
+                                            2 -> Icons.Default.Shuffle
+                                            else -> Icons.Default.Repeat
+                                        },
+                                        "播放模式",
+                                        tint = if (playMode != 0) MaterialTheme.colorScheme.primary else Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                IconButton(onClick = onSavePlaylist) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        "保存为歌单",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                            HorizontalDivider(color = Color(0xFF2A2A2A))
+                            QueueView(
+                                queue = playbackQueue,
+                                currentIndex = currentQueueIndex,
+                                onPlayIndex = onPlayFromQueue,
+                                onRemoveIndex = onRemoveFromQueue
+                            )
+                        }
+                    }
+                }
+
+                // 大封面模式下的歌曲信息
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                ) {
+                    if (!showLyrics && !showQueue) {
+                        Column {
+                            Text(
+                                s.name,
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                s.artists?.joinToString("/") { it.name } ?: "",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 底部播放控件
+                Box(modifier = Modifier.graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }) {
+                    FullPlayerControls(
+                        isPlaying = isPlaying,
+                        showLyrics = showLyrics,
+                        showQueue = showQueue,
+                        playbackProgress = playbackProgress,
+                        currentPosition = currentPosition,
+                        duration = playerViewModel.duration.collectAsState().value,
+                        onPlayPause = onPlayPause,
+                        onPlayPrevious = onPlayPrevious,
+                        onPlayNext = onPlayNext,
+                        onToggleLyrics = {
+                            showLyrics = !showLyrics
+                            showQueue = false
+                        },
+                        onToggleQueue = {
+                            showQueue = !showQueue
+                            showLyrics = false
+                        },
+                        onAddToLibrary = {
+                            LibraryManager.saveSong(context, song!!)
+                        },
+                        onSeek = { fraction ->
+                            val dur = playerViewModel.duration.value
+                            if (dur > 0) {
+                                playerViewModel.seekTo((fraction * dur).toLong())
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        // 迷你播放栏叠加层：始终保留在 Composition 中，透明度仅在绘制阶段控制，避免动画期间触发重组
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .height(56.dp)
+                .graphicsLayer {
+                    alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
+                },
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (hasSong) {
+                    val s = song!!
+                    Spacer(modifier = Modifier.fillMaxHeight().aspectRatio(1f))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
+                    ) {
+                        Text(
+                            s.name,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            s.artists?.joinToString("/") { it.name } ?: "",
+                            color = Color.Gray,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(onClick = onPlayPause) {
+                        Icon(
+                            if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            null,
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(onClick = onPlayNext) {
+                        Icon(Icons.Default.SkipNext, null, tint = Color.White)
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .aspectRatio(1f)
+                            .background(Color(0xFF404040)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.MusicNote,
+                            null,
+                            tint = Color(0xFF808080),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Text(
+                        "暂无播放",
+                        color = Color(0xFF808080),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+            }
+        }
+
+        // 封面图叠加层
+        if (hasSong) {
+            val s = song!!
+            AsyncImage(
+                model = s.album?.picUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .graphicsLayer {
+                        val p = progress.value
+                        val normalizedP = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
+                        val lyricAnimValue = lyricAnimProgress.value
+
+                        // 根据歌词状态插值出全屏后封面的目标中心
+                        val targetCenterX = largeCoverCenterX + lyricAnimValue * (miniCoverCenterX - largeCoverCenterX)
+                        val targetCenterY = largeCoverCenterY + lyricAnimValue * (miniCoverCenterY - largeCoverCenterY)
+                        val targetScale = miniScale + (1f - lyricAnimValue) * (1f - miniScale)
+
+                        // 当前帧：沿拉起手势从迷你封面中心插值到目标中心
+                        val currentCenterX = miniCoverCenterX + normalizedP * (targetCenterX - miniCoverCenterX)
+                        val currentCenterY = miniCoverCenterY + normalizedP * (targetCenterY - miniCoverCenterY)
+                        val currentBaseScale = miniScale + normalizedP * (targetScale - miniScale)
+
+                        scaleX = currentBaseScale
+                        scaleY = currentBaseScale
+                        // 以封面中心（boundsCenter）为变换原点，平移到目标中心
+                        translationX = currentCenterX - boundsCenter
+                        translationY = currentCenterY - boundsCenter
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                    },
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
+}
