@@ -123,7 +123,7 @@ fun LyricsView(
         ) {
             item(key = "top_spacer") { Spacer(Modifier.height(200.dp)) }
 
-            itemsIndexed(lyrics, key = { _, line -> line.timeMs }) { index, line ->
+            itemsIndexed(lyrics, key = { index, _ -> index }) { index, line ->
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

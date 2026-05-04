@@ -321,9 +321,9 @@ class PlaybackService : MediaSessionService() {
         instance = null
         isServiceStarted = false
         progressJob?.cancel()
-        onProgressUpdate = null
-        onPlaybackEnded = null
-        onIsPlayingChanged = null
+        // Do NOT null the companion callbacks here — the ViewModel registers them once and
+        // they must survive a service stop/restart cycle (e.g. stopSelf then play again).
+        // ViewModel.onCleared() is responsible for clearing them when the ViewModel dies.
         currentArtworkBitmap = null
         mediaSessionCompat?.isActive = false
         mediaSessionCompat?.release()

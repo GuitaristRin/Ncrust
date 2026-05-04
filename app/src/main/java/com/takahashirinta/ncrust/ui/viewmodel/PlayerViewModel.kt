@@ -29,6 +29,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private var onSongEndedCallback: (() -> Unit)? = null
     private var onSongPreviousCallback: (() -> Unit)? = null
+    private var playJob: Job? = null
 
     init {
         PlaybackService.onProgressUpdate = { pos, dur ->
@@ -77,7 +78,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val selectedQuality = if (quality.isNotEmpty()) quality
         else qualityOptions[prefs.getInt("wifi_quality", 2)]
 
-        viewModelScope.launch(Dispatchers.IO) {
+        playJob?.cancel()
+        playJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val url = SongUrlFetcher.fetchUrl(songId, selectedQuality)
                 fetchLyrics(songId)
