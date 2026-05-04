@@ -148,7 +148,9 @@ fun MainScreen(
     // 卡片相关尺寸
     val navBarHeightPx = with(density) { 56.dp.toPx() }
     val miniBarHeightPx = with(density) { 56.dp.toPx() }
-    val fullCardExtraOffsetPx = with(density) { 48.dp.toPx() }
+    val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    // M3 NavigationBar 实际高度为 80dp，navBarHeightPx 使用的是 56dp，差值 24dp 需要一并补偿
+    val fullCardExtraOffsetPx = with(density) { (statusBarHeightDp + 24.dp).toPx() }
     val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
 
     val collapsedOffsetY = screenHeightPx - systemNavBarHeightPx - navBarHeightPx - miniBarHeightPx - fullCardExtraOffsetPx
@@ -277,6 +279,15 @@ fun MainScreen(
     LaunchedEffect(Unit) {
         playerViewModel.setOnSongPreviousCallback { playPrevious() }
         playerViewModel.setOnSongEndedCallback { songEnded = true }
+    }
+
+    // 在 Splash 遮挡期间渲染一帧全展开状态，提前编译 PlayerCard 所有 graphicsLayer 的 GPU Shader。
+    // 对应 Apple Music 的 pre-render 策略：展开动画发生前所有图层已被 GPU 处理过至少一次。
+    LaunchedEffect(Unit) {
+        delay(50L)
+        progress.snapTo(1f)
+        delay(32L)
+        progress.snapTo(0f)
     }
 
     // 歌曲结束后自动播放下一首。
@@ -588,14 +599,27 @@ fun PlayerCard(
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
     val dp24px = with(density) { 24.dp.toPx() }
 
-    val miniScale = with(density) { 56.dp.toPx() } / screenWidthPx
+    val miniCoverHalfPx = with(density) { 28.dp.toPx() }
+    val miniScale = miniCoverHalfPx * 2f / screenWidthPx
+    val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        .let { with(density) { it.toPx() } }
+    // 封面各状态的中心点坐标（相对于播放器卡片顶部）
+    val miniCoverCenterX = miniCoverHalfPx
+    val miniCoverCenterY = statusBarPx + miniCoverHalfPx
+    val largeCoverCenterX = screenWidthPx / 2f
+    val largeCoverCenterY = screenHeightPx * 0.3f + dp24px
+    val boundsCenter = screenWidthPx / 2f
 
     val lyricAnimProgress = remember { Animatable(1f) }
     LaunchedEffect(showLyrics, showQueue) {
         val target = if (showLyrics || showQueue) 1f else 0f
+        // 收起到小封面：快出慢进，短促有力；展开到大封面：强减速收尾，扎实落定
         lyricAnimProgress.animateTo(
             targetValue = target,
-            animationSpec = tween(300, easing = FastOutSlowInEasing)
+            animationSpec = if (target == 1f)
+                tween(durationMillis = 190, easing = FastOutSlowInEasing)
+            else
+                tween(durationMillis = 300, easing = LinearOutSlowInEasing)
         )
     }
 
@@ -608,7 +632,7 @@ fun PlayerCard(
                         coroutineScope.launch {
                             progress.animateTo(
                                 if (progress.value > 0.25f) 1f else 0f,
-                                tween(250)
+                                tween(durationMillis = 260, easing = FastOutSlowInEasing)
                             )
                         }
                     },
@@ -637,81 +661,6 @@ fun PlayerCard(
                 .fillMaxSize()
                 .systemBarsPadding()
         ) {
-            // 迷你播放栏，卡片收起时可见
-            if (progress.value < 0.3f) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .graphicsLayer {
-                            alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
-                        },
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (hasSong) {
-                            val s = song!!
-                            Spacer(modifier = Modifier.fillMaxHeight().aspectRatio(1f))
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 12.dp)
-                            ) {
-                                Text(
-                                    s.name,
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    s.artists?.joinToString("/") { it.name } ?: "",
-                                    color = Color.Gray,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            IconButton(onClick = onPlayPause) {
-                                Icon(
-                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    null,
-                                    tint = Color.White
-                                )
-                            }
-                            IconButton(onClick = onPlayNext) {
-                                Icon(Icons.Default.SkipNext, null, tint = Color.White)
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .aspectRatio(1f)
-                                    .background(Color(0xFF404040)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.MusicNote,
-                                    null,
-                                    tint = Color(0xFF808080),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            Text(
-                                "暂无播放",
-                                color = Color(0xFF808080),
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(horizontal = 12.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            val fullAlpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f)
             if (hasSong) {
                 val s = song!!
 
@@ -720,7 +669,7 @@ fun PlayerCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .graphicsLayer { alpha = fullAlpha }
+                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                         .padding(start = 68.dp, end = 8.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -759,7 +708,7 @@ fun PlayerCard(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .graphicsLayer { alpha = fullAlpha }
+                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                 ) {
                     if (showLyrics) {
                         LyricsView(
@@ -820,7 +769,7 @@ fun PlayerCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
-                        .graphicsLayer { alpha = fullAlpha }
+                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                 ) {
                     if (!showLyrics && !showQueue) {
                         Column {
@@ -845,7 +794,7 @@ fun PlayerCard(
                 Spacer(Modifier.height(16.dp))
 
                 // 底部播放控件
-                Box(modifier = Modifier.graphicsLayer { alpha = fullAlpha }) {
+                Box(modifier = Modifier.graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }) {
                     FullPlayerControls(
                         isPlaying = isPlaying,
                         showLyrics = showLyrics,
@@ -878,6 +827,79 @@ fun PlayerCard(
             }
         }
 
+        // 迷你播放栏叠加层：始终保留在 Composition 中，透明度仅在绘制阶段控制，避免动画期间触发重组
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .height(56.dp)
+                .graphicsLayer {
+                    alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
+                },
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (hasSong) {
+                    val s = song!!
+                    Spacer(modifier = Modifier.fillMaxHeight().aspectRatio(1f))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
+                    ) {
+                        Text(
+                            s.name,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            s.artists?.joinToString("/") { it.name } ?: "",
+                            color = Color.Gray,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(onClick = onPlayPause) {
+                        Icon(
+                            if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            null,
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(onClick = onPlayNext) {
+                        Icon(Icons.Default.SkipNext, null, tint = Color.White)
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .aspectRatio(1f)
+                            .background(Color(0xFF404040)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.MusicNote,
+                            null,
+                            tint = Color(0xFF808080),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Text(
+                        "暂无播放",
+                        color = Color(0xFF808080),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+            }
+        }
+
         // 封面图叠加层
         if (hasSong) {
             val s = song!!
@@ -891,15 +913,23 @@ fun PlayerCard(
                         val p = progress.value
                         val normalizedP = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
                         val lyricAnimValue = lyricAnimProgress.value
-                        val targetScale =
-                            miniScale + (1f - lyricAnimValue) * (1f - miniScale)
-                        val targetOffsetY =
-                            (1f - lyricAnimValue) * (screenHeightPx * 0.3f - screenWidthPx / 2f)
-                        scaleX = miniScale + normalizedP * (targetScale - miniScale)
-                        scaleY = miniScale + normalizedP * (targetScale - miniScale)
-                        translationY = targetOffsetY * normalizedP
-                        translationY += dp24px
-                        transformOrigin = TransformOrigin(0f, 0f)
+
+                        // 根据歌词状态插值出全屏后封面的目标中心
+                        val targetCenterX = largeCoverCenterX + lyricAnimValue * (miniCoverCenterX - largeCoverCenterX)
+                        val targetCenterY = largeCoverCenterY + lyricAnimValue * (miniCoverCenterY - largeCoverCenterY)
+                        val targetScale = miniScale + (1f - lyricAnimValue) * (1f - miniScale)
+
+                        // 当前帧：沿拉起手势从迷你封面中心插值到目标中心
+                        val currentCenterX = miniCoverCenterX + normalizedP * (targetCenterX - miniCoverCenterX)
+                        val currentCenterY = miniCoverCenterY + normalizedP * (targetCenterY - miniCoverCenterY)
+                        val currentBaseScale = miniScale + normalizedP * (targetScale - miniScale)
+
+                        scaleX = currentBaseScale
+                        scaleY = currentBaseScale
+                        // 以封面中心（boundsCenter）为变换原点，平移到目标中心
+                        translationX = currentCenterX - boundsCenter
+                        translationY = currentCenterY - boundsCenter
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
                     },
                 contentScale = ContentScale.Crop
             )

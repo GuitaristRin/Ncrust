@@ -12,9 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.graphics.graphicsLayer
 
 @Composable
@@ -22,27 +20,8 @@ fun SplashScreen(onFinished: () -> Unit) {
     val alpha = remember { Animatable(1f) }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.Default) {
-            val startTime = System.currentTimeMillis()
-            var result = 0.0
-            while (System.currentTimeMillis() - startTime < 1200) {
-                result += kotlin.math.sqrt(kotlin.math.abs(kotlin.math.sin(result + 1.0)))
-                result += kotlin.math.ln(kotlin.math.abs(result) + 2.0)
-                result += kotlin.math.exp(kotlin.math.abs(result % 1.0))
-            }
-            var str = ""
-            repeat(5000) {
-                str += "a"
-                if (str.length > 100) str = str.takeLast(50)
-            }
-            val list = mutableListOf<Float>()
-            repeat(1000) {
-                list.add(kotlin.math.sqrt(it.toFloat()))
-                if (list.size > 100) list.removeAt(0)
-                list.sort()
-            }
-        }
-        delay(200)
+        // 等待 MainScreen 完成初始 Composition 与 GPU Shader 预热（约 100ms），再留出视觉驻留时间
+        delay(900)
         alpha.animateTo(0f, animationSpec = tween(400, easing = FastOutSlowInEasing))
         onFinished()
     }
