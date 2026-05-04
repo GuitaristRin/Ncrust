@@ -1,6 +1,8 @@
 package com.takahashirinta.ncrust.ui.player
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -12,15 +14,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import com.takahashirinta.ncrust.lyric.LrcLine
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 @Composable
-fun LyricsView(lyrics: List<LrcLine>, currentPositionMs: Long, onUserScrolled: () -> Unit) {
+fun LyricsView(
+    lyrics: List<LrcLine>,
+    currentPositionMs: Long,
+    isVisible: Boolean,
+    onSeekToMs: (Long) -> Unit,
+    onUserScrolled: () -> Unit
+) {
     if (lyrics.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("暂无歌词", color = Color.Gray, fontSize = 18.sp)
@@ -34,41 +45,70 @@ fun LyricsView(lyrics: List<LrcLine>, currentPositionMs: Long, onUserScrolled: (
     }
 
     val listState = rememberLazyListState()
-    val density = LocalDensity.current
     var userScrolling by remember { mutableStateOf(false) }
+    var programmaticScrolling by remember { mutableStateOf(false) }
     var lastAutoScrolledIndex by remember { mutableIntStateOf(-1) }
+
+    // Drives per-line alpha/scale in graphicsLayer — only invalidates draw phase, never recomposition
+    val smoothCurrentIndex = remember { Animatable(currentIndex.coerceAtLeast(0).toFloat()) }
+
+    LaunchedEffect(currentIndex) {
+        if (currentIndex >= 0) {
+            smoothCurrentIndex.animateTo(
+                currentIndex.toFloat(),
+                tween(380, easing = FastOutSlowInEasing)
+            )
+        }
+    }
 
     val lyricsKey = remember(lyrics) { lyrics.hashCode() }
     LaunchedEffect(lyricsKey) {
         userScrolling = false
         lastAutoScrolledIndex = -1
-        if (lyrics.isNotEmpty()) {
-            listState.scrollToItem(0)
-        }
+        smoothCurrentIndex.snapTo(0f)
+        listState.scrollToItem(0)
     }
 
-    // 自动滚动至当前歌词行。
+    fun scrollOffset(): Int {
+        val vh = listState.layoutInfo.viewportSize.height
+        return if (vh > 0) -(vh * 0.36f).toInt() else 0
+    }
+
+    // Instant jump when lyrics panel opens; waits one frame for layout if needed
+    LaunchedEffect(isVisible) {
+        if (!isVisible || lyrics.isEmpty()) return@LaunchedEffect
+        var vh = listState.layoutInfo.viewportSize.height
+        if (vh == 0) { delay(16); vh = listState.layoutInfo.viewportSize.height }
+        val idx = currentIndex.coerceAtLeast(0)
+        val offset = if (vh > 0) -(vh * 0.36f).toInt() else 0
+        smoothCurrentIndex.snapTo(idx.toFloat())
+        // index +1 accounts for the leading top-spacer item
+        listState.scrollToItem((idx + 1).coerceIn(1, lyrics.size), offset)
+        lastAutoScrolledIndex = idx
+    }
+
+    // Auto-scroll on lyric line change
     LaunchedEffect(currentIndex) {
-        if (!userScrolling && currentIndex >= 0 && currentIndex != lastAutoScrolledIndex) {
-            lastAutoScrolledIndex = currentIndex
-            val vh = listState.layoutInfo.viewportSize.height
-            val targetPx = with(density) { (vh.toDp() * 0.45f).toPx() }.toInt()
-            listState.animateScrollToItem(
-                currentIndex.coerceIn(0, lyrics.size - 1),
-                -targetPx + 28
-            )
+        if (!isVisible || userScrolling || currentIndex < 0 || currentIndex == lastAutoScrolledIndex) return@LaunchedEffect
+        lastAutoScrolledIndex = currentIndex
+        val offset = scrollOffset()
+        try {
+            programmaticScrolling = true
+            listState.animateScrollToItem((currentIndex + 1).coerceIn(1, lyrics.size), offset)
+        } finally {
+            programmaticScrolling = false
         }
     }
 
-    // 检测用户手动滚动，停止自动滚动三秒后恢复。
+    // Detect manual scroll; resume auto-scroll after 5s
     LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) {
+        if (listState.isScrollInProgress && !programmaticScrolling) {
             if (!userScrolling) {
                 userScrolling = true
                 onUserScrolled()
             }
-        } else if (userScrolling) {
-            delay(3000)
+        } else if (!listState.isScrollInProgress && userScrolling) {
+            delay(5000)
             userScrolling = false
             lastAutoScrolledIndex = -1
         }
@@ -79,33 +119,57 @@ fun LyricsView(lyrics: List<LrcLine>, currentPositionMs: Long, onUserScrolled: (
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.Center
+                .padding(horizontal = 20.dp),
         ) {
-            itemsIndexed(lyrics) { index, line ->
-                Text(
-                    text = line.text,
-                    color = when {
-                        index < currentIndex -> Color.White.copy(alpha = 0.6f)
-                        index == currentIndex -> MaterialTheme.colorScheme.primary
-                        else -> Color.Gray.copy(alpha = 0.4f)
-                    },
-                    fontSize = 32.sp,
-                    fontWeight = if (index == currentIndex) FontWeight.ExtraBold else FontWeight.Bold,
-                    softWrap = true,
-                    lineHeight = 42.sp,
+            item(key = "top_spacer") { Spacer(Modifier.height(200.dp)) }
+
+            itemsIndexed(lyrics, key = { _, line -> line.timeMs }) { index, line ->
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                )
+                        .clickable {
+                            userScrolling = false
+                            lastAutoScrolledIndex = -1
+                            onSeekToMs(line.timeMs)
+                        }
+                        .padding(vertical = 10.dp)
+                ) {
+                    Text(
+                        text = line.text,
+                        fontSize = 32.sp,                          // ← 恢复原来字号
+                        fontWeight = FontWeight.Bold,
+                        softWrap = true,
+                        lineHeight = 42.sp,                        // ← 恢复原来行高
+                        color = when {
+                            index < currentIndex -> Color.White.copy(alpha = 0.6f)
+                            index == currentIndex -> MaterialTheme.colorScheme.primary
+                            else -> Color.Gray.copy(alpha = 0.4f)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                // 保留你想要的平滑缩放效果，透明度仍然可选叠加
+                                val dist = abs(index.toFloat() - smoothCurrentIndex.value)
+                                val scale = lerp(1.05f, 1f, (dist / 1.5f).coerceIn(0f, 1f))
+                                scaleX = scale
+                                scaleY = scale
+                                transformOrigin = TransformOrigin(0f, 0.5f)
+
+                                // 如果还想让非当前句随着距离变淡一点，可以微调 alpha，但建议不要盖掉三色逻辑
+                                // 这里保留 1.0f，只靠上面的颜色区分
+                                alpha = 1f
+                            }
+                    )
+                }
             }
+
+            item(key = "bottom_spacer") { Spacer(Modifier.height(200.dp)) }
         }
 
-        // 顶部渐变遮罩。
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp)
+                .height(100.dp)
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
@@ -114,11 +178,10 @@ fun LyricsView(lyrics: List<LrcLine>, currentPositionMs: Long, onUserScrolled: (
                 )
         )
 
-        // 底部渐变遮罩。
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp)
+                .height(100.dp)
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(

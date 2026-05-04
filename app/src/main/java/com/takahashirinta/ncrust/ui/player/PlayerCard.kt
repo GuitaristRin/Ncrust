@@ -179,6 +179,8 @@ fun PlayerCard(
                         LyricsView(
                             lyrics = lyrics,
                             currentPositionMs = currentPosition,
+                            isVisible = showLyrics,
+                            onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
                             onUserScrolled = {}
                         )
                     } else if (showQueue) {

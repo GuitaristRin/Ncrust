@@ -10,6 +10,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.screen.*
+import java.net.URLDecoder        // ← 新增
+import java.net.URLEncoder        // ← 新增
+import java.nio.charset.StandardCharsets  // ← 新增
 
 object NavRoutes {
     const val HOME = "home"
@@ -21,7 +24,7 @@ object NavRoutes {
     fun album(albumId: Long) = "album/$albumId"
     fun artist(artistId: Long) = "artist/$artistId"
     fun playlist(id: Long, name: String = "", coverUrl: String = "") =
-        "playlist/$id/$name/$coverUrl"
+        "playlist/$id/${URLEncoder.encode(name, StandardCharsets.UTF_8.toString())}/${URLEncoder.encode(coverUrl, StandardCharsets.UTF_8.toString())}"
     fun song(songId: Long) = "song/$songId"
 }
 
@@ -77,8 +80,15 @@ fun MainNavGraph(
             )
         ) { backStackEntry ->
             val playlistId = backStackEntry.arguments?.getLong("playlistId") ?: return@composable
-            val name = backStackEntry.arguments?.getString("playlistName") ?: ""
-            val cover = backStackEntry.arguments?.getString("playlistCoverUrl") ?: ""
+            // ← 解码
+            val name = URLDecoder.decode(
+                backStackEntry.arguments?.getString("playlistName") ?: "",
+                StandardCharsets.UTF_8.toString()
+            )
+            val cover = URLDecoder.decode(
+                backStackEntry.arguments?.getString("playlistCoverUrl") ?: "",
+                StandardCharsets.UTF_8.toString()
+            )
             PlaylistDetailScreen(
                 playlistId = playlistId,
                 playlistName = name,
