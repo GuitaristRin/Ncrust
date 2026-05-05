@@ -23,6 +23,8 @@ import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.ui.theme.ThemeColorSelector
 import com.takahashirinta.ncrust.ui.theme.themeColorPresets
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun UserScreen(
@@ -166,7 +168,12 @@ fun UserScreen(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -305,6 +312,8 @@ fun UserScreen(
         TextButton(onClick = onOpenAbout) {
             Text("关于 Ncrust", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
         }
+
+        Spacer(modifier = Modifier.height(150.dp))
     }
 }
 

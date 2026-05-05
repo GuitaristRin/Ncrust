@@ -470,7 +470,8 @@ fun MainScreen(
                             onAlbumClick = { albumId -> navController.navigate(NavRoutes.album(albumId)) },
                             onArtistClick = { artistId -> navController.navigate(NavRoutes.artist(artistId)) },
                             onInsertNext = { insertNext(it) },
-                            onAppendToQueue = { appendToQueue(it) }
+                            onAppendToQueue = { appendToQueue(it) },
+                            themeIndex = themeIndex
                         )
 
                         3 -> UserScreen(

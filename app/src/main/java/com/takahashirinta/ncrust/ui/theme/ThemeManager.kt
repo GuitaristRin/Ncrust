@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color as ComposeColor
 
 /**
  * 主题色预设条目
@@ -72,5 +73,22 @@ fun NcrustTheme(
             surfaceVariant = Color(0xFF1A1A1A)
         ),
         content = content
+    )
+}
+
+fun desaturateColor(color: ComposeColor, saturationFactor: Float = 0.08f): ComposeColor {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(color.toArgb(), hsv)
+    hsv[1] *= saturationFactor
+    hsv[2] = hsv[2] * 0.25f + 0.02f
+    return ComposeColor(android.graphics.Color.HSVToColor(hsv))
+}
+
+private fun ComposeColor.toArgb(): Int {
+    return android.graphics.Color.argb(
+        (alpha * 255).toInt(),
+        (red * 255).toInt(),
+        (green * 255).toInt(),
+        (blue * 255).toInt()
     )
 }

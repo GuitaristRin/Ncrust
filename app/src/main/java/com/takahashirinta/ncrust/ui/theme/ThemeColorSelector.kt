@@ -26,15 +26,16 @@ fun ThemeColorSelector(
     presets: List<ThemeColorPreset>,
     onSelect: (Int) -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(0.dp)
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         presets.forEachIndexed { index, preset ->
             val isSelected = selectedIndex == index
 
             Box(
                 modifier = Modifier
+                    .wrapContentWidth()                     // 宽度由内容决定
                     .background(
                         if (isSelected) preset.color else Color.Transparent,
                         RoundedCornerShape(0.dp)
@@ -45,7 +46,7 @@ fun ThemeColorSelector(
                         shape = RoundedCornerShape(0.dp)
                     )
                     .clickable { onSelect(index) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -54,11 +55,11 @@ fun ThemeColorSelector(
                             .size(16.dp)
                             .background(preset.color, RoundedCornerShape(0.dp))
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = preset.label,
                         color = if (isSelected) Color.Black else Color.White,
-                        fontSize = 13.sp
+                        fontSize = 14.sp
                     )
                 }
             }

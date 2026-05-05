@@ -30,6 +30,10 @@ import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.viewmodel.SearchViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.material3.LocalTextStyle
+import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
+import com.takahashirinta.ncrust.ui.theme.desaturateColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,7 +42,8 @@ fun SearchScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onInsertNext: (SongItem) -> Unit = {},
-    onAppendToQueue: (SongItem) -> Unit = {}
+    onAppendToQueue: (SongItem) -> Unit = {},
+    themeIndex: Int = 0
 ) {
     val viewModel: SearchViewModel = viewModel()
     val query by viewModel.query.collectAsState()
@@ -51,34 +56,52 @@ fun SearchScreen(
     val context = LocalContext.current
     val categories = listOf("单曲", "专辑", "艺人")
 
+    val currentThemeColor = themeColorForIndex(themeIndex)
+    val desaturatedFill = desaturateColor(currentThemeColor)
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = { viewModel.onQueryChanged(it) },
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            label = { Text("搜索歌曲、专辑、艺人") },
-            singleLine = true,
-            keyboardActions = KeyboardActions(onDone = {}),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            trailingIcon = {
-                Row {
-                    if (isLoading) CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.primary
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .background(desaturatedFill)
+        ) {
+            TextField(
+                value = query,
+                onValueChange = { viewModel.onQueryChanged(it) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardActions = KeyboardActions(onDone = {}),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                placeholder = {
+                    Text(
+                        "搜索歌曲、专辑、艺人",
+                        color = Color.White.copy(alpha = 0.5f)
                     )
-                    if (query.isNotEmpty()) IconButton(onClick = { viewModel.clearQuery() }) {
-                        Icon(Icons.Default.Clear, "清空", tint = Color.Gray)
+                },
+                textStyle = LocalTextStyle.current.copy(color = Color.White),
+                trailingIcon = {
+                    Row {
+                        if (isLoading) CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = currentThemeColor
+                        )
+                        if (query.isNotEmpty()) IconButton(onClick = { viewModel.clearQuery() }) {
+                            Icon(Icons.Default.Clear, "清空", tint = Color.White.copy(alpha = 0.7f))
+                        }
                     }
-                }
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.Gray,
-                focusedBorderColor = MaterialTheme.colorScheme.primary
+                },
+                colors = TextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    cursorColor = Color.White,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                )
             )
-        )
+        }
 
         TabRow(
             selectedTabIndex = when (currentType) {
