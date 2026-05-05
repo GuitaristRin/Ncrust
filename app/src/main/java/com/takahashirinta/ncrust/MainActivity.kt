@@ -9,6 +9,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -266,11 +268,15 @@ fun MainScreen(
     }
 
     fun expandCard() {
-        coroutineScope.launch { progress.animateTo(1f, tween(250)) }
+        coroutineScope.launch {
+            progress.animateTo(1f, tween(400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
+        }
     }
 
     fun collapseCard() {
-        coroutineScope.launch { progress.animateTo(0f, tween(250)) }
+        coroutineScope.launch {
+            progress.animateTo(0f, tween(260, easing = FastOutSlowInEasing))
+        }
     }
 
     fun playSongItem(song: SongItem) {

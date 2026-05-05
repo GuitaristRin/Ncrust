@@ -2,7 +2,9 @@ package com.takahashirinta.ncrust.ui.player
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -75,6 +77,10 @@ fun PlayerCard(
     val largeCoverCenterY = screenHeightPx * 0.3f + dp24px
     val boundsCenter = screenWidthPx / 2f
 
+    // 完全收起时才激活迷你播放栏；使用 derivedStateOf 将重组限制在阈值穿越处
+    val miniBarEnabled by remember { derivedStateOf { progress.value < 0.01f } }
+    val miniBarInteractionSource = remember { MutableInteractionSource() }
+
     val lyricAnimProgress = remember { Animatable(1f) }
     LaunchedEffect(showLyrics, showQueue) {
         val target = if (showLyrics || showQueue) 1f else 0f
@@ -92,12 +98,23 @@ fun PlayerCard(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
+                var dragStartProgress = 0f
                 detectVerticalDragGestures(
+                    onDragStart = { dragStartProgress = progress.value },
                     onDragEnd = {
                         coroutineScope.launch {
+                            // 拉起：超过 50% 自动完成；收起：下滑超过 25% 自动收起
+                            val target = if (dragStartProgress < 0.5f) {
+                                if (progress.value >= 0.5f) 1f else 0f
+                            } else {
+                                if (progress.value >= 0.75f) 1f else 0f
+                            }
                             progress.animateTo(
-                                if (progress.value > 0.25f) 1f else 0f,
-                                tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                                target,
+                                if (target == 1f)
+                                    tween(durationMillis = 400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+                                else
+                                    tween(durationMillis = 260, easing = FastOutSlowInEasing)
                             )
                         }
                     },
@@ -129,42 +146,30 @@ fun PlayerCard(
             if (hasSong) {
                 val s = song!!
 
-                // 顶部标题栏
+                // 顶部标题栏（收起按钮已移至外层 Box 最高 z 序，见文件末尾）
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                         .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
-                        .padding(start = 68.dp, end = 8.dp),
+                        .padding(start = 68.dp, end = 56.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = lyricAnimProgress.value }
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .graphicsLayer { alpha = lyricAnimProgress.value }
-                        ) {
-                            Text(
-                                s.name,
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                s.artists?.joinToString("/") { it.name } ?: "",
-                                color = Color.Gray,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        IconButton(onClick = onDismiss) {
-                            Icon(
-                                Icons.Default.KeyboardArrowDown,
-                                "收起",
-                                tint = Color.White
-                            )
-                        }
+                        Text(
+                            s.name,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            s.artists?.joinToString("/") { it.name } ?: "",
+                            color = Color.Gray,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
 
@@ -300,6 +305,20 @@ fun PlayerCard(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(56.dp)
+                .then(
+                    if (miniBarEnabled) Modifier.clickable(
+                        interactionSource = miniBarInteractionSource,
+                        indication = null,
+                        onClick = {
+                            coroutineScope.launch {
+                                progress.animateTo(
+                                    1f,
+                                    tween(durationMillis = 400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+                                )
+                            }
+                        }
+                    ) else Modifier
+                )
                 .graphicsLayer {
                     alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
                 },
@@ -332,15 +351,19 @@ fun PlayerCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    IconButton(onClick = onPlayPause) {
-                        Icon(
-                            if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            null,
-                            tint = Color.White
-                        )
-                    }
-                    IconButton(onClick = onPlayNext) {
-                        Icon(Icons.Default.SkipNext, null, tint = Color.White)
+                    if (miniBarEnabled) {
+                        IconButton(onClick = onPlayPause) {
+                            Icon(
+                                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                null,
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = onPlayNext) {
+                            Icon(Icons.Default.SkipNext, null, tint = Color.White)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(96.dp))
                     }
                 } else {
                     Box(
@@ -400,6 +423,27 @@ fun PlayerCard(
                     },
                 contentScale = ContentScale.Crop
             )
+        }
+
+        // 收起按钮叠加层：z 序最高，保证触摸事件不被任何下层元素拦截
+        if (hasSong) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .height(56.dp)
+                    .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                    .padding(end = 8.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        "收起",
+                        tint = Color.White
+                    )
+                }
+            }
         }
     }
 }
