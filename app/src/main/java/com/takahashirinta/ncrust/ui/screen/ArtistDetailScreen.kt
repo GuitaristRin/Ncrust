@@ -4,23 +4,28 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.LibraryAdd
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.*
 import com.takahashirinta.ncrust.ui.components.DetailScaffold
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
+import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import kotlinx.coroutines.launch
 
 @Composable
@@ -28,7 +33,10 @@ fun ArtistDetailScreen(
     artistId: Long,
     onBack: () -> Unit,
     onSongClick: (SongItem) -> Unit,
-    onAlbumClick: (Long) -> Unit
+    onAlbumClick: (Long) -> Unit,
+    onSongInsertNext: (SongItem) -> Unit = {},
+    onSongAppendToQueue: (SongItem) -> Unit = {},
+    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
     var artist by remember { mutableStateOf<ArtistDetail?>(null) }
     var hotSongs by remember { mutableStateOf<List<ArtistSongItem>>(emptyList()) }
@@ -36,6 +44,7 @@ fun ArtistDetailScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedTab by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     fun loadData() {
@@ -53,22 +62,17 @@ fun ArtistDetailScreen(
                         musicSize = albumsResponse.artist?.musicSize
                     )
                     albums = albumsResponse.hotAlbums ?: emptyList()
-
                     val artistName = artist?.name ?: ""
                     if (artistName.isNotEmpty()) {
                         try {
-                            val searchResponse = RetrofitClient.api.search(
-                                keyword = artistName, type = 1, limit = 30
-                            )
+                            val searchResponse = RetrofitClient.api.search(keyword = artistName, type = 1, limit = 30)
                             val searchSongs = searchResponse.result?.songs ?: emptyList()
                             hotSongs = searchSongs
                                 .filter { it.artists?.any { a -> a.name == artistName } == true }
                                 .map { song ->
                                     ArtistSongItem(
-                                        id = song.id,
-                                        name = song.name,
-                                        artists = song.artists,
-                                        album = song.album,
+                                        id = song.id, name = song.name,
+                                        artists = song.artists, album = song.album,
                                         dt = song.duration ?: 0
                                     )
                                 }
@@ -107,9 +111,7 @@ fun ArtistDetailScreen(
                         Text("专辑: $it", color = Color.Gray, fontSize = 14.sp)
                         Spacer(Modifier.width(16.dp))
                     }
-                    artist?.musicSize?.let {
-                        Text("单曲: $it", color = Color.Gray, fontSize = 14.sp)
-                    }
+                    artist?.musicSize?.let { Text("单曲: $it", color = Color.Gray, fontSize = 14.sp) }
                 }
                 Spacer(Modifier.height(16.dp))
                 TabRow(
@@ -117,16 +119,10 @@ fun ArtistDetailScreen(
                     containerColor = MaterialTheme.colorScheme.background,
                     contentColor = MaterialTheme.colorScheme.primary
                 ) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        text = { Text("专辑", color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = { Text("单曲", color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) }
-                    )
+                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
+                        text = { Text("专辑", color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
+                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
+                        text = { Text("单曲", color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
                 }
                 Spacer(Modifier.height(16.dp))
             }
@@ -145,11 +141,7 @@ fun ArtistDetailScreen(
                         items(rows.size) { rowIndex ->
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 for (album in rows[rowIndex]) {
-                                    ArtistAlbumGridItem(
-                                        album = album,
-                                        modifier = Modifier.weight(1f),
-                                        onClick = { onAlbumClick(album.id) }
-                                    )
+                                    ArtistAlbumGridItem(album = album, modifier = Modifier.weight(1f), onClick = { onAlbumClick(album.id) })
                                 }
                                 if (rows[rowIndex].size == 1) Spacer(modifier = Modifier.weight(1f))
                             }
@@ -175,10 +167,18 @@ fun ArtistDetailScreen(
                                 song = songItem,
                                 style = SongCardStyle.COMPACT,
                                 onClick = { onSongClick(songItem) },
-                                actions = {
-                                    IconButton(onClick = { onSongClick(songItem) }) {
-                                        Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                                    }
+                                onShowMenu = {
+                                    onShowSongMenu(songItem, listOf(
+                                        SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                            LibraryManager.saveSong(context, songItem)
+                                        },
+                                        SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                            onSongInsertNext(songItem)
+                                        },
+                                        SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                            onSongAppendToQueue(songItem)
+                                        }
+                                    ))
                                 }
                             )
                         }

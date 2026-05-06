@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.screen.*
 import java.net.URLDecoder        // ← 新增
 import java.net.URLEncoder        // ← 新增
@@ -34,6 +35,9 @@ fun MainNavGraph(
     onSongClick: (SongItem) -> Unit,
     onReplaceAndPlay: (List<SongItem>) -> Unit = {},
     onInsertNext: (List<SongItem>) -> Unit = {},
+    onSongInsertNext: (SongItem) -> Unit = {},
+    onSongAppendToQueue: (SongItem) -> Unit = {},
+    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
     startDestination: String = NavRoutes.HOME
 ) {
     NavHost(
@@ -58,7 +62,10 @@ fun MainNavGraph(
                 onBack = { navController.popBackStack() },
                 onSongClick = onSongClick,
                 onReplaceAndPlay = onReplaceAndPlay,
-                onInsertNext = onInsertNext
+                onInsertNext = onInsertNext,
+                onSongInsertNext = onSongInsertNext,
+                onSongAppendToQueue = onSongAppendToQueue,
+                onShowSongMenu = onShowSongMenu
             )
         }
 
@@ -71,7 +78,10 @@ fun MainNavGraph(
                 artistId = artistId,
                 onBack = { navController.popBackStack() },
                 onSongClick = onSongClick,
-                onAlbumClick = { id -> navController.navigate(NavRoutes.album(id)) }
+                onAlbumClick = { id -> navController.navigate(NavRoutes.album(id)) },
+                onSongInsertNext = onSongInsertNext,
+                onSongAppendToQueue = onSongAppendToQueue,
+                onShowSongMenu = onShowSongMenu
             )
         }
 
@@ -100,7 +110,10 @@ fun MainNavGraph(
                 onBack = { navController.popBackStack() },
                 onSongClick = onSongClick,
                 onReplaceAndPlay = onReplaceAndPlay,
-                onInsertNext = onInsertNext
+                onInsertNext = onInsertNext,
+                onSongInsertNext = onSongInsertNext,
+                onSongAppendToQueue = onSongAppendToQueue,
+                onShowSongMenu = onShowSongMenu
             )
         }
 

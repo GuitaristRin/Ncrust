@@ -1,16 +1,13 @@
 package com.takahashirinta.ncrust.ui.screen
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.LibraryAdd
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
@@ -19,6 +16,7 @@ import com.takahashirinta.ncrust.ui.components.DetailScaffold
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
+import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import kotlinx.coroutines.launch
 
 @Composable
@@ -29,7 +27,10 @@ fun PlaylistDetailScreen(
     onBack: () -> Unit,
     onSongClick: (SongItem) -> Unit,
     onReplaceAndPlay: (List<SongItem>) -> Unit = {},
-    onInsertNext: (List<SongItem>) -> Unit = {}
+    onInsertNext: (List<SongItem>) -> Unit = {},
+    onSongInsertNext: (SongItem) -> Unit = {},
+    onSongAppendToQueue: (SongItem) -> Unit = {},
+    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
     var songs by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -52,9 +53,7 @@ fun PlaylistDetailScreen(
         }
     }
 
-    LaunchedEffect(playlistId) {
-        loadSongs()
-    }
+    LaunchedEffect(playlistId) { loadSongs() }
 
     val coverUrl = playlistCoverUrl.ifEmpty { songs.firstOrNull()?.album?.picUrl }
 
@@ -88,13 +87,18 @@ fun PlaylistDetailScreen(
                     song = song,
                     style = SongCardStyle.COMPACT,
                     onClick = { onSongClick(song) },
-                    actions = {
-                        IconButton(onClick = { onSongClick(song) }) {
-                            Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                        }
-                        IconButton(onClick = { LibraryManager.saveSong(context, song) }) {
-                            Icon(Icons.Default.Add, "加入库", tint = Color.White, modifier = Modifier.size(24.dp))
-                        }
+                    onShowMenu = {
+                        onShowSongMenu(song, listOf(
+                            SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                LibraryManager.saveSong(context, song)
+                            },
+                            SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                onSongInsertNext(song)
+                            },
+                            SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                onSongAppendToQueue(song)
+                            }
+                        ))
                     }
                 )
             }

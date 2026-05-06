@@ -27,6 +27,7 @@ import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
+import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,7 +39,8 @@ fun LibraryScreen(
     onPlaylistClick: (PlaylistApi.PlaylistInfo) -> Unit = {},
     onPlayPlaylist: (Long) -> Unit = {},
     onSongInsertNext: (SongItem) -> Unit = {},
-    onSongAppendToQueue: (SongItem) -> Unit = {}
+    onSongAppendToQueue: (SongItem) -> Unit = {},
+    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -51,7 +53,6 @@ fun LibraryScreen(
     var playlists by remember { mutableStateOf<List<PlaylistApi.PlaylistInfo>>(emptyList()) }
     var isLoadingPlaylists by remember { mutableStateOf(false) }
     var playlistError by remember { mutableStateOf<String?>(null) }
-
     fun loadPlaylists() {
         coroutineScope.launch {
             isLoadingPlaylists = true
@@ -82,6 +83,7 @@ fun LibraryScreen(
         }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     ResponsiveContent {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             TabRow(
@@ -120,20 +122,23 @@ fun LibraryScreen(
                                     song = song,
                                     style = SongCardStyle.LIST,
                                     onClick = { onSongClick(song) },
-                                    actions = {
-                                        IconButton(onClick = { onSongInsertNext(song) }) {
-                                            Icon(Icons.Default.PlaylistPlay, "插播", tint = Color.White, modifier = Modifier.size(24.dp))
-                                        }
-                                        IconButton(onClick = { onSongAppendToQueue(song) }) {
-                                            Icon(Icons.Default.PlaylistAdd, "加入播放列表", tint = Color.White, modifier = Modifier.size(24.dp))
-                                        }
-                                        IconButton(onClick = {
-                                            LibraryManager.removeSong(context, song.id)
-                                            savedSongs = LibraryManager.getSavedSongs(context)
-                                            savedAlbums = LibraryManager.getSavedAlbums(context)
-                                        }) {
-                                            Icon(Icons.Default.Delete, "移除", tint = Color.Gray, modifier = Modifier.size(20.dp))
-                                        }
+                                    onShowMenu = {
+                                        onShowSongMenu(song, listOf(
+                                            SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                                LibraryManager.saveSong(context, song)
+                                            },
+                                            SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                                onSongInsertNext(song)
+                                            },
+                                            SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                                onSongAppendToQueue(song)
+                                            },
+                                            SongMenuAction(Icons.Default.Delete, "移除收藏") {
+                                                LibraryManager.removeSong(context, song.id)
+                                                savedSongs = LibraryManager.getSavedSongs(context)
+                                                savedAlbums = LibraryManager.getSavedAlbums(context)
+                                            }
+                                        ))
                                     }
                                 )
                             }
@@ -229,6 +234,8 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+
     }
 }
 

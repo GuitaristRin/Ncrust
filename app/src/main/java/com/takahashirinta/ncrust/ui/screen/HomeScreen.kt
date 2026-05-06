@@ -26,9 +26,11 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
+import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,7 +49,10 @@ fun HomeScreen(
     onSongClick: (SongItem) -> Unit,
     onPlaylistClick: (Long) -> Unit = {},
     onPlayPlaylist: (Long) -> Unit = {},
-    onPlayDailyAll: ((List<SongItem>) -> Unit)? = null
+    onPlayDailyAll: ((List<SongItem>) -> Unit)? = null,
+    onSongInsertNext: (SongItem) -> Unit = {},
+    onSongAppendToQueue: (SongItem) -> Unit = {},
+    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
     var dailySongs by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var playlists by remember { mutableStateOf<List<PlaylistCard>>(emptyList()) }
@@ -190,85 +195,104 @@ fun HomeScreen(
         return
     }
 
-    ResponsiveContent {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(bottom = 72.dp)
-        ) {
-            // 日推区域
-            if (dailySongs.isNotEmpty()) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("🌅 每日推荐", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { onPlayDailyAll?.invoke(dailySongs) }) {
-                            Icon(Icons.Default.PlayArrow, "播放全部", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        ResponsiveContent {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                contentPadding = PaddingValues(bottom = 72.dp)
+            ) {
+                // 日推区域
+                if (dailySongs.isNotEmpty()) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🌅 每日推荐", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { onPlayDailyAll?.invoke(dailySongs) }) {
+                                Icon(Icons.Default.PlayArrow, "播放全部", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                            }
                         }
                     }
-                }
-                item {
-                    val columns = dailySongs.chunked(5)
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(columns.size) { colIndex ->
-                            Column(
-                                modifier = Modifier.fillParentMaxWidth(0.9f)
-                            ) {
-                                columns[colIndex].forEach { song ->
-                                    SongCard(
-                                        song = song,
-                                        style = SongCardStyle.LIST,
-                                        onClick = { onSongClick(song) },
-                                        actions = {
-                                            IconButton(onClick = { onSongClick(song) }) {
-                                                Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                                            }
+                    item {
+                        val columns = dailySongs.chunked(5)
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(columns.size) { colIndex ->
+                                Column(modifier = Modifier.fillParentMaxWidth(0.9f)) {
+                                    columns[colIndex].forEach { song ->
+                                        SongCard(
+                                            song = song,
+                                            style = SongCardStyle.LIST,
+                                            onClick = { onSongClick(song) },
+                                            onShowMenu = {
+                                            onShowSongMenu(song, listOf(
+                                                SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                                    LibraryManager.saveSong(context, song)
+                                                },
+                                                SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                                    onSongInsertNext(song)
+                                                },
+                                                SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                                    onSongAppendToQueue(song)
+                                                }
+                                            ))
                                         }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
-                item { Spacer(Modifier.height(24.dp)) }
-            }
-            // 推荐歌单
-            if (playlists.isNotEmpty()) {
-                item { Text("📋 推荐歌单", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 4.dp)) }
-                item {
-                    LazyRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(playlists) { pl -> PlaylistCardItem(playlist = pl, onClick = { onPlaylistClick(pl.id) }, onPlayAll = { onPlayPlaylist(pl.id) }) }
-                    }
-                }
-                item { Spacer(Modifier.height(24.dp)) }
-            }
-
-            // 新歌速递
-            item { Text("🆕 新歌速递", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 12.dp)) }
-            items(newSongs.toList()) { song ->
-                SongCard(
-                    song = song,
-                    style = SongCardStyle.LIST,
-                    onClick = { onSongClick(song) },
-                    actions = {
-                        IconButton(onClick = { onSongClick(song) }) {
-                            Icon(Icons.Default.PlayArrow, "播放", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                // 推荐歌单
+                if (playlists.isNotEmpty()) {
+                    item { Text("📋 推荐歌单", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 4.dp)) }
+                    item {
+                        LazyRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(playlists) { pl -> PlaylistCardItem(playlist = pl, onClick = { onPlaylistClick(pl.id) }, onPlayAll = { onPlayPlaylist(pl.id) }) }
                         }
                     }
-                )
-            }
-            if (isLoadingMore) {
-                item { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) } }
-            }
-            if (!hasMore && newSongs.isNotEmpty()) {
-                item { Text("— 没有更多了 —", color = Color.Gray, modifier = Modifier.fillMaxWidth().padding(16.dp), textAlign = TextAlign.Center) }
+                    item { Spacer(Modifier.height(24.dp)) }
+                }
+
+                // 新歌速递
+                item { Text("🆕 新歌速递", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 12.dp)) }
+                items(newSongs.toList()) { song ->
+                    SongCard(
+                        song = song,
+                        style = SongCardStyle.LIST,
+                        onClick = { onSongClick(song) },
+                        onShowMenu = {
+                            onShowSongMenu(song, listOf(
+                                SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                    LibraryManager.saveSong(context, song)
+                                },
+                                SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                    onSongInsertNext(song)
+                                },
+                                SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                    onSongAppendToQueue(song)
+                                }
+                            ))
+                        }
+                    )
+                }
+                if (isLoadingMore) {
+                    item { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) } }
+                }
+                if (!hasMore && newSongs.isNotEmpty()) {
+                    item { Text("— 没有更多了 —", color = Color.Gray, modifier = Modifier.fillMaxWidth().padding(16.dp), textAlign = TextAlign.Center) }
+                }
             }
         }
+
     }
 }
 

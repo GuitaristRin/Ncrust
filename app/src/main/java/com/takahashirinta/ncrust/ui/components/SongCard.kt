@@ -2,11 +2,12 @@ package com.takahashirinta.ncrust.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ enum class SongCardStyle {
     GRID
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SongCard(
     song: SongItem,
@@ -35,9 +37,10 @@ fun SongCard(
     modifier: Modifier = Modifier,
     coverSize: Dp = Dp.Unspecified,
     onClick: () -> Unit = {},
+    onShowMenu: (() -> Unit)? = null,
+    actions: (@Composable RowScope.() -> Unit)? = null,
     isCurrentPlaying: Boolean = false,
-    showCover: Boolean = true,
-    actions: @Composable RowScope.() -> Unit = {}
+    showCover: Boolean = true
 ) {
     val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
     val albumName = song.album?.name ?: ""
@@ -63,7 +66,10 @@ fun SongCard(
             Row(
                 modifier = modifier
                     .fillMaxWidth()
-                    .clickable { onClick() }
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = { onShowMenu?.invoke() }
+                    )
                     .padding(vertical = 8.dp, horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -101,10 +107,20 @@ fun SongCard(
                     )
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    content = actions
-                )
+                if (onShowMenu != null) {
+                    IconButton(onClick = onShowMenu) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        actions?.invoke(this)
+                    }
+                }
             }
         }
 
@@ -118,7 +134,8 @@ fun SongCard(
                                 tryAwaitRelease()
                                 isPressed = false
                             },
-                            onTap = { onClick() }
+                            onTap = { onClick() },
+                            onLongPress = { onShowMenu?.invoke() }
                         )
                     }
                     .graphicsLayer {
@@ -154,6 +171,7 @@ fun SongCard(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PlayAllCircleButton(
     modifier: Modifier = Modifier,
@@ -164,7 +182,7 @@ fun PlayAllCircleButton(
         modifier = modifier
             .size(size)
             .background(MaterialTheme.colorScheme.primary, CircleShape)
-            .clickable { onClick() },
+            .combinedClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(

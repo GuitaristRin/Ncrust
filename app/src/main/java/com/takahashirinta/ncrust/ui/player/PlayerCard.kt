@@ -80,6 +80,8 @@ fun PlayerCard(
     // 完全收起时才激活迷你播放栏；使用 derivedStateOf 将重组限制在阈值穿越处
     val miniBarEnabled by remember { derivedStateOf { progress.value < 0.01f } }
     val miniBarInteractionSource = remember { MutableInteractionSource() }
+    // 完全展开时才激活收起按钮，避免在迷你模式下拦截下一曲按钮的触摸事件
+    val dismissEnabled by remember { derivedStateOf { progress.value > 0.99f } }
 
     val lyricAnimProgress = remember { Animatable(1f) }
     LaunchedEffect(showLyrics, showQueue) {
@@ -436,12 +438,14 @@ fun PlayerCard(
                     .padding(end = 8.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        "收起",
-                        tint = Color.White
-                    )
+                if (dismissEnabled) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            "收起",
+                            tint = Color.White
+                        )
+                    }
                 }
             }
         }

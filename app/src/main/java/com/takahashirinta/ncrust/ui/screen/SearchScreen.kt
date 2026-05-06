@@ -11,6 +11,9 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.LibraryAdd
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +31,7 @@ import com.takahashirinta.ncrust.ui.components.AlbumSearchItem
 import com.takahashirinta.ncrust.ui.components.ArtistSearchItem
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
+import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.viewmodel.SearchViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.text.TextStyle
@@ -43,6 +47,7 @@ fun SearchScreen(
     onArtistClick: (Long) -> Unit,
     onInsertNext: (SongItem) -> Unit = {},
     onAppendToQueue: (SongItem) -> Unit = {},
+    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
     themeIndex: Int = 0
 ) {
     val viewModel: SearchViewModel = viewModel()
@@ -58,7 +63,7 @@ fun SearchScreen(
 
     val currentThemeColor = themeColorForIndex(themeIndex)
     val desaturatedFill = desaturateColor(currentThemeColor)
-
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(
             modifier = Modifier
@@ -167,12 +172,24 @@ fun SearchScreen(
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(songs, key = { it.id }) { item ->
-                            SongSearchItem(
+                            SongCard(
                                 song = item,
-                                onPlay = { onSongClick(item) },
-                                onAddToLibrary = { LibraryManager.saveSong(context, item) },
-                                onInsertNext = { onInsertNext(item) },
-                                onAppendToQueue = { onAppendToQueue(item) }
+                                style = SongCardStyle.LIST,
+                                coverSize = 56.dp,
+                                onClick = { onSongClick(item) },
+                                onShowMenu = {
+                                    onShowSongMenu(item, listOf(
+                                        SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                            LibraryManager.saveSong(context, item)
+                                        },
+                                        SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                            onInsertNext(item)
+                                        },
+                                        SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                            onAppendToQueue(item)
+                                        }
+                                    ))
+                                }
                             )
                         }
                     }
@@ -219,6 +236,8 @@ fun SearchScreen(
                 }
             }
         }
+    }
+
     }
 }
 

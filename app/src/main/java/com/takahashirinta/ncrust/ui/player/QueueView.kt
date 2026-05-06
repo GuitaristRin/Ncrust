@@ -46,7 +46,7 @@ fun QueueView(
                         IconButton(onClick = { onRemoveIndex(index) }) {
                             Icon(
                                 Icons.Default.Close,
-                                "移除",
+                                contentDescription = null,
                                 tint = Color.Gray,
                                 modifier = Modifier.size(20.dp)
                             )

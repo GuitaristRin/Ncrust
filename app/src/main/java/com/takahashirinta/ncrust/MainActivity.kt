@@ -40,6 +40,8 @@ import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.player.PlaybackStateManager
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
+import com.takahashirinta.ncrust.ui.components.SongMenuAction
+import com.takahashirinta.ncrust.ui.components.SongMenuSheet
 import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
 import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
@@ -143,6 +145,9 @@ fun MainScreen(
     }
 
     val progress = remember { Animatable(0f) }
+
+    var menuSong by remember { mutableStateOf<SongItem?>(null) }
+    var menuSongActions by remember { mutableStateOf<List<SongMenuAction>>(emptyList()) }
 
     var playbackQueue by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var currentQueueIndex by remember { mutableIntStateOf(-1) }
@@ -412,6 +417,9 @@ fun MainScreen(
                     onSongClick = { playSongItem(it) },
                     onReplaceAndPlay = { replaceQueueAndPlay(it) },
                     onInsertNext = { insertAllNext(it) },
+                    onSongInsertNext = { insertNext(it) },
+                    onSongAppendToQueue = { appendToQueue(it) },
+                    onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
                     startDestination = NavRoutes.HOME
                 )
 
@@ -438,7 +446,10 @@ fun MainScreen(
                                     playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
                                     expandCard()
                                 }
-                            }
+                            },
+                            onSongInsertNext = { insertNext(it) },
+                            onSongAppendToQueue = { appendToQueue(it) },
+                            onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions }
                         )
 
                         1 -> LibraryScreen(
@@ -460,7 +471,8 @@ fun MainScreen(
                                 }
                             },
                             onSongInsertNext = { insertNext(it) },
-                            onSongAppendToQueue = { appendToQueue(it) }
+                            onSongAppendToQueue = { appendToQueue(it) },
+                            onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions }
                         )
 
                         2 -> SearchScreen(
@@ -469,6 +481,7 @@ fun MainScreen(
                             onArtistClick = { artistId -> navController.navigate(NavRoutes.artist(artistId)) },
                             onInsertNext = { insertNext(it) },
                             onAppendToQueue = { appendToQueue(it) },
+                            onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
                             themeIndex = themeIndex
                         )
 
@@ -556,6 +569,14 @@ fun MainScreen(
                 },
                 icon = { Icon(Icons.Default.Person, "用户") },
                 label = { Text("用户") }
+            )
+        }
+
+        menuSong?.let { song ->
+            SongMenuSheet(
+                song = song,
+                actions = menuSongActions,
+                onDismiss = { menuSong = null }
             )
         }
     }
