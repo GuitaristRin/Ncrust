@@ -41,21 +41,33 @@ fun DetailScaffold(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(title, color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
-                            tint = Color.White
+            Surface(color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回",
+                                tint = Color.White
+                            )
+                        }
+                        Text(
+                            title,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
+                }
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
@@ -127,46 +139,46 @@ fun DetailHeader(
             model = coverUrl,
             contentDescription = "封面",
             modifier = Modifier
-                .weight(0.4f)
+                .weight(0.33f)
                 .aspectRatio(1f),
             contentScale = ContentScale.Crop
         )
-        Spacer(Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(0.6f)) {
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(0.67f)) {
             Text(
                 title,
                 color = Color.White,
-                fontSize = 20.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             if (subtitle != null) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     subtitle,
                     color = MaterialTheme.colorScheme.primary,
-                    fontSize = 16.sp
+                    fontSize = 14.sp
                 )
             }
             infoLines.forEach { line ->
-                Spacer(Modifier.height(4.dp))
-                Text(line, color = Color.Gray, fontSize = 14.sp)
+                Spacer(Modifier.height(3.dp))
+                Text(line, color = Color.Gray, fontSize = 13.sp)
             }
             headerActions()
             if (onPlayAll != null) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    PlayAllCircleButton(size = 40.dp, onClick = onPlayAll)
+                    PlayAllCircleButton(size = 36.dp, onClick = onPlayAll)
                 }
             }
         }
     }
 
-    Spacer(Modifier.height(24.dp))
-    HorizontalDivider(color = Color(0xFF2A2A2A))
     Spacer(Modifier.height(16.dp))
+    HorizontalDivider(color = Color(0xFF2A2A2A))
+    Spacer(Modifier.height(10.dp))
 }

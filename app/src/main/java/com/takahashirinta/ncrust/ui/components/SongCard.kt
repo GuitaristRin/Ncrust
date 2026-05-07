@@ -59,8 +59,7 @@ fun SongCard(
         SongCardStyle.LIST, SongCardStyle.COMPACT -> {
             val actualCoverSize = when {
                 coverSize != Dp.Unspecified -> coverSize
-                style == SongCardStyle.COMPACT -> 40.dp
-                else -> 48.dp
+                else -> 56.dp
             }
 
             Row(
@@ -70,7 +69,7 @@ fun SongCard(
                         onClick = onClick,
                         onLongClick = { onShowMenu?.invoke() }
                     )
-                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                    .padding(vertical = 10.dp, horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (showCover) {
@@ -87,10 +86,7 @@ fun SongCard(
                     Text(
                         song.name,
                         color = if (isCurrentPlaying) MaterialTheme.colorScheme.primary else Color.White,
-                        style = if (style == SongCardStyle.COMPACT)
-                            MaterialTheme.typography.bodyMedium
-                        else
-                            MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

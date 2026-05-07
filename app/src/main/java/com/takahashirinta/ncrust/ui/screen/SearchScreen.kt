@@ -175,7 +175,7 @@ fun SearchScreen(
                             SongCard(
                                 song = item,
                                 style = SongCardStyle.LIST,
-                                coverSize = 56.dp,
+                                coverSize = 72.dp,
                                 onClick = { onSongClick(item) },
                                 onShowMenu = {
                                     onShowSongMenu(item, listOf(

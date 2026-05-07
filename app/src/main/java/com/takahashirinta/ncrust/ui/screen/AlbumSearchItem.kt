@@ -25,13 +25,13 @@ fun AlbumSearchItem(album: AlbumSearchItem, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(vertical = 8.dp, horizontal = 16.dp),
+            .padding(vertical = 10.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
             model = album.picUrl,
             contentDescription = "专辑封面",
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier.size(72.dp),
             contentScale = ContentScale.Crop
         )
         Spacer(Modifier.width(12.dp))

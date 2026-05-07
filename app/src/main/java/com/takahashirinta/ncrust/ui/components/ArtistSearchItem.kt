@@ -28,7 +28,7 @@ fun ArtistSearchItem(artist: ArtistSearchItem, onClick: () -> Unit) {
             .padding(vertical = 12.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(56.dp)) {
+        Box(modifier = Modifier.size(72.dp)) {
             AsyncImage(
                 model = artist.picUrl,
                 contentDescription = "艺人头像",
