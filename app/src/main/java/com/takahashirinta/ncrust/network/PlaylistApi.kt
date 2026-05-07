@@ -179,4 +179,120 @@ object PlaylistApi {
         val total: Int,
         val more: Boolean
     )
+
+    data class PlaylistCard(
+        val id: Long,
+        val name: String,
+        val coverUrl: String,
+        val playCount: Long = 0,
+        val trackCount: Int = 0
+    )
+
+    // ==================== Discovery ====================
+
+    suspend fun getDailyRecommendSongs(): List<SongItem> = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost(
+            "https://music.163.com/eapi/v2/discovery/recommend/songs",
+            emptyMap()
+        )
+        val body = response.body?.string() ?: throw Exception("empty response")
+        val json = JSONObject(body)
+        val arr = json.optJSONArray("recommend") ?: json.optJSONArray("data")
+            ?: return@withContext emptyList()
+        (0 until arr.length()).map { i ->
+            val s = arr.getJSONObject(i)
+            SongItem(
+                id = s.optLong("id"),
+                name = s.optString("name"),
+                artists = s.optJSONArray("artists")?.let { ar ->
+                    (0 until ar.length()).map { j ->
+                        ArtistItem(name = ar.getJSONObject(j).optString("name"))
+                    }
+                },
+                album = s.optJSONObject("album")?.let {
+                    AlbumItem(id = it.optLong("id"), name = it.optString("name"), picUrl = it.optString("picUrl"))
+                },
+                duration = s.optLong("duration").takeIf { it != 0L }
+            )
+        }
+    }
+
+    suspend fun getRecommendPlaylists(): List<PlaylistCard> = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost(
+            "https://music.163.com/eapi/v1/discovery/recommend/resource",
+            emptyMap()
+        )
+        val body = response.body?.string() ?: throw Exception("empty response")
+        val arr = JSONObject(body).optJSONArray("recommend") ?: return@withContext emptyList()
+        (0 until minOf(arr.length(), 10)).map { i ->
+            val item = arr.getJSONObject(i)
+            PlaylistCard(
+                id = item.optLong("id"),
+                name = item.optString("name"),
+                coverUrl = item.optString("picUrl"),
+                playCount = item.optLong("playCount"),
+                trackCount = if (item.optString("name") == "私人雷达") 35 else item.optInt("trackCount")
+            )
+        }
+    }
+
+    suspend fun getTopSongs(limit: Int = 30, offset: Int = 0): List<SongItem> = withContext(Dispatchers.IO) {
+        val body = RetrofitClient.get(
+            "https://music.163.com/api/v1/discovery/new/songs?limit=$limit&offset=$offset"
+        )
+        val json = JSONObject(body)
+        val arr = json.optJSONArray("data") ?: json.optJSONArray("songs")
+            ?: return@withContext emptyList()
+        (0 until arr.length()).map { i ->
+            val s = arr.getJSONObject(i)
+            SongItem(
+                id = s.optLong("id"),
+                name = s.optString("name"),
+                artists = s.optJSONArray("artists")?.let { ar ->
+                    (0 until ar.length()).map { j ->
+                        ArtistItem(name = ar.getJSONObject(j).optString("name"))
+                    }
+                },
+                album = s.optJSONObject("album")?.let {
+                    AlbumItem(id = it.optLong("id"), name = it.optString("name"), picUrl = it.optString("picUrl"))
+                },
+                duration = s.optLong("duration").takeIf { it != 0L }
+            )
+        }
+    }
+
+    suspend fun getPersonalFm(): List<SongItem> = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost(
+            "https://music.163.com/eapi/v1/radio/get",
+            emptyMap()
+        )
+        val body = response.body?.string() ?: throw Exception("empty response")
+        val arr = JSONObject(body).optJSONArray("data") ?: return@withContext emptyList()
+        (0 until arr.length()).map { i ->
+            val s = arr.getJSONObject(i)
+            SongItem(
+                id = s.optLong("id"),
+                name = s.optString("name"),
+                artists = s.optJSONArray("ar")?.let { ar ->
+                    (0 until ar.length()).map { j ->
+                        ArtistItem(name = ar.getJSONObject(j).optString("name"))
+                    }
+                },
+                album = s.optJSONObject("al")?.let {
+                    AlbumItem(id = it.optLong("id"), name = it.optString("name"), picUrl = it.optString("picUrl"))
+                },
+                duration = s.optLong("dt").takeIf { it != 0L }
+            )
+        }
+    }
+
+    // FM垃圾桶：对当前 FM 歌曲执行不喜欢操作
+    suspend fun fmTrash(songId: Long): Boolean = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost(
+            "https://music.163.com/eapi/radio/trash/add",
+            mapOf("songId" to songId.toString(), "alg" to "itembased", "time" to "25")
+        )
+        val body = response.body?.string() ?: return@withContext false
+        JSONObject(body).optInt("code", -1) == 200
+    }
 }

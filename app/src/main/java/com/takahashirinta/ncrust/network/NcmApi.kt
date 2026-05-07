@@ -80,4 +80,24 @@ interface NcmApi {
         @Query("limit") limit: Int = 50,
         @Query("offset") offset: Int = 0
     ): ArtistAlbumsResponse
+
+    // ====== 用户详情（公开主页信息，任意 uid） ======
+    @GET("api/v1/user/detail/{uid}")
+    suspend fun getUserDetail(
+        @Path("uid") uid: Long
+    ): UserDetailResponse
+
+    // ====== 推荐歌单（首页个性化，不需要登录） ======
+    @GET("api/personalized")
+    suspend fun getPersonalized(
+        @Query("limit") limit: Int = 30
+    ): PersonalizedResponse
+
+    // ====== 新碟上架 ======
+    @GET("api/album/new")
+    suspend fun getNewAlbums(
+        @Query("area") area: Int = 0,
+        @Query("limit") limit: Int = 10,
+        @Query("offset") offset: Int = 0
+    ): NewAlbumsResponse
 }

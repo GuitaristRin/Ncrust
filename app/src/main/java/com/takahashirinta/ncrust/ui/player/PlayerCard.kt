@@ -65,35 +65,65 @@ fun PlayerCard(
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
     val dp24px = with(density) { 24.dp.toPx() }
+    // 横滑时内容偏移量 = 1/3 屏宽，保持视觉层次感
+    val contentSlideWidthPx = screenWidthPx / 3f
 
     val miniCoverHalfPx = with(density) { 28.dp.toPx() }
     val miniScale = miniCoverHalfPx * 2f / screenWidthPx
     val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         .let { with(density) { it.toPx() } }
-    // 封面各状态的中心点坐标（相对于播放器卡片顶部）
     val miniCoverCenterX = miniCoverHalfPx
     val miniCoverCenterY = statusBarPx + miniCoverHalfPx
     val largeCoverCenterX = screenWidthPx / 2f
     val largeCoverCenterY = screenHeightPx * 0.3f + dp24px
     val boundsCenter = screenWidthPx / 2f
 
-    // 完全收起时才激活迷你播放栏；使用 derivedStateOf 将重组限制在阈值穿越处
+    // 完全收起时才激活迷你播放栏；derivedStateOf 将重组限制在阈值穿越处
     val miniBarEnabled by remember { derivedStateOf { progress.value < 0.01f } }
     val miniBarInteractionSource = remember { MutableInteractionSource() }
-    // 完全展开时才激活收起按钮，避免在迷你模式下拦截下一曲按钮的触摸事件
+    // 完全展开时才激活收起按钮
     val dismissEnabled by remember { derivedStateOf { progress.value > 0.99f } }
 
+    // lyricAnimProgress：0 = 大封面，1 = 小封面；驱动封面缩放 + 内容淡入淡出
+    // queueSlideProgress：0 = 歌词位置，1 = 列表位置；仅 b↔c 时动画，其他时 snap
+    // 两个 Animatable 均只在 graphicsLayer { } draw 阶段读取，动画帧内零 recompose
     val lyricAnimProgress = remember { Animatable(1f) }
+    val queueSlideProgress = remember { Animatable(0f) }
+
     LaunchedEffect(showLyrics, showQueue) {
-        val target = if (showLyrics || showQueue) 1f else 0f
-        // 收起到小封面：快出慢进，短促有力；展开到大封面：强减速收尾，扎实落定
-        lyricAnimProgress.animateTo(
-            targetValue = target,
-            animationSpec = if (target == 1f)
-                tween(durationMillis = 190, easing = FastOutSlowInEasing)
-            else
-                tween(durationMillis = 300, easing = LinearOutSlowInEasing)
-        )
+        when {
+            showLyrics -> {
+                // 与封面缩小并行
+                launch { lyricAnimProgress.animateTo(1f, tween(190, easing = FastOutSlowInEasing)) }
+                // 若当前 queueSlideProgress > 0（来自列表模式），横滑回歌词位置
+                if (queueSlideProgress.value > 0.01f) {
+                    queueSlideProgress.animateTo(
+                        0f, tween(260, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+                    )
+                }
+            }
+            showQueue -> {
+                launch { lyricAnimProgress.animateTo(1f, tween(190, easing = FastOutSlowInEasing)) }
+                when {
+                    // 已在列表位置（或正在返回），无需再动
+                    queueSlideProgress.value > 0.99f -> {}
+                    // 来自稳定歌词模式（lyricAnimProgress 已是 1）→ 横滑
+                    lyricAnimProgress.value > 0.95f -> {
+                        queueSlideProgress.animateTo(
+                            1f, tween(260, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+                        )
+                    }
+                    // 来自大封面模式 → 不横滑，仅随封面缩小淡入
+                    else -> queueSlideProgress.snapTo(1f)
+                }
+            }
+            else -> {
+                // 切回大封面：等封面展开完成，内容随 lyricAnimProgress 自然淡出
+                lyricAnimProgress.animateTo(0f, tween(300, easing = LinearOutSlowInEasing))
+                // 封面展开后重置滑动位置，为下次 b→c 准备
+                queueSlideProgress.snapTo(0f)
+            }
+        }
     }
 
     Box(
@@ -105,7 +135,6 @@ fun PlayerCard(
                     onDragStart = { dragStartProgress = progress.value },
                     onDragEnd = {
                         coroutineScope.launch {
-                            // 拉起：超过 50% 自动完成；收起：下滑超过 25% 自动收起
                             val target = if (dragStartProgress < 0.5f) {
                                 if (progress.value >= 0.5f) 1f else 0f
                             } else {
@@ -124,8 +153,7 @@ fun PlayerCard(
                         change.consume()
                         coroutineScope.launch {
                             progress.snapTo(
-                                (progress.value - dragAmount / totalDragDistancePx)
-                                    .coerceIn(0f, 1f)
+                                (progress.value - dragAmount / totalDragDistancePx).coerceIn(0f, 1f)
                             )
                         }
                     }
@@ -148,7 +176,7 @@ fun PlayerCard(
             if (hasSong) {
                 val s = song!!
 
-                // 顶部标题栏（收起按钮已移至外层 Box 最高 z 序，见文件末尾）
+                // 顶部标题栏：小封面模式下显示曲名（收起按钮在外层 Box 最高 z 序）
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -162,11 +190,7 @@ fun PlayerCard(
                             .fillMaxWidth()
                             .graphicsLayer { alpha = lyricAnimProgress.value }
                     ) {
-                        Text(
-                            s.name,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Text(s.name, color = Color.White, style = MaterialTheme.typography.titleMedium)
                         Text(
                             s.artists?.joinToString("/") { it.name } ?: "",
                             color = Color.Gray,
@@ -175,14 +199,25 @@ fun PlayerCard(
                     }
                 }
 
-                // 歌词或队列区域
+                // 内容区：LyricsView、QueueView、大封面信息全部始终在 Composition 中。
+                // 可见性完全由 graphicsLayer { alpha / translationX } 控制，动画帧零 recompose。
+                // 大封面信息以 Alignment.BottomStart overlay 在同一 Box 内，不占 Column 高度。
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                 ) {
-                    if (showLyrics) {
+                    // 歌词面板
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                val q = queueSlideProgress.value
+                                alpha = lyricAnimProgress.value * (1f - q)
+                                translationX = -q * contentSlideWidthPx
+                            }
+                    ) {
                         LyricsView(
                             lyrics = lyrics,
                             currentPositionMs = currentPosition,
@@ -190,78 +225,88 @@ fun PlayerCard(
                             onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
                             onUserScrolled = {}
                         )
-                    } else if (showQueue) {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "播放列表",
-                                    color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(onClick = onTogglePlayMode) {
-                                    Icon(
-                                        when (playMode) {
-                                            0 -> Icons.Default.Repeat
-                                            1 -> Icons.Default.RepeatOne
-                                            2 -> Icons.Default.Shuffle
-                                            else -> Icons.Default.Repeat
-                                        },
-                                        "播放模式",
-                                        tint = if (playMode != 0) MaterialTheme.colorScheme.primary else Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                IconButton(onClick = onSavePlaylist) {
-                                    Icon(
-                                        Icons.Default.Add,
-                                        "保存为歌单",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                            HorizontalDivider(color = Color(0xFF2A2A2A))
-                            QueueView(
-                                queue = playbackQueue,
-                                currentIndex = currentQueueIndex,
-                                onPlayIndex = onPlayFromQueue,
-                                onRemoveIndex = onRemoveFromQueue
-                            )
-                        }
                     }
-                }
 
-                // 大封面模式下的歌曲信息
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
-                ) {
-                    if (!showLyrics && !showQueue) {
-                        Column {
+                    // 列表面板（header + QueueView）
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                val q = queueSlideProgress.value
+                                alpha = lyricAnimProgress.value * q
+                                translationX = (1f - q) * contentSlideWidthPx
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                s.name,
+                                "播放列表",
                                 color = Color.White,
-                                style = MaterialTheme.typography.titleLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
                             )
-                            Text(
-                                s.artists?.joinToString("/") { it.name } ?: "",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            IconButton(onClick = onTogglePlayMode) {
+                                Icon(
+                                    when (playMode) {
+                                        0 -> Icons.Default.Repeat
+                                        1 -> Icons.Default.RepeatOne
+                                        2 -> Icons.Default.Shuffle
+                                        else -> Icons.Default.Repeat
+                                    },
+                                    "播放模式",
+                                    tint = if (playMode != 0) MaterialTheme.colorScheme.primary else Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            IconButton(onClick = onSavePlaylist) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    "保存为歌单",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
+                        HorizontalDivider(color = Color(0xFF2A2A2A))
+                        QueueView(
+                            queue = playbackQueue,
+                            currentIndex = currentQueueIndex,
+                            onPlayIndex = onPlayFromQueue,
+                            onRemoveIndex = onRemoveFromQueue
+                        )
+                    }
+
+                    // 大封面模式下的曲名/歌手信息：overlay 在内容区底部，不占 Column 高度。
+                    // alpha 随 lyricAnimProgress 淡入淡出，无需 if 控制 Composition 成员资格。
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                            .graphicsLayer {
+                                alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) *
+                                        (1f - lyricAnimProgress.value)
+                            }
+                    ) {
+                        Text(
+                            s.name,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            s.artists?.joinToString("/") { it.name } ?: "",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
 
@@ -301,7 +346,7 @@ fun PlayerCard(
             }
         }
 
-        // 迷你播放栏叠加层：始终保留在 Composition 中，透明度仅在绘制阶段控制，避免动画期间触发重组
+        // 迷你播放栏叠加层：始终在 Composition 中，透明度仅在绘制阶段控制，避免动画期间触发重组
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -375,12 +420,7 @@ fun PlayerCard(
                             .background(Color(0xFF404040)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            Icons.Default.MusicNote,
-                            null,
-                            tint = Color(0xFF808080),
-                            modifier = Modifier.size(24.dp)
-                        )
+                        Icon(Icons.Default.MusicNote, null, tint = Color(0xFF808080), modifier = Modifier.size(24.dp))
                     }
                     Text(
                         "暂无播放",
@@ -406,19 +446,16 @@ fun PlayerCard(
                         val normalizedP = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
                         val lyricAnimValue = lyricAnimProgress.value
 
-                        // 根据歌词状态插值出全屏后封面的目标中心
                         val targetCenterX = largeCoverCenterX + lyricAnimValue * (miniCoverCenterX - largeCoverCenterX)
                         val targetCenterY = largeCoverCenterY + lyricAnimValue * (miniCoverCenterY - largeCoverCenterY)
                         val targetScale = miniScale + (1f - lyricAnimValue) * (1f - miniScale)
 
-                        // 当前帧：沿拉起手势从迷你封面中心插值到目标中心
                         val currentCenterX = miniCoverCenterX + normalizedP * (targetCenterX - miniCoverCenterX)
                         val currentCenterY = miniCoverCenterY + normalizedP * (targetCenterY - miniCoverCenterY)
                         val currentBaseScale = miniScale + normalizedP * (targetScale - miniScale)
 
                         scaleX = currentBaseScale
                         scaleY = currentBaseScale
-                        // 以封面中心（boundsCenter）为变换原点，平移到目标中心
                         translationX = currentCenterX - boundsCenter
                         translationY = currentCenterY - boundsCenter
                         transformOrigin = TransformOrigin(0.5f, 0.5f)
@@ -440,11 +477,7 @@ fun PlayerCard(
             ) {
                 if (dismissEnabled) {
                     IconButton(onClick = onDismiss) {
-                        Icon(
-                            Icons.Default.KeyboardArrowDown,
-                            "收起",
-                            tint = Color.White
-                        )
+                        Icon(Icons.Default.KeyboardArrowDown, "收起", tint = Color.White)
                     }
                 }
             }
