@@ -1,7 +1,9 @@
 package com.takahashirinta.ncrust.ui.player
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -190,11 +192,26 @@ fun PlayerCard(
                             .fillMaxWidth()
                             .graphicsLayer { alpha = lyricAnimProgress.value }
                     ) {
-                        Text(s.name, color = Color.White, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            s.name,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                            modifier = Modifier.basicMarquee(
+                                iterations = Int.MAX_VALUE,
+                                animationMode = MarqueeAnimationMode.Immediately,
+                                initialDelayMillis = 2000,
+                                repeatDelayMillis = 2500,
+                                velocity = 48.dp
+                            )
+                        )
                         Text(
                             s.artists?.joinToString("/") { it.name } ?: "",
                             color = Color.Gray,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
