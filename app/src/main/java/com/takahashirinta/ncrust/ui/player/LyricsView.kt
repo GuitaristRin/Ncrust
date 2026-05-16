@@ -2,7 +2,7 @@ package com.takahashirinta.ncrust.ui.player
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,7 +31,8 @@ fun LyricsView(
     currentPositionMs: Long,
     isVisible: Boolean,
     onSeekToMs: (Long) -> Unit,
-    onUserScrolled: () -> Unit
+    onUserScrolled: () -> Unit,
+    enabled: Boolean = true
 ) {
     if (lyrics.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -117,6 +119,7 @@ fun LyricsView(
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
+            userScrollEnabled = enabled,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),
@@ -127,10 +130,12 @@ fun LyricsView(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            userScrolling = false
-                            lastAutoScrolledIndex = -1
-                            onSeekToMs(line.timeMs)
+                        .pointerInput(enabled, line.timeMs) {
+                            if (enabled) detectTapGestures {
+                                userScrolling = false
+                                lastAutoScrolledIndex = -1
+                                onSeekToMs(line.timeMs)
+                            }
                         }
                         .padding(vertical = 10.dp)
                 ) {

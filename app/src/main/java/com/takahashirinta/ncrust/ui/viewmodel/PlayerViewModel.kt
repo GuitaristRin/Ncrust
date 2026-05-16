@@ -31,6 +31,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var onSongPreviousCallback: (() -> Unit)? = null
     private var playJob: Job? = null
 
+    val currentQualityLabel = MutableStateFlow("无损")
+    private val qualityApiLevels = listOf("standard", "higher", "exhigh", "lossless", "hires")
+    private val qualityDisplayLabels = listOf("压缩", "较好", "更好", "无损", "高解析")
+
     init {
         PlaybackService.onProgressUpdate = { pos, dur ->
             currentPosition.value = pos
@@ -48,13 +52,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         val app = getApplication<Application>()
+
         val savedState = PlaybackStateManager.getState(app)
         if (savedState != null) {
             currentSongId.value = savedState.songId
             currentSongName.value = savedState.songName
             currentSongArtist.value = savedState.songArtist
             currentSongArtwork.value = savedState.songArtwork
-            isPlaying.value = savedState.isPlaying
+            isPlaying.value = false  // 启动时不自动恢复播放，等用户主动触发
 
             if (savedState.songId > 0) {
                 viewModelScope.launch {
@@ -74,23 +79,26 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun playSong(songId: Long, title: String = "", artist: String = "", artworkUrl: String = "", quality: String = "") {
         val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
-        val qualityOptions = listOf("standard", "lossless", "hires")
         val selectedQuality = if (quality.isNotEmpty()) quality
-        else qualityOptions[prefs.getInt("wifi_quality", 2)]
+        else qualityApiLevels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
+        val qIdx = qualityApiLevels.indexOf(selectedQuality).coerceAtLeast(0)
+        currentQualityLabel.value = qualityDisplayLabels.getOrElse(qIdx) { "无损" }
 
         playJob?.cancel()
         playJob = viewModelScope.launch(Dispatchers.IO) {
             try {
-                val url = SongUrlFetcher.fetchUrl(songId, selectedQuality)
+                val result = SongUrlFetcher.fetch(songId, selectedQuality)
+                val actualIdx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                 fetchLyrics(songId)
                 withContext(Dispatchers.Main) {
+                    currentQualityLabel.value = qualityDisplayLabels.getOrElse(actualIdx) { "无损" }
                     currentSongId.value = songId
                     currentSongName.value = title
                     currentSongArtist.value = artist
                     currentSongArtwork.value = artworkUrl
 
                     val intent = Intent(getApplication(), PlaybackService::class.java).apply {
-                        putExtra("url", url)
+                        putExtra("url", result.url)
                         putExtra("title", title)
                         putExtra("artist", artist)
                         putExtra("artwork", artworkUrl)
@@ -124,6 +132,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun togglePlayPause() {
+        val songId = currentSongId.value
+        if (duration.value == 0L && songId != null && songId > 0) {
+            // 启动后恢复状态时无媒体加载，重新拉取 URL 并播放
+            playSong(
+                songId,
+                title = currentSongName.value ?: "",
+                artist = currentSongArtist.value ?: "",
+                artworkUrl = currentSongArtwork.value ?: ""
+            )
+            return
+        }
         isPlaying.value = !isPlaying.value
         val intent = Intent(getApplication(), PlaybackService::class.java).apply {
             putExtra("action", if (isPlaying.value) "resume" else "pause")

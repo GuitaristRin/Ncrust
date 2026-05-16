@@ -45,9 +45,9 @@ fun UserScreen(
     var isLoadingProfile by remember { mutableStateOf(false) }
 
     val prefs = remember { context.getSharedPreferences("ncrust_settings", 0) }
-    var wifiQuality by remember { mutableIntStateOf(prefs.getInt("wifi_quality", 2)) }
+    var wifiQuality by remember { mutableIntStateOf(prefs.getInt("wifi_quality", 3)) }
     var mobileQuality by remember { mutableIntStateOf(prefs.getInt("mobile_quality", 1)) }
-    val qualityOptions = listOf("压缩", "无损", "高解析")
+    val qualityOptions = listOf("压缩", "较好", "更好", "无损", "高解析")
 
     fun loadProfile() {
         if (!CookieManager.hasCookie(context)) {

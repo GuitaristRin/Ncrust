@@ -7,11 +7,13 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
+data class SongUrlResult(val url: String, val actualLevel: String)
+
 object SongUrlFetcher {
     private const val TAG = "SongUrlFetcher"
     private const val SONG_URL_V1 = "https://interface3.music.163.com/eapi/song/enhance/player/url/v1"
 
-    suspend fun fetchUrl(songId: Long, level: String = "lossless"): String = withContext(Dispatchers.IO) {
+    suspend fun fetch(songId: Long, level: String = "lossless"): SongUrlResult = withContext(Dispatchers.IO) {
         try {
             val payload = mapOf(
                 "ids" to JSONArray().put(songId).toString(),
@@ -24,16 +26,18 @@ object SongUrlFetcher {
             val json = JSONObject(body)
             val data = json.getJSONArray("data")
             if (data.length() > 0) {
-                val url = data.getJSONObject(0).optString("url")
+                val obj = data.getJSONObject(0)
+                val url = obj.optString("url")
+                val actualLevel = obj.optString("level", level)
                 if (!url.isNullOrEmpty()) {
-                    Log.d(TAG, "got url: $url")
-                    return@withContext url
+                    Log.d(TAG, "got url: $url  actualLevel: $actualLevel")
+                    return@withContext SongUrlResult(url, actualLevel)
                 }
             }
             throw Exception("url is empty, code: ${json.optInt("code")}")
         } catch (e: Exception) {
             Log.e(TAG, "eapi failed, fallback to outer url", e)
-            "https://music.163.com/song/media/outer/url?id=$songId.mp3"
+            SongUrlResult("https://music.163.com/song/media/outer/url?id=$songId.mp3", level)
         }
     }
 }

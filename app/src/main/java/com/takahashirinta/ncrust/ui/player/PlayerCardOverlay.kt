@@ -27,7 +27,8 @@ fun PlayerCardOverlay(
     onRemoveFromQueue: (Int) -> Unit = {},
     onPlayFromQueue: (Int) -> Unit = {},
     onTogglePlayMode: () -> Unit = {},
-    onSavePlaylist: () -> Unit = {}
+    onSavePlaylist: () -> Unit = {},
+    onNavigateToUser: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -52,7 +53,8 @@ fun PlayerCardOverlay(
             onRemoveFromQueue = onRemoveFromQueue,
             onPlayFromQueue = onPlayFromQueue,
             onTogglePlayMode = onTogglePlayMode,
-            onSavePlaylist = onSavePlaylist
+            onSavePlaylist = onSavePlaylist,
+            onNavigateToUser = onNavigateToUser
         )
     }
 }

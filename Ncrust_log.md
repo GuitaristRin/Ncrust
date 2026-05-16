@@ -3300,6 +3300,71 @@ com.takahashirinta.ncrust/
 
 ---
 
+
+## 2026 年 5 月 16 日 — 全屏播放器触摸事件隔离
+
+> 修复全屏播放器与主页面之间的触摸事件穿透问题。设计基于两个稳态（progress=0 完全收起、progress=1 完全展开）进行隔离，确保展开时播放器内部交互（歌词点击/滑动、下滑收起）正常，后方主页面（SongCard、导航栏）完全不响应。
+
+### 一、问题定位
+
+#### 根本原因
+`PlayerCardOverlay` 使用 `graphicsLayer { translationY }` 进行位置动画，该修饰符**仅影响渲染，不影响 hit test 边界**。无论播放器视觉上处于何处，layout 坐标始终覆盖全屏，Scaffold 里的 `SongCard.clickable` 因此始终可被触发。
+
+#### Compose 兄弟节点 Main pass 处理顺序
+Box 内兄弟节点的 Main pass 处理顺序为**低 z-order 先于高 z-order**（背景先于前景）。`Scaffold`（z 最低）在 `PlayerCardOverlay` 之前处理触摸事件，意味着在 `PlayerCardOverlay` 内部任何消费逻辑运行之前，`SongCard.clickable` 已完成响应。因此无论在 `PlayerCardOverlay` 内部如何尝试拦截 Main pass 事件，均无法阻止 `Scaffold` 已先行触发的 click。
+
+#### 歌词点击切歌根因
+`LyricsView` 的每行 `clickable { onSeekToMs(line.timeMs) }` 本身正确。问题在于 `Scaffold` 的 `SongCard.clickable`（更低 z）在 Main pass 中更早收到并处理了 DOWN 事件，触发了 `playSongItem` → 切歌，而非歌词 seek。
+
+### 二、修复方案
+
+#### 核心：graphicsLayer alpha 隔离
+
+`graphicsLayer { alpha = 0f }` 是 Compose 规范保证：alpha 为 0 的子树**既不渲染，也完全移出 hit test**。将 `Scaffold` 和 `NavigationBar` 包裹在一个 wrapper Box 内，通过 `graphicsLayer` 在展开稳态将整个子树的 alpha 置零，使其彻底退出触摸事件路由，而 `PlayerCardOverlay` 位于此 wrapper **之外**，不受影响。
+
+```kotlin
+// MainActivity.kt — MainScreen Box 顶层结构
+Box(Modifier.fillMaxSize().background(...)) {
+    // alpha=0 时整个子树移出 hit test，draw-phase only，不触发重组
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer { alpha = if (progress.value > 0.99f) 0f else 1f }
+    ) {
+        Scaffold { ... }          // 主页面内容
+        NavigationBar { ... }     // 底部导航栏
+    }
+
+    PlayerCardOverlay(...)        // 在 wrapper 外，始终可交互
+    SongMenuSheet(...)            // 在 wrapper 外，展开状态下仍可弹出
+}
+```
+
+#### 滑动卡住问题修复（PlayerCard）
+
+初始实现使用 `then(if (isExpanded) Modifier.pointerInput(...) else Modifier)`，当 progress 在滑动中跌破 0.99 时 modifier 链发生变化，`detectVerticalDragGestures` 协程因链位移重启，拖拽手势丢失，进度卡在中间值。
+
+**修复**：将 PlayerCard 外层 Box 的事件消费 modifier 改为**常驻**（`pointerInput(Unit)`），在协程内读取 `progress.value` 判断是否消费，不触发 recompose，不引起链位移。
+
+#### 事件路由对比
+
+| 操作 | progress=1 时 Scaffold alpha | 歌词/播放器交互 | Scaffold SongCard |
+|---|---|---|---|
+| 点击歌词行 | 0（移出 hit test） | ✅ LyricsView.clickable 正常 seek | ❌ 不参与 hit test |
+| 歌词滚动 | 0 | ✅ LazyColumn 正常滚动 | ❌ 不参与 hit test |
+| 下滑收起播放器 | 0 | ✅ drag detector 正常收起 | ❌ 不参与 hit test |
+| progress=0 收起稳态 | 1（正常） | 不覆盖主页面 | ✅ 正常响应 |
+
+### 三、修改文件汇总
+
+| 文件 | 变更内容 |
+|---|---|
+| `MainActivity.kt` | `Scaffold` + `NavigationBar` 包裹进 `graphicsLayer { alpha }` wrapper Box；`PlayerCardOverlay`/`PlayAllDialog`/`SongMenuSheet` 保留在 wrapper 外，始终可交互 |
+
+> `ui/player/PlayerCard.kt` 无需修改——原有 `detectVerticalDragGestures` 常驻在外层 Box，LazyColumn（inner）赢得竖直拖拽，标题栏/控制区（无竞争 inner handler）交给外层 drag detector，逻辑本已正确。
+
+---
+
 ## 已知问题与待办
 
 ### 未解决
@@ -3397,3 +3462,85 @@ com.takahashirinta.ncrust/
 - 动画参考：Moriafly/SaltPlayerSource（Salt UI）
 - 设计参考：Apple Music for Android
 - 测试人员：白给小子
+
+---
+
+## 2026 年 5 月 16 日
+
+### 指针事件隔离与 z 序修复
+
+#### 问题背景
+全屏播放器三态（大封面 / 歌词 / 队列）之间存在指针事件穿透：歌词模式下可触发队列 SongCard；全屏/迷你稳定态之间互相干扰。SongMenuSheet 底部抽屉在修改导航栏布局后被遮挡下沉。
+
+#### NavigationBar 图层迁移
+- 将 `NavigationBar` 从 `Scaffold` 内部移至外层 `Box`，赋予 `zIndex(1.5f)`，使其在迷你播放栏（PlayerCardOverlay `zIndex=1f`）之上渲染。
+- `PlayerCardOverlay` 改为外层 `Box` 第一个子节点，利用 Compose 主通道同组合顺序（第一子节点先处理）保证迷你栏优先拦截事件。
+- **SongMenuSheet z 序修复**：NavigationBar 提升至 `zIndex=1.5f` 后，原本同组合顺序靠后的 SongMenuSheet（默认 `zIndex=0`）被压到 NavigationBar 之下导致遮挡。用 `Box(Modifier.fillMaxSize().zIndex(2f))` 包裹 SongMenuSheet，使其始终渲染于最顶层。
+
+#### 全屏播放器三态隔离
+- **根因**：`LyricsView` 和 `QueueView` 两个面板均为 `fillMaxSize()`，共享屏幕空间；`SongCard` 使用 `combinedClickable`，其内部 `awaitFirstDown(requireUnconsumed = false)` 即便事件已被消费仍会触发，任何基于消费标志的拦截方案均无效。
+- **修复方案**：将歌词面板的 `graphicsLayer { translationX }` 从 `±W/3` 改为 `±screenWidthPx`，确保非激活状态时面板完全移出屏幕布局边界，彻底消除命中测试重叠。过渡动画同步改为全宽横划，两个面板在任何中间状态均无重叠（`q=0.5` 时恰好在 `x=W/2` 相切）。
+- **LyricsView `enabled` 参数**：增加 `enabled: Boolean`，控制 `userScrollEnabled`（禁用 `LazyColumn` 滚动手势）和逐行 `detectTapGestures`（禁用歌词定位点击），由 `PlayerCard` 中 `derivedStateOf { lyricAnim > 0.5f && queueSlide < 0.5f }` 驱动，阈值穿越处各触发至多一次重组。
+
+稳定态隔离验证：
+
+| 模式 | LyricsView translationX | QueueView translationX | 可交互 |
+|---|---|---|---|
+| 歌词（q=0） | 0（屏幕内） | +W（屏幕外） | 仅 LyricsView |
+| 队列（q=1） | −W（屏幕外） | 0（屏幕内） | 仅 QueueView |
+| 大封面（q=0, lyricAnim=0） | 0（屏幕内，enabled=false） | +W（屏幕外） | 均不可交互 |
+
+### 启动恢复播放修复
+
+**问题**：应用启动时 `PlaybackStateManager` 恢复上次曲目元数据，但 ExoPlayer 无媒体加载，导致迷你播放栏显示时长为 0、歌词可见但无法播放。
+
+**修复**（`PlayerViewModel.kt`）：
+- `init` 中强制 `isPlaying.value = false`，避免恢复状态误报正在播放。
+- `togglePlayPause()` 新增前置判断：若 `duration.value == 0L` 且存在有效 `currentSongId`，自动调用 `playSong()` 重新拉取 URL 并开始播放，而非发送无效 resume 指令。
+
+### 音质档位扩展（3 → 5）
+
+将音质偏好从 3 档扩展为 5 档，对应 NetEase API level：
+
+| 显示标签 | API level |
+|---|---|
+| 压缩 | standard（128 kbps） |
+| 较好 | higher（192 kbps） |
+| 更好 | exhigh（320 kbps） |
+| 无损 | lossless（FLAC） |
+| 高解析 | hires（Hi-Res FLAC） |
+
+- **`UserScreen.kt`**：`qualityOptions` 扩展为 5 项，WLAN 默认档改为 3（无损），移动数据默认档保持 1（较好）。
+- **`PlayerViewModel.kt`**：`qualityApiLevels` / `qualityDisplayLabels` 同步扩展；新增 `currentQualityLabel: MutableStateFlow<String>` 在 `init` 时从 SharedPreferences 读取，在每次 `playSong()` 时更新。
+
+### 全屏播放器音质徽章
+
+在 `FullPlayerControls` 进度条上方时间行（`currentPosition` ↔ `duration`）居中位置，新增音质显示徽章：
+
+- 样式：灰色（`#2A2A2A`）纯直角矩形背景，强调色文字，字号 11sp，SemiBold。
+- 内容：实时反映当前播放音质标签（`currentQualityLabel` 从 PlayerViewModel 收集）。
+- 样式：灰色（`#2A2A2A`）纯直角矩形背景，强调色文字，字号 11sp，SemiBold。
+- 内容：实时反映当前播放音质标签（`currentQualityLabel` 从 PlayerViewModel 收集）。
+- 参数链：`FullPlayerControls.onNavigateToUser` → `PlayerCard.onNavigateToUser` → `PlayerCardOverlay.onNavigateToUser` → `MainScreen` 内联 lambda。
+
+### 音质徽章点击行为修正
+
+**问题**：全屏播放器展开（`progress=1`）时点击徽章，`selectedTab` 已更新但用户页被播放器覆盖，视觉上毫无反应。
+
+**修复**（`MainActivity.kt`，`onNavigateToUser` lambda）：
+- 点击后同时触发播放器收起动画：`progress.animateTo(0f, tween(260, easing = FastOutSlowInEasing))`
+- 切换标签页与动画并发执行；收起后用户页自然可见。
+
+### 音质显示实际值修正
+
+**问题**：`currentQualityLabel` 初始化时取用户请求档位，而 NetEase API 可能静默降级（如无版权时 lossless → standard）。徽章显示的是"请求值"而非"实际值"，误导用户。
+
+**修复**（`SongUrlFetcher.kt` + `PlayerViewModel.kt`）：
+- `SongUrlFetcher.fetch()` 从 API 响应 JSON 读取 `"level"` 字段，以 `SongUrlResult(url, actualLevel)` 返回实际音质。
+- `PlayerViewModel.playSong()` 改用 `result.actualLevel` 查找显示标签并更新 `currentQualityLabel`，徽章始终反映 API 实际返回的音质档位。
+
+---
+
+**最后更新**：2026 年 5 月 16 日  
+**当前版本**：v1.0.4  
+**开发总时长**：约 13 天

@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -50,7 +51,8 @@ fun PlayerCard(
     onRemoveFromQueue: (Int) -> Unit = {},
     onPlayFromQueue: (Int) -> Unit = {},
     onTogglePlayMode: () -> Unit = {},
-    onSavePlaylist: () -> Unit = {}
+    onSavePlaylist: () -> Unit = {},
+    onNavigateToUser: () -> Unit = {}
 ) {
     val hasSong = song != null
     var showLyrics by remember { mutableStateOf(true) }
@@ -63,6 +65,7 @@ fun PlayerCard(
     val lyrics by playerViewModel.lyrics.collectAsState()
     val currentPosition by playerViewModel.currentPosition.collectAsState()
     val playbackProgress by playerViewModel.progress.collectAsState()
+    val qualityLabel by playerViewModel.currentQualityLabel.collectAsState()
 
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
@@ -91,6 +94,8 @@ fun PlayerCard(
     // 两个 Animatable 均只在 graphicsLayer { } draw 阶段读取，动画帧内零 recompose
     val lyricAnimProgress = remember { Animatable(1f) }
     val queueSlideProgress = remember { Animatable(0f) }
+    // 仅在歌词模式下歌词可交互；阈值穿越处各触发一次重组，其余帧零重组
+    val lyricsEnabled by remember { derivedStateOf { lyricAnimProgress.value > 0.5f && queueSlideProgress.value < 0.5f } }
 
     LaunchedEffect(showLyrics, showQueue) {
         when {
@@ -131,6 +136,20 @@ fun PlayerCard(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            // Outer modifier → runs last within this node in Main pass (after drag detector below).
+            // Consumes remaining events when fully expanded so Scaffold siblings never receive them.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        if (progress.value > 0.99f) {
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
+            // Inner modifier → runs first within this node in Main pass.
+            // Handles drag-to-collapse; runs before the outer consumer so it sees unconsumed MOVE.
             .pointerInput(Unit) {
                 var dragStartProgress = 0f
                 detectVerticalDragGestures(
@@ -225,14 +244,15 @@ fun PlayerCard(
                         .fillMaxWidth()
                         .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                 ) {
-                    // 歌词面板
+                    // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
+                    // 彻底消除与列表面板的命中测试重叠（combinedClickable 忽略 isConsumed 标志）
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer {
                                 val q = queueSlideProgress.value
                                 alpha = lyricAnimProgress.value * (1f - q)
-                                translationX = -q * contentSlideWidthPx
+                                translationX = -q * screenWidthPx
                             }
                     ) {
                         LyricsView(
@@ -240,18 +260,19 @@ fun PlayerCard(
                             currentPositionMs = currentPosition,
                             isVisible = showLyrics,
                             onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
-                            onUserScrolled = {}
+                            onUserScrolled = {},
+                            enabled = lyricsEnabled
                         )
                     }
 
-                    // 列表面板（header + QueueView）
+                    // 列表面板：translationX 从 +screenWidthPx 滑至 0，稳定态时完全在屏幕外
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer {
                                 val q = queueSlideProgress.value
                                 alpha = lyricAnimProgress.value * q
-                                translationX = (1f - q) * contentSlideWidthPx
+                                translationX = (1f - q) * screenWidthPx
                             }
                     ) {
                         Row(
@@ -338,6 +359,7 @@ fun PlayerCard(
                         playbackProgress = playbackProgress,
                         currentPosition = currentPosition,
                         duration = playerViewModel.duration.collectAsState().value,
+                        qualityLabel = qualityLabel,
                         onPlayPause = onPlayPause,
                         onPlayPrevious = onPlayPrevious,
                         onPlayNext = onPlayNext,
@@ -357,7 +379,8 @@ fun PlayerCard(
                             if (dur > 0) {
                                 playerViewModel.seekTo((fraction * dur).toLong())
                             }
-                        }
+                        },
+                        onNavigateToUser = onNavigateToUser
                     )
                 }
             }

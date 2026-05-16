@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -410,6 +411,39 @@ fun MainScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // PlayerCardOverlay is FIRST child: processes first in Compose Main pass (siblings are
+        // dispatched in composition order). Its inner consumer modifier in PlayerCard prevents
+        // Scaffold's SongCards from receiving events when the player is fully expanded.
+        // zIndex(1f) ensures it renders above Scaffold (default zIndex=0) despite being listed first.
+        Box(modifier = Modifier.fillMaxSize().zIndex(1f)) {
+        PlayerCardOverlay(
+            song = currentSong,
+            isPlaying = isPlaying,
+            progress = progress,
+            collapsedOffsetY = collapsedOffsetY,
+            screenHeightPx = screenHeightPx,
+            totalDragDistancePx = totalDragDistancePx,
+            playbackQueue = playbackQueue,
+            currentQueueIndex = currentQueueIndex,
+            playMode = playMode,
+            onPlayPause = { playerViewModel.togglePlayPause() },
+            onDismiss = { collapseCard() },
+            onPlayPrevious = { playPrevious() },
+            onPlayNext = { playNext() },
+            onRemoveFromQueue = { removeFromQueue(it) },
+            onPlayFromQueue = { playFromQueue(it) },
+            onTogglePlayMode = onTogglePlayMode,
+            onSavePlaylist = { /* TODO: 保存歌单 */ },
+            onNavigateToUser = {
+                selectedTab = 3
+                if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
+                coroutineScope.launch {
+                    progress.animateTo(0f, tween(260, easing = FastOutSlowInEasing))
+                }
+            }
+        )
+        } // end PlayerCardOverlay wrapper
+
         Scaffold(containerColor = Color.Transparent) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
                 MainNavGraph(
@@ -506,29 +540,12 @@ fun MainScreen(
             )
         }
 
-        PlayerCardOverlay(
-            song = currentSong,
-            isPlaying = isPlaying,
-            progress = progress,
-            collapsedOffsetY = collapsedOffsetY,
-            screenHeightPx = screenHeightPx,
-            totalDragDistancePx = totalDragDistancePx,
-            playbackQueue = playbackQueue,
-            currentQueueIndex = currentQueueIndex,
-            playMode = playMode,
-            onPlayPause = { playerViewModel.togglePlayPause() },
-            onDismiss = { collapseCard() },
-            onPlayPrevious = { playPrevious() },
-            onPlayNext = { playNext() },
-            onRemoveFromQueue = { removeFromQueue(it) },
-            onPlayFromQueue = { playFromQueue(it) },
-            onTogglePlayMode = onTogglePlayMode,
-            onSavePlaylist = { /* TODO: 保存歌单 */ }
-        )
-
+        // zIndex(1.5f) renders NavigationBar above PlayerCardOverlay (zIndex=1f),
+        // so it appears on top of the mini player bar when the player is collapsed.
         NavigationBar(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .zIndex(1.5f)
                 .graphicsLayer {
                     translationY = navBarHideOffset * progress.value
                 },
@@ -573,11 +590,13 @@ fun MainScreen(
         }
 
         menuSong?.let { song ->
-            SongMenuSheet(
-                song = song,
-                actions = menuSongActions,
-                onDismiss = { menuSong = null }
-            )
+            Box(Modifier.fillMaxSize().zIndex(2f)) {
+                SongMenuSheet(
+                    song = song,
+                    actions = menuSongActions,
+                    onDismiss = { menuSong = null }
+                )
+            }
         }
     }
 }
