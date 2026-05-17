@@ -6,9 +6,9 @@
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-1.5%2B-blue?style=flat-square&logo=jetpackcompose)
 ![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
-![Version](https://img.shields.io/badge/Version-1.0.0-brightgreen?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.1.4-brightgreen?style=flat-square)
 
-**Metro Design · GPU 零重组动画 · 无损音质 · 本地曲库管理**
+**Metro Design · GPU 零重组动画 · 无缝播放 · 多语言 · 无损音质**
 
 纯 Kotlin/Jetpack Compose 构建 · Media3 播放引擎 · eapi 加密直连
 
@@ -44,6 +44,10 @@
 - **📱 多屏幕适配**：21:9 基线，宽屏设备 360dp 居中限制，保持窄屏视觉比例
 - **🎨 关于页面**：内建 Markdown 渲染器，项目信息完整展示
 - **🖼️ 自定义图标**：绿色唱片风格 Adaptive Icon
+- **🎨 主题色系统**：6 种预设（云杉 / 钴蓝 / 绯红 / 琥珀 / 堇紫 / 素白），运行时切换，持久化
+- **🌐 多语言**：13 种语言运行时切换，不依赖系统 locale——简中 / 繁中 / English / British English / 日本語 / 조선어 / Deutsch / Русский / Советский русский / Ελληνικά / Lingua Latina / Ænglisc / Middle English
+- **⚡ 无缝播放**：gapless 模式下提前预加载下一首 URL，切歌即播；TTL 5 分钟缓存，手动切歌命中缓存时零等待
+- **📶 分网络音质**：Wi-Fi / 移动数据独立偏好，默认无损 / 较好；全屏播放页实时显示当前音质标签
 
 ### 🎼 支持音质
 
@@ -71,7 +75,7 @@
 
 ### 安装 APK
 
-从 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 下载最新 `Ncrust-v1.0.0.apk`（17.2 MB），允许"未知来源"安装。
+从 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 下载最新 `Ncrust-v1.1.4.apk`，允许"未知来源"安装。
 
 ---
 
@@ -129,7 +133,19 @@ app/src/main/java/com/takahashirinta/ncrust/
 
 ---
 
-## 📋 版本 1.0.0 功能状态
+## 📋 版本历史
+
+| 版本 | 日期 | 主要内容 |
+|------|------|---------|
+| v0.1.0-beta | 4 月 26 日 | 初始 MVP，核心播放流程跑通 |
+| v1.0.0 | 4 月 29 日 | 首个正式版：多屏幕适配、状态持久化、队列管理 |
+| v1.0.1 | 5 月 4 日 | 性能优化（零重组修复）、主题色系统、多语言框架、导航兼容性修复 |
+| v1.0.2 | 5 月 4 日 | 紧急修复：歌单页闪退（Issue #11）、WebView 小屏登录 |
+| v1.1.4 | 5 月 17 日 | 无缝播放元数据同步修复、URL 缓存去重、多语言扩充至 13 种 |
+
+---
+
+## 📋 版本 1.1.4 功能状态
 
 ### ✅ 已完成
 
@@ -153,6 +169,10 @@ app/src/main/java/com/takahashirinta/ncrust/
 | Splash Screen 渐隐 + JIT 预热 | ✅ |
 | 竖屏锁定 | ✅ |
 | 库页面单曲操作（插播/加队列） | ✅ |
+| 主题色系统（6 种预设，持久化） | ✅ |
+| 多语言系统（13 种，运行时切换） | ✅ |
+| 无缝播放（gapless + URL 缓存去重） | ✅ |
+| 分网络音质设置（Wi-Fi / 移动数据） | ✅ |
 
 ### ⏳ 待完成
 
@@ -174,6 +194,7 @@ app/src/main/java/com/takahashirinta/ncrust/
 | Coil 封面缓存策略待优化（偶有模糊） | ⚠️ |
 | 4GB RAM 设备进程易被杀（已通过状态持久化缓解） | ⚠️ |
 | `attributionTag` 系统日志警告（不影响功能） | ⚠️ |
+| gapless 未及时预加载时（短歌/提前跳歌）等待 URL fetch | ⚠️ |
 
 ---
 
@@ -267,13 +288,3 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&legend=top-left" />
  </picture>
 </a>
----
-
-主要更新点：
-
-1. 版本号从 0.1.0-beta 改为 1.0.0
-2. 功能状态表大幅扩充——首页发现、播放队列持久化、多屏幕适配、Splash 渐隐、应用图标、关于页面全部标为已完成
-3. 新增"核心设计决策"表，把 Metro Design、GPU 零重组、三层图层、单 Animatable 驱动这些架构灵魂写进 README
-4. 技术栈描述加了"GPU 零重组动画"和"Metro Design"
-5. 已知问题更新——旧问题已解决，新问题反映当前真实状态
-6. APK 大小标注 17.2 MB
