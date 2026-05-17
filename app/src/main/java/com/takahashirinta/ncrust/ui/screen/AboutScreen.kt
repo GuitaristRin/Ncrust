@@ -1,5 +1,7 @@
 package com.takahashirinta.ncrust.ui.screen
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -7,35 +9,37 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import com.takahashirinta.ncrust.ui.ResponsiveContent
-import com.takahashirinta.ncrust.ui.theme.MarkdownText
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.R
+import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+
+private const val VERSION = "v1.1.4"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
+    val s = LocalStrings.current
+    val accent = MaterialTheme.colorScheme.primary
     BackHandler { onBack() }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("关于 Ncrust", color = Color.White) },
+                title = { Text(s.aboutTitle, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, s.back, tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1A1A1A)
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1A1A1A))
             )
         },
         containerColor = Color(0xFF121212)
@@ -45,68 +49,91 @@ fun AboutScreen(onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_launcher),
-                    contentDescription = "Ncrust 图标",
-                    modifier = Modifier
-                        .size(96.dp)
-                        .align(Alignment.CenterHorizontally),
+                    contentDescription = "Ncrust",
+                    modifier = Modifier.size(80.dp),
                     contentScale = ContentScale.Fit
                 )
+                Spacer(Modifier.height(16.dp))
+                Text("Ncrust", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = accent)
+                Text(VERSION, fontSize = 14.sp, color = accent.copy(alpha = 0.72f))
+                Spacer(Modifier.height(6.dp))
+                Text(s.aboutAppSubtitle, fontSize = 13.sp, color = Color(0xFF888888))
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(28.dp))
+                HorizontalDivider(color = Color(0xFF272727))
+                Spacer(Modifier.height(20.dp))
 
-                MarkdownText(
-                    markdown = aboutMarkdown
-                )
+                AboutSection(s.aboutSectionProject.uppercase(), accent)
+                AboutRow(s.aboutVersion, VERSION)
+                AboutRow(s.aboutDeveloper, "Takahashi_Rinta")
+                AboutRow(s.aboutLicense, "MIT")
+                AboutRow(s.aboutRepository, "github.com/GuitaristRin/Ncrust")
+
+                Spacer(Modifier.height(20.dp))
+                AboutSection(s.aboutSectionTechStack.uppercase(), accent)
+                AboutRow(s.aboutLangLabel, "Kotlin")
+                AboutRow(s.aboutUIFrameworkLabel, "Jetpack Compose")
+                AboutRow(s.aboutAudioEngineLabel, "Media3 ExoPlayer")
+                AboutRow(s.aboutNetworkLabel, "Retrofit + OkHttp")
+                AboutRow(s.aboutImageLabel, "Coil")
+
+                Spacer(Modifier.height(20.dp))
+                AboutSection(s.aboutSectionTeam.uppercase(), accent)
+                AboutRow(s.aboutRoleDev, "Takahashi_Rinta")
+                AboutRow(s.aboutRoleTester, "白给小子")
+
+                Spacer(Modifier.height(20.dp))
+                AboutSection(s.aboutSectionCredits.uppercase(), accent)
+                AboutRow(s.aboutCreditCli, "Suxiaoqinx/Netease_url (MIT)")
+                AboutRow(s.aboutCreditAnim, "SaltPlayerSource")
+                AboutRow(s.aboutCreditDesign, "Apple Music for Android")
+
+                Spacer(Modifier.height(32.dp))
             }
         }
     }
 }
 
-/**
- * 关于页的 Markdown 内容。
- * 替换此字符串即可更新页面内容。
- * 支持：标题、粗体、斜体、代码、图片（![描述](URL)）。
- */
-val aboutMarkdown = """
-# Ncrust
+@Composable
+private fun AboutSection(title: String, accent: Color) {
+    Text(
+        title,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        color = accent,
+        letterSpacing = 1.5.sp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp)
+    )
+}
 
-网易云音乐第三方客户端
-
----
-
-## 项目信息
-
-- **版本**：v1.0.0
-- **开发者**：Takahashi_Rinta
-- **许可证**：MIT
-- **项目地址**：github.com/GuitaristRin/Ncrust
-
----
-
-## 技术栈
-
-- **语言**：Kotlin
-- **UI 框架**：Jetpack Compose
-- **音频引擎**：Media3 ExoPlayer
-- **网络库**：Retrofit + OkHttp
-- **图片库**：Coil
-
----
-## 开发人员名单
-- **全栈工程师 & 设计主理**：Takahashi_Rinta
-- **UI适配性测试**：白给小子
----
-
-## 致谢
-
-- CLI逻辑实现：Suxiaoqinx/Netease_url (MIT)
-- 动画参考：SaltPlayerSource
-- 设计参考：Apple Music for Android
-
----
-
-""".trimIndent()
+@Composable
+private fun AboutRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            color = Color(0xFF888888),
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            value,
+            fontSize = 13.sp,
+            color = Color(0xFFDDDDDD),
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1.5f)
+        )
+    }
+}

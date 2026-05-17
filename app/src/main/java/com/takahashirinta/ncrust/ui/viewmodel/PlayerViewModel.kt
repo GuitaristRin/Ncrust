@@ -57,6 +57,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var preloadedArtist = ""
     private var preloadedArtwork = ""
     private var preloadedActualLevel = ""
+    // Cached stream URL from the last completed preload; used by playSong fast-path to skip fetch.
+    private var preloadedUrl = ""
+    // Song ID most recently requested by playSong; lets a concurrent preload detect a same-song race.
+    private var latestPlaySongId = -1L
+
+    private data class PreloadCacheEntry(val url: String, val actualLevel: String, val timestamp: Long = System.currentTimeMillis())
+    private val preloadCache = mutableMapOf<Long, PreloadCacheEntry>()
+    private val CACHE_TTL_MS = 5 * 60 * 1_000L
+    // Prevents duplicate preload launches for the same song while one is in flight.
+    private var currentlyPreloadingSongId = -1L
 
     init {
         refreshGaplessSetting()
@@ -132,9 +142,37 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun playSong(songId: Long, title: String = "", artist: String = "", artworkUrl: String = "", quality: String = "") {
         songPlayVersion++
-        preloadJob?.cancel()
+        latestPlaySongId = songId
         needsPreload.value = false
         refreshGaplessSetting()
+
+        // Fast path: URL was preloaded and cached — skip network round-trip entirely.
+        val cachedEntry = preloadCache[songId]?.takeIf { System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS }
+        if (cachedEntry != null) {
+            preloadedSongId = -1L; preloadedTitle = ""; preloadedArtist = ""
+            preloadedArtwork = ""; preloadedActualLevel = ""; preloadedUrl = ""
+            val actualIdx = qualityApiLevels.indexOf(cachedEntry.actualLevel).coerceAtLeast(0)
+            currentQualityLabel.value = qualityDisplayLabels.getOrElse(actualIdx) { "无损" }
+            currentSongId.value = songId
+            currentSongName.value = title
+            currentSongArtist.value = artist
+            currentSongArtwork.value = artworkUrl
+            val intent = Intent(getApplication(), PlaybackService::class.java).apply {
+                putExtra("url", cachedEntry.url)
+                putExtra("title", title)
+                putExtra("artist", artist)
+                putExtra("artwork", artworkUrl)
+                putExtra("songId", songId)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                getApplication<Application>().startForegroundService(intent)
+            else
+                getApplication<Application>().startService(intent)
+            isPlaying.value = true
+            viewModelScope.launch { fetchLyrics(songId) }
+            PlaybackStateManager.saveState(getApplication(), songId, title, artist, artworkUrl, true)
+            return
+        }
 
         val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
         val selectedQuality = if (quality.isNotEmpty()) quality
@@ -176,25 +214,64 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun preloadNextSong(songId: Long, title: String, artist: String, artworkUrl: String) {
+        // Dedup: skip if URL already cached (valid TTL) or same song is already being fetched.
+        if (preloadCache[songId]?.let { System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS } == true) return
+        if (currentlyPreloadingSongId == songId) return
+
         val capturedVersion = songPlayVersion
         preloadJob?.cancel()
+        currentlyPreloadingSongId = songId
         preloadJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
-                if (!prefs.getBoolean("gapless_playback", false)) return@launch
+                if (!prefs.getBoolean("gapless_playback", false)) {
+                    currentlyPreloadingSongId = -1L
+                    return@launch
+                }
                 val quality = if (isOnWifi())
                     qualityApiLevels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
                 else
                     qualityApiLevels.getOrElse(prefs.getInt("mobile_quality", 1)) { "higher" }
                 val result = SongUrlFetcher.fetch(songId, quality)
                 withContext(Dispatchers.Main) {
-                    if (capturedVersion != songPlayVersion) return@withContext  // stale: a new song started
-                    // Write preloaded metadata on the main thread (same thread as onSongTransitioned).
+                    currentlyPreloadingSongId = -1L
+                    // Store in cache regardless of staleness — URL is valid even if a new song started.
+                    preloadCache[songId] = PreloadCacheEntry(result.url, result.actualLevel)
+                    if (capturedVersion != songPlayVersion) {
+                        // playSong was called while this fetch was in flight.
+                        // If it was for THIS same song and hasn't completed its own fetch, take over.
+                        if (songId == latestPlaySongId && currentSongId.value != songId) {
+                            playJob?.cancel()
+                            val idx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
+                            currentQualityLabel.value = qualityDisplayLabels.getOrElse(idx) { "无损" }
+                            currentSongId.value = songId
+                            currentSongName.value = title
+                            currentSongArtist.value = artist
+                            currentSongArtwork.value = artworkUrl
+                            val intent = Intent(getApplication(), PlaybackService::class.java).apply {
+                                putExtra("url", result.url)
+                                putExtra("title", title)
+                                putExtra("artist", artist)
+                                putExtra("artwork", artworkUrl)
+                                putExtra("songId", songId)
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                                getApplication<Application>().startForegroundService(intent)
+                            else
+                                getApplication<Application>().startService(intent)
+                            isPlaying.value = true
+                            viewModelScope.launch { fetchLyrics(songId) }
+                            PlaybackStateManager.saveState(getApplication(), songId, title, artist, artworkUrl, true)
+                        }
+                        return@withContext
+                    }
+                    // Normal path: add to ExoPlayer queue for gapless auto-transition.
                     preloadedSongId = songId
                     preloadedTitle = title
                     preloadedArtist = artist
                     preloadedArtwork = artworkUrl
                     preloadedActualLevel = result.actualLevel
+                    preloadedUrl = result.url
                     val intent = Intent(getApplication(), PlaybackService::class.java).apply {
                         putExtra("action", "preload_next")
                         putExtra("url", result.url)
@@ -210,6 +287,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     Log.d("PlayerViewModel", "Preload enqueued: $title")
                 }
             } catch (e: Exception) {
+                currentlyPreloadingSongId = -1L
                 Log.w("PlayerViewModel", "Preload failed for songId=$songId", e)
             }
         }

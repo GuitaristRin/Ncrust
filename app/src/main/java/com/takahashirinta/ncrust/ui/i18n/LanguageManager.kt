@@ -14,15 +14,15 @@ val languagePresets: List<LanguagePreset> = listOf(
     LanguagePreset("zh-TW", "繁體中文", zhTW),
     LanguagePreset("en-US", "English (US)", enUS),
     LanguagePreset("en-UK", "English (UK)", enUK),
-    LanguagePreset("en-1400", "Middle English", en1400),
     LanguagePreset("ja-JP", "日本語", jpJP),
+    LanguagePreset("ang-GB", "Ænglisc", angGB),
+    LanguagePreset("en-1400", "Middle English", en1400),
     LanguagePreset("ko-KP", "조선어", koNK),
     LanguagePreset("de-DE", "Deutsch", deDE),
     LanguagePreset("ru-RU", "Русский", ruRU),
     LanguagePreset("ru-SU", "Советский русский", ruSU),
     LanguagePreset("el-GR", "Ελληνικά", elGR),
     LanguagePreset("la-VA", "Lingua Latina", laVA),
-    LanguagePreset("ang-GB", "Ænglisc", angGB),
 )
 
 val LocalStrings = compositionLocalOf { zhCN }

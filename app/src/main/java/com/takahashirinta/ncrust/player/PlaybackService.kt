@@ -141,10 +141,11 @@ class PlaybackService : MediaSessionService() {
         when (intent?.getStringExtra("action")) {
             "preload_next" -> {
                 val nextUrl = intent.getStringExtra("url") ?: return START_NOT_STICKY
+                val nextSongId = intent.getLongExtra("songId", -1L)
                 pendingNextTitle = intent.getStringExtra("title")
                 pendingNextArtist = intent.getStringExtra("artist")
                 pendingNextArtwork = intent.getStringExtra("artwork")
-                pendingNextSongId = intent.getLongExtra("songId", -1L)
+                pendingNextSongId = nextSongId
                 player.addMediaItem(androidx.media3.common.MediaItem.fromUri(nextUrl))
                 Log.d("PlaybackService", "Queued next: $pendingNextTitle url=$nextUrl")
                 return START_NOT_STICKY

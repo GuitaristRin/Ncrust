@@ -95,4 +95,23 @@ data class Strings(
 
     // About
     val aboutTitle: String,
+    val aboutAppSubtitle: String,
+    val aboutSectionProject: String,
+    val aboutVersion: String,
+    val aboutDeveloper: String,
+    val aboutLicense: String,
+    val aboutRepository: String,
+    val aboutSectionTechStack: String,
+    val aboutLangLabel: String,
+    val aboutUIFrameworkLabel: String,
+    val aboutAudioEngineLabel: String,
+    val aboutNetworkLabel: String,
+    val aboutImageLabel: String,
+    val aboutSectionTeam: String,
+    val aboutRoleDev: String,
+    val aboutRoleTester: String,
+    val aboutSectionCredits: String,
+    val aboutCreditCli: String,
+    val aboutCreditAnim: String,
+    val aboutCreditDesign: String,
 )

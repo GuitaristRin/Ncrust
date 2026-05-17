@@ -39,6 +39,7 @@ Package layout under `com.takahashirinta.ncrust/`:
 | `ui/viewmodel/` | `PlayerViewModel`, `SearchViewModel`, `SongViewModel` |
 | `ui/components/` | Reusable composables (`SongCard`, `DetailScaffold`, `PlayAllCircleButton`) |
 | `ui/theme/` | Theme color system, `MarkdownText` composable |
+| `ui/i18n/` | Runtime i18n system: `Strings` data class, per-language files, `LanguageManager` |
 | `auth/` | Cookie singleton (MUSIC_U extraction, SharedPreferences storage) |
 | `library/` | Saved songs singleton, album derivation by `albumId` |
 | `lyric/` | LRC parser: `[MM:SS.mm]` → `LrcLine.timeMs` |
@@ -115,8 +116,25 @@ No dependency injection framework. Singletons are used as service locators:
 - `LibraryManager` — saved songs
 - `PlaybackStateManager` — persisted playback state
 - `ThemeManager` — theme color preference
+- `LanguageManager` (via `LocalStrings` CompositionLocal) — runtime locale
 
 No Room database anywhere — all persistence is SharedPreferences + Gson.
+
+### i18n System
+
+All UI strings live in `ui/i18n/`. The system is runtime-based (not Android resource strings):
+
+- **`Strings.kt`** — single data class with every UI string as a property; lambdas for formatted strings (e.g. `trackCount: (Int) -> String`)
+- **One file per locale** (e.g. `zh_CN.kt`, `en_US.kt`) — each defines a `val zhCN: Strings = Strings(...)` top-level value
+- **`LanguageManager.kt`** — `languagePresets` list, `LocalStrings` CompositionLocal (default `zhCN`), SharedPreferences helpers `getSavedLanguageCode`/`saveLanguageCode`/`stringsForCode`
+
+Supported locales: 简体中文, 繁體中文, English (US/UK), 日本語, 조선어, Deutsch, Русский, Советский русский, Ελληνικά, Lingua Latina, Ænglisc (Old English), Middle English.
+
+To **add a new locale**: create a new `xx_XX.kt` file with a `Strings(...)` instance, add a `LanguagePreset` entry to `languagePresets` in `LanguageManager.kt`.
+
+To **add a new string**: add the property to `Strings` in `Strings.kt`, then add it to every locale file.
+
+Composables read strings via `val s = LocalStrings.current` — never hardcode UI strings.
 
 ## Key Constraints
 

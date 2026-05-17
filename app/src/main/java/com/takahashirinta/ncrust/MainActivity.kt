@@ -120,6 +120,7 @@ fun MainScreen(
     val playerViewModel: PlayerViewModel = viewModel()
     val isPlaying by playerViewModel.isPlaying.collectAsState()
     var currentSong by remember { mutableStateOf<SongItem?>(null) }
+    val vmCurrentSongId by playerViewModel.currentSongId.collectAsState()
     val context = LocalContext.current
 
     val density = LocalDensity.current
@@ -201,6 +202,15 @@ fun MainScreen(
         }
     }
 
+    // ViewModel 确认切歌后（URL fetch 完成或 gapless 快速路径），
+    // 从队列中找到对应 SongItem 并更新 currentSong，保证 UI 与音频同步。
+    LaunchedEffect(vmCurrentSongId) {
+        val id = vmCurrentSongId ?: return@LaunchedEffect
+        if (currentSong?.id == id) return@LaunchedEffect
+        val found = playbackQueue.firstOrNull { it.id == id }
+        if (found != null) currentSong = found
+    }
+
     fun addToQueue(song: SongItem) {
         playbackQueue = playbackQueue.filter { it.id != song.id }
         playbackQueue = playbackQueue + song
@@ -223,8 +233,21 @@ fun MainScreen(
             val song = playbackQueue[index]
             val (title, artist, artwork) = songParams(song)
             playerViewModel.playSong(song.id, title = title, artist = artist, artworkUrl = artwork)
-            currentSong = song
             PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+
+            // Immediately preload the next song so ExoPlayer has maximum time to buffer it.
+            val nextIdx = when (playMode) {
+                1 -> index
+                2 -> shuffledIndices.getOrNull(
+                    if (shuffledPosition < shuffledIndices.size - 1) shuffledPosition + 1 else 0
+                ) ?: 0
+                else -> if (index < playbackQueue.size - 1) index + 1 else 0
+            }
+            val nextSong = playbackQueue.getOrNull(nextIdx)
+            if (nextSong != null) {
+                val (nTitle, nArtist, nArtwork) = songParams(nextSong)
+                playerViewModel.preloadNextSong(nextSong.id, nTitle, nArtist, nArtwork)
+            }
         }
     }
 
@@ -272,10 +295,13 @@ fun MainScreen(
     }
 
     // 无缝播放：当进入当前歌曲的最后 20 秒时，预取下一首的 URL 并加入 ExoPlayer 队列。
+    // NOTE: resetPreloadFlag() is intentionally NOT called here. Calling it resets the StateFlow
+    // to false, which lets the 250ms progress ticker re-set it to true immediately, causing
+    // preloadNextSong to be called every 250ms (each call cancelling the previous). The flag is
+    // cleared naturally by playSong() and onSongTransitioned.
     LaunchedEffect(Unit) {
         playerViewModel.needsPreload.collect { needs ->
             if (!needs) return@collect
-            playerViewModel.resetPreloadFlag()
             val nextSong: SongItem? = when {
                 playbackQueue.isEmpty() -> null
                 playMode == 1 -> playbackQueue.getOrNull(currentQueueIndex)  // 单曲循环
@@ -320,6 +346,20 @@ fun MainScreen(
         currentSong = playbackQueue.getOrNull(nextIndex)
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
         currentSong?.id?.let { playerViewModel.fetchLyricsForSong(it) }
+
+        // Immediately start preloading the song after this one.
+        val nnIdx = when (playMode) {
+            1 -> nextIndex
+            2 -> shuffledIndices.getOrNull(
+                if (shuffledPosition < shuffledIndices.size - 1) shuffledPosition + 1 else 0
+            ) ?: 0
+            else -> if (nextIndex < playbackQueue.size - 1) nextIndex + 1 else 0
+        }
+        val songToPreload = playbackQueue.getOrNull(nnIdx)
+        if (songToPreload != null) {
+            val (pTitle, pArtist, pArtwork) = songParams(songToPreload)
+            playerViewModel.preloadNextSong(songToPreload.id, pTitle, pArtist, pArtwork)
+        }
     }
 
     // 在 Splash 遮挡期间渲染一帧全展开状态，提前编译 PlayerCard 所有 graphicsLayer 的 GPU Shader。

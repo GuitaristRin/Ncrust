@@ -12,6 +12,69 @@
 
 ---
 
+## 2026 年 5 月 17 日
+
+### 修复无缝播放元数据与音频不同步问题
+
+**问题描述**：gapless 模式下，有时出现"UI 显示下一首歌曲信息，但音频仍播放上一首"的不同步现象。
+
+**根本原因分析（三处 bug + 后续竞态）**：
+
+**【2026-05-17 二次修复】根本修复：250ms 循环 + 重复取消 + 缓存机制**
+
+**真正的根本原因（从用户日志 `SongUrlFetcher: eapi response 重复数十次` 和 `JobCancellationException` 确定）：**
+
+1. **`resetPreloadFlag()` 引发 250ms 无限循环**：MainScreen `LaunchedEffect` 收到 `needsPreload=true` 后立刻调 `resetPreloadFlag()`（置 false），250ms 后 progress ticker 里 `!needsPreload.value` 为真，又设回 true，LaunchedEffect 再次触发 → 每 250ms 调一次 `preloadNextSong`，每次都 cancel 上一个协程，循环往复，URL 永远取不完。
+2. **无去重**：每次 `preloadNextSong` 开头直接 `preloadJob?.cancel()`，没有判断是否已在处理同一首歌。
+
+**修复（三个文件）：**
+
+`PlayerViewModel.kt`：
+- 新增 `PreloadCacheEntry` 数据类 + `preloadCache: MutableMap<Long, PreloadCacheEntry>`，TTL 5 分钟。
+- 新增 `currentlyPreloadingSongId` 字段：`preloadNextSong` 开头双重去重——已缓存或正在处理同一 songId，直接 return，不 cancel 也不重启。
+- `preloadNextSong` 完成后将 URL 存入 `preloadCache`（无论版本是否过期），`currentlyPreloadingSongId` 在成功/失败/gapless 关闭三处全部清零。
+- `playSong` 快速路径改为查 `preloadCache[songId]` 替代原 `preloadedSongId/preloadedUrl` 单条记录检查。
+
+`MainActivity.kt`：
+- **移除 `playerViewModel.resetPreloadFlag()`**（250ms 循环的根源），flag 由 `playSong()` 和 `onSongTransitioned` 自然清零。
+- `playFromQueue`：调 `playSong` 后立即对下一首调 `preloadNextSong`，从歌曲开始就有整曲时长做 buffer，而非等到最后 20 秒。
+- `LaunchedEffect(songTransitioned)`：auto-transition 完成后立即预加载再下一首。
+
+---
+
+1. **`playFromQueue` 立即更新 `currentSong`（主因）**
+   - `playFromQueue` 调用 `playerViewModel.playSong()`（异步 fetch URL，耗时 0.5–3 秒）后立刻执行 `currentSong = song`。
+   - PlayerCard 立即显示新歌信息，但 ExoPlayer 仍在播放旧歌 URL，造成 UI 超前于音频。
+
+2. **`needsPreload` 在 URL fetch 期间被 progress 更新重新触发**
+   - `playSong` 开头将 `needsPreload` 置 false，但 250ms 后 `onProgressUpdate` 仍可将其重置为 true（旧歌仍在播放且处于最后 20s 内）。
+   - 导致在正确歌曲 URL 尚未取回时，就基于已更新的 `currentQueueIndex` 预加载了错误的下下首。
+
+3. **未缓存已预取的 URL，手动切歌仍重复 fetch**
+   - gapless 已成功预取 B 的 URL 并加入 ExoPlayer 队列，但用户手动按"下一首"时仍触发对 B 的网络请求，白白等待 1–3 秒。
+
+**修复方案**：
+
+**`PlayerViewModel.kt`**
+- 新增 `preloadedUrl: String` 字段，在 `preloadNextSong` 完成后缓存 URL（与其他 `preloaded*` 字段同步写入主线程）。
+- `playSong` 加入快速路径：若 `gaplessEnabled && preloadedSongId == songId && preloadedUrl.isNotEmpty()`，直接使用缓存 URL，清空预加载状态，立即更新 ViewModel 元数据并发送 intent，无需重新 fetch。
+- `onProgressUpdate` 中的 `needsPreload` 触发逻辑保持原有简洁形式（仅 `!needsPreload.value` 守卫），未添加 `playJob?.isActive != true` 守卫（该守卫会因 `fetchLyrics` 网络请求期间 `playJob` 长时间 active，导致无缝预加载完全失效，已验证并放弃）。
+
+**`PlaybackService.kt`**
+- 移除 `preload_next` 处理器中的 `nextSongId == mediaSongId` 守卫。该守卫本意防止快速路径下重复入队，但 `playUrl()` 调用 `player.setMediaItem()` 会整体替换队列，重复入队问题不存在；且该守卫会破坏单曲循环（预加载曲目 ID 等于当前播放 ID 时被误跳过）。
+
+**`MainActivity.kt`**
+- 新增 `val vmCurrentSongId by playerViewModel.currentSongId.collectAsState()`。
+- 新增 `LaunchedEffect(vmCurrentSongId)`：ViewModel 确认切歌后（URL fetch 完成或快速路径），从队列中找到对应 `SongItem` 更新 `currentSong`，作为 UI 的唯一真相来源。
+- 移除 `playFromQueue` 中的 `currentSong = song` 急切赋值，改由上述 LaunchedEffect 负责更新。
+
+**行为变化**：
+- **gapless 已预加载时**（正常 gapless 场景）：手动切歌走快速路径，元数据与音频几乎同时切换（< 1 帧误差），不同步问题消除。
+- **gapless 未来得及预加载时**（短歌 / 提前跳歌）：显示旧歌信息直到 URL fetch 完成，属于可接受的正常缓冲等待，符合用户预期（"正常卡顿加载，是允许的"）。
+- **自动 gapless 切换**：路径不变，`onSongTransitioned` → `currentSongId` 更新 → `LaunchedEffect(vmCurrentSongId)` → `currentSong` 更新，行为正确。
+
+---
+
 ## 2026 年 4 月 22 日
 
 ### 项目起源与立项# Ncrust 项目开发日志
