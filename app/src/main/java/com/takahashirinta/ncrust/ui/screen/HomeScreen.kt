@@ -31,6 +31,7 @@ import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,6 +55,7 @@ fun HomeScreen(
     onSongAppendToQueue: (SongItem) -> Unit = {},
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
+    val strings = LocalStrings.current
     var dailySongs by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var playlists by remember { mutableStateOf<List<PlaylistCard>>(emptyList()) }
     val newSongs = remember { mutableStateListOf<SongItem>() }
@@ -211,9 +213,9 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("🌅 每日推荐", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text(strings.dailySongsTitle, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             IconButton(onClick = { onPlayDailyAll?.invoke(dailySongs) }) {
-                                Icon(Icons.Default.PlayArrow, "播放全部", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                                Icon(Icons.Default.PlayArrow, strings.playAllButton, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                             }
                         }
                     }
@@ -232,13 +234,13 @@ fun HomeScreen(
                                             onClick = { onSongClick(song) },
                                             onShowMenu = {
                                             onShowSongMenu(song, listOf(
-                                                SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                                SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                                     LibraryManager.saveSong(context, song)
                                                 },
-                                                SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                                SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                                     onSongInsertNext(song)
                                                 },
-                                                SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                                SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
                                                     onSongAppendToQueue(song)
                                                 }
                                             ))
@@ -253,7 +255,7 @@ fun HomeScreen(
                 }
                 // 推荐歌单
                 if (playlists.isNotEmpty()) {
-                    item { Text("📋 推荐歌单", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 4.dp)) }
+                    item { Text(strings.recommendPlaylistTitle, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 4.dp)) }
                     item {
                         LazyRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             items(playlists) { pl -> PlaylistCardItem(playlist = pl, onClick = { onPlaylistClick(pl.id) }, onPlayAll = { onPlayPlaylist(pl.id) }) }
@@ -263,7 +265,7 @@ fun HomeScreen(
                 }
 
                 // 新歌速递
-                item { Text("🆕 新歌速递", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 12.dp)) }
+                item { Text(strings.newSongsTitle, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 12.dp)) }
                 items(newSongs.toList()) { song ->
                     SongCard(
                         song = song,
@@ -288,7 +290,7 @@ fun HomeScreen(
                     item { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) } }
                 }
                 if (!hasMore && newSongs.isNotEmpty()) {
-                    item { Text("— 没有更多了 —", color = Color.Gray, modifier = Modifier.fillMaxWidth().padding(16.dp), textAlign = TextAlign.Center) }
+                    item { Text(strings.noMoreContent, color = Color.Gray, modifier = Modifier.fillMaxWidth().padding(16.dp), textAlign = TextAlign.Center) }
                 }
             }
         }
@@ -298,6 +300,7 @@ fun HomeScreen(
 
 @Composable
 fun PlaylistCardItem(playlist: PlaylistCard, onClick: () -> Unit, onPlayAll: () -> Unit) {
+    val strings = LocalStrings.current
     Column(modifier = Modifier.width(140.dp).clickable { onClick() }) {
         Box(modifier = Modifier.size(140.dp)) {
             AsyncImage(model = playlist.coverUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -309,6 +312,6 @@ fun PlaylistCardItem(playlist: PlaylistCard, onClick: () -> Unit, onPlayAll: () 
         }
         Spacer(Modifier.height(6.dp))
         Text(playlist.name, color = Color.White, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text("${playlist.trackCount}首歌曲", color = Color.Gray, fontSize = 11.sp)
+        Text(strings.trackCountSongs(playlist.trackCount), color = Color.Gray, fontSize = 11.sp)
     }
 }

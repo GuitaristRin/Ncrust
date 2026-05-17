@@ -45,11 +45,20 @@ class PlaybackService : MediaSessionService() {
         var onPlaybackEnded: (() -> Unit)? = null
         var onPlaybackPrevious: (() -> Unit)? = null
         var onIsPlayingChanged: ((Boolean) -> Unit)? = null
+        // Fired on the main thread when ExoPlayer auto-transitions to a preloaded next item.
+        var onSongTransitioned: (() -> Unit)? = null
+        var onBufferingChanged: ((Boolean) -> Unit)? = null
         var mediaTitle: String = "Ncrust"
         var mediaArtist: String = ""
         var mediaSongId: Long? = null
         var instance: PlaybackService? = null
     }
+
+    // Metadata staged for the next gapless transition.
+    private var pendingNextTitle: String? = null
+    private var pendingNextArtist: String? = null
+    private var pendingNextArtwork: String? = null
+    private var pendingNextSongId: Long = -1L
 
     override fun onCreate() {
         super.onCreate()
@@ -86,6 +95,7 @@ class PlaybackService : MediaSessionService() {
                 if (state == Player.STATE_ENDED) {
                     onPlaybackEnded?.invoke()
                 }
+                onBufferingChanged?.invoke(state == Player.STATE_BUFFERING)
                 updatePlaybackState()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -93,6 +103,31 @@ class PlaybackService : MediaSessionService() {
                 PlaybackStateManager.updatePlayingState(this@PlaybackService, isPlaying)
                 updatePlaybackState()
                 updateNotify()
+            }
+            override fun onMediaItemTransition(
+                mediaItem: androidx.media3.common.MediaItem?,
+                reason: Int
+            ) {
+                // Only handle automatic transitions triggered by ExoPlayer (gapless handoff).
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && pendingNextTitle != null) {
+                    mediaTitle = pendingNextTitle!!
+                    mediaArtist = pendingNextArtist ?: ""
+                    mediaSongId = pendingNextSongId.takeIf { it > 0 }
+                    pendingNextTitle = null
+                    val artwork = pendingNextArtwork
+                    pendingNextArtwork = null
+                    if (!artwork.isNullOrEmpty()) {
+                        currentArtworkUrl = artwork
+                        loadArtwork(artwork)
+                    }
+                    // Remove the finished item so the playlist stays compact.
+                    if (player.mediaItemCount > 1) {
+                        player.removeMediaItem(0)
+                    }
+                    updatePlaybackState()
+                    updateNotify()
+                    onSongTransitioned?.invoke()
+                }
             }
         })
         createNotificationChannel()
@@ -104,6 +139,16 @@ class PlaybackService : MediaSessionService() {
         Log.d("PlaybackService", "onStartCommand action=${intent?.getStringExtra("action")}")
 
         when (intent?.getStringExtra("action")) {
+            "preload_next" -> {
+                val nextUrl = intent.getStringExtra("url") ?: return START_NOT_STICKY
+                pendingNextTitle = intent.getStringExtra("title")
+                pendingNextArtist = intent.getStringExtra("artist")
+                pendingNextArtwork = intent.getStringExtra("artwork")
+                pendingNextSongId = intent.getLongExtra("songId", -1L)
+                player.addMediaItem(androidx.media3.common.MediaItem.fromUri(nextUrl))
+                Log.d("PlaybackService", "Queued next: $pendingNextTitle url=$nextUrl")
+                return START_NOT_STICKY
+            }
             "pause" -> { player.pause() }
             "resume" -> { player.play() }
             "stop" -> {
@@ -158,6 +203,11 @@ class PlaybackService : MediaSessionService() {
 
     private fun playUrl(url: String) {
         Log.d("PlaybackService", "Playing: $url")
+        // Clear any stale preload metadata; setMediaItem replaces the entire playlist.
+        pendingNextTitle = null
+        pendingNextArtist = null
+        pendingNextArtwork = null
+        pendingNextSongId = -1L
         val mediaItem = androidx.media3.common.MediaItem.fromUri(url)
         player.setMediaItem(mediaItem)
         player.prepare()

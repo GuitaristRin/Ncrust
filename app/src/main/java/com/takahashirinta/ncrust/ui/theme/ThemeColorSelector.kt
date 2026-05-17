@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,6 +27,7 @@ fun ThemeColorSelector(
     presets: List<ThemeColorPreset>,
     onSelect: (Int) -> Unit
 ) {
+    val colorNames = LocalStrings.current.themeColorNames
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -57,7 +59,7 @@ fun ThemeColorSelector(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = preset.label,
+                        text = colorNames.getOrElse(index) { preset.label },
                         color = if (isSelected) Color.Black else Color.White,
                         fontSize = 14.sp
                     )

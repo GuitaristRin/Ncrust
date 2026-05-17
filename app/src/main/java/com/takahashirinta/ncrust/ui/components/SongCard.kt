@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 enum class SongCardStyle {
     LIST,
@@ -42,7 +43,7 @@ fun SongCard(
     isCurrentPlaying: Boolean = false,
     showCover: Boolean = true
 ) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
+    val artistStr = song.artists?.joinToString("/") { it.name } ?: LocalStrings.current.unknownArtist
     val albumName = song.album?.name ?: ""
     val durationStr = song.duration?.let { formatDuration(it) } ?: ""
 
@@ -183,7 +184,7 @@ fun PlayAllCircleButton(
     ) {
         Icon(
             Icons.Default.PlayArrow,
-            "播放全部",
+            LocalStrings.current.playAllButton,
             tint = Color.Black,
             modifier = Modifier.size((size * 0.55f))
         )

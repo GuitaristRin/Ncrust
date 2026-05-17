@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,6 +48,10 @@ import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
 import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
 import com.takahashirinta.ncrust.ui.screen.*
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
+import com.takahashirinta.ncrust.ui.i18n.saveLanguageCode
+import com.takahashirinta.ncrust.ui.i18n.stringsForCode
 import com.takahashirinta.ncrust.ui.theme.NcrustTheme
 import com.takahashirinta.ncrust.ui.theme.getSavedThemeIndex
 import com.takahashirinta.ncrust.ui.theme.saveThemeIndex
@@ -67,19 +72,29 @@ class MainActivity : ComponentActivity() {
             var themeIndex by remember {
                 mutableIntStateOf(getSavedThemeIndex(this@MainActivity))
             }
+            var languageCode by remember {
+                mutableStateOf(getSavedLanguageCode(this@MainActivity))
+            }
 
-            NcrustTheme(primaryColor = themeColorForIndex(themeIndex)) {
-                var showSplash by remember { mutableStateOf(true) }
-                Box(modifier = Modifier.fillMaxSize()) {
-                    MainScreen(
-                        themeIndex = themeIndex,
-                        onThemeChange = { newIndex ->
-                            themeIndex = newIndex
-                            saveThemeIndex(this@MainActivity, newIndex)
+            CompositionLocalProvider(LocalStrings provides stringsForCode(languageCode)) {
+                NcrustTheme(primaryColor = themeColorForIndex(themeIndex)) {
+                    var showSplash by remember { mutableStateOf(true) }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        MainScreen(
+                            themeIndex = themeIndex,
+                            onThemeChange = { newIndex ->
+                                themeIndex = newIndex
+                                saveThemeIndex(this@MainActivity, newIndex)
+                            },
+                            onLanguageChange = { newCode ->
+                                saveLanguageCode(this@MainActivity, newCode)
+                                languageCode = newCode
+                                showSplash = true
+                            }
+                        )
+                        if (showSplash) {
+                            SplashScreen(onFinished = { showSplash = false })
                         }
-                    )
-                    if (showSplash) {
-                        SplashScreen(onFinished = { showSplash = false })
                     }
                 }
             }
@@ -98,7 +113,8 @@ fun formatDuration(ms: Long): String {
 @Composable
 fun MainScreen(
     themeIndex: Int = 0,
-    onThemeChange: (Int) -> Unit = {}
+    onThemeChange: (Int) -> Unit = {},
+    onLanguageChange: (String) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(1) }
     val playerViewModel: PlayerViewModel = viewModel()
@@ -153,6 +169,7 @@ fun MainScreen(
     var playbackQueue by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var currentQueueIndex by remember { mutableIntStateOf(-1) }
     var songEnded by remember { mutableStateOf(false) }
+    var songTransitioned by remember { mutableStateOf(false) }
     var pendingPlayAllSongs by remember { mutableStateOf<List<SongItem>?>(null) }
     var playMode by remember { mutableIntStateOf(0) }
     var shuffledIndices by remember { mutableStateOf<List<Int>>(emptyList()) }
@@ -251,6 +268,58 @@ fun MainScreen(
     LaunchedEffect(Unit) {
         playerViewModel.setOnSongPreviousCallback { playPrevious() }
         playerViewModel.setOnSongEndedCallback { songEnded = true }
+        playerViewModel.setOnSongTransitionedCallback { songTransitioned = true }
+    }
+
+    // 无缝播放：当进入当前歌曲的最后 20 秒时，预取下一首的 URL 并加入 ExoPlayer 队列。
+    LaunchedEffect(Unit) {
+        playerViewModel.needsPreload.collect { needs ->
+            if (!needs) return@collect
+            playerViewModel.resetPreloadFlag()
+            val nextSong: SongItem? = when {
+                playbackQueue.isEmpty() -> null
+                playMode == 1 -> playbackQueue.getOrNull(currentQueueIndex)  // 单曲循环
+                playMode == 2 -> {
+                    val nextPos = if (shuffledPosition < shuffledIndices.size - 1)
+                        shuffledPosition + 1 else 0
+                    playbackQueue.getOrNull(shuffledIndices.getOrNull(nextPos) ?: 0)
+                }
+                else -> {
+                    val nextIdx = if (currentQueueIndex < playbackQueue.size - 1)
+                        currentQueueIndex + 1 else 0
+                    playbackQueue.getOrNull(nextIdx)
+                }
+            }
+            if (nextSong != null) {
+                val (title, artist, artwork) = songParams(nextSong)
+                playerViewModel.preloadNextSong(nextSong.id, title, artist, artwork)
+            }
+        }
+    }
+
+    // 无缝播放：ExoPlayer 自动切换曲目后，同步队列索引和歌词。
+    LaunchedEffect(songTransitioned) {
+        if (!songTransitioned) return@LaunchedEffect
+        songTransitioned = false
+        if (playbackQueue.isEmpty()) return@LaunchedEffect
+        val nextIndex = when (playMode) {
+            1 -> currentQueueIndex
+            2 -> {
+                if (shuffledPosition < shuffledIndices.size - 1) {
+                    shuffledPosition++
+                    shuffledIndices.getOrElse(shuffledPosition) { 0 }
+                } else {
+                    generateShuffledIndices()
+                    shuffledPosition = 0
+                    shuffledIndices.getOrElse(0) { 0 }
+                }
+            }
+            else -> if (currentQueueIndex < playbackQueue.size - 1) currentQueueIndex + 1 else 0
+        }
+        currentQueueIndex = nextIndex
+        currentSong = playbackQueue.getOrNull(nextIndex)
+        PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+        currentSong?.id?.let { playerViewModel.fetchLyricsForSong(it) }
     }
 
     // 在 Splash 遮挡期间渲染一帧全展开状态，提前编译 PlayerCard 所有 graphicsLayer 的 GPU Shader。
@@ -524,7 +593,8 @@ fun MainScreen(
                             themeIndex = themeIndex,
                             onThemeChange = onThemeChange,
                             onShowWebLogin = { showWebLogin = true },
-                            refreshTrigger = cookieRefreshTrigger
+                            refreshTrigger = cookieRefreshTrigger,
+                            onLanguageChange = onLanguageChange
                         )
                     }
                 }
@@ -542,6 +612,7 @@ fun MainScreen(
 
         // zIndex(1.5f) renders NavigationBar above PlayerCardOverlay (zIndex=1f),
         // so it appears on top of the mini player bar when the player is collapsed.
+        val navStrings = LocalStrings.current
         NavigationBar(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -557,8 +628,8 @@ fun MainScreen(
                     selectedTab = 0
                     if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
                 },
-                icon = { Icon(Icons.Default.Home, "首页") },
-                label = { Text("首页") }
+                icon = { Icon(Icons.Default.Home, navStrings.tabHome) },
+                label = { Text(navStrings.tabHome) }
             )
             NavigationBarItem(
                 selected = selectedTab == 1,
@@ -566,8 +637,8 @@ fun MainScreen(
                     selectedTab = 1
                     if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
                 },
-                icon = { Icon(Icons.Default.LibraryMusic, "库") },
-                label = { Text("库") }
+                icon = { Icon(Icons.Default.LibraryMusic, navStrings.tabLibrary) },
+                label = { Text(navStrings.tabLibrary) }
             )
             NavigationBarItem(
                 selected = selectedTab == 2,
@@ -575,8 +646,8 @@ fun MainScreen(
                     selectedTab = 2
                     if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
                 },
-                icon = { Icon(Icons.Default.Search, "搜索") },
-                label = { Text("搜索") }
+                icon = { Icon(Icons.Default.Search, navStrings.tabSearch) },
+                label = { Text(navStrings.tabSearch) }
             )
             NavigationBarItem(
                 selected = selectedTab == 3,
@@ -584,8 +655,8 @@ fun MainScreen(
                     selectedTab = 3
                     if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
                 },
-                icon = { Icon(Icons.Default.Person, "用户") },
-                label = { Text("用户") }
+                icon = { Icon(Icons.Default.Person, navStrings.tabUser) },
+                label = { Text(navStrings.tabUser) }
             )
         }
 

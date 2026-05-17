@@ -3544,3 +3544,260 @@ Box(Modifier.fillMaxSize().background(...)) {
 **最后更新**：2026 年 5 月 16 日  
 **当前版本**：v1.0.4  
 **开发总时长**：约 13 天
+
+---
+
+## 2026-05-17 歌单完整加载 & 高解析音质修复
+
+### 歌单只显示约 20 首（懒加载问题）
+
+**根本原因**：NetEase `eapi/v6/playlist/detail` 的 `tracks` 字段被服务端限制约为前 20 条完整数据；全部歌曲 ID 始终存放在 `trackIds` 字段中。原代码仅读取 `tracks`，并将 `n` 参数写死为 `"50"`，导致超过 20 首的歌单被截断。
+
+**修复**（`PlaylistApi.kt`，`getPlaylistDetail`）：
+
+1. 将 `n` 参数提升为 `"1000"`（尽量多拉取全量 tracks，兜底用）。
+2. 从 `playlist.trackIds` 读取完整 ID 列表（顺序即歌单顺序）。
+3. 将 `playlist.tracks` 中已有完整数据的歌曲存入 `tracksMap`。
+4. 对 `trackIds` 中缺失的 ID，按 500 条/批调用 `/eapi/v3/song/detail` 补全详情。
+5. 最终按 `trackIds` 原始顺序 `mapNotNull` 返回，保证歌单顺序正确。
+
+新增私有辅助函数：
+- `parseSongTrack(JSONObject): SongItem` — 统一解析 `ar`/`al`/`dt` 字段。
+- `fetchSongDetails(List<Long>): List<SongItem>` — 批量拉取歌曲详情。
+
+### 高解析音质（hires）无法触发
+
+发现两处独立 Bug：
+
+#### Bug 1：`playSong` 从不读取移动数据音质偏好
+
+**原代码**（`PlayerViewModel.kt`）：
+```kotlin
+val selectedQuality = qualityApiLevels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
+```
+无论 WiFi 或移动数据，始终读取 `wifi_quality`。用户在设置页配置的 `mobile_quality` 对实际播放毫无影响。
+
+**修复**：新增 `isOnWifi(): Boolean` 方法通过 `ConnectivityManager` 判断当前网络类型，在 `playSong` 内根据类型分别读取 `wifi_quality`（默认 3=无损）或 `mobile_quality`（默认 1=较好）。
+
+#### Bug 2：`encodeType: "flac"` 对所有音质级别无差别发送
+
+**原代码**（`SongUrlFetcher.kt`）：所有音质请求都附带 `"encodeType" to "flac"`。对 `standard`/`higher`/`exhigh` 等非 FLAC 级别，服务端可能拒绝给出 URL，导致退化至外链 MP3。
+
+**修复**：`buildPayload()` 函数仅在 `level == "lossless"` 或 `level == "hires"` 时附加 `encodeType: "flac"`；其余级别不携带该参数，让服务端返回 AAC/MP3。
+
+#### 额外改进：音质降级梯度回退
+
+原逻辑：URL 为空时直接 fallback 到外链 MP3（丢失音质信息）。
+
+**改进**：`SongUrlFetcher.fetch` 现在维护一个降级列表（例如 `hires → lossless → exhigh → higher → standard`），逐级重试直到拿到有效 URL；彻底失败才 fallback 到外链 MP3，并将 `actualLevel` 标记为 `"standard"`。
+
+---
+
+## 2026-05-17 用户页 UI 精简与 Metro 风格统一
+
+### 删除独立按钮，账户操作收归头像弹窗
+
+**删除**：页面 body 中独立的"退出登录"（`OutlinedButton`）和"更新 Cookie"（`OutlinedButton`）。
+
+**保留并增强头像弹窗**：
+- 未登录时点击头像 → 登录弹窗（浏览器登录 + 手动粘贴 Cookie）。
+- 已登录时点击头像 → 账户管理弹窗，包含：
+  - 昵称 / UID 信息展示
+  - "更新 Cookie"按钮（打开登录弹窗并预填当前 Cookie）
+  - "退出登录"按钮（直接清除 Cookie 并退出）
+  - "关闭"按钮
+
+### 弹窗改为直角切割 Metro 风格
+
+将两处 `AlertDialog`（Material3，默认圆角）替换为 `Dialog` + 自定义 `Column` 布局：
+- 容器：`Color(0xFF282828)` 无圆角背景。
+- 按钮：直角 `Box` + `border` / `background` 替代 Material3 `Button`/`TextButton`。
+- 输入框：`OutlinedTextField` 添加 `shape = RectangleShape`，消除 Material3 默认圆角。
+- 弹窗标题：`FontWeight.Bold` 加粗。
+
+### "主题色"标题改为白色
+
+`Text("主题色", color = MaterialTheme.colorScheme.primary, ...)` → `color = Color.White`，与"音质偏好"等其他栏目标题一致。
+
+### 所有大栏目标题改为粗体
+
+`Text("音质偏好", ...)` 和 `Text("主题色", ...)` 均增加 `fontWeight = FontWeight.Bold`。
+
+**涉及文件**：`UserScreen.kt`
+
+---
+
+## 2026-05-17 无缝播放功能
+
+### 功能概述
+
+用户页新增"无缝播放"开关（直角切割 MetroSwitch），开启后当前歌曲进入最后 20 秒时自动预取下一首 URL，并利用 ExoPlayer 的原生队列功能实现曲间零间隔衔接。
+
+### UI（`UserScreen.kt`）
+
+- 在"音质偏好"下方、"主题色"上方添加"无缝播放"栏目（白色粗体标题，与其他栏目样式统一）。
+- 新增 `MetroSwitch` 组件：直角矩形轨道 + 直角矩形滑块，开启时轨道填充为强调色，关闭时为暗灰色；滑块颜色反转（开/黑、关/白）；160ms 颜色/位移过渡动画。
+- 设置持久化到 SharedPreferences 键 `gapless_playback`（默认 false）。
+
+### 播放器逻辑
+
+#### `PlayerViewModel.kt`
+
+新增字段与方法：
+
+| 新增 | 说明 |
+|---|---|
+| `needsPreload: MutableStateFlow<Boolean>` | 当前歌剩余 ≤ 20 s 时发射 `true`，MainScreen 收集后触发预取 |
+| `gaplessEnabled: Boolean` | 缓存偏好，每次 `playSong` 时刷新（避免每帧读 SharedPrefs） |
+| `songPlayVersion: Int` | 每次 `playSong` 递增，预取协程据此检测是否已过期 |
+| `preloadedXxx` 字段 | 存储待切换歌曲元数据，主线程读写，与 `onSongTransitioned` 线程一致 |
+| `preloadNextSong(songId, title, artist, artworkUrl)` | 后台获取 URL → 检测版本号 → 发送 `preload_next` Intent |
+| `setOnSongTransitionedCallback` | 注册 ExoPlayer 自动切歌回调 |
+| `resetPreloadFlag()` | 供 MainScreen 在收集到信号后立即复位 |
+| `fetchLyricsForSong(songId)` | 公开歌词加载，供 gapless 切换后刷新歌词 |
+| `refreshGaplessSetting()` | 从 SharedPrefs 刷新 `gaplessEnabled` |
+
+`onProgressUpdate` 处理器中新增预取触发逻辑：`pos > 1000ms && dur > 0 && !needsPreload && remaining ≤ 20s` → `needsPreload = true`。
+
+`playSong` 开始时递增 `songPlayVersion`，取消 `preloadJob`，复位 `needsPreload`。
+
+`PlaybackService.onSongTransitioned` 回调：将 `preloadedXxx` 应用到 ViewModel 状态（songId / name / artist / artwork / qualityLabel），持久化状态，加载歌词，触发 `onSongTransitionedCallback`。
+
+#### `PlaybackService.kt`
+
+新增：
+- Companion `onSongTransitioned: (() -> Unit)?` 回调。
+- `pendingNextXxx` 字段：暂存下一首元数据，在 `onMediaItemTransition(AUTO)` 时应用。
+- `"preload_next"` Intent 分支：调用 `player.addMediaItem(nextUrl)` 将下一首加入 ExoPlayer 内部队列，并缓存元数据。
+- `Player.Listener.onMediaItemTransition`：仅处理 `MEDIA_ITEM_TRANSITION_REASON_AUTO`，更新 `mediaTitle/Artist/SongId`，加载封面，移除已播放的旧 item（`removeMediaItem(0)`），刷新通知，触发 `onSongTransitioned`。
+- `playUrl` 开头清零所有 `pendingNextXxx`，防止 `setMediaItem` 置换后残留旧元数据。
+
+#### `MainActivity.kt`（`MainScreen`）
+
+新增：
+- `songTransitioned: Boolean` 状态（与 `songEnded` 同模式）。
+- `LaunchedEffect(Unit)` 收集 `playerViewModel.needsPreload`：根据当前 `playMode`/`shuffledIndices`/`currentQueueIndex` 计算下一首，调用 `playerViewModel.preloadNextSong`。
+- `LaunchedEffect(songTransitioned)`：ExoPlayer 自动切换后，同步 `currentQueueIndex`、`currentSong`，保存队列，刷新歌词。
+
+### 整体流程
+
+```
+当前歌 ≥80% 进度 → needsPreload=true → MainScreen 计算下一首
+→ preloadNextSong → SongUrlFetcher.fetch（后台）→ preload_next Intent
+→ PlaybackService.player.addMediaItem(nextUrl)
+   ↓ 当前歌播完
+ExoPlayer 无缝切换 → onMediaItemTransition(AUTO)
+→ 更新通知/MediaSession → onSongTransitioned
+→ PlayerViewModel 更新状态/歌词 → MainScreen 同步队列索引
+```
+
+### 安全机制
+
+- `songPlayVersion` 版本号：用户手动切歌时递增，预取协程检测版本不匹配则丢弃结果。
+- `playUrl` 清零 `pendingNextXxx`：防止手动切歌后旧预加载元数据污染新歌。
+- `player.removeMediaItem(0)`：每次自动切换后清理已播放 item，防止队列无限增长。
+- gapless 关闭时：`preloadNextSong` 内部再次检查 SharedPrefs，确保不会在用户关闭后发送多余请求。
+
+---
+
+## 2026-05-17 全屏播放器进度条改进
+
+### 问题描述
+
+原进度条存在两个缺陷：
+1. 拖动响应迟滞——`detectHorizontalDragGestures` 内置 touchSlop 延迟，手指按下到视觉跟随有明显滞后。
+2. Seek 完成后缺少缓冲状态反馈，用户不知道是否在加载中。
+
+### 解决方案
+
+**`ui/player/SlimProgressBar.kt`** — 完全重写：
+
+- **即时响应**：改用 `awaitEachGesture` + `awaitFirstDown(requireUnconsumed = false)` + `drag()`，手指落下瞬间即响应，无 touchSlop 延迟。
+- **状态机**：三态显示逻辑
+  - `isDragging=true`：进度条跟随手指，轨道加厚至 4dp，显示白色直角滑块指示器。
+  - `isSeeking=true`（手指抬起后）：进度冻结在拖拽终点，切换为缓冲动画。
+  - 普通态：显示实际播放进度。
+- **缓冲动画**：两个独立无限循环（`rememberInfiniteTransition`）
+  - `slidePhase`（1400ms）：强调色短段从左到右滑过轨道（中心坐标 -0.20→1.20）。
+  - `pulsePhase`（700ms）：段长在 0.10~0.16 之间正弦脉动（`abs(sin(pulsePhase * PI))`）。
+- **自动退出 seeking 态**：`LaunchedEffect(isBuffering)` 监听缓冲结束；另有 5 秒安全超时防止 ExoPlayer 未进入 BUFFERING 状态（已缓存位置）时永久卡在 seeking 态。
+
+**`ui/viewmodel/PlayerViewModel.kt`**（上一阶段已完成）：
+- `val isBuffering = MutableStateFlow(false)`
+- `PlaybackService.onBufferingChanged = { buffering -> isBuffering.value = buffering }`
+
+**`player/PlaybackService.kt`**（上一阶段已完成）：
+- `var onBufferingChanged: ((Boolean) -> Unit)? = null`
+- `onPlaybackStateChanged` 中：`onBufferingChanged?.invoke(state == Player.STATE_BUFFERING)`
+
+**`ui/player/FullPlayerControls.kt`**：
+- 新增参数 `isBuffering: Boolean = false`
+- 传给 `SlimProgressBar(progress = playbackProgress, isBuffering = isBuffering, onSeek = onSeek)`
+
+**`ui/player/PlayerCard.kt`**：
+- 新增 `val isBuffering by playerViewModel.isBuffering.collectAsState()`
+- `FullPlayerControls(...)` 调用处新增 `isBuffering = isBuffering`
+
+### 构建结果
+
+`./gradlew assembleDebug` → **BUILD SUCCESSFUL**
+
+---
+
+## 2026-05-17 多语言系统
+
+### 功能概述
+
+建立了完整的多语言切换机制，首批收录简体中文（zh-CN）语言包，兼容既有版本所有字符串。
+
+### 新增文件
+
+**`ui/i18n/Strings.kt`** — 核心数据类，包含 App 所有可见 UI 字符串字段：导航栏、通用按钮、登录/账户、用户页各栏目、首页、库、搜索、播放控件、歌曲操作、播放全部弹窗、关于页等，共约 60 个字段。格式化字符串（如 "共 N 首"）使用 Kotlin lambda `(Int) -> String` 类型。
+
+**`ui/i18n/zh_CN.kt`** — 简体中文语言包，`val zhCN = Strings(...)` 所有字段填入当前 App 使用的中文字符串，与重构前版本表现完全一致。
+
+**`ui/i18n/LanguageManager.kt`** — 持久化与依赖注入：
+- `data class LanguagePreset(code, displayName, strings)` — 语言预设条目
+- `val languagePresets` — 可用语言列表，目前只有 zh-CN
+- `val LocalStrings = compositionLocalOf { zhCN }` — Compose CompositionLocal
+- `getSavedLanguageCode(context)` / `saveLanguageCode(context, code)` — SharedPreferences 读写（key: `language_code`）
+- `stringsForCode(code)` — 代码 → Strings 映射，未知代码兜底 zh-CN
+
+### 修改文件
+
+**`MainActivity.kt`**：
+- 在 `setContent` 中新增 `var languageCode` 状态，外层包裹 `CompositionLocalProvider(LocalStrings provides stringsForCode(languageCode))`
+- `onLanguageChange` 回调：保存代码 → 更新 `languageCode` → `showSplash = true`（重新进入 preheat splash 遮挡，待 UI 以新语言重组完成后淡出）
+- `MainScreen` 新增 `onLanguageChange: (String) -> Unit` 参数，透传至 `UserScreen`
+- 导航栏标签和 contentDescription 改用 `LocalStrings.current.tabXxx`
+
+**`UserScreen.kt`**：
+- 新增 `onLanguageChange: (String) -> Unit` 参数
+- 所有硬编码字符串改用 `LocalStrings.current.xxx`
+- 新增 **"显示语言"** 栏目（位于"主题色"之后），包含 `MetroLanguageDropdown` 下拉选择框
+- `MetroLanguageDropdown`：直角切割 Metro 风格，`DropdownMenu(shape = RectangleShape, containerColor = Color(0xFF282828))`，选中项以强调色显示；用户选择不同语言时调用 `onLanguageChange`
+
+**其余文件**（仅将硬编码字符串替换为 `LocalStrings.current.xxx`，无逻辑变动）：
+- `HomeScreen.kt`, `LibraryScreen.kt`, `SearchScreen.kt`
+- `ui/player/FullPlayerControls.kt`
+- `ui/components/SongCard.kt`, `PlayAllDialog.kt`
+- `ui/theme/ThemeColorSelector.kt`（主题色名称）
+
+### 语言切换流程
+
+```
+用户在下拉框选择新语言
+→ onLanguageChange(code) 传至 MainActivity
+→ saveLanguageCode 写 SharedPreferences
+→ languageCode 状态更新 → CompositionLocalProvider 重新提供 Strings
+→ showSplash = true → Splash 重新覆盖（900ms + 400ms 淡出）
+→ UI 以新语言重组完成 → Splash 淡出，用户看到新语言界面
+```
+
+### 添加新语言
+
+在 `zh_CN.kt` 同目录创建 `xx_XX.kt`，填写 `val xxXX = Strings(...)` 所有字段，然后在 `LanguageManager.kt` 的 `languagePresets` 列表中追加 `LanguagePreset("xx-XX", "Language Name", xxXX)`，重新编译即可。
+
+### 构建结果
+
+`./gradlew assembleDebug` → **BUILD SUCCESSFUL**（仅预存在的 deprecated icon 警告，非新增）

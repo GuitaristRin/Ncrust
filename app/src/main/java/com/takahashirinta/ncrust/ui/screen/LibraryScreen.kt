@@ -28,6 +28,7 @@ import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,11 +45,12 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val strings = LocalStrings.current
 
     var savedSongs by remember { mutableStateOf(LibraryManager.getSavedSongs(context)) }
     var savedAlbums by remember { mutableStateOf(LibraryManager.getSavedAlbums(context)) }
     var selectedCategory by remember { mutableIntStateOf(0) }
-    val categories = listOf("单曲", "专辑", "歌单")
+    val categories = listOf(strings.categoryTracks, strings.categoryAlbums, strings.categoryPlaylists)
 
     var playlists by remember { mutableStateOf<List<PlaylistApi.PlaylistInfo>>(emptyList()) }
     var isLoadingPlaylists by remember { mutableStateOf(false) }
@@ -59,7 +61,7 @@ fun LibraryScreen(
             playlistError = null
             try {
                 if (!CookieManager.hasCookie(context)) {
-                    playlistError = "未登录！请前往用户页登录"
+                    playlistError = strings.notLoggedInForPlaylists
                 } else {
                     val userId = PlaylistApi.getCurrentUserId()
                     val result = PlaylistApi.getUserPlaylists(userId)
@@ -67,8 +69,8 @@ fun LibraryScreen(
                 }
             } catch (e: Exception) {
                 playlistError = if (!CookieManager.hasCookie(context))
-                    "未登录！请前往用户页登录"
-                else "加载失败: ${e.message}"
+                    strings.notLoggedInForPlaylists
+                else strings.loadFailed(e.message)
             } finally {
                 isLoadingPlaylists = false
             }
@@ -110,7 +112,7 @@ fun LibraryScreen(
                 0 -> {
                     if (savedSongs.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("暂无收藏歌曲", color = Color.Gray, fontSize = 16.sp)
+                            Text(strings.noSavedSongs, color = Color.Gray, fontSize = 16.sp)
                         }
                     } else {
                         LazyColumn(
@@ -124,16 +126,16 @@ fun LibraryScreen(
                                     onClick = { onSongClick(song) },
                                     onShowMenu = {
                                         onShowSongMenu(song, listOf(
-                                            SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                            SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                                 LibraryManager.saveSong(context, song)
                                             },
-                                            SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                            SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                                 onSongInsertNext(song)
                                             },
-                                            SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                            SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
                                                 onSongAppendToQueue(song)
                                             },
-                                            SongMenuAction(Icons.Default.Delete, "移除收藏") {
+                                            SongMenuAction(Icons.Default.Delete, strings.actionRemoveFromLibrary) {
                                                 LibraryManager.removeSong(context, song.id)
                                                 savedSongs = LibraryManager.getSavedSongs(context)
                                                 savedAlbums = LibraryManager.getSavedAlbums(context)
@@ -149,7 +151,7 @@ fun LibraryScreen(
                 1 -> {
                     if (savedAlbums.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("暂无收藏专辑", color = Color.Gray, fontSize = 16.sp)
+                            Text(strings.noSavedAlbums, color = Color.Gray, fontSize = 16.sp)
                         }
                     } else {
                         LazyColumn(
@@ -193,14 +195,14 @@ fun LibraryScreen(
                                     Text(playlistError!!, color = Color.Red, fontSize = 14.sp)
                                     Spacer(Modifier.height(8.dp))
                                     TextButton(onClick = { loadPlaylists() }) {
-                                        Text("重试", color = MaterialTheme.colorScheme.primary)
+                                        Text(strings.retry, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }
                         }
                         playlists.isEmpty() -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("暂无歌单", color = Color.Gray, fontSize = 16.sp)
+                                Text(strings.noPlaylists, color = Color.Gray, fontSize = 16.sp)
                             }
                         }
                         else -> {
@@ -246,6 +248,7 @@ fun PlaylistGridItem(
     onClick: () -> Unit,
     onPlayAll: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(modifier = modifier.clickable { onClick() }) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
@@ -261,7 +264,7 @@ fun PlaylistGridItem(
         }
         Spacer(Modifier.height(8.dp))
         Text(playlist.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("${playlist.trackCount}首", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        Text(strings.trackCount(playlist.trackCount), color = Color.Gray, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -272,6 +275,7 @@ fun LibraryAlbumGridItem(
     onClick: () -> Unit,
     onPlayAll: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(modifier = modifier.clickable { onClick() }) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
@@ -287,6 +291,6 @@ fun LibraryAlbumGridItem(
         }
         Spacer(Modifier.height(8.dp))
         Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("${album.artist} · ${album.songCount}首", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(strings.albumArtistAndCount(album.artist, album.songCount), color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

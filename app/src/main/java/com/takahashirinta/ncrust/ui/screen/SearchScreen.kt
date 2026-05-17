@@ -36,6 +36,7 @@ import com.takahashirinta.ncrust.ui.viewmodel.SearchViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.material3.LocalTextStyle
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.theme.desaturateColor
 
@@ -59,7 +60,8 @@ fun SearchScreen(
     val error by viewModel.error.collectAsState()
     val currentType by viewModel.currentType.collectAsState()
     val context = LocalContext.current
-    val categories = listOf("单曲", "专辑", "艺人")
+    val strings = LocalStrings.current
+    val categories = listOf(strings.searchCategoryTracks, strings.searchCategoryAlbums, strings.searchCategoryArtists)
 
     val currentThemeColor = themeColorForIndex(themeIndex)
     val desaturatedFill = desaturateColor(currentThemeColor)
@@ -80,7 +82,7 @@ fun SearchScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 placeholder = {
                     Text(
-                        "搜索歌曲、专辑、艺人",
+                        strings.searchPlaceholder,
                         color = Color.White.copy(alpha = 0.5f)
                     )
                 },
@@ -167,7 +169,7 @@ fun SearchScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("搜索歌曲", color = Color.Gray, fontSize = 16.sp)
+                        Text(strings.searchSongsEmpty, color = Color.Gray, fontSize = 16.sp)
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -179,13 +181,13 @@ fun SearchScreen(
                                 onClick = { onSongClick(item) },
                                 onShowMenu = {
                                     onShowSongMenu(item, listOf(
-                                        SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                        SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                             LibraryManager.saveSong(context, item)
                                         },
-                                        SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                        SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                             onInsertNext(item)
                                         },
-                                        SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                        SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
                                             onAppendToQueue(item)
                                         }
                                     ))
@@ -202,7 +204,7 @@ fun SearchScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("搜索专辑", color = Color.Gray, fontSize = 16.sp)
+                        Text(strings.searchAlbumsEmpty, color = Color.Gray, fontSize = 16.sp)
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -222,7 +224,7 @@ fun SearchScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("搜索艺人", color = Color.Gray, fontSize = 16.sp)
+                        Text(strings.searchArtistsEmpty, color = Color.Gray, fontSize = 16.sp)
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -249,6 +251,7 @@ fun SongSearchItem(
     onInsertNext: () -> Unit = {},
     onAppendToQueue: () -> Unit = {}
 ) {
+    val strings = LocalStrings.current
     SongCard(
         song = song,
         style = SongCardStyle.LIST,
@@ -258,7 +261,7 @@ fun SongSearchItem(
             IconButton(onClick = onAddToLibrary) {
                 Icon(
                     Icons.Default.Add,
-                    "加入库",
+                    strings.actionAddToLibrary,
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
@@ -266,7 +269,7 @@ fun SongSearchItem(
             IconButton(onClick = onInsertNext) {
                 Icon(
                     Icons.AutoMirrored.Filled.PlaylistPlay,
-                    "插播",
+                    strings.actionInsertNext,
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
@@ -274,7 +277,7 @@ fun SongSearchItem(
             IconButton(onClick = onAppendToQueue) {
                 Icon(
                     Icons.AutoMirrored.Filled.PlaylistAdd,
-                    "加入播放列表",
+                    strings.actionAddToPlaylist,
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )

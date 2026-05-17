@@ -116,9 +116,11 @@ object PlaylistApi {
     }
 
     suspend fun getPlaylistDetail(playlistId: Long): List<SongItem> = withContext(Dispatchers.IO) {
+        // n=1000 requests more full-detail tracks; server still caps at ~20 in `tracks`,
+        // but always returns the complete list in `trackIds`.
         val payload = mapOf(
             "id" to playlistId.toString(),
-            "n" to "50",
+            "n" to "1000",
             "s" to "0"
         )
         val response = RetrofitClient.eapiPost(PLAYLIST_DETAIL_URL, payload)
@@ -127,41 +129,75 @@ object PlaylistApi {
         val code = json.optInt("code", -1)
         if (code != 200) throw Exception("API error: code=$code")
 
-        val songs = mutableListOf<SongItem>()
-        val playlistObj = json.optJSONObject("playlist") ?: return@withContext songs
-        val trackArray = playlistObj.optJSONArray("tracks") ?: return@withContext songs
+        val playlistObj = json.optJSONObject("playlist") ?: return@withContext emptyList()
 
-        for (i in 0 until trackArray.length()) {
-            val track = trackArray.getJSONObject(i)
-            val artistArray = track.optJSONArray("ar")
-            val artists: List<ArtistItem>? = if (artistArray != null) {
-                val list = mutableListOf<ArtistItem>()
-                for (j in 0 until artistArray.length()) {
-                    list.add(ArtistItem(name = artistArray.getJSONObject(j).optString("name")))
-                }
-                list
-            } else null
-
-            val albumJson = track.optJSONObject("al")
-            val album: AlbumItem? = if (albumJson != null) {
-                AlbumItem(
-                    id = albumJson.optLong("id"),
-                    name = albumJson.optString("name"),
-                    picUrl = albumJson.optString("picUrl")
-                )
-            } else null
-
-            songs.add(
-                SongItem(
-                    id = track.optLong("id"),
-                    name = track.optString("name"),
-                    artists = artists,
-                    album = album,
-                    duration = track.optLong("dt")
-                )
-            )
+        // Parse the partial track objects that carry full detail (typically first ~20).
+        val tracksMap = mutableMapOf<Long, SongItem>()
+        val trackArray = playlistObj.optJSONArray("tracks")
+        if (trackArray != null) {
+            for (i in 0 until trackArray.length()) {
+                val song = parseSongTrack(trackArray.getJSONObject(i))
+                tracksMap[song.id] = song
+            }
         }
-        songs
+
+        // Collect every ID in playlist order from the always-complete `trackIds` array.
+        val allIds = mutableListOf<Long>()
+        val trackIdsArray = playlistObj.optJSONArray("trackIds")
+        if (trackIdsArray != null) {
+            for (i in 0 until trackIdsArray.length()) {
+                allIds.add(trackIdsArray.getJSONObject(i).optLong("id"))
+            }
+        }
+
+        // If trackIds is absent (e.g. very short playlists already fully in tracks), use tracks order.
+        if (allIds.isEmpty()) return@withContext tracksMap.values.toList()
+
+        // Batch-fetch details for IDs not covered by the partial `tracks` array.
+        val missingIds = allIds.filter { it !in tracksMap }
+        val batchSize = 500
+        for (start in missingIds.indices step batchSize) {
+            val batch = missingIds.subList(start, minOf(start + batchSize, missingIds.size))
+            fetchSongDetails(batch).forEach { tracksMap[it.id] = it }
+        }
+
+        // Return songs in the original playlist order defined by trackIds.
+        allIds.mapNotNull { tracksMap[it] }
+    }
+
+    private fun parseSongTrack(track: JSONObject): SongItem {
+        val artistArray = track.optJSONArray("ar")
+        val artists: List<ArtistItem>? = artistArray?.let {
+            (0 until it.length()).map { j ->
+                ArtistItem(name = it.getJSONObject(j).optString("name"))
+            }
+        }
+        val albumJson = track.optJSONObject("al")
+        val album: AlbumItem? = albumJson?.let {
+            AlbumItem(id = it.optLong("id"), name = it.optString("name"), picUrl = it.optString("picUrl"))
+        }
+        return SongItem(
+            id = track.optLong("id"),
+            name = track.optString("name"),
+            artists = artists,
+            album = album,
+            duration = track.optLong("dt")
+        )
+    }
+
+    private suspend fun fetchSongDetails(ids: List<Long>): List<SongItem> = withContext(Dispatchers.IO) {
+        val cArray = JSONArray()
+        ids.forEach { id -> cArray.put(JSONObject().put("id", id)) }
+        val payload = mapOf("c" to cArray.toString())
+        val response = RetrofitClient.eapiPost(
+            "https://music.163.com/eapi/v3/song/detail",
+            payload
+        )
+        val body = response.body?.string() ?: return@withContext emptyList()
+        val songArray = JSONObject(body).optJSONArray("songs") ?: return@withContext emptyList()
+        (0 until songArray.length()).map { i ->
+            parseSongTrack(songArray.getJSONObject(i))
+        }
     }
 
     data class PlaylistInfo(

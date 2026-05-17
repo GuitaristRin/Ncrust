@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.formatDuration
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 @Composable
 fun FullPlayerControls(
@@ -35,9 +36,11 @@ fun FullPlayerControls(
     onToggleLyrics: () -> Unit,
     onToggleQueue: () -> Unit,
     onAddToLibrary: () -> Unit = {},
+    isBuffering: Boolean = false,
     onSeek: (Float) -> Unit = {},
     onNavigateToUser: () -> Unit = {}
 ) {
+    val strings = LocalStrings.current
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
         Box(
             modifier = Modifier
@@ -75,7 +78,7 @@ fun FullPlayerControls(
             )
         }
         Spacer(Modifier.height(8.dp))
-        SlimProgressBar(progress = playbackProgress, onSeek = onSeek)
+        SlimProgressBar(progress = playbackProgress, isBuffering = isBuffering, onSeek = onSeek)
         Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier
@@ -92,7 +95,7 @@ fun FullPlayerControls(
             ) {
                 Icon(
                     Icons.Default.SkipPrevious,
-                    "上一首",
+                    strings.prevButton,
                     tint = Color.White,
                     modifier = Modifier.size(36.dp)
                 )
@@ -106,7 +109,7 @@ fun FullPlayerControls(
             ) {
                 Icon(
                     if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    if (isPlaying) "暂停" else "播放",
+                    if (isPlaying) strings.pauseButton else strings.playButton,
                     tint = Color.White,
                     modifier = Modifier.size(56.dp)
                 )
@@ -120,7 +123,7 @@ fun FullPlayerControls(
             ) {
                 Icon(
                     Icons.Default.SkipNext,
-                    "下一首",
+                    strings.nextButton,
                     tint = Color.White,
                     modifier = Modifier.size(36.dp)
                 )
@@ -138,7 +141,7 @@ fun FullPlayerControls(
             ) {
                 Icon(
                     Icons.Default.Lyrics,
-                    "歌词",
+                    strings.lyricsButton,
                     tint = if (showLyrics) MaterialTheme.colorScheme.primary else Color.White,
                     modifier = Modifier.size(28.dp)
                 )
@@ -151,7 +154,7 @@ fun FullPlayerControls(
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.PlaylistPlay,
-                    "队列",
+                    strings.queueButton,
                     tint = if (showQueue) MaterialTheme.colorScheme.primary else Color.White,
                     modifier = Modifier.size(28.dp)
                 )
@@ -164,7 +167,7 @@ fun FullPlayerControls(
             ) {
                 Icon(
                     Icons.Default.Add,
-                    "加入库",
+                    strings.addToLibraryButton,
                     tint = Color.White,
                     modifier = Modifier.size(28.dp)
                 )

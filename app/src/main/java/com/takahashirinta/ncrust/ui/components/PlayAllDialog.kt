@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 @Composable
 fun PlayAllDialog(
@@ -23,6 +24,7 @@ fun PlayAllDialog(
     onReplaceAndPlay: () -> Unit,
     onInsertNext: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
@@ -36,7 +38,7 @@ fun PlayAllDialog(
                         .padding(horizontal = 20.dp, vertical = 14.dp)
                 ) {
                     Text(
-                        text = "共 $songCount 首歌曲",
+                        text = strings.songCountFormat(songCount),
                         color = Color.Gray,
                         fontSize = 13.sp
                     )
@@ -58,8 +60,8 @@ fun PlayAllDialog(
                     )
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text("现在播放", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text("清空当前队列并开始播放", color = Color.Gray, fontSize = 12.sp)
+                        Text(strings.playNowTitle, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(strings.playNowDesc, color = Color.Gray, fontSize = 12.sp)
                     }
                 }
                 HorizontalDivider(color = Color(0xFF2A2A2A))
@@ -79,8 +81,8 @@ fun PlayAllDialog(
                     )
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text("插播", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text("在当前曲目之后立即播放", color = Color.Gray, fontSize = 12.sp)
+                        Text(strings.insertNextTitle, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(strings.insertNextDesc, color = Color.Gray, fontSize = 12.sp)
                     }
                 }
                 HorizontalDivider(color = Color(0xFF2A2A2A))
@@ -92,7 +94,7 @@ fun PlayAllDialog(
                         .padding(vertical = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("取消", color = Color.Gray, fontSize = 15.sp)
+                    Text(strings.cancel, color = Color.Gray, fontSize = 15.sp)
                 }
             }
         }

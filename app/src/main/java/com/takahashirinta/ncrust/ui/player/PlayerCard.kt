@@ -66,6 +66,7 @@ fun PlayerCard(
     val currentPosition by playerViewModel.currentPosition.collectAsState()
     val playbackProgress by playerViewModel.progress.collectAsState()
     val qualityLabel by playerViewModel.currentQualityLabel.collectAsState()
+    val isBuffering by playerViewModel.isBuffering.collectAsState()
 
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
@@ -374,6 +375,7 @@ fun PlayerCard(
                         onAddToLibrary = {
                             LibraryManager.saveSong(context, song!!)
                         },
+                        isBuffering = isBuffering,
                         onSeek = { fraction ->
                             val dur = playerViewModel.duration.value
                             if (dur > 0) {
