@@ -15,6 +15,7 @@ val languagePresets: List<LanguagePreset> = listOf(
     LanguagePreset("en-US", "English (US)", enUS),
     LanguagePreset("en-UK", "English (UK)", enUK),
     LanguagePreset("ja-JP", "日本語", jpJP),
+    LanguagePreset("ja-MY", "万葉仮名", jpMY),
     LanguagePreset("ang-GB", "Ænglisc", angGB),
     LanguagePreset("en-1400", "Middle English", en1400),
     LanguagePreset("ko-KP", "조선어", koNK),
