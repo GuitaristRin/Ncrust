@@ -43,7 +43,8 @@ fun SongCard(
     isCurrentPlaying: Boolean = false,
     showCover: Boolean = true
 ) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: LocalStrings.current.unknownArtist
+    val strings = LocalStrings.current
+    val artistStr = song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist
     val albumName = song.album?.name ?: ""
     val durationStr = song.duration?.let { formatDuration(it) } ?: ""
 
@@ -76,7 +77,7 @@ fun SongCard(
                 if (showCover) {
                     AsyncImage(
                         model = song.album?.picUrl,
-                        contentDescription = "封面",
+                        contentDescription = strings.coverDesc,
                         modifier = Modifier.size(actualCoverSize),
                         contentScale = ContentScale.Crop
                     )
@@ -142,7 +143,7 @@ fun SongCard(
             ) {
                 AsyncImage(
                     model = song.album?.picUrl,
-                    contentDescription = "封面",
+                    contentDescription = strings.coverDesc,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f),

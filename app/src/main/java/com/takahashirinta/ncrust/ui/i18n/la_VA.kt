@@ -103,4 +103,46 @@ val laVA = Strings(
     aboutCreditCli = "Logica CLI",
     aboutCreditAnim = "Ref. Animationis",
     aboutCreditDesign = "Ref. Formae",
+
+    noLyrics = "Carmina absunt",
+    emptyQueue = "Ordo vacuus est",
+    collapsePlayer = "Contrahere",
+
+    artistDetailTitle = "De Artifice",
+    albumDetailTitle = "De Albo",
+    playlistDetailTitle = "De Lista",
+    unknownArtistName = "Artifex ignotus",
+    noAlbums = "Nulla alba",
+    noHotSongs = "Nulla carmina",
+    artistAlbumCount = { "Alba: $it" },
+    artistSongCount = { "Carmina: $it" },
+    albumReleaseDate = { "Emissa: $it" },
+    albumLabel = { "Signum: $it" },
+    artistDataLoadFailed = { "Data artificis oneri non cedunt (cod.: $it)" },
+    artistStats = { albums, songs -> "Alba: $albums · Carmina: $songs" },
+
+    coverDesc = "Operimentum",
+    albumCoverDesc = "Albi Operimentum",
+    artistAvatarDesc = "Imago Artificis",
+    playlistCoverDesc = "Listae Operimentum",
+    userAvatarDesc = "Imago",
+
+    clearSearchButton = "Purgare",
+
+    songDetailTitle = "De Carmine",
+    unknownAlbum = "Album ignotum",
+    lyricsLabel = "Verba",
+
+    queueTitle = "Ordo",
+    playModeButton = "Modus Canendi",
+    saveAsPlaylist = "Servare ut Listam",
+    noSongPlaying = "Nihil canitur",
+
+    userIconDesc = "Usor",
+
+    searchHistoryClear = "Purgare",
+    searchHistoryEmpty = "Nulla historia quaesiti",
+    searchHistoryDelete = "Ex historia removere",
+
+    addedToLibrary = "In bibliothecam additum",
 )

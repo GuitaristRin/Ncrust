@@ -103,4 +103,46 @@ val ruSU = Strings(
     aboutCreditCli = "Логика CLI",
     aboutCreditAnim = "Анимация (ссылка)",
     aboutCreditDesign = "Дизайн (ссылка)",
+
+    noLyrics = "Текст недоступен",
+    emptyQueue = "Очередь пуста — как закрома в 32-м",
+    collapsePlayer = "Свернуть",
+
+    artistDetailTitle = "Исполнитель",
+    albumDetailTitle = "Альбом",
+    playlistDetailTitle = "Плейлист",
+    unknownArtistName = "Исполнитель не установлен",
+    noAlbums = "Альбомов нет",
+    noHotSongs = "Треков нет",
+    artistAlbumCount = { "Альбомы: $it" },
+    artistSongCount = { "Песни: $it" },
+    albumReleaseDate = { "Выпущен: $it" },
+    albumLabel = { "Лейбл: $it" },
+    artistDataLoadFailed = { "Данные исполнителя засекречены (код: $it)" },
+    artistStats = { albums, songs -> "Альбомы: $albums · Песни: $songs" },
+
+    coverDesc = "Обложка",
+    albumCoverDesc = "Обложка альбома",
+    artistAvatarDesc = "Портрет исполнителя",
+    playlistCoverDesc = "Обложка плейлиста",
+    userAvatarDesc = "Портрет",
+
+    clearSearchButton = "Очистить",
+
+    songDetailTitle = "Сведения о треке",
+    unknownAlbum = "Альбом засекречен",
+    lyricsLabel = "Текст",
+
+    queueTitle = "Очередь",
+    playModeButton = "Режим воспроизведения",
+    saveAsPlaylist = "Сохранить как плейлист",
+    noSongPlaying = "Эфир молчит",
+
+    userIconDesc = "Трудящийся",
+
+    searchHistoryClear = "Стереть",
+    searchHistoryEmpty = "Архив поиска пуст",
+    searchHistoryDelete = "Изъять из архива",
+
+    addedToLibrary = "Занесено в фонотеку",
 )

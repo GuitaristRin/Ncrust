@@ -103,4 +103,46 @@ val zhCN = Strings(
     aboutCreditCli = "CLI 逻辑",
     aboutCreditAnim = "动画参考",
     aboutCreditDesign = "设计参考",
+
+    noLyrics = "暂无歌词",
+    emptyQueue = "播放队列为空",
+    collapsePlayer = "收起",
+
+    artistDetailTitle = "艺人详情",
+    albumDetailTitle = "专辑详情",
+    playlistDetailTitle = "歌单详情",
+    unknownArtistName = "未知艺人",
+    noAlbums = "暂无专辑",
+    noHotSongs = "暂无单曲",
+    artistAlbumCount = { "专辑: $it" },
+    artistSongCount = { "单曲: $it" },
+    albumReleaseDate = { "发行: $it" },
+    albumLabel = { "厂牌: $it" },
+    artistDataLoadFailed = { "艺人数据加载失败 (code: $it)" },
+    artistStats = { albums, songs -> "专辑: $albums · 单曲: $songs" },
+
+    coverDesc = "封面",
+    albumCoverDesc = "专辑封面",
+    artistAvatarDesc = "艺人头像",
+    playlistCoverDesc = "歌单封面",
+    userAvatarDesc = "头像",
+
+    clearSearchButton = "清空",
+
+    songDetailTitle = "歌曲详情",
+    unknownAlbum = "未知专辑",
+    lyricsLabel = "歌词",
+
+    queueTitle = "播放列表",
+    playModeButton = "播放模式",
+    saveAsPlaylist = "保存为歌单",
+    noSongPlaying = "暂无播放",
+
+    userIconDesc = "用户",
+
+    searchHistoryClear = "清除",
+    searchHistoryEmpty = "暂无搜索记录",
+    searchHistoryDelete = "删除记录",
+
+    addedToLibrary = "已加入库",
 )

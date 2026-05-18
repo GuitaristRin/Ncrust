@@ -103,4 +103,46 @@ val enUS = Strings(
     aboutCreditCli = "CLI Logic",
     aboutCreditAnim = "Animation Ref",
     aboutCreditDesign = "Design Ref",
+
+    noLyrics = "No lyrics",
+    emptyQueue = "Queue is empty",
+    collapsePlayer = "Collapse",
+
+    artistDetailTitle = "Artist",
+    albumDetailTitle = "Album",
+    playlistDetailTitle = "Playlist",
+    unknownArtistName = "Unknown Artist",
+    noAlbums = "No albums",
+    noHotSongs = "No songs",
+    artistAlbumCount = { "Albums: $it" },
+    artistSongCount = { "Songs: $it" },
+    albumReleaseDate = { "Released: $it" },
+    albumLabel = { "Label: $it" },
+    artistDataLoadFailed = { "Failed to load artist (code: $it)" },
+    artistStats = { albums, songs -> "Albums: $albums · Songs: $songs" },
+
+    coverDesc = "Cover",
+    albumCoverDesc = "Album cover",
+    artistAvatarDesc = "Artist photo",
+    playlistCoverDesc = "Playlist cover",
+    userAvatarDesc = "Avatar",
+
+    clearSearchButton = "Clear",
+
+    songDetailTitle = "Song Detail",
+    unknownAlbum = "Unknown Album",
+    lyricsLabel = "Lyrics",
+
+    queueTitle = "Queue",
+    playModeButton = "Play Mode",
+    saveAsPlaylist = "Save as Playlist",
+    noSongPlaying = "Nothing playing",
+
+    userIconDesc = "User",
+
+    searchHistoryClear = "Clear",
+    searchHistoryEmpty = "No search history",
+    searchHistoryDelete = "Remove from history",
+
+    addedToLibrary = "Added to Library",
 )

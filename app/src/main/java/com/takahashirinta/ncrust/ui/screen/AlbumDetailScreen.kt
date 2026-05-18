@@ -19,6 +19,8 @@ import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import android.widget.Toast
 
 @Composable
 fun AlbumDetailScreen(
@@ -37,6 +39,7 @@ fun AlbumDetailScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var showPlayAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val strings = LocalStrings.current
 
     LaunchedEffect(albumId) {
         isLoading = true
@@ -46,7 +49,7 @@ fun AlbumDetailScreen(
             album = response.album
             songs = response.songs ?: emptyList()
         } catch (e: Exception) {
-            error = "加载失败: ${e.message}"
+            error = strings.loadFailed(e.message)
         } finally {
             isLoading = false
         }
@@ -66,7 +69,7 @@ fun AlbumDetailScreen(
     }
 
     DetailScaffold(
-        title = "专辑详情",
+        title = strings.albumDetailTitle,
         onBack = onBack,
         isLoading = isLoading,
         error = error,
@@ -80,10 +83,10 @@ fun AlbumDetailScreen(
                     album?.publishTime?.let { time ->
                         val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
                             .format(java.util.Date(time))
-                        add("发行: $date")
+                        add(strings.albumReleaseDate(date))
                     }
-                    album?.company?.let { add("厂牌: $it") }
-                    add("${songs.size} 首歌曲")
+                    album?.company?.let { add(strings.albumLabel(it)) }
+                    add(strings.trackCountSongs(songs.size))
                 },
                 onPlayAll = if (songItems.isNotEmpty()) ({ showPlayAllDialog = true }) else null
             )
@@ -103,13 +106,14 @@ fun AlbumDetailScreen(
                     onClick = { onSongClick(songItem) },
                     onShowMenu = {
                         onShowSongMenu(songItem, listOf(
-                            SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                            SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                 LibraryManager.saveSong(context, songItem)
+                                Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                             },
-                            SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                            SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                 onSongInsertNext(songItem)
                             },
-                            SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                            SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
                                 onSongAppendToQueue(songItem)
                             }
                         ))

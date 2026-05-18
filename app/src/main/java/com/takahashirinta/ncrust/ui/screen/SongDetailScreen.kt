@@ -12,11 +12,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.SongViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
+    val strings = LocalStrings.current
     val viewModel: SongViewModel = viewModel()
     val songDetail by viewModel.songDetail.collectAsState()
     val lyric by viewModel.lyric.collectAsState()
@@ -29,12 +31,12 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("歌曲详情", color = Color.White) },
+                title = { Text(strings.songDetailTitle, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
+                            contentDescription = strings.back,
                             tint = Color.White
                         )
                     }
@@ -62,19 +64,19 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(song.album.name ?: "未知专辑", color = Color.Gray)
+                    Text(song.album.name ?: strings.unknownAlbum, color = Color.Gray)
                     if (song.duration > 0) {
                         Text(formatDuration(song.duration), color = Color.Gray)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-                Text("歌词", color = Color.White, style = MaterialTheme.typography.titleLarge)
+                Text(strings.lyricsLabel, color = Color.White, style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 lyric?.let { lrc ->
                     Text(lrc, color = Color.White, style = MaterialTheme.typography.bodyMedium)
-                } ?: Text("暂无歌词", color = Color.Gray)
+                } ?: Text(strings.noLyrics, color = Color.Gray)
             }
         }
     }

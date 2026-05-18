@@ -103,4 +103,46 @@ val angGB = Strings(
     aboutCreditCli = "CLI Cræft",
     aboutCreditAnim = "Hrægling Andwisan",
     aboutCreditDesign = "Gesceaftcræft Andwisan",
+
+    noLyrics = "Nān lēoþword",
+    emptyQueue = "Fyl is ǣmtig",
+    collapsePlayer = "Geclȳpian",
+
+    artistDetailTitle = "Ymbe Glīman",
+    albumDetailTitle = "Ymbe Cīewe",
+    playlistDetailTitle = "Ymbe Lēoþġetæle",
+    unknownArtistName = "Cūþlēas Glīman",
+    noAlbums = "Nān cīewe",
+    noHotSongs = "Nān lēoþ",
+    artistAlbumCount = { "Cīewe: $it" },
+    artistSongCount = { "Lēoþ: $it" },
+    albumReleaseDate = { "Forþsendeþ: $it" },
+    albumLabel = { "Mearc: $it" },
+    artistDataLoadFailed = { "Glīmanes dæta ne hladaþ (cod.: $it)" },
+    artistStats = { albums, songs -> "Cīewe: $albums · Lēoþ: $songs" },
+
+    coverDesc = "Hlīdelle",
+    albumCoverDesc = "Cīewes Hlīdelle",
+    artistAvatarDesc = "Glīmanes Anlicnes",
+    playlistCoverDesc = "Lēoþġetæles Hlīdelle",
+    userAvatarDesc = "Anlicnes",
+
+    clearSearchButton = "Āclǣnsian",
+
+    songDetailTitle = "Ymbe Þissum Lēoþe",
+    unknownAlbum = "Cūþlēas Cīewe",
+    lyricsLabel = "Lēoþword",
+
+    queueTitle = "Fyl",
+    playModeButton = "Drēamcynn",
+    saveAsPlaylist = "Healdan as Lēoþġetæle",
+    noSongPlaying = "Nān drēam",
+
+    userIconDesc = "Brūcend",
+
+    searchHistoryClear = "Āclǣnsian",
+    searchHistoryEmpty = "Nān sēcunggewrit",
+    searchHistoryDelete = "Of gewrīte ādōn",
+
+    addedToLibrary = "Tō bōchorde geīeċed",
 )

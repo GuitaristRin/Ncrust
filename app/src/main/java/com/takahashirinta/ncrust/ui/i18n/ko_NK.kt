@@ -103,4 +103,46 @@ val koNK = Strings(
     aboutCreditCli = "CLI 로직",
     aboutCreditAnim = "애니메이션 참조",
     aboutCreditDesign = "디자인 참조",
+
+    noLyrics = "가사 없음",
+    emptyQueue = "대기열이 비었습니다",
+    collapsePlayer = "접기",
+
+    artistDetailTitle = "가수 정보",
+    albumDetailTitle = "음반 정보",
+    playlistDetailTitle = "곡목록 정보",
+    unknownArtistName = "알수없는 가수",
+    noAlbums = "음반 없음",
+    noHotSongs = "노래 없음",
+    artistAlbumCount = { "음반: $it" },
+    artistSongCount = { "노래: $it" },
+    albumReleaseDate = { "발매: $it" },
+    albumLabel = { "레이블: $it" },
+    artistDataLoadFailed = { "가수 자료 불러오기 실패 (code: $it)" },
+    artistStats = { albums, songs -> "음반: $albums · 노래: $songs" },
+
+    coverDesc = "표지",
+    albumCoverDesc = "음반 표지",
+    artistAvatarDesc = "가수 사진",
+    playlistCoverDesc = "곡목록 표지",
+    userAvatarDesc = "아바타",
+
+    clearSearchButton = "지우기",
+
+    songDetailTitle = "노래 상세",
+    unknownAlbum = "알수없는 음반",
+    lyricsLabel = "가사",
+
+    queueTitle = "대기열",
+    playModeButton = "재생 모드",
+    saveAsPlaylist = "곡목록으로 저장",
+    noSongPlaying = "재생 중 없음",
+
+    userIconDesc = "사용자",
+
+    searchHistoryClear = "지우기",
+    searchHistoryEmpty = "검색 기록 없음",
+    searchHistoryDelete = "기록 삭제",
+
+    addedToLibrary = "보관소에 추가됨",
 )

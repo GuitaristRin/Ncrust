@@ -81,7 +81,7 @@ class SearchViewModel : ViewModel() {
                 }
             }
         } catch (e: Exception) {
-            _error.value = "搜索失败: ${e.message}"
+            _error.value = e.message
             clearResults()
         } finally {
             _isLoading.value = false

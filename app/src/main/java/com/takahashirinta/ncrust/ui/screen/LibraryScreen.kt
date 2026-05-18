@@ -30,6 +30,7 @@ import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,6 +129,7 @@ fun LibraryScreen(
                                         onShowSongMenu(song, listOf(
                                             SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                                 LibraryManager.saveSong(context, song)
+                                                Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                                             },
                                             SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                                 onSongInsertNext(song)
@@ -253,7 +255,7 @@ fun PlaylistGridItem(
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
                 model = playlist.coverImgUrl,
-                contentDescription = "歌单封面",
+                contentDescription = strings.playlistCoverDesc,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
@@ -280,7 +282,7 @@ fun LibraryAlbumGridItem(
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
                 model = album.picUrl,
-                contentDescription = "专辑封面",
+                contentDescription = strings.albumCoverDesc,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )

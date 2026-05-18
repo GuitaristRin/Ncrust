@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 @Composable
 fun LibrarySongListItem(
@@ -28,7 +29,8 @@ fun LibrarySongListItem(
     onAppendToQueue: () -> Unit = {},
     onRemove: () -> Unit
 ) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
+    val strings = LocalStrings.current
+    val artistStr = song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist
 
     Row(
         modifier = Modifier
@@ -39,7 +41,7 @@ fun LibrarySongListItem(
     ) {
         AsyncImage(
             model = song.album?.picUrl,
-            contentDescription = "封面",
+            contentDescription = strings.coverDesc,
             modifier = Modifier.size(48.dp),
             contentScale = ContentScale.Crop
         )
@@ -63,7 +65,7 @@ fun LibrarySongListItem(
         IconButton(onClick = onInsertNext) {
             Icon(
                 Icons.AutoMirrored.Filled.PlaylistPlay,
-                "插播",
+                strings.actionInsertNext,
                 tint = Color.White,
                 modifier = Modifier.size(24.dp)
             )
@@ -71,7 +73,7 @@ fun LibrarySongListItem(
         IconButton(onClick = onAppendToQueue) {
             Icon(
                 Icons.AutoMirrored.Filled.PlaylistAdd,
-                "加入播放列表",
+                strings.actionAddToPlaylist,
                 tint = Color.White,
                 modifier = Modifier.size(24.dp)
             )
@@ -79,7 +81,7 @@ fun LibrarySongListItem(
         IconButton(onClick = onRemove) {
             Icon(
                 Icons.Default.Delete,
-                "移除",
+                strings.actionRemoveFromLibrary,
                 tint = Color.Gray,
                 modifier = Modifier.size(20.dp)
             )

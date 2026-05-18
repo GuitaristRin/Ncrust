@@ -31,8 +31,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
+import android.widget.Toast
 
 @Composable
 fun PlayerCard(
@@ -61,11 +63,13 @@ fun PlayerCard(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    val strings = LocalStrings.current
     val playerViewModel: PlayerViewModel = viewModel()
     val lyrics by playerViewModel.lyrics.collectAsState()
     val currentPosition by playerViewModel.currentPosition.collectAsState()
     val playbackProgress by playerViewModel.progress.collectAsState()
-    val qualityLabel by playerViewModel.currentQualityLabel.collectAsState()
+    val qualityIndex by playerViewModel.currentQualityIndex.collectAsState()
+    val qualityLabel = strings.qualityOptions.getOrElse(qualityIndex) { strings.qualityOptions[3] }
     val isBuffering by playerViewModel.isBuffering.collectAsState()
 
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
@@ -283,7 +287,7 @@ fun PlayerCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "播放列表",
+                                strings.queueTitle,
                                 color = Color.White,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
@@ -297,7 +301,7 @@ fun PlayerCard(
                                         2 -> Icons.Default.Shuffle
                                         else -> Icons.Default.Repeat
                                     },
-                                    "播放模式",
+                                    strings.playModeButton,
                                     tint = if (playMode != 0) MaterialTheme.colorScheme.primary else Color.White,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -305,7 +309,7 @@ fun PlayerCard(
                             IconButton(onClick = onSavePlaylist) {
                                 Icon(
                                     Icons.Default.Add,
-                                    "保存为歌单",
+                                    strings.saveAsPlaylist,
                                     tint = Color.White,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -374,6 +378,7 @@ fun PlayerCard(
                         },
                         onAddToLibrary = {
                             LibraryManager.saveSong(context, song!!)
+                            Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                         },
                         isBuffering = isBuffering,
                         onSeek = { fraction ->
@@ -465,7 +470,7 @@ fun PlayerCard(
                         Icon(Icons.Default.MusicNote, null, tint = Color(0xFF808080), modifier = Modifier.size(24.dp))
                     }
                     Text(
-                        "暂无播放",
+                        strings.noSongPlaying,
                         color = Color(0xFF808080),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(horizontal = 12.dp)
@@ -519,7 +524,7 @@ fun PlayerCard(
             ) {
                 if (dismissEnabled) {
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.KeyboardArrowDown, "收起", tint = Color.White)
+                        Icon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = Color.White)
                     }
                 }
             }

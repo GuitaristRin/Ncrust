@@ -17,7 +17,9 @@ import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
+import android.widget.Toast
 
 @Composable
 fun PlaylistDetailScreen(
@@ -38,6 +40,7 @@ fun PlaylistDetailScreen(
     var showPlayAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val strings = LocalStrings.current
 
     fun loadSongs() {
         coroutineScope.launch {
@@ -46,7 +49,7 @@ fun PlaylistDetailScreen(
             try {
                 songs = PlaylistApi.getPlaylistDetail(playlistId)
             } catch (e: Exception) {
-                error = "加载失败: ${e.message}"
+                error = strings.loadFailed(e.message)
             } finally {
                 isLoading = false
             }
@@ -67,7 +70,7 @@ fun PlaylistDetailScreen(
     }
 
     DetailScaffold(
-        title = "歌单详情",
+        title = strings.playlistDetailTitle,
         onBack = onBack,
         isLoading = isLoading,
         error = error,
@@ -75,9 +78,9 @@ fun PlaylistDetailScreen(
         header = {
             DetailHeader(
                 coverUrl = coverUrl,
-                title = playlistName.ifEmpty { "歌单" },
+                title = playlistName.ifEmpty { strings.categoryPlaylists },
                 subtitle = null,
-                infoLines = listOf("${songs.size} 首歌曲"),
+                infoLines = listOf(strings.trackCountSongs(songs.size)),
                 onPlayAll = if (songs.isNotEmpty()) ({ showPlayAllDialog = true }) else null
             )
         },
@@ -89,13 +92,14 @@ fun PlaylistDetailScreen(
                     onClick = { onSongClick(song) },
                     onShowMenu = {
                         onShowSongMenu(song, listOf(
-                            SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                            SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                 LibraryManager.saveSong(context, song)
+                                Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                             },
-                            SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                            SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                 onSongInsertNext(song)
                             },
-                            SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                            SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
                                 onSongAppendToQueue(song)
                             }
                         ))

@@ -103,4 +103,46 @@ val en1400 = Strings(
     aboutCreditCli = "CLI Logik",
     aboutCreditAnim = "Animacioun Ref.",
     aboutCreditDesign = "Designe Ref.",
+
+    noLyrics = "No wordes",
+    emptyQueue = "The ree is voyde",
+    collapsePlayer = "Shrynken",
+
+    artistDetailTitle = "Artiste",
+    albumDetailTitle = "Album",
+    playlistDetailTitle = "Playliste",
+    unknownArtistName = "Unkowen Artiste",
+    noAlbums = "No albums",
+    noHotSongs = "No songes",
+    artistAlbumCount = { "Albums: $it" },
+    artistSongCount = { "Songes: $it" },
+    albumReleaseDate = { "Issuede: $it" },
+    albumLabel = { "Labelle: $it" },
+    artistDataLoadFailed = { "Artiste loade failede (code: $it)" },
+    artistStats = { albums, songs -> "Albums: $albums · Songes: $songs" },
+
+    coverDesc = "Cover",
+    albumCoverDesc = "Album Cover",
+    artistAvatarDesc = "Artiste Ymage",
+    playlistCoverDesc = "Playliste Cover",
+    userAvatarDesc = "Ymage",
+
+    clearSearchButton = "Clense",
+
+    songDetailTitle = "Songe Detail",
+    unknownAlbum = "Unknowen Album",
+    lyricsLabel = "Wordes",
+
+    queueTitle = "Playliste",
+    playModeButton = "Pleye Mode",
+    saveAsPlaylist = "Save as Playliste",
+    noSongPlaying = "Nat pleyinge",
+
+    userIconDesc = "Usere",
+
+    searchHistoryClear = "Clearen",
+    searchHistoryEmpty = "No serche historie",
+    searchHistoryDelete = "Remoeven from historie",
+
+    addedToLibrary = "To Librairie addede",
 )

@@ -13,9 +13,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.AlbumSearchItem
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 @Composable
 fun AlbumSearchItem(album: AlbumSearchItem, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     val publishYear = album.publishTime?.let {
         java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault())
             .format(java.util.Date(it))
@@ -30,7 +32,7 @@ fun AlbumSearchItem(album: AlbumSearchItem, onClick: () -> Unit) {
     ) {
         AsyncImage(
             model = album.picUrl,
-            contentDescription = "专辑封面",
+            contentDescription = strings.albumCoverDesc,
             modifier = Modifier.size(72.dp),
             contentScale = ContentScale.Crop
         )
@@ -44,7 +46,7 @@ fun AlbumSearchItem(album: AlbumSearchItem, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                "${album.artist?.name ?: "未知歌手"}${
+                "${album.artist?.name ?: strings.unknownArtist}${
                     if (publishYear.isNotEmpty()) " · $publishYear" else ""
                 }${album.company?.let { " · $it" } ?: ""}",
                 color = Color.Gray,
@@ -55,7 +57,7 @@ fun AlbumSearchItem(album: AlbumSearchItem, onClick: () -> Unit) {
         }
         album.size?.let {
             Text(
-                "${it}首",
+                strings.trackCount(it),
                 color = Color.Gray,
                 style = MaterialTheme.typography.bodySmall
             )

@@ -43,9 +43,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Incremented on every explicit playSong call; lets preloadNextSong detect staleness.
     private var songPlayVersion = 0
 
-    val currentQualityLabel = MutableStateFlow("无损")
+    val currentQualityIndex = MutableStateFlow(3)
     private val qualityApiLevels = listOf("standard", "higher", "exhigh", "lossless", "hires")
-    private val qualityDisplayLabels = listOf("压缩", "较好", "更好", "无损", "高解析")
 
     private var gaplessEnabled = false
     private val PRELOAD_THRESHOLD_MS = 20_000L
@@ -97,7 +96,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 currentSongArtist.value = preloadedArtist
                 currentSongArtwork.value = preloadedArtwork
                 val idx = qualityApiLevels.indexOf(preloadedActualLevel).coerceAtLeast(0)
-                currentQualityLabel.value = qualityDisplayLabels.getOrElse(idx) { "无损" }
+                currentQualityIndex.value = idx
                 PlaybackStateManager.saveState(
                     getApplication(), preloadedSongId,
                     preloadedTitle, preloadedArtist, preloadedArtwork, true
@@ -152,7 +151,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             preloadedSongId = -1L; preloadedTitle = ""; preloadedArtist = ""
             preloadedArtwork = ""; preloadedActualLevel = ""; preloadedUrl = ""
             val actualIdx = qualityApiLevels.indexOf(cachedEntry.actualLevel).coerceAtLeast(0)
-            currentQualityLabel.value = qualityDisplayLabels.getOrElse(actualIdx) { "无损" }
+            currentQualityIndex.value = actualIdx
             currentSongId.value = songId
             currentSongName.value = title
             currentSongArtist.value = artist
@@ -179,7 +178,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         else if (isOnWifi()) qualityApiLevels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
         else qualityApiLevels.getOrElse(prefs.getInt("mobile_quality", 1)) { "higher" }
         val qIdx = qualityApiLevels.indexOf(selectedQuality).coerceAtLeast(0)
-        currentQualityLabel.value = qualityDisplayLabels.getOrElse(qIdx) { "无损" }
+        currentQualityIndex.value = qIdx
 
         playJob?.cancel()
         playJob = viewModelScope.launch(Dispatchers.IO) {
@@ -188,7 +187,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val actualIdx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                 fetchLyrics(songId)
                 withContext(Dispatchers.Main) {
-                    currentQualityLabel.value = qualityDisplayLabels.getOrElse(actualIdx) { "无损" }
+                    currentQualityIndex.value = actualIdx
                     currentSongId.value = songId
                     currentSongName.value = title
                     currentSongArtist.value = artist
@@ -243,7 +242,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         if (songId == latestPlaySongId && currentSongId.value != songId) {
                             playJob?.cancel()
                             val idx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
-                            currentQualityLabel.value = qualityDisplayLabels.getOrElse(idx) { "无损" }
+                            currentQualityIndex.value = idx
                             currentSongId.value = songId
                             currentSongName.value = title
                             currentSongArtist.value = artist

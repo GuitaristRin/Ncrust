@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import android.widget.Toast
 
 data class PlaylistCard(
     val id: Long,
@@ -171,7 +172,7 @@ fun HomeScreen(
                     offset += list.size
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { error = "加载失败: ${e.message}"; isLoading = false; isLoadingMore = false }
+                withContext(Dispatchers.Main) { error = strings.loadFailed(e.message); isLoading = false; isLoadingMore = false }
             }
         }
     }
@@ -236,6 +237,7 @@ fun HomeScreen(
                                             onShowSongMenu(song, listOf(
                                                 SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                                     LibraryManager.saveSong(context, song)
+                                                    Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                                                 },
                                                 SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                                     onSongInsertNext(song)
@@ -273,13 +275,14 @@ fun HomeScreen(
                         onClick = { onSongClick(song) },
                         onShowMenu = {
                             onShowSongMenu(song, listOf(
-                                SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                     LibraryManager.saveSong(context, song)
+                                    Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                                 },
-                                SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                     onSongInsertNext(song)
                                 },
-                                SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
                                     onSongAppendToQueue(song)
                                 }
                             ))

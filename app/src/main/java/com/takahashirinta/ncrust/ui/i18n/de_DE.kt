@@ -103,4 +103,46 @@ val deDE = Strings(
     aboutCreditCli = "CLI-Logik",
     aboutCreditAnim = "Animations-Referenz",
     aboutCreditDesign = "Design-Referenz",
+
+    noLyrics = "Keine Liedtexte",
+    emptyQueue = "Warteschlange ist leer",
+    collapsePlayer = "Minimieren",
+
+    artistDetailTitle = "Interpret",
+    albumDetailTitle = "Album",
+    playlistDetailTitle = "Playlist",
+    unknownArtistName = "Unbekannter Interpret",
+    noAlbums = "Keine Alben",
+    noHotSongs = "Keine Titel",
+    artistAlbumCount = { "Alben: $it" },
+    artistSongCount = { "Titel: $it" },
+    albumReleaseDate = { "Erschienen: $it" },
+    albumLabel = { "Label: $it" },
+    artistDataLoadFailed = { "Interpretdaten konnten nicht geladen werden (Code: $it)" },
+    artistStats = { albums, songs -> "Alben: $albums · Titel: $songs" },
+
+    coverDesc = "Cover",
+    albumCoverDesc = "Albumcover",
+    artistAvatarDesc = "Interpretbild",
+    playlistCoverDesc = "Playlist-Cover",
+    userAvatarDesc = "Avatar",
+
+    clearSearchButton = "Löschen",
+
+    songDetailTitle = "Titeldetails",
+    unknownAlbum = "Unbekanntes Album",
+    lyricsLabel = "Liedtext",
+
+    queueTitle = "Warteschlange",
+    playModeButton = "Wiedergabemodus",
+    saveAsPlaylist = "Als Playlist speichern",
+    noSongPlaying = "Nichts wird abgespielt",
+
+    userIconDesc = "Benutzer",
+
+    searchHistoryClear = "Löschen",
+    searchHistoryEmpty = "Kein Suchverlauf",
+    searchHistoryDelete = "Aus Verlauf entfernen",
+
+    addedToLibrary = "Zur Bibliothek hinzugefügt",
 )

@@ -103,4 +103,46 @@ val jpJP = Strings(
     aboutCreditCli = "CLIロジック",
     aboutCreditAnim = "アニメーション参考",
     aboutCreditDesign = "デザイン参考",
+
+    noLyrics = "歌詞なし",
+    emptyQueue = "キューが空です",
+    collapsePlayer = "閉じる",
+
+    artistDetailTitle = "アーティスト詳細",
+    albumDetailTitle = "アルバム詳細",
+    playlistDetailTitle = "プレイリスト詳細",
+    unknownArtistName = "不明なアーティスト",
+    noAlbums = "アルバムなし",
+    noHotSongs = "楽曲なし",
+    artistAlbumCount = { "アルバム: $it" },
+    artistSongCount = { "楽曲: $it" },
+    albumReleaseDate = { "発売: $it" },
+    albumLabel = { "レーベル: $it" },
+    artistDataLoadFailed = { "アーティストデータを取得できませんでした (code: $it)" },
+    artistStats = { albums, songs -> "アルバム: $albums · 楽曲: $songs" },
+
+    coverDesc = "カバー",
+    albumCoverDesc = "アルバムカバー",
+    artistAvatarDesc = "アーティスト写真",
+    playlistCoverDesc = "プレイリストカバー",
+    userAvatarDesc = "アバター",
+
+    clearSearchButton = "クリア",
+
+    songDetailTitle = "楽曲詳細",
+    unknownAlbum = "不明なアルバム",
+    lyricsLabel = "歌詞",
+
+    queueTitle = "キュー",
+    playModeButton = "再生モード",
+    saveAsPlaylist = "プレイリストとして保存",
+    noSongPlaying = "再生中の楽曲なし",
+
+    userIconDesc = "ユーザー",
+
+    searchHistoryClear = "クリア",
+    searchHistoryEmpty = "検索履歴なし",
+    searchHistoryDelete = "履歴から削除",
+
+    addedToLibrary = "ライブラリに追加しました",
 )

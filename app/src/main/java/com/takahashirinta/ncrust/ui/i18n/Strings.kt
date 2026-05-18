@@ -114,4 +114,55 @@ data class Strings(
     val aboutCreditCli: String,
     val aboutCreditAnim: String,
     val aboutCreditDesign: String,
+
+    // Player UI
+    val noLyrics: String,
+    val emptyQueue: String,
+    val collapsePlayer: String,
+
+    // Detail page titles and content
+    val artistDetailTitle: String,
+    val albumDetailTitle: String,
+    val playlistDetailTitle: String,
+    val unknownArtistName: String,
+    val noAlbums: String,
+    val noHotSongs: String,
+    val artistAlbumCount: (Int) -> String,
+    val artistSongCount: (Int) -> String,
+    val albumReleaseDate: (String) -> String,
+    val albumLabel: (String) -> String,
+    val artistDataLoadFailed: (Int) -> String,
+    val artistStats: (Int, Int) -> String,
+
+    // Accessibility content descriptions
+    val coverDesc: String,
+    val albumCoverDesc: String,
+    val artistAvatarDesc: String,
+    val playlistCoverDesc: String,
+    val userAvatarDesc: String,
+
+    // Search
+    val clearSearchButton: String,
+
+    // Song detail screen
+    val songDetailTitle: String,
+    val unknownAlbum: String,
+    val lyricsLabel: String,
+
+    // Player queue panel
+    val queueTitle: String,
+    val playModeButton: String,
+    val saveAsPlaylist: String,
+    val noSongPlaying: String,
+
+    // User screen
+    val userIconDesc: String,
+
+    // Search history
+    val searchHistoryClear: String,
+    val searchHistoryEmpty: String,
+    val searchHistoryDelete: String,
+
+    // Feedback toasts
+    val addedToLibrary: String,
 )

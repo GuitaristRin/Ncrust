@@ -26,7 +26,9 @@ import com.takahashirinta.ncrust.ui.components.DetailScaffold
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
+import android.widget.Toast
 
 @Composable
 fun ArtistDetailScreen(
@@ -46,6 +48,7 @@ fun ArtistDetailScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val strings = LocalStrings.current
 
     fun loadData() {
         coroutineScope.launch {
@@ -79,10 +82,10 @@ fun ArtistDetailScreen(
                         } catch (_: Exception) {}
                     }
                 } else {
-                    error = "艺人数据加载失败 (code: ${albumsResponse.code})"
+                    error = strings.artistDataLoadFailed(albumsResponse.code)
                 }
             } catch (e: Exception) {
-                error = "加载失败: ${e.message}"
+                error = strings.loadFailed(e.message)
             } finally {
                 isLoading = false
             }
@@ -92,7 +95,7 @@ fun ArtistDetailScreen(
     LaunchedEffect(artistId) { loadData() }
 
     DetailScaffold(
-        title = "艺人详情",
+        title = strings.artistDetailTitle,
         onBack = onBack,
         isLoading = isLoading,
         error = error,
@@ -100,7 +103,7 @@ fun ArtistDetailScreen(
         header = {
             Column {
                 Text(
-                    artist?.name ?: "未知艺人",
+                    artist?.name ?: strings.unknownArtistName,
                     color = Color.White,
                     fontSize = 28.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
@@ -108,10 +111,10 @@ fun ArtistDetailScreen(
                 Spacer(Modifier.height(4.dp))
                 Row {
                     artist?.albumSize?.let {
-                        Text("专辑: $it", color = Color.Gray, fontSize = 14.sp)
+                        Text(strings.artistAlbumCount(it), color = Color.Gray, fontSize = 14.sp)
                         Spacer(Modifier.width(16.dp))
                     }
-                    artist?.musicSize?.let { Text("单曲: $it", color = Color.Gray, fontSize = 14.sp) }
+                    artist?.musicSize?.let { Text(strings.artistSongCount(it), color = Color.Gray, fontSize = 14.sp) }
                 }
                 Spacer(Modifier.height(16.dp))
                 TabRow(
@@ -120,9 +123,9 @@ fun ArtistDetailScreen(
                     contentColor = MaterialTheme.colorScheme.primary
                 ) {
                     Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
-                        text = { Text("专辑", color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
+                        text = { Text(strings.categoryAlbums, color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
                     Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                        text = { Text("单曲", color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
+                        text = { Text(strings.categoryTracks, color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
                 }
                 Spacer(Modifier.height(16.dp))
             }
@@ -133,7 +136,7 @@ fun ArtistDetailScreen(
                     if (albums.isEmpty()) {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                                Text("暂无专辑", color = Color.Gray, fontSize = 16.sp)
+                                Text(strings.noAlbums, color = Color.Gray, fontSize = 16.sp)
                             }
                         }
                     } else {
@@ -153,7 +156,7 @@ fun ArtistDetailScreen(
                     if (hotSongs.isEmpty()) {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                                Text("暂无单曲", color = Color.Gray, fontSize = 16.sp)
+                                Text(strings.noHotSongs, color = Color.Gray, fontSize = 16.sp)
                             }
                         }
                     } else {
@@ -169,13 +172,14 @@ fun ArtistDetailScreen(
                                 onClick = { onSongClick(songItem) },
                                 onShowMenu = {
                                     onShowSongMenu(songItem, listOf(
-                                        SongMenuAction(Icons.Default.LibraryAdd, "加入库") {
+                                        SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
                                             LibraryManager.saveSong(context, songItem)
+                                            Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                                         },
-                                        SongMenuAction(Icons.Default.PlaylistPlay, "插播") {
+                                        SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
                                             onSongInsertNext(songItem)
                                         },
-                                        SongMenuAction(Icons.Default.PlaylistAdd, "最后播放") {
+                                        SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
                                             onSongAppendToQueue(songItem)
                                         }
                                     ))
@@ -192,13 +196,14 @@ fun ArtistDetailScreen(
 
 @Composable
 fun ArtistAlbumGridItem(album: ArtistAlbumItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     Column(modifier = modifier.clickable { onClick() }) {
-        AsyncImage(model = album.picUrl, contentDescription = "专辑封面", modifier = Modifier.fillMaxWidth().aspectRatio(1f), contentScale = ContentScale.Crop)
+        AsyncImage(model = album.picUrl, contentDescription = strings.albumCoverDesc, modifier = Modifier.fillMaxWidth().aspectRatio(1f), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(8.dp))
         Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         album.publishTime?.let {
             val year = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
-            Text("$year · ${album.size ?: 0}首", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("$year · ${strings.trackCount(album.size ?: 0)}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

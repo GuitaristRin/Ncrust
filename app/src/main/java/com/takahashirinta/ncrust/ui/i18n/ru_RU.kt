@@ -103,4 +103,46 @@ val ruRU = Strings(
     aboutCreditCli = "Логика CLI",
     aboutCreditAnim = "Анимация (ref)",
     aboutCreditDesign = "Дизайн (ref)",
+
+    noLyrics = "Нет текста",
+    emptyQueue = "Очередь пуста",
+    collapsePlayer = "Свернуть",
+
+    artistDetailTitle = "Исполнитель",
+    albumDetailTitle = "Альбом",
+    playlistDetailTitle = "Плейлист",
+    unknownArtistName = "Неизвестный исполнитель",
+    noAlbums = "Нет альбомов",
+    noHotSongs = "Нет треков",
+    artistAlbumCount = { "Альбомы: $it" },
+    artistSongCount = { "Треки: $it" },
+    albumReleaseDate = { "Выпущен: $it" },
+    albumLabel = { "Лейбл: $it" },
+    artistDataLoadFailed = { "Не удалось загрузить данные исполнителя (код: $it)" },
+    artistStats = { albums, songs -> "Альбомы: $albums · Треки: $songs" },
+
+    coverDesc = "Обложка",
+    albumCoverDesc = "Обложка альбома",
+    artistAvatarDesc = "Фото исполнителя",
+    playlistCoverDesc = "Обложка плейлиста",
+    userAvatarDesc = "Аватар",
+
+    clearSearchButton = "Очистить",
+
+    songDetailTitle = "Детали трека",
+    unknownAlbum = "Неизвестный альбом",
+    lyricsLabel = "Текст",
+
+    queueTitle = "Очередь",
+    playModeButton = "Режим воспроизведения",
+    saveAsPlaylist = "Сохранить как плейлист",
+    noSongPlaying = "Ничего не играет",
+
+    userIconDesc = "Пользователь",
+
+    searchHistoryClear = "Очистить",
+    searchHistoryEmpty = "История поиска пуста",
+    searchHistoryDelete = "Удалить из истории",
+
+    addedToLibrary = "Добавлено в медиатеку",
 )

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import com.takahashirinta.ncrust.lyric.LrcLine
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -34,9 +35,10 @@ fun LyricsView(
     onUserScrolled: () -> Unit,
     enabled: Boolean = true
 ) {
+    val strings = LocalStrings.current
     if (lyrics.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("暂无歌词", color = Color.Gray, fontSize = 18.sp)
+            Text(strings.noLyrics, color = Color.Gray, fontSize = 18.sp)
         }
         return
     }

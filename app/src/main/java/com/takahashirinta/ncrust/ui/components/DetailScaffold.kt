@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 /**
  * 统一详情页骨架
@@ -39,6 +40,7 @@ fun DetailScaffold(
     header: @Composable () -> Unit,
     content: LazyListScope.() -> Unit
 ) {
+    val strings = LocalStrings.current
     Scaffold(
         topBar = {
             Surface(color = MaterialTheme.colorScheme.surface) {
@@ -53,7 +55,7 @@ fun DetailScaffold(
                         IconButton(onClick = onBack) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "返回",
+                                contentDescription = strings.back,
                                 tint = Color.White
                             )
                         }
@@ -90,7 +92,7 @@ fun DetailScaffold(
                         if (onRetry != null) {
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = onRetry) {
-                                Text("重试")
+                                Text(strings.retry)
                             }
                         }
                     }
@@ -130,6 +132,7 @@ fun DetailHeader(
     onPlayAll: (() -> Unit)? = null,
     headerActions: @Composable ColumnScope.() -> Unit = {}
 ) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start,
@@ -137,7 +140,7 @@ fun DetailHeader(
     ) {
         AsyncImage(
             model = coverUrl,
-            contentDescription = "封面",
+            contentDescription = strings.coverDesc,
             modifier = Modifier
                 .weight(0.33f)
                 .aspectRatio(1f),

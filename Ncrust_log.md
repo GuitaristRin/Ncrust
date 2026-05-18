@@ -3864,3 +3864,171 @@ ExoPlayer 无缝切换 → onMediaItemTransition(AUTO)
 ### 构建结果
 
 `./gradlew assembleDebug` → **BUILD SUCCESSFUL**（仅预存在的 deprecated icon 警告，非新增）
+
+---
+
+## 2026 年 5 月 18 日
+
+### 全量 i18n 覆盖：细节组件硬编码中文替换
+
+**问题描述**：详情页、播放器组件、搜索页等多处细节仍有硬编码中文，切换语言后无法切换。
+
+**新增 i18n 字段（36 个，分两批）**：
+
+| 字段 | 默认中文值 |
+|---|---|
+| `noLyrics` | 暂无歌词 |
+| `emptyQueue` | 播放队列为空 |
+| `collapsePlayer` | 收起 |
+| `artistDetailTitle` | 艺人详情 |
+| `albumDetailTitle` | 专辑详情 |
+| `playlistDetailTitle` | 歌单详情 |
+| `unknownArtistName` | 未知艺人 |
+| `noAlbums` | 暂无专辑 |
+| `noHotSongs` | 暂无单曲 |
+| `artistAlbumCount` | 专辑: $it |
+| `artistSongCount` | 单曲: $it |
+| `albumReleaseDate` | 发行: $it |
+| `albumLabel` | 厂牌: $it |
+| `artistDataLoadFailed` | 艺人数据加载失败 (code: $it) |
+| `artistStats` | 专辑: $albums · 单曲: $songs |
+| `coverDesc` | 封面 |
+| `albumCoverDesc` | 专辑封面 |
+| `artistAvatarDesc` | 艺人头像 |
+| `playlistCoverDesc` | 歌单封面 |
+| `userAvatarDesc` | 头像 |
+| `clearSearchButton` | 清空 |
+| `songDetailTitle` | 歌曲详情 |
+| `unknownAlbum` | 未知专辑 |
+| `lyricsLabel` | 歌词 |
+| `queueTitle` | 播放列表 |
+| `playModeButton` | 播放模式 |
+| `saveAsPlaylist` | 保存为歌单 |
+| `noSongPlaying` | 暂无播放 |
+| `userIconDesc` | 用户 |
+
+所有 15 个语言包（zh_CN、zh_TW、en_US、en_UK、en_MED、jp_JP、ko_NK、de_DE、ru_RU、ru_SU、el_GR、la_VA、ang_GB）均同步更新。
+
+**PlayerViewModel 重构**：
+- `currentQualityLabel: StateFlow<String>` → `currentQualityIndex: StateFlow<Int>`，音质显示名由 UI 层通过 `strings.qualityOptions[index]` 获取，ViewModel 不再持有本地化字符串。
+
+**受影响文件**：
+- `ui/i18n/Strings.kt`（+29 个字段）及所有 15 个语言包文件
+- `ui/viewmodel/PlayerViewModel.kt`（质量 label → index）
+- `ui/player/PlayerCard.kt`、`FullPlayerControls.kt`、`LyricsView.kt`、`QueueView.kt`
+- `ui/components/DetailScaffold.kt`、`LibrarySongListItem.kt`、`LibraryAlbumGridItem.kt`、`SongGridItem.kt`、`SongCard.kt`、`ArtistSearchItem.kt`
+- `ui/screen/ArtistDetailScreen.kt`、`AlbumDetailScreen.kt`、`PlaylistDetailScreen.kt`、`SongDetailScreen.kt`、`HomeScreen.kt`、`SearchScreen.kt`、`LibraryScreen.kt`、`UserScreen.kt`
+- `ui/screen/AlbumSearchItem.kt`（实际路径在 screen 目录）
+- `ui/viewmodel/SearchViewModel.kt`（错误信息改为只存原始 message，格式化交由 UI）
+
+**构建结果**：`./gradlew assembleDebug` → **BUILD SUCCESSFUL**
+
+---
+
+### 用户页多语言布局稳定性修复
+
+**问题描述**：不同语言下音质选项文字长度差异（如德语 "Verlustfrei" vs 中文 "无损"）导致 `QualitySelector` 各芯片宽度不一致，切换语言后布局跳动；`ThemeColorSelector` 各行宽度由内容决定，同样不稳定。
+
+**修复方案**：
+
+**`UserScreen.kt` — `QualitySelector`**：
+- 每个芯片 `Box` 加 `Modifier.weight(1f)`，5 个选项等分行宽，任何语言下均一致
+- 水平内边距从 `16.dp` 收窄至 `8.dp`，为较长文字留出余量
+- 添加 `maxLines = 1 + TextOverflow.Ellipsis` 防止极端情况下文字溢出
+
+**`ThemeColorSelector.kt`**：
+- 每行 `Box` 从 `wrapContentWidth()` 改为 `fillMaxWidth()`，所有主题色行均撑满容器，保持对齐
+
+**构建结果**：`./gradlew assembleDebug` → **BUILD SUCCESSFUL**
+
+---
+
+## 2026 年 5 月 18 日（二）
+
+### 搜索页历史记录功能
+
+**功能描述**：搜索框为空时展示最近搜索记录，三类独立（歌曲、专辑、艺人），各最多 10 条，记录生命周期 2 周，到期自动清除。
+
+**记录触发规则**：
+- **歌曲**：点击播放、或通过长按菜单执行"下一首播放"/"加入库"/"加入队列"任一操作，视为有效记录
+- **专辑**：点击进入专辑详情，视为有效记录
+- **艺人**：点击进入艺人详情，视为有效记录
+- 同一条目不重复计入（以 ID 去重，重复时更新至列表首位）
+
+**展示规则**：
+- 搜索框无内容时替换搜索结果区域，展示历史记录
+- 三类独立分区，每区带标题和"清除"按钮
+- 每条以卡片形式展示：64dp 封面 + 标题 + 副标题（艺人名/创建者）
+- 长按弹出菜单（`DropdownMenu`，直角 Metro 风格）：
+  - 歌曲：播放 / 下一首播放 / 加入库 / 删除记录
+  - 专辑：打开专辑 / 删除记录
+  - 艺人：打开艺人 / 删除记录
+- 清除某类全部记录、或删除单条均立即刷新页面
+
+**新增 i18n 字段（3 个，全部 15 个语言包同步更新）**：
+
+| 字段 | 默认中文值 |
+|---|---|
+| `searchHistoryClear` | 清除 |
+| `searchHistoryEmpty` | 暂无搜索记录 |
+| `searchHistoryDelete` | 删除记录 |
+
+**新增文件**：
+- `library/SearchHistoryManager.kt`（单例，SharedPreferences + Gson，TTL 14 天，MAX 10 条/类）
+
+**修改文件**：
+- `ui/screen/SearchScreen.kt`：历史状态管理 + 历史展示区（`SearchHistoryItemCard`、`SearchHistorySectionHeader`）+ 三类记录触发点封装
+
+**构建结果**：`./gradlew assembleDebug` → **BUILD SUCCESSFUL**
+
+---
+
+## 2026 年 5 月 18 日（三）
+
+### 加入库操作 Toast 提示 & 艺人头像占位修复
+
+#### 加入库 Toast
+
+**问题描述**：执行"加入库"操作后无任何反馈，用户不确定是否成功。
+
+**实现方案**：所有 `LibraryManager.saveSong` 调用点之后，紧接添加
+```kotlin
+Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+```
+使用系统原生 Toast，自动消失（约 2 秒），不阻塞用户操作。
+
+**新增 i18n 字段**：`addedToLibrary`（全部 13 个语言包同步更新）
+
+| 语言 | 翻译 |
+|---|---|
+| 简体中文 | 已加入库 |
+| 繁體中文 | 已納入庫房 |
+| English (US/UK) | Added to Library |
+| Middle English | To Librairie addede |
+| 日本語 | ライブラリに追加しました |
+| 조선어 | 보관소에 추가됨 |
+| Deutsch | Zur Bibliothek hinzugefügt |
+| Русский | Добавлено в медиатеку |
+| Советский | Занесено в фонотеку |
+| Ελληνικά | Προστέθηκε στη βιβλιοθήκη |
+| Lingua Latina | In bibliothecam additum |
+| Ænglisc | Tō bōchorde geīeċed |
+
+**受影响文件（共 9 处调用点）**：
+- `ui/player/PlayerCard.kt`（全屏播放器入库按钮）
+- `ui/screen/SearchScreen.kt`（2 处：搜索结果菜单 + 历史记录菜单）
+- `ui/screen/HomeScreen.kt`（2 处：日推 + 新歌速递菜单）
+- `ui/screen/PlaylistDetailScreen.kt`
+- `ui/screen/ArtistDetailScreen.kt`
+- `ui/screen/AlbumDetailScreen.kt`
+- `ui/screen/LibraryScreen.kt`
+
+---
+
+#### 艺人搜索头像占位形状修复
+
+**问题描述**：`ArtistSearchItem` 中头像未加载时显示圆形背景（`CircleShape`），与加载完成后的方形图片不一致。
+
+**修复**：`ui/components/ArtistSearchItem.kt` 中将 `.background(Color(0xFF2A2A2A), CircleShape)` 改为 `.background(Color(0xFF2A2A2A))`，占位与图片均为方形，删除未使用的 `CircleShape` import。
+
+**构建结果**：`./gradlew assembleDebug` → **BUILD SUCCESSFUL**

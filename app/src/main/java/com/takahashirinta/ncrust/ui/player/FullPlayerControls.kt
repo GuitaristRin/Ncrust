@@ -29,7 +29,7 @@ fun FullPlayerControls(
     playbackProgress: Float,
     currentPosition: Long,
     duration: Long,
-    qualityLabel: String = "无损",
+    qualityLabel: String = "",
     onPlayPause: () -> Unit,
     onPlayPrevious: () -> Unit = {},
     onPlayNext: () -> Unit = {},

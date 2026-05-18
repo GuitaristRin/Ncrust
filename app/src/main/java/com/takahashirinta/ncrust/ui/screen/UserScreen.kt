@@ -285,14 +285,14 @@ fun UserScreen(
                 if (userProfile?.avatarUrl?.isNotEmpty() == true) {
                     AsyncImage(
                         model = userProfile!!.avatarUrl,
-                        contentDescription = "头像",
+                        contentDescription = strings.userAvatarDesc,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 } else {
                     Icon(
                         Icons.Default.Person,
-                        "用户",
+                        strings.userIconDesc,
                         tint = Color.Gray,
                         modifier = Modifier.size(36.dp)
                     )
@@ -548,6 +548,7 @@ fun QualitySelector(
                 val isSelected = selected == index
                 Box(
                     modifier = Modifier
+                        .weight(1f)
                         .background(
                             if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
@@ -560,13 +561,15 @@ fun QualitySelector(
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
                         )
                         .clickable { onSelect(index) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         name,
                         fontSize = 13.sp,
-                        color = if (isSelected) Color.Black else Color.White
+                        color = if (isSelected) Color.Black else Color.White,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
             }

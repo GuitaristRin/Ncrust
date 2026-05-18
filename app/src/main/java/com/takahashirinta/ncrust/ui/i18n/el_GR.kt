@@ -103,4 +103,46 @@ val elGR = Strings(
     aboutCreditCli = "Λογική CLI",
     aboutCreditAnim = "Αναφορά κινούμενων εικόνων",
     aboutCreditDesign = "Αναφορά σχεδίασης",
+
+    noLyrics = "Δεν υπάρχουν στίχοι",
+    emptyQueue = "Η ουρά είναι κενή",
+    collapsePlayer = "Σύμπτυξη",
+
+    artistDetailTitle = "Καλλιτέχνης",
+    albumDetailTitle = "Άλμπουμ",
+    playlistDetailTitle = "Λίστα αναπαραγωγής",
+    unknownArtistName = "Άγνωστος καλλιτέχνης",
+    noAlbums = "Δεν υπάρχουν άλμπουμ",
+    noHotSongs = "Δεν υπάρχουν τραγούδια",
+    artistAlbumCount = { "Άλμπουμ: $it" },
+    artistSongCount = { "Τραγούδια: $it" },
+    albumReleaseDate = { "Κυκλοφορία: $it" },
+    albumLabel = { "Δισκογραφική: $it" },
+    artistDataLoadFailed = { "Αποτυχία φόρτωσης δεδομένων καλλιτέχνη (κωδ.: $it)" },
+    artistStats = { albums, songs -> "Άλμπουμ: $albums · Τραγούδια: $songs" },
+
+    coverDesc = "Εξώφυλλο",
+    albumCoverDesc = "Εξώφυλλο άλμπουμ",
+    artistAvatarDesc = "Φωτογραφία καλλιτέχνη",
+    playlistCoverDesc = "Εξώφυλλο λίστας",
+    userAvatarDesc = "Εικονίδιο",
+
+    clearSearchButton = "Εκκαθάριση",
+
+    songDetailTitle = "Λεπτομέρειες τραγουδιού",
+    unknownAlbum = "Άγνωστο άλμπουμ",
+    lyricsLabel = "Στίχοι",
+
+    queueTitle = "Ουρά",
+    playModeButton = "Λειτουργία αναπαραγωγής",
+    saveAsPlaylist = "Αποθήκευση ως λίστα",
+    noSongPlaying = "Δεν παίζει τίποτα",
+
+    userIconDesc = "Χρήστης",
+
+    searchHistoryClear = "Εκκαθάριση",
+    searchHistoryEmpty = "Χωρίς ιστορικό αναζήτησης",
+    searchHistoryDelete = "Αφαίρεση από ιστορικό",
+
+    addedToLibrary = "Προστέθηκε στη βιβλιοθήκη",
 )

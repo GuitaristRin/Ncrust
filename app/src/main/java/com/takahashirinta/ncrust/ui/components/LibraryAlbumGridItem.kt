@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.library.AlbumInfo
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 @Composable
 fun LibraryAlbumGridItem(
@@ -26,11 +27,12 @@ fun LibraryAlbumGridItem(
     onClick: () -> Unit,
     onPlayAll: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(modifier = modifier.clickable { onClick() }) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
                 model = album.picUrl,
-                contentDescription = "专辑封面",
+                contentDescription = strings.albumCoverDesc,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
@@ -45,7 +47,7 @@ fun LibraryAlbumGridItem(
             ) {
                 Icon(
                     Icons.Default.PlayArrow,
-                    "播放全部",
+                    strings.playAllButton,
                     tint = Color.Black,
                     modifier = Modifier.size(20.dp)
                 )
@@ -60,7 +62,7 @@ fun LibraryAlbumGridItem(
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            "${album.artist} · ${album.songCount}首",
+            strings.albumArtistAndCount(album.artist, album.songCount),
             color = Color.Gray,
             style = MaterialTheme.typography.bodySmall,
             maxLines = 1,

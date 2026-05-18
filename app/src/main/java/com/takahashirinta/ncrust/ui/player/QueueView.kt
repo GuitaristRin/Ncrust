@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 @Composable
 fun QueueView(
@@ -28,9 +29,10 @@ fun QueueView(
     onPlayIndex: (Int) -> Unit,
     onRemoveIndex: (Int) -> Unit
 ) {
+    val strings = LocalStrings.current
     if (queue.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("播放队列为空", color = Color.Gray, fontSize = 16.sp)
+            Text(strings.emptyQueue, color = Color.Gray, fontSize = 16.sp)
         }
         return
     }

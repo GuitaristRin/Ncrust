@@ -37,7 +37,7 @@ fun ThemeColorSelector(
 
             Box(
                 modifier = Modifier
-                    .wrapContentWidth()                     // 宽度由内容决定
+                    .fillMaxWidth()
                     .background(
                         if (isSelected) preset.color else Color.Transparent,
                         RoundedCornerShape(0.dp)

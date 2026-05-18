@@ -17,10 +17,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 @Composable
 fun SongGridItem(song: SongItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val artistStr = song.artists?.joinToString("/") { it.name } ?: "未知歌手"
+    val strings = LocalStrings.current
+    val artistStr = song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 1.05f else 1.0f,
@@ -48,7 +50,7 @@ fun SongGridItem(song: SongItem, modifier: Modifier = Modifier, onClick: () -> U
     ) {
         AsyncImage(
             model = song.album?.picUrl,
-            contentDescription = "封面",
+            contentDescription = strings.coverDesc,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f),
