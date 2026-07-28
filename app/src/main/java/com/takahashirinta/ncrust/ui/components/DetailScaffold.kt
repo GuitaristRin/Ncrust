@@ -1,6 +1,11 @@
 package com.takahashirinta.ncrust.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,11 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
 import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
@@ -111,12 +118,29 @@ fun DetailScaffold(
                     }
                 }
                 DetailScaffoldState.Content -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp)
+                    // 入场级联：内容分支首次显示时，整块 LazyColumn 从下方 12dp 微滑上 + 淡入。
+                    // 方向刻意与 NavGraph 的横向推入正交——纵向 12dp 不打架、不叠加视觉抖动。
+                    // 首元素 0ms 延迟，保证不"不跟手"；220ms 落地，与 NavGraph 280ms 大致同步。
+                    val density = LocalDensity.current
+                    val slideOffsetPx = with(density) { 12.dp.roundToPx() }
+                    val cascadeState = remember {
+                        MutableTransitionState(false).apply { targetState = true }
+                    }
+                    AnimatedVisibility(
+                        visibleState = cascadeState,
+                        enter = fadeIn(animationSpec = tween(220, easing = MetroDefault)) +
+                            slideInVertically(
+                                animationSpec = tween(220, easing = MetroDefault),
+                                initialOffsetY = { slideOffsetPx }
+                            )
                     ) {
-                        item { header() }
-                        content()
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp)
+                        ) {
+                            item { header() }
+                            content()
+                        }
                     }
                 }
             }
