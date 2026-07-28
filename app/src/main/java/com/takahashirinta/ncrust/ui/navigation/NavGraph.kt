@@ -1,5 +1,7 @@
 package com.takahashirinta.ncrust.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -44,8 +46,17 @@ fun MainNavGraph(
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
     startDestination: String = NavRoutes.HOME
 ) {
-    // Metro 页面推入：进比退更"重"，滑距 1/8 ~ 1/12 屏宽，MetroDefault 曲线克制无过冲。
-    // enter/popExit 走前进方向（新页从右入 / 旧页向右出），exit/popEnter 走返回方向。
+    // Metro 页面推入：进比退更"重"，滑距 1/8 屏宽，MetroDefault 曲线克制无过冲。
+    //
+    // 关键前提——HOME 路由的 composable 内容故意为空（MainScreen 单独负责），
+    // 这意味着 exit（前进时旧页退场）与 popEnter（返回时目的页入场）作用于一个
+    // 没有像素的空 composable，配置动画只是让 Compose 走完动画机器空转，
+    // 在低端机上还会额外拉长合成窗口。显式改为 None 完全跳过。
+    // 如果未来 HOME 加入内容，需要在这里补回过渡。
+    //
+    // popExit（返回时详情页退场）延迟启动 fadeOut：前 120ms 是纯不透明滑动
+    // （GPU 最便宜的操作），最后 80ms 才做淡出。alpha 合成窗口从 200ms 缩到
+    // 80ms，配合详情页 dispose 时的 LazyColumn/Coil 拆解，掉帧窗口大幅收窄。
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -55,23 +66,15 @@ fun MainNavGraph(
                 animationSpec = tween(durationMillis = 280, easing = MetroDefault)
             ) + fadeIn(animationSpec = tween(durationMillis = 220, easing = MetroDefault))
         },
-        exitTransition = {
-            slideOutHorizontally(
-                targetOffsetX = { fullWidth -> -fullWidth / 12 },
-                animationSpec = tween(durationMillis = 220, easing = MetroDefault)
-            ) + fadeOut(animationSpec = tween(durationMillis = 180, easing = MetroDefault))
-        },
-        popEnterTransition = {
-            slideInHorizontally(
-                initialOffsetX = { fullWidth -> -fullWidth / 12 },
-                animationSpec = tween(durationMillis = 240, easing = MetroDefault)
-            ) + fadeIn(animationSpec = tween(durationMillis = 200, easing = MetroDefault))
-        },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
         popExitTransition = {
             slideOutHorizontally(
                 targetOffsetX = { fullWidth -> fullWidth / 8 },
-                animationSpec = tween(durationMillis = 240, easing = MetroDefault)
-            ) + fadeOut(animationSpec = tween(durationMillis = 200, easing = MetroDefault))
+                animationSpec = tween(durationMillis = 200, easing = MetroDefault)
+            ) + fadeOut(
+                animationSpec = tween(durationMillis = 80, delayMillis = 120, easing = MetroDefault)
+            )
         }
     ) {
         composable(NavRoutes.HOME) {
