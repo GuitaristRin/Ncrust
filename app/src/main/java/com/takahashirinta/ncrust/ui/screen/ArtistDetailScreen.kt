@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
@@ -40,23 +41,39 @@ fun ArtistDetailScreen(
     onSongAppendToQueue: (SongItem) -> Unit = {},
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
-    var artist by remember { mutableStateOf<ArtistDetail?>(null) }
-    var hotSongs by remember { mutableStateOf<List<ArtistSongItem>>(emptyList()) }
-    var albums by remember { mutableStateOf<List<ArtistAlbumItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    // 命中缓存则用缓存作为初始 state，屏幕进入时立即有内容渲染。
+    // hotSongs 需要额外一次搜索，不入 ContentCache（保持 API 面收敛）——只对主体的 artist + albums 做缓存。
+    val cached = remember(artistId) { ContentCache.getArtistAlbums(artistId) }
+    var artist by remember(artistId) {
+        mutableStateOf(
+            cached?.let {
+                ArtistDetail(
+                    id = it.artist?.id ?: artistId,
+                    name = it.artist?.name ?: "",
+                    picUrl = it.artist?.picUrl,
+                    albumSize = it.artist?.albumSize,
+                    musicSize = it.artist?.musicSize
+                )
+            }
+        )
+    }
+    var hotSongs by remember(artistId) { mutableStateOf<List<ArtistSongItem>>(emptyList()) }
+    var albums by remember(artistId) { mutableStateOf<List<ArtistAlbumItem>>(cached?.hotAlbums ?: emptyList()) }
+    var isLoading by remember(artistId) { mutableStateOf(cached == null) }
+    var error by remember(artistId) { mutableStateOf<String?>(null) }
     var selectedTab by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val strings = LocalStrings.current
 
-    fun loadData() {
+    fun loadData(showLoader: Boolean) {
         coroutineScope.launch {
-            isLoading = true
+            if (showLoader) isLoading = true
             error = null
             try {
                 val albumsResponse = RetrofitClient.api.getArtistAlbums(artistId)
                 if (albumsResponse.code == 200) {
+                    ContentCache.putArtistAlbums(artistId, albumsResponse)
                     artist = ArtistDetail(
                         id = albumsResponse.artist?.id ?: artistId,
                         name = albumsResponse.artist?.name ?: "",
@@ -82,24 +99,26 @@ fun ArtistDetailScreen(
                         } catch (_: Exception) {}
                     }
                 } else {
-                    error = strings.artistDataLoadFailed(albumsResponse.code)
+                    // 缓存兜底：有旧内容时刷新失败不显示错误。
+                    if (artist == null) error = strings.artistDataLoadFailed(albumsResponse.code)
                 }
             } catch (e: Exception) {
-                error = strings.loadFailed(e.message)
+                if (artist == null) error = strings.loadFailed(e.message)
             } finally {
                 isLoading = false
             }
         }
     }
 
-    LaunchedEffect(artistId) { loadData() }
+    LaunchedEffect(artistId) { loadData(showLoader = cached == null) }
 
     DetailScaffold(
         title = strings.artistDetailTitle,
         onBack = onBack,
         isLoading = isLoading,
+        hasCachedContent = artist != null,
         error = error,
-        onRetry = { loadData() },
+        onRetry = { loadData(showLoader = true) },
         header = {
             Column {
                 Text(
