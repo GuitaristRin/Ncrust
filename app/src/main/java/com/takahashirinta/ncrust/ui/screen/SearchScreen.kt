@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -42,6 +43,7 @@ import com.takahashirinta.ncrust.ui.components.ArtistSearchItem
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
+import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
 import com.takahashirinta.ncrust.ui.viewmodel.SearchViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.text.TextStyle
@@ -145,9 +147,21 @@ fun SearchScreen(
                 )
             }
 
-            if (showHistory) {
-                // History view — shown when query is empty and history exists
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+            // 三态过渡：History（有历史时空 query）/ Results（输入非空）/ Empty（空 query 无历史）。
+                // 用 Crossfade + SokuouTweens.CoverFade 消除清空搜索框时"结果列表 → 历史"的硬切。
+                val searchContentState = when {
+                    showHistory -> SearchContentState.History
+                    query.isNotEmpty() -> SearchContentState.Results
+                    else -> SearchContentState.Empty
+                }
+                Crossfade(
+                    targetState = searchContentState,
+                    animationSpec = SokuouTweens.CoverFade,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    label = "SearchContentCrossfade"
+                ) { state -> when (state) {
+                    SearchContentState.History -> {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
                     if (songHistory.isNotEmpty()) {
                         item {
                             SearchHistorySectionHeader(
@@ -257,10 +271,11 @@ fun SearchScreen(
                     }
 
                     item { Spacer(Modifier.height(72.dp)) }
-                }
-            } else if (query.isNotEmpty()) {
-                // Search results
-                TabRow(
+                        }
+                    }
+                    SearchContentState.Results -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            TabRow(
                     selectedTabIndex = when (currentType) {
                         1 -> 0
                         10 -> 1
@@ -447,11 +462,18 @@ fun SearchScreen(
                         }
                     }
                 }
-            }
-            // If query is empty and no history: show nothing (just the search bar)
+                        }
+                    }
+                    SearchContentState.Empty -> {
+                        // Query 空且无历史：只留搜索框在上面，下方空白。
+                        Spacer(Modifier.fillMaxSize())
+                    }
+                } }
         }
     }
 }
+
+private enum class SearchContentState { History, Results, Empty }
 
 @Composable
 private fun SearchHistorySectionHeader(title: String, clearLabel: String, onClear: () -> Unit) {
