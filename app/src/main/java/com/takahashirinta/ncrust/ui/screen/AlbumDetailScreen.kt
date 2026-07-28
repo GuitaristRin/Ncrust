@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
@@ -47,23 +48,28 @@ fun AlbumDetailScreen(
     onSongAppendToQueue: (SongItem) -> Unit = {},
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
-    var album by remember { mutableStateOf<AlbumDetail?>(null) }
-    var songs by remember { mutableStateOf<List<AlbumSongItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    // 命中缓存则用缓存作为初始 state，屏幕进入时立即有内容渲染。
+    val cached = remember(albumId) { ContentCache.getAlbum(albumId) }
+    var album by remember(albumId) { mutableStateOf(cached?.album) }
+    var songs by remember(albumId) { mutableStateOf(cached?.songs ?: emptyList()) }
+    var isLoading by remember(albumId) { mutableStateOf(cached == null) }
+    var error by remember(albumId) { mutableStateOf<String?>(null) }
     var showPlayAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val strings = LocalStrings.current
 
     LaunchedEffect(albumId) {
-        isLoading = true
+        // 有缓存时后台静默刷新；无缓存则前台 loading。
+        if (cached == null) isLoading = true
         error = null
         try {
             val response = RetrofitClient.api.getAlbumDetail(albumId)
+            ContentCache.putAlbum(albumId, response)
             album = response.album
             songs = response.songs ?: emptyList()
         } catch (e: Exception) {
-            error = strings.loadFailed(e.message)
+            // 缓存兜底：即使刷新失败，如果有旧内容就不显示错误。
+            if (cached == null) error = strings.loadFailed(e.message)
         } finally {
             isLoading = false
         }
@@ -86,6 +92,7 @@ fun AlbumDetailScreen(
         title = strings.albumDetailTitle,
         onBack = onBack,
         isLoading = isLoading,
+        hasCachedContent = album != null,
         error = error,
         onRetry = null,
         header = {

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
@@ -34,9 +35,10 @@ fun PlaylistDetailScreen(
     onSongAppendToQueue: (SongItem) -> Unit = {},
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
-    var songs by remember { mutableStateOf<List<SongItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val cached = remember(playlistId) { ContentCache.getPlaylistSongs(playlistId) }
+    var songs by remember(playlistId) { mutableStateOf(cached ?: emptyList()) }
+    var isLoading by remember(playlistId) { mutableStateOf(cached == null) }
+    var error by remember(playlistId) { mutableStateOf<String?>(null) }
     var showPlayAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -44,12 +46,14 @@ fun PlaylistDetailScreen(
 
     fun loadSongs() {
         coroutineScope.launch {
-            isLoading = true
+            if (songs.isEmpty()) isLoading = true
             error = null
             try {
-                songs = PlaylistApi.getPlaylistDetail(playlistId)
+                val fresh = PlaylistApi.getPlaylistDetail(playlistId)
+                songs = fresh
+                ContentCache.putPlaylistSongs(playlistId, fresh)
             } catch (e: Exception) {
-                error = strings.loadFailed(e.message)
+                if (songs.isEmpty()) error = strings.loadFailed(e.message)
             } finally {
                 isLoading = false
             }
@@ -73,6 +77,7 @@ fun PlaylistDetailScreen(
         title = strings.playlistDetailTitle,
         onBack = onBack,
         isLoading = isLoading,
+        hasCachedContent = songs.isNotEmpty(),
         error = error,
         onRetry = { loadSongs() },
         header = {

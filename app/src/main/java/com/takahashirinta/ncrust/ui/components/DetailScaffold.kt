@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.components
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 /**
@@ -35,6 +37,9 @@ fun DetailScaffold(
     title: String,
     onBack: () -> Unit,
     isLoading: Boolean = false,
+    // 如果调用方已经有缓存内容可以立即渲染，传 true，DetailScaffold 就不显示全屏 loader，
+    // 直接展示 header/content；后台加载完成后 LazyColumn 自然 diff 更新，无跳变。
+    hasCachedContent: Boolean = false,
     error: String? = null,
     onRetry: (() -> Unit)? = null,
     header: @Composable () -> Unit,
@@ -73,45 +78,53 @@ fun DetailScaffold(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        // 三态：loading（无缓存的冷启动）/ error / content。
+        // hasCachedContent=true 时把 loading 视作 content，避免闪一下 spinner。
+        val stateKey = when {
+            error != null -> DetailScaffoldState.Error
+            isLoading && !hasCachedContent -> DetailScaffoldState.Loading
+            else -> DetailScaffoldState.Content
+        }
+        Crossfade(
+            targetState = stateKey,
+            animationSpec = SokuouTweens.CoverFade,
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            label = "DetailScaffoldCrossfade"
+        ) { state ->
+            when (state) {
+                DetailScaffoldState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
                 }
-            }
-            error != null -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(error, color = Color.Red, fontSize = 16.sp)
-                        if (onRetry != null) {
-                            Spacer(Modifier.height(16.dp))
-                            Button(onClick = onRetry) {
-                                Text(strings.retry)
+                DetailScaffoldState.Error -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(error ?: "", color = Color.Red, fontSize = 16.sp)
+                            if (onRetry != null) {
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = onRetry) {
+                                    Text(strings.retry)
+                                }
                             }
                         }
                     }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
-                    item { header() }
-                    content()
+                DetailScaffoldState.Content -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp)
+                    ) {
+                        item { header() }
+                        content()
+                    }
                 }
             }
         }
     }
 }
+
+private enum class DetailScaffoldState { Loading, Error, Content }
 
 /**
  * 详情页头部：封面 + 信息区域

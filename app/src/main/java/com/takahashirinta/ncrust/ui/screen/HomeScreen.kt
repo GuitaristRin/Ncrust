@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,12 +22,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.library.LibraryManager
+import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
 import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
@@ -57,14 +60,21 @@ fun HomeScreen(
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
 ) {
     val strings = LocalStrings.current
-    var dailySongs by remember { mutableStateOf<List<SongItem>>(emptyList()) }
-    var playlists by remember { mutableStateOf<List<PlaylistCard>>(emptyList()) }
-    val newSongs = remember { mutableStateListOf<SongItem>() }
-    var isLoading by remember { mutableStateOf(true) }
+    // 初始 state 从 ContentCache 读取。有缓存则立即渲染，无需 spinner。
+    // 后台仍会刷新——请求返回后写回缓存 + 更新 state；LazyColumn 通过 key diff 平滑替换。
+    var dailySongs by remember { mutableStateOf(ContentCache.homeDailySongs ?: emptyList()) }
+    var playlists by remember { mutableStateOf(ContentCache.homeRecommendPlaylists ?: emptyList()) }
+    val newSongs = remember {
+        mutableStateListOf<SongItem>().apply { ContentCache.homeNewSongs?.let { addAll(it) } }
+    }
+    // 冷启动（三块数据都空）才显示全屏 loader；有任一缓存则跳过。
+    var isLoading by remember {
+        mutableStateOf(dailySongs.isEmpty() && playlists.isEmpty() && newSongs.isEmpty())
+    }
     var isLoadingMore by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var hasMore by remember { mutableStateOf(true) }
-    var offset by remember { mutableIntStateOf(0) }
+    var offset by remember { mutableIntStateOf(newSongs.size) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -105,7 +115,10 @@ fun HomeScreen(
                         ))
                     }
                 }
-                withContext(Dispatchers.Main) { dailySongs = list }
+                withContext(Dispatchers.Main) {
+                    dailySongs = list
+                    ContentCache.homeDailySongs = list
+                }
             } catch (e: Exception) {
                 android.util.Log.e("DailySongs", "Error", e)
             }
@@ -135,14 +148,23 @@ fun HomeScreen(
                         ))
                     }
                 }
-                withContext(Dispatchers.Main) { playlists = list }
+                withContext(Dispatchers.Main) {
+                    playlists = list
+                    ContentCache.homeRecommendPlaylists = list
+                }
             } catch (_: Exception) { }
         }
     }
 
     fun loadNewSongs(reset: Boolean) {
         coroutineScope.launch(Dispatchers.IO) {
-            if (reset) { isLoading = true; offset = 0 } else { isLoadingMore = true }
+            if (reset) {
+                offset = 0
+                // 只在完全没内容时才切 loading（冷启动）；有缓存时静默刷新。
+                if (newSongs.isEmpty()) isLoading = true
+            } else {
+                isLoadingMore = true
+            }
             error = null
             try {
                 val body = RetrofitClient.get(
@@ -167,8 +189,15 @@ fun HomeScreen(
                 }
                 hasMore = list.size >= 10
                 withContext(Dispatchers.Main) {
-                    if (reset) { newSongs.clear(); newSongs.addAll(list); isLoading = false }
-                    else { newSongs.addAll(list); isLoadingMore = false }
+                    if (reset) {
+                        newSongs.clear()
+                        newSongs.addAll(list)
+                        ContentCache.homeNewSongs = list.toList()
+                        isLoading = false
+                    } else {
+                        newSongs.addAll(list)
+                        isLoadingMore = false
+                    }
                     offset += list.size
                 }
             } catch (e: Exception) {
@@ -191,18 +220,23 @@ fun HomeScreen(
         loadNewSongs(true)
     }
 
-    if (isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-        }
-        return
-    }
-
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        ResponsiveContent {
-            LazyColumn(
+    // Crossfade：冷启动 loader → 内容平滑过渡，避免"黑屏 spinner → 跳变到列表"的观感。
+    // 有缓存时 isLoading 一开始就是 false，Crossfade 直接落到内容分支，没有额外开销。
+    Crossfade(
+        targetState = isLoading,
+        animationSpec = SokuouTweens.CoverFade,
+        modifier = Modifier.fillMaxSize(),
+        label = "HomeContentCrossfade"
+    ) { loading ->
+        if (loading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+        } else {
+            ResponsiveContent {
+                LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 contentPadding = PaddingValues(bottom = 72.dp)
@@ -295,10 +329,10 @@ fun HomeScreen(
                 if (!hasMore && newSongs.isNotEmpty()) {
                     item { Text(strings.noMoreContent, color = Color.Gray, modifier = Modifier.fillMaxWidth().padding(16.dp), textAlign = TextAlign.Center) }
                 }
-            }
-        }
-
-    }
+                }  // close LazyColumn
+            }  // close ResponsiveContent
+        }  // close else block
+    }  // close Crossfade lambda
 }
 
 @Composable
