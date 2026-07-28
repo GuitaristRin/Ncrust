@@ -1,5 +1,12 @@
 package com.takahashirinta.ncrust.ui.screen
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,6 +31,7 @@ import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
 import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
@@ -109,7 +117,27 @@ fun LibraryScreen(
                 }
             }
 
-            when (selectedCategory) {
+            // Tab 切换用 AnimatedContent 做方向感知的横向滑入。
+            // 距离 1/16 屏宽（比 NavGraph 的 1/8 更轻——同页内切 tab，不应有"翻页"的重量感）；
+            // 200ms MetroDefault 曲线。向右切（index 增）新页从右入、旧页向左出；向左切反之。
+            AnimatedContent(
+                targetState = selectedCategory,
+                transitionSpec = {
+                    val goingRight = targetState > initialState
+                    val enterSign = if (goingRight) 1 else -1
+                    val exitSign = if (goingRight) -1 else 1
+                    (slideInHorizontally(
+                        animationSpec = tween(200, easing = MetroDefault),
+                        initialOffsetX = { fullWidth -> enterSign * fullWidth / 16 }
+                    ) + fadeIn(animationSpec = tween(160, easing = MetroDefault))) togetherWith
+                    (slideOutHorizontally(
+                        animationSpec = tween(200, easing = MetroDefault),
+                        targetOffsetX = { fullWidth -> exitSign * fullWidth / 16 }
+                    ) + fadeOut(animationSpec = tween(160, easing = MetroDefault)))
+                },
+                modifier = Modifier.fillMaxSize(),
+                label = "LibraryCategoryContent"
+            ) { category -> when (category) {
                 0 -> {
                     if (savedSongs.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -236,7 +264,7 @@ fun LibraryScreen(
                         }
                     }
                 }
-            }
+            } }
         }
     }
 
