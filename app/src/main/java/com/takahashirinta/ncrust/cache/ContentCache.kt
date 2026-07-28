@@ -4,7 +4,6 @@ import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumDetailResponse
 import com.takahashirinta.ncrust.network.model.ArtistAlbumsResponse
-import com.takahashirinta.ncrust.ui.screen.PlaylistCard
 import java.util.concurrent.ConcurrentHashMap
 
 // In-memory 缓存网络加载内容。进程存活期间常驻，进程被杀后失效。
@@ -20,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 object ContentCache {
     // ── 首页 ─────────────────────────────────────────────────────────
     @Volatile var homeDailySongs: List<SongItem>? = null
-    @Volatile var homeRecommendPlaylists: List<PlaylistCard>? = null
+    @Volatile var homeRecommendPlaylists: List<PlaylistApi.PlaylistCard>? = null
     @Volatile var homeNewSongs: List<SongItem>? = null
 
     // ── 详情页（按 ID 缓存） ─────────────────────────────────────────

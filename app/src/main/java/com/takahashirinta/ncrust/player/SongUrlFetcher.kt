@@ -11,7 +11,7 @@ data class SongUrlResult(val url: String, val actualLevel: String)
 
 object SongUrlFetcher {
     private const val TAG = "SongUrlFetcher"
-    private const val SONG_URL_V1 = "https://interface3.music.163.com/eapi/song/enhance/player/url/v1"
+    private const val SONG_URL_PATH = "/eapi/song/enhance/player/url/v1"
 
     suspend fun fetch(songId: Long, level: String = "lossless"): SongUrlResult = withContext(Dispatchers.IO) {
         // Try the requested level first, then fall back down the quality ladder.
@@ -27,7 +27,7 @@ object SongUrlFetcher {
         for (tryLevel in fallbackLevels) {
             try {
                 val payload = buildPayload(songId, tryLevel)
-                val response = RetrofitClient.eapiPost(SONG_URL_V1, payload)
+                val response = RetrofitClient.eapiPost(SONG_URL_PATH, payload, useInterface = true)
                 val body = response.body?.string() ?: continue
                 Log.d(TAG, "eapi response ($tryLevel): $body")
                 val json = JSONObject(body)

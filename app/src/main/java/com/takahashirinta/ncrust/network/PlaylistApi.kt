@@ -10,18 +10,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object PlaylistApi {
-    private const val USER_PLAYLIST_URL = "https://music.163.com/eapi/user/playlist"
-    private const val PLAYLIST_DETAIL_URL = "https://music.163.com/eapi/v6/playlist/detail"
+    private const val USER_PLAYLIST_PATH = "/eapi/user/playlist"
+    private const val PLAYLIST_DETAIL_PATH = "/eapi/v6/playlist/detail"
+    private const val ACCOUNT_GET_PATH = "/eapi/w/nuser/account/get"
 
     /**
      * 获取当前登录用户的 UID
      */
     suspend fun getCurrentUserId(): Long = withContext(Dispatchers.IO) {
         val payload = emptyMap<String, String>()
-        val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/w/nuser/account/get",
-            payload
-        )
+        val response = RetrofitClient.eapiPost(ACCOUNT_GET_PATH, payload)
         val body = response.body?.string() ?: throw Exception("empty response")
         val json = JSONObject(body)
         val account = json.optJSONObject("account")
@@ -40,10 +38,7 @@ object PlaylistApi {
 
     suspend fun getUserProfile(): UserProfile = withContext(Dispatchers.IO) {
         val payload = emptyMap<String, String>()
-        val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/w/nuser/account/get",
-            payload
-        )
+        val response = RetrofitClient.eapiPost(ACCOUNT_GET_PATH, payload)
         val body = response.body?.string() ?: throw Exception("empty response")
         val json = JSONObject(body)
 
@@ -67,7 +62,7 @@ object PlaylistApi {
             "offset" to offset.toString(),
             "includeVideo" to "false"
         )
-        val response = RetrofitClient.eapiPost(USER_PLAYLIST_URL, payload)
+        val response = RetrofitClient.eapiPost(USER_PLAYLIST_PATH, payload)
         val body = response.body?.string() ?: throw Exception("empty response")
         val json = JSONObject(body)
         val code = json.optInt("code", -1)
@@ -99,9 +94,7 @@ object PlaylistApi {
 
     suspend fun getArtistDetail(artistId: Long): String = withContext(Dispatchers.IO) {
         val payload = mapOf("id" to artistId.toString())
-        val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/v1/artist/detail", payload
-        )
+        val response = RetrofitClient.eapiPost("/eapi/v1/artist/detail", payload)
         response.body?.string() ?: throw Exception("empty response")
     }
 
@@ -111,9 +104,7 @@ object PlaylistApi {
             "limit" to "50",
             "offset" to "0"
         )
-        val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/artist/albums", payload
-        )
+        val response = RetrofitClient.eapiPost("/eapi/artist/albums", payload)
         response.body?.string() ?: throw Exception("empty response")
     }
 
@@ -125,7 +116,7 @@ object PlaylistApi {
             "n" to "1000",
             "s" to "0"
         )
-        val response = RetrofitClient.eapiPost(PLAYLIST_DETAIL_URL, payload)
+        val response = RetrofitClient.eapiPost(PLAYLIST_DETAIL_PATH, payload)
         val body = response.body?.string() ?: throw Exception("empty response")
         val json = JSONObject(body)
         val code = json.optInt("code", -1)
@@ -199,10 +190,7 @@ object PlaylistApi {
         var lastError: Exception? = null
         repeat(2) { attempt ->
             try {
-                val response = RetrofitClient.eapiPost(
-                    "https://music.163.com/eapi/v3/song/detail",
-                    payload
-                )
+                val response = RetrofitClient.eapiPost("/eapi/v3/song/detail", payload)
                 val body = response.body?.string() ?: return@repeat
                 val songArray = JSONObject(body).optJSONArray("songs") ?: return@repeat
                 return@withContext (0 until songArray.length()).map { i ->
@@ -245,10 +233,7 @@ object PlaylistApi {
     // ==================== Discovery ====================
 
     suspend fun getDailyRecommendSongs(): List<SongItem> = withContext(Dispatchers.IO) {
-        val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/v2/discovery/recommend/songs",
-            emptyMap()
-        )
+        val response = RetrofitClient.eapiPost("/eapi/v2/discovery/recommend/songs", emptyMap())
         val body = response.body?.string() ?: throw Exception("empty response")
         val json = JSONObject(body)
         val arr = json.optJSONArray("recommend") ?: json.optJSONArray("data")
@@ -272,10 +257,7 @@ object PlaylistApi {
     }
 
     suspend fun getRecommendPlaylists(): List<PlaylistCard> = withContext(Dispatchers.IO) {
-        val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/v1/discovery/recommend/resource",
-            emptyMap()
-        )
+        val response = RetrofitClient.eapiPost("/eapi/v1/discovery/recommend/resource", emptyMap())
         val body = response.body?.string() ?: throw Exception("empty response")
         val arr = JSONObject(body).optJSONArray("recommend") ?: return@withContext emptyList()
         (0 until minOf(arr.length(), 10)).map { i ->
@@ -291,9 +273,7 @@ object PlaylistApi {
     }
 
     suspend fun getTopSongs(limit: Int = 30, offset: Int = 0): List<SongItem> = withContext(Dispatchers.IO) {
-        val body = RetrofitClient.get(
-            "https://music.163.com/api/v1/discovery/new/songs?limit=$limit&offset=$offset"
-        )
+        val body = RetrofitClient.get("/api/v1/discovery/new/songs?limit=$limit&offset=$offset")
         val json = JSONObject(body)
         val arr = json.optJSONArray("data") ?: json.optJSONArray("songs")
             ?: return@withContext emptyList()
@@ -316,10 +296,7 @@ object PlaylistApi {
     }
 
     suspend fun getPersonalFm(): List<SongItem> = withContext(Dispatchers.IO) {
-        val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/v1/radio/get",
-            emptyMap()
-        )
+        val response = RetrofitClient.eapiPost("/eapi/v1/radio/get", emptyMap())
         val body = response.body?.string() ?: throw Exception("empty response")
         val arr = JSONObject(body).optJSONArray("data") ?: return@withContext emptyList()
         (0 until arr.length()).map { i ->
@@ -343,7 +320,7 @@ object PlaylistApi {
     // FM垃圾桶：对当前 FM 歌曲执行不喜欢操作
     suspend fun fmTrash(songId: Long): Boolean = withContext(Dispatchers.IO) {
         val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/radio/trash/add",
+            "/eapi/radio/trash/add",
             mapOf("songId" to songId.toString(), "alg" to "itembased", "time" to "25")
         )
         val body = response.body?.string() ?: return@withContext false

@@ -23,10 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.cache.ContentCache
-import com.takahashirinta.ncrust.network.RetrofitClient
+import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
-import com.takahashirinta.ncrust.network.model.AlbumItem
-import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
@@ -38,16 +36,7 @@ import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import android.widget.Toast
-
-data class PlaylistCard(
-    val id: Long,
-    val name: String,
-    val coverUrl: String,
-    val playCount: Long,
-    val trackCount: Int = 0
-)
 
 @Composable
 fun HomeScreen(
@@ -81,40 +70,7 @@ fun HomeScreen(
     fun loadDailySongs() {
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                val response = RetrofitClient.eapiPost(
-                    "https://music.163.com/eapi/v2/discovery/recommend/songs",
-                    emptyMap()
-                )
-                val body = response.body?.string() ?: ""
-                val json = JSONObject(body)
-                val recommendArray = json.optJSONArray("recommend") ?: json.optJSONArray("data")
-                val list = mutableListOf<SongItem>()
-                if (recommendArray != null) {
-                    for (i in 0 until recommendArray.length()) {
-                        val s = recommendArray.getJSONObject(i)
-                        val ar = s.optJSONArray("artists")
-                        val artists: List<ArtistItem>? = if (ar != null) {
-                            val arList = mutableListOf<ArtistItem>()
-                            for (j in 0 until ar.length()) {
-                                arList.add(ArtistItem(name = ar.getJSONObject(j).optString("name")))
-                            }
-                            arList
-                        } else null
-                        val al = s.optJSONObject("album")
-                        val album = if (al != null) AlbumItem(
-                            id = al.optLong("id"),
-                            name = al.optString("name"),
-                            picUrl = al.optString("picUrl")
-                        ) else null
-                        list.add(SongItem(
-                            id = s.optLong("id"),
-                            name = s.optString("name"),
-                            artists = artists,
-                            album = album,
-                            duration = s.optLong("duration")
-                        ))
-                    }
-                }
+                val list = PlaylistApi.getDailyRecommendSongs()
                 withContext(Dispatchers.Main) {
                     dailySongs = list
                     ContentCache.homeDailySongs = list
@@ -128,26 +84,7 @@ fun HomeScreen(
     fun loadPlaylists() {
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                val response = RetrofitClient.eapiPost(
-                    "https://music.163.com/eapi/v1/discovery/recommend/resource",
-                    emptyMap()
-                )
-                val body = response.body?.string() ?: ""
-                val json = JSONObject(body)
-                val recommendArray = json.optJSONArray("recommend")
-                val list = mutableListOf<PlaylistCard>()
-                if (recommendArray != null) {
-                    for (i in 0 until minOf(recommendArray.length(), 10)) {
-                        val item = recommendArray.getJSONObject(i)
-                        list.add(PlaylistCard(
-                            id = item.optLong("id"),
-                            name = item.optString("name"),
-                            coverUrl = item.optString("picUrl"),
-                            playCount = item.optLong("playCount"),
-                            trackCount = if (item.optString("name") == "私人雷达") 35 else item.optInt("trackCount")
-                        ))
-                    }
-                }
+                val list = PlaylistApi.getRecommendPlaylists()
                 withContext(Dispatchers.Main) {
                     playlists = list
                     ContentCache.homeRecommendPlaylists = list
@@ -167,26 +104,7 @@ fun HomeScreen(
             }
             error = null
             try {
-                val body = RetrofitClient.get(
-                    "https://music.163.com/api/v1/discovery/new/songs?limit=10&offset=$offset"
-                )
-                val json = JSONObject(body)
-                val dataArray = json.optJSONArray("data") ?: json.optJSONArray("songs")
-                val list = mutableListOf<SongItem>()
-                if (dataArray != null) {
-                    for (i in 0 until dataArray.length()) {
-                        val s = dataArray.getJSONObject(i)
-                        val ar = s.optJSONArray("artists")
-                        val artists: List<ArtistItem>? = if (ar != null) {
-                            val arList = mutableListOf<ArtistItem>()
-                            for (j in 0 until ar.length()) arList.add(ArtistItem(name = ar.getJSONObject(j).optString("name")))
-                            arList
-                        } else null
-                        val al = s.optJSONObject("album")
-                        val album = if (al != null) AlbumItem(id = al.optLong("id"), name = al.optString("name"), picUrl = al.optString("picUrl")) else null
-                        list.add(SongItem(id = s.optLong("id"), name = s.optString("name"), artists = artists, album = album, duration = s.optLong("duration")))
-                    }
-                }
+                val list = PlaylistApi.getTopSongs(limit = 10, offset = offset)
                 hasMore = list.size >= 10
                 withContext(Dispatchers.Main) {
                     if (reset) {
@@ -336,7 +254,7 @@ fun HomeScreen(
 }
 
 @Composable
-fun PlaylistCardItem(playlist: PlaylistCard, onClick: () -> Unit, onPlayAll: () -> Unit) {
+fun PlaylistCardItem(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit, onPlayAll: () -> Unit) {
     val strings = LocalStrings.current
     Column(modifier = Modifier.width(140.dp).clickable { onClick() }) {
         Box(modifier = Modifier.size(140.dp)) {
