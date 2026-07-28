@@ -18,11 +18,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.takahashirinta.ncrust.BuildConfig
 import com.takahashirinta.ncrust.R
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
-private const val VERSION = "v1.1.4"
+// 版本号动态读取 BuildConfig.VERSION_NAME（对应 build.gradle.kts 的 versionName），
+// 避免发版时忘记同步。
+private val VERSION = "v${BuildConfig.VERSION_NAME}"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

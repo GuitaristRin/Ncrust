@@ -32,8 +32,8 @@ android {
         applicationId = "com.takahashirinta.ncrust"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.1.4"
+        versionCode = 2
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -59,6 +59,9 @@ android {
     }
     buildFeatures {
         compose = true
+        // 让 AboutScreen 通过 BuildConfig.VERSION_NAME 动态显示版本号，
+        // 避免每次发版忘记同步硬编码。
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
