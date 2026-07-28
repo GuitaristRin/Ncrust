@@ -1,8 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,14 +15,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouPresets
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.PlaylistApi
@@ -499,35 +503,41 @@ fun MetroLanguageDropdown(
 @Composable
 fun MetroSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val accent = MaterialTheme.colorScheme.primary
-    val trackColor by animateColorAsState(
-        targetValue = if (checked) accent else Color(0xFF333333),
-        animationSpec = tween(160),
-        label = "switchTrack"
-    )
-    val thumbOffset by animateDpAsState(
-        targetValue = if (checked) 24.dp else 0.dp,
-        animationSpec = tween(160),
-        label = "switchThumb"
-    )
+    val trackOff = Color(0xFF333333)
+    val borderOff = Color.Gray.copy(alpha = 0.35f)
+    // 单一 progress 驱动 track 颜色、border 颜色、thumb 位移。旧实现两个 animateXxxAsState
+    // 每次翻转触发一次 MetroSwitch recomposition；这里 drawBehind 只在 draw 阶段读取 .value。
+    val progress = remember { Animatable(if (checked) 1f else 0f) }
+    LaunchedEffect(checked) {
+        progress.animateTo(if (checked) 1f else 0f, SokuouPresets.ToggleFlip)
+    }
     Box(
         modifier = Modifier
             .width(52.dp)
             .height(28.dp)
-            .background(trackColor)
-            .border(1.dp, if (checked) accent else Color.Gray.copy(alpha = 0.35f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) { onCheckedChange(!checked) }
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(start = 3.dp + thumbOffset, top = 3.dp, bottom = 3.dp)
-                .width(22.dp)
-                .fillMaxHeight()
-                .background(if (checked) Color.Black else Color.White)
-        )
-    }
+            .drawBehind {
+                val p = progress.value
+                val track = lerp(trackOff, accent, p)
+                val border = lerp(borderOff, accent, p)
+                drawRect(track)
+                val strokeWidth = 1.dp.toPx()
+                drawRect(color = border, style = Stroke(width = strokeWidth))
+                val padPx = 3.dp.toPx()
+                val thumbW = 22.dp.toPx()
+                val travel = size.width - padPx * 2f - thumbW
+                val thumbX = padPx + travel * p
+                val thumbColor = if (p > 0.5f) Color.Black else Color.White
+                drawRect(
+                    color = thumbColor,
+                    topLeft = Offset(thumbX, padPx),
+                    size = Size(thumbW, size.height - padPx * 2f)
+                )
+            }
+    )
 }
 
 @Composable

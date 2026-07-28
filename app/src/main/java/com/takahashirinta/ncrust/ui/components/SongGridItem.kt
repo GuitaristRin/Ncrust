@@ -1,8 +1,6 @@
 package com.takahashirinta.ncrust.ui.components
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -17,35 +15,34 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouPresets
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import kotlinx.coroutines.launch
 
 @Composable
 fun SongGridItem(song: SongItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val strings = LocalStrings.current
     val artistStr = song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist
-    var isPressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 1.05f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
+    // 按压缩放动画：Animatable + graphicsLayer，动画帧只跑 draw 阶段，零 recomposition。
+    // 旧实现用 animateFloatAsState + isPressed 状态，每次按下都触发列表项重组。
+    val scaleAnim = remember { Animatable(1f) }
+    val scope = rememberCoroutineScope()
     Column(
         modifier = modifier
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
-                        isPressed = true
+                        scope.launch { scaleAnim.animateTo(1.05f, SokuouPresets.QuickInteraction) }
                         tryAwaitRelease()
-                        isPressed = false
+                        scope.launch { scaleAnim.animateTo(1f, SokuouPresets.QuickInteraction) }
                     },
                     onTap = { onClick() }
                 )
             }
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
+                val s = scaleAnim.value
+                scaleX = s
+                scaleY = s
             }
     ) {
         AsyncImage(

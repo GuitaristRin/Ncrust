@@ -1,6 +1,6 @@
 package com.takahashirinta.ncrust.ui.components
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -22,7 +22,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouPresets
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import kotlinx.coroutines.launch
 
 enum class SongCardStyle {
     LIST,
@@ -48,14 +50,10 @@ fun SongCard(
     val albumName = song.album?.name ?: ""
     val durationStr = song.duration?.let { formatDuration(it) } ?: ""
 
-    var isPressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed && style == SongCardStyle.GRID) 1.03f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
+    // 按压缩放动画：Animatable + graphicsLayer，动画帧仅在 draw 阶段消费。
+    // 旧实现 animateFloatAsState + isPressed 会在按下/释放时触发列表项 recomposition。
+    val scaleAnim = remember { Animatable(1f) }
+    val scaleScope = rememberCoroutineScope()
 
     when (style) {
         SongCardStyle.LIST, SongCardStyle.COMPACT -> {
@@ -128,17 +126,18 @@ fun SongCard(
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
-                                isPressed = true
+                                scaleScope.launch { scaleAnim.animateTo(1.03f, SokuouPresets.QuickInteraction) }
                                 tryAwaitRelease()
-                                isPressed = false
+                                scaleScope.launch { scaleAnim.animateTo(1f, SokuouPresets.QuickInteraction) }
                             },
                             onTap = { onClick() },
                             onLongPress = { onShowMenu?.invoke() }
                         )
                     }
                     .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
+                        val s = scaleAnim.value
+                        scaleX = s
+                        scaleY = s
                     }
             ) {
                 AsyncImage(
