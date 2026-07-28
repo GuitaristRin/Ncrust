@@ -1,7 +1,10 @@
 package com.takahashirinta.ncrust.ui.navigation
 
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -9,11 +12,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.screen.*
-import java.net.URLDecoder        // ← 新增
-import java.net.URLEncoder        // ← 新增
-import java.nio.charset.StandardCharsets  // ← 新增
+import java.net.URLDecoder
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 object NavRoutes {
     const val HOME = "home"
@@ -40,13 +44,35 @@ fun MainNavGraph(
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
     startDestination: String = NavRoutes.HOME
 ) {
+    // Metro 页面推入：进比退更"重"，滑距 1/8 ~ 1/12 屏宽，MetroDefault 曲线克制无过冲。
+    // enter/popExit 走前进方向（新页从右入 / 旧页向右出），exit/popEnter 走返回方向。
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        enterTransition = { fadeIn() },
-        exitTransition = { fadeOut() },
-        popEnterTransition = { fadeIn() },
-        popExitTransition = { fadeOut() }
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> fullWidth / 8 },
+                animationSpec = tween(durationMillis = 280, easing = MetroDefault)
+            ) + fadeIn(animationSpec = tween(durationMillis = 220, easing = MetroDefault))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> -fullWidth / 12 },
+                animationSpec = tween(durationMillis = 220, easing = MetroDefault)
+            ) + fadeOut(animationSpec = tween(durationMillis = 180, easing = MetroDefault))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> -fullWidth / 12 },
+                animationSpec = tween(durationMillis = 240, easing = MetroDefault)
+            ) + fadeIn(animationSpec = tween(durationMillis = 200, easing = MetroDefault))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> fullWidth / 8 },
+                animationSpec = tween(durationMillis = 240, easing = MetroDefault)
+            ) + fadeOut(animationSpec = tween(durationMillis = 200, easing = MetroDefault))
+        }
     ) {
         composable(NavRoutes.HOME) {
             // 不渲染任何内容，由 MainScreen 的 Scaffold 内容填充
