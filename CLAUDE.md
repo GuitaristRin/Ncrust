@@ -14,6 +14,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Target/Compile SDK: 36 (Android 15), Min SDK: 24
 - Java 11, Kotlin 1.9.24, Compose BOM 2024.12.01
 
+## Development Log & Commit Convention
+
+**No separate log file.** All development history lives in `git log`. Do not create or maintain a parallel `*_log.md` file — a previous `Ncrust_log.md` was removed in favour of git history.
+
+Commit messages follow **Conventional Commits** with a lowercase type prefix:
+
+| Prefix | When to use |
+|---|---|
+| `feat:` | User-visible new capability (features, UI additions, new APIs) |
+| `fix:` | Bug fix; no new behaviour beyond restoring correctness |
+| `chore:` | Housekeeping (delete unused files, rename directories, gitignore updates) |
+| `docs:` | Docs-only changes (README, CLAUDE.md, in-code comments) |
+| `build:` | Build system / dependencies / version bumps |
+| `refactor:` | Code shape change without behavioural change |
+| `perf:` | Performance-only optimisation |
+| `style:` | Formatting, whitespace, comment tweaks |
+
+Subject line: prefix + one-sentence Chinese summary. Body (blank line, then paragraphs) explains *why* — Ncrust commits are meant to be readable a year later without opening a PR. Reference issues with `Fixes #N` or `#N` when relevant.
+
+Multi-purpose commits are allowed but pick the dominant type by user impact (a mix of fixes + a new feature → `feat:`).
+
+## Versioning
+
+Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` (and `versionCode`).
+
+The About page (`ui/screen/AboutScreen.kt`) reads the version dynamically from `BuildConfig.VERSION_NAME` — **never hardcode a version constant here**. This requires `buildFeatures.buildConfig = true` in `app/build.gradle.kts`.
+
+Release flow: bump `versionCode` + `versionName` → commit as `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → `gh release create vX.Y.Z --draft <apk>` → user manually publishes after smoke test.
+
 ## What This App Is
 
 Ncrust is a third-party NetEase Cloud Music (网易云音乐) Android client built around three design priorities:
@@ -40,9 +69,11 @@ Package layout under `com.takahashirinta.ncrust/`:
 | `ui/components/` | Reusable composables (`SongCard`, `DetailScaffold`, `PlayAllCircleButton`) |
 | `ui/theme/` | Theme color system, `MarkdownText` composable |
 | `ui/i18n/` | Runtime i18n system: `Strings` data class, per-language files, `LanguageManager` |
+| `ui/anim/sokuou/` | Sokuou animation system: UWP easing family + Apple-style spring presets + `sokuouSpring(response, damping)` bridge |
 | `auth/` | Cookie singleton (MUSIC_U extraction, SharedPreferences storage) |
 | `library/` | Saved songs singleton, album derivation by `albumId` |
 | `lyric/` | LRC parser: `[MM:SS.mm]` → `LrcLine.timeMs` |
+| `cache/` | `ContentCache` — in-memory network response snapshot (Home + Album/Playlist/Artist by ID + userProfile). Not persisted; resets on process kill. |
 
 ### Player Card Component Tree
 
@@ -108,13 +139,37 @@ The cover art uses a second `Animatable` called `lyricAnimProgress` (0 = large c
 
 Cover art always fills the full screen width (no rounded corners, no clipping). The cover transitions use center-based `TransformOrigin(0.5f, 0.5f)` with computed `translationX/Y` to move the cover's center point between its mini, small, and large positions.
 
+### Sokuou Animation System (`ui/anim/sokuou/`)
+
+Sokuou is the shared animation vocabulary — ported from the PezMax-One Rust project — for anything new that isn't the player card. It sits on top of Compose's existing `Animatable` / `SpringSpec` / `TweenSpec`; it does not replace them.
+
+- **`UwpEasing.kt`** — full UWP Metro easing family (Quadratic/Cubic/Quartic/Quintic/Sine/Circle/Power/Exponential/Back/Bounce/Elastic × EaseIn/Out/InOut) exposed as Compose `Easing` values. Named constants `MetroDefault`, `MetroCubic`, `MetroBackOut`, `MetroBounceOut`, `MetroElasticOut`, `MetroSine`. These are net-new capabilities that Compose does not ship.
+- **`Sokuou.kt`** — `sokuouSpring(response, dampingRatio)` bridges Apple's `response / dampingRatio` parameterisation to Compose `SpringSpec` (`stiffness = (2π / response)²`). `SokuouPresets` and `SokuouTweens` hold named specs (`StandardInteraction`, `QuickInteraction`, `SheetAppear`, `SheetDismiss`, `CoverFade`, `ToggleFlip`, …) so new call sites stop repeating `tween(300, CubicBezierEasing(...))`. `mapRange` and `mapRangeClamped` are the standard progress→value mapping helpers.
+
+Prefer Sokuou presets in new code. Do not batch-refactor existing player-card animations to Sokuou — they were tuned by hand and are load-bearing.
+
+### Content Cache & Load Transitions (`cache/`)
+
+`ContentCache` is an in-memory snapshot of network-loaded content, alive for the process lifetime. It is not a persistence layer — that is `LibraryManager` (SharedPreferences). Its purpose is UX: eliminate the "empty screen → spinner → jump-to-content" flicker when a user returns to a screen.
+
+The load pattern in every screen that reads from network:
+
+1. On entry, read `ContentCache.getX(id)` as initial state.
+2. If present, render immediately; do not show a loader.
+3. Regardless of cache hit, kick off a background refresh; write the response back to `ContentCache` on success.
+4. `LazyColumn` diffs items by key and smoothly updates.
+5. Wrap loading↔content transitions in `Crossfade(animationSpec = SokuouTweens.CoverFade)` — never use a hard `if (isLoading) return Loader()` branch.
+
+`DetailScaffold` takes a `hasCachedContent: Boolean` parameter. When `true`, the loader state is suppressed even if `isLoading` is true. Detail screens (`AlbumDetailScreen`, `PlaylistDetailScreen`, …) pass `hasCachedContent = (data != null)` after checking `ContentCache`.
+
 ### State Management
 
 No dependency injection framework. Singletons are used as service locators:
 - `RetrofitClient` — HTTP client
 - `CookieManager` — session cookies
-- `LibraryManager` — saved songs
+- `LibraryManager` — saved songs (persistent, SharedPreferences)
 - `PlaybackStateManager` — persisted playback state
+- `ContentCache` — in-memory network snapshot for UX (not persisted)
 - `ThemeManager` — theme color preference
 - `LanguageManager` (via `LocalStrings` CompositionLocal) — runtime locale
 
