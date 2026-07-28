@@ -74,6 +74,7 @@ val ruRU = Strings(
     actionAppendToQueue = "В конец очереди",
     actionAddToPlaylist = "Добавить в плейлист",
     actionRemoveFromLibrary = "Удалить из библиотеки",
+    actionSaveAlbum = "Сохранить альбом",
     unknownArtist = "Неизвестный исполнитель",
     playAllButton = "Играть всё",
 

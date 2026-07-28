@@ -74,6 +74,7 @@ val laVA = Strings(
     actionAppendToQueue = "Ad ordinis finem addere",
     actionAddToPlaylist = "Ad listam addere",
     actionRemoveFromLibrary = "E bibliotheca removere",
+    actionSaveAlbum = "Album servare",
     unknownArtist = "Artifex ignotus",
     playAllButton = "Omnia canere",
 

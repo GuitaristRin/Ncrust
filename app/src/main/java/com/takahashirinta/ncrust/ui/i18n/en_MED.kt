@@ -74,6 +74,7 @@ val en1400 = Strings(
     actionAppendToQueue = "To Reees Ende adde",
     actionAddToPlaylist = "To Playliste adde",
     actionRemoveFromLibrary = "From Librairie remoeve",
+    actionSaveAlbum = "Sauen Alboum",
     unknownArtist = "Unkowen Artiste",
     playAllButton = "Pleye Alle",
 

@@ -74,6 +74,7 @@ val jpMY = Strings(
     actionAppendToQueue = "最後 加",
     actionAddToPlaylist = "曲目 加",
     actionRemoveFromLibrary = "庫 除",
+    actionSaveAlbum = "全冊 保",
     unknownArtist = "不明 演奏者",
     playAllButton = "全 奏",
 

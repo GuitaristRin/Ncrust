@@ -1,8 +1,10 @@
 package com.takahashirinta.ncrust.network
 
+import android.util.Log
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -158,7 +160,11 @@ object PlaylistApi {
         val batchSize = 500
         for (start in missingIds.indices step batchSize) {
             val batch = missingIds.subList(start, minOf(start + batchSize, missingIds.size))
-            fetchSongDetails(batch).forEach { tracksMap[it.id] = it }
+            val fetched = fetchSongDetails(batch)
+            if (fetched.isEmpty() && batch.isNotEmpty()) {
+                Log.w("PlaylistApi", "batch of ${batch.size} songs returned empty from server")
+            }
+            fetched.forEach { tracksMap[it.id] = it }
         }
 
         // Return songs in the original playlist order defined by trackIds.
@@ -189,15 +195,27 @@ object PlaylistApi {
         val cArray = JSONArray()
         ids.forEach { id -> cArray.put(JSONObject().put("id", id)) }
         val payload = mapOf("c" to cArray.toString())
-        val response = RetrofitClient.eapiPost(
-            "https://music.163.com/eapi/v3/song/detail",
-            payload
-        )
-        val body = response.body?.string() ?: return@withContext emptyList()
-        val songArray = JSONObject(body).optJSONArray("songs") ?: return@withContext emptyList()
-        (0 until songArray.length()).map { i ->
-            parseSongTrack(songArray.getJSONObject(i))
+        // Single retry with 500ms delay to survive transient network blips on large playlists.
+        var lastError: Exception? = null
+        repeat(2) { attempt ->
+            try {
+                val response = RetrofitClient.eapiPost(
+                    "https://music.163.com/eapi/v3/song/detail",
+                    payload
+                )
+                val body = response.body?.string() ?: return@repeat
+                val songArray = JSONObject(body).optJSONArray("songs") ?: return@repeat
+                return@withContext (0 until songArray.length()).map { i ->
+                    parseSongTrack(songArray.getJSONObject(i))
+                }
+            } catch (e: Exception) {
+                lastError = e
+                Log.w("PlaylistApi", "fetchSongDetails attempt ${attempt + 1} failed: ${e.message}")
+                if (attempt == 0) delay(500)
+            }
         }
+        lastError?.let { Log.e("PlaylistApi", "fetchSongDetails gave up after retry", it) }
+        emptyList()
     }
 
     data class PlaylistInfo(

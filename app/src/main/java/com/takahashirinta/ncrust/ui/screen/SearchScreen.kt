@@ -51,6 +51,8 @@ import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.theme.desaturateColor
 import android.widget.Toast
 
+enum class BatchQueueAction { PLAY_NOW, INSERT_NEXT, APPEND }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
@@ -60,6 +62,8 @@ fun SearchScreen(
     onInsertNext: (SongItem) -> Unit = {},
     onAppendToQueue: (SongItem) -> Unit = {},
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
+    onAlbumBatch: (albumId: Long, action: BatchQueueAction) -> Unit = { _, _ -> },
+    onArtistBatch: (artistName: String, action: BatchQueueAction) -> Unit = { _, _ -> },
     themeIndex: Int = 0
 ) {
     val viewModel: SearchViewModel = viewModel()
@@ -367,6 +371,29 @@ fun SearchScreen(
                                         onClick = {
                                             SearchHistoryManager.addAlbum(context, album)
                                             onAlbumClick(album.id)
+                                        },
+                                        menuContent = {
+                                            DropdownMenuItem(
+                                                text = { Text(strings.playAllButton, color = Color.White, fontSize = 14.sp) },
+                                                onClick = {
+                                                    SearchHistoryManager.addAlbum(context, album)
+                                                    onAlbumBatch(album.id, BatchQueueAction.PLAY_NOW)
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
+                                                onClick = {
+                                                    SearchHistoryManager.addAlbum(context, album)
+                                                    onAlbumBatch(album.id, BatchQueueAction.INSERT_NEXT)
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(strings.actionAppendToQueue, color = Color.White, fontSize = 14.sp) },
+                                                onClick = {
+                                                    SearchHistoryManager.addAlbum(context, album)
+                                                    onAlbumBatch(album.id, BatchQueueAction.APPEND)
+                                                }
+                                            )
                                         }
                                     )
                                 }
@@ -390,6 +417,29 @@ fun SearchScreen(
                                         onClick = {
                                             SearchHistoryManager.addArtist(context, artist)
                                             onArtistClick(artist.id)
+                                        },
+                                        menuContent = {
+                                            DropdownMenuItem(
+                                                text = { Text(strings.playAllButton, color = Color.White, fontSize = 14.sp) },
+                                                onClick = {
+                                                    SearchHistoryManager.addArtist(context, artist)
+                                                    onArtistBatch(artist.name, BatchQueueAction.PLAY_NOW)
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
+                                                onClick = {
+                                                    SearchHistoryManager.addArtist(context, artist)
+                                                    onArtistBatch(artist.name, BatchQueueAction.INSERT_NEXT)
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(strings.actionAppendToQueue, color = Color.White, fontSize = 14.sp) },
+                                                onClick = {
+                                                    SearchHistoryManager.addArtist(context, artist)
+                                                    onArtistBatch(artist.name, BatchQueueAction.APPEND)
+                                                }
+                                            )
                                         }
                                     )
                                 }

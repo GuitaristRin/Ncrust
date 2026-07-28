@@ -74,6 +74,7 @@ val zhTW = Strings(
     actionAppendToQueue = "殿後",
     actionAddToPlaylist = "入單",
     actionRemoveFromLibrary = "去藏",
+    actionSaveAlbum = "藏全冊",
     unknownArtist = "不知名伶",
     playAllButton = "盡奏",
 

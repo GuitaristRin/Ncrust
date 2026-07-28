@@ -74,6 +74,7 @@ val deDE = Strings(
     actionAppendToQueue = "Zur Warteschlange hinzufügen",
     actionAddToPlaylist = "Zur Playlist hinzufügen",
     actionRemoveFromLibrary = "Aus Bibliothek entfernen",
+    actionSaveAlbum = "Album speichern",
     unknownArtist = "Unbekannter Interpret",
     playAllButton = "Alle abspielen",
 

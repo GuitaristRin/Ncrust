@@ -74,6 +74,7 @@ val ruSU = Strings(
     actionAppendToQueue = "В конец очереди",
     actionAddToPlaylist = "В плейлист",
     actionRemoveFromLibrary = "Из фонотеки",
+    actionSaveAlbum = "Занести альбом",
     unknownArtist = "Неизвестный исполнитель",
     playAllButton = "Исполнить все",
 

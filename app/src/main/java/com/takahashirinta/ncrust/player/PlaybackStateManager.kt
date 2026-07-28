@@ -69,11 +69,15 @@ object PlaybackStateManager {
 
     // ---------- 队列持久化 ----------
     fun saveQueue(context: Context, queue: List<SongItem>, currentIndex: Int) {
-        val json = Gson().toJson(queue)
-        getPrefs(context).edit()
-            .putString(KEY_QUEUE, json)
-            .putInt(KEY_QUEUE_INDEX, currentIndex)
-            .apply()
+        try {
+            val json = Gson().toJson(queue)
+            getPrefs(context).edit()
+                .putString(KEY_QUEUE, json)
+                .putInt(KEY_QUEUE_INDEX, currentIndex)
+                .apply()
+        } catch (e: Exception) {
+            clearQueue(context)
+        }
     }
 
     fun getQueue(context: Context): Pair<List<SongItem>, Int>? {
@@ -86,6 +90,7 @@ object PlaybackStateManager {
             val index = prefs.getInt(KEY_QUEUE_INDEX, 0)
             Pair(queue, index)
         } catch (e: Exception) {
+            clearQueue(context)
             null
         }
     }

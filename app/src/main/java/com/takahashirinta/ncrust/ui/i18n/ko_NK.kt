@@ -74,6 +74,7 @@ val koNK = Strings(
     actionAppendToQueue = "맨뒤에 추가",
     actionAddToPlaylist = "목록에 추가",
     actionRemoveFromLibrary = "저장소에서 삭제",
+    actionSaveAlbum = "앨범 전체 저장",
     unknownArtist = "알수없는 가수",
     playAllButton = "모두 재생",
 

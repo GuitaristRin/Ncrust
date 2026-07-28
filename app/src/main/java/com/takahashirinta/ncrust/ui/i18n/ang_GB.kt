@@ -74,6 +74,7 @@ val angGB = Strings(
     actionAppendToQueue = "Tō fyles ende ġeīeċan",
     actionAddToPlaylist = "Tō lēoþġetæle ġeīeċan",
     actionRemoveFromLibrary = "Fram bōchorde ādōn",
+    actionSaveAlbum = "Sang-hord hēalden",
     unknownArtist = "Cūþlēas glīman",
     playAllButton = "Eall drēamian",
 

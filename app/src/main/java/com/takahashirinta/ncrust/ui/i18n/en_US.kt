@@ -74,6 +74,7 @@ val enUS = Strings(
     actionAppendToQueue = "Add to Queue",
     actionAddToPlaylist = "Add to Playlist",
     actionRemoveFromLibrary = "Remove from Library",
+    actionSaveAlbum = "Save Album",
     unknownArtist = "Unknown Artist",
     playAllButton = "Play All",
 

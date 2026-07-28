@@ -74,6 +74,7 @@ val zhCN = Strings(
     actionAppendToQueue = "最后播放",
     actionAddToPlaylist = "加入播放列表",
     actionRemoveFromLibrary = "移除收藏",
+    actionSaveAlbum = "收藏整张专辑",
     unknownArtist = "未知歌手",
     playAllButton = "播放全部",
 

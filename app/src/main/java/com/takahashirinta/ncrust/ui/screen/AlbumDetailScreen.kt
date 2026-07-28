@@ -1,5 +1,14 @@
 package com.takahashirinta.ncrust.ui.screen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryAdd
@@ -7,7 +16,12 @@ import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
@@ -88,7 +102,33 @@ fun AlbumDetailScreen(
                     album?.company?.let { add(strings.albumLabel(it)) }
                     add(strings.trackCountSongs(songs.size))
                 },
-                onPlayAll = if (songItems.isNotEmpty()) ({ showPlayAllDialog = true }) else null
+                onPlayAll = if (songItems.isNotEmpty()) ({ showPlayAllDialog = true }) else null,
+                headerActions = {
+                    if (songItems.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFF2A2A2A))
+                                    .clickable {
+                                        LibraryManager.saveSongs(context, songItems)
+                                        Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    strings.actionSaveAlbum,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
             )
         },
         content = {

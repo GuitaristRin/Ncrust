@@ -441,6 +441,20 @@ fun MainScreen(
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
+    fun appendAllToQueue(songs: List<SongItem>) {
+        if (songs.isEmpty()) return
+        val existingIds = playbackQueue.map { it.id }.toSet()
+        val newSongs = songs.filter { it.id !in existingIds }
+        if (newSongs.isEmpty()) return
+        if (currentQueueIndex < 0) {
+            replaceQueueAndPlay(songs)
+            return
+        }
+        playbackQueue = playbackQueue + newSongs
+        if (playMode == 2) generateShuffledIndices()
+        PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+    }
+
     // 切换播放模式并初始化随机索引。
     val onTogglePlayMode: () -> Unit = {
         playMode = (playMode + 1) % 3
@@ -625,6 +639,45 @@ fun MainScreen(
                             onInsertNext = { insertNext(it) },
                             onAppendToQueue = { appendToQueue(it) },
                             onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
+                            onAlbumBatch = { albumId, action ->
+                                coroutineScope.launch {
+                                    try {
+                                        val response = RetrofitClient.api.getAlbumDetail(albumId)
+                                        val songs = (response.songs ?: emptyList()).map { s ->
+                                            SongItem(
+                                                id = s.id,
+                                                name = s.name,
+                                                artists = s.artists,
+                                                album = s.album,
+                                                duration = s.getDurationMs()
+                                            )
+                                        }
+                                        if (songs.isNotEmpty()) {
+                                            when (action) {
+                                                BatchQueueAction.PLAY_NOW -> replaceQueueAndPlay(songs)
+                                                BatchQueueAction.INSERT_NEXT -> insertAllNext(songs)
+                                                BatchQueueAction.APPEND -> appendAllToQueue(songs)
+                                            }
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                            onArtistBatch = { artistName, action ->
+                                coroutineScope.launch {
+                                    try {
+                                        val searchResponse = RetrofitClient.api.search(keyword = artistName, type = 1, limit = 30)
+                                        val songs = (searchResponse.result?.songs ?: emptyList())
+                                            .filter { it.artists?.any { a -> a.name == artistName } == true }
+                                        if (songs.isNotEmpty()) {
+                                            when (action) {
+                                                BatchQueueAction.PLAY_NOW -> replaceQueueAndPlay(songs)
+                                                BatchQueueAction.INSERT_NEXT -> insertAllNext(songs)
+                                                BatchQueueAction.APPEND -> appendAllToQueue(songs)
+                                            }
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            },
                             themeIndex = themeIndex
                         )
 

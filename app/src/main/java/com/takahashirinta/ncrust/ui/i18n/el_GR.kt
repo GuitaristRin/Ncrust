@@ -74,6 +74,7 @@ val elGR = Strings(
     actionAppendToQueue = "Στο τέλος της ουράς",
     actionAddToPlaylist = "Προσθήκη σε λίστα αναπαραγωγής",
     actionRemoveFromLibrary = "Αφαίρεση από βιβλιοθήκη",
+    actionSaveAlbum = "Αποθήκευση άλμπουμ",
     unknownArtist = "Άγνωστος καλλιτέχνης",
     playAllButton = "Αναπαραγωγή όλων",
 

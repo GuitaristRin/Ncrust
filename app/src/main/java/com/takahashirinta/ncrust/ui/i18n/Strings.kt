@@ -83,6 +83,7 @@ data class Strings(
     val actionAppendToQueue: String,
     val actionAddToPlaylist: String,
     val actionRemoveFromLibrary: String,
+    val actionSaveAlbum: String,
     val unknownArtist: String,
     val playAllButton: String,
 

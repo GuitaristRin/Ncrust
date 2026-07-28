@@ -74,6 +74,7 @@ val jpJP = Strings(
     actionAppendToQueue = "キューの最後に追加",
     actionAddToPlaylist = "プレイリストに追加",
     actionRemoveFromLibrary = "ライブラリから削除",
+    actionSaveAlbum = "アルバム全体を保存",
     unknownArtist = "不明なアーティスト",
     playAllButton = "すべて再生",
 

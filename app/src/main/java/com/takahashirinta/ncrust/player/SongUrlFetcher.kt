@@ -20,7 +20,8 @@ object SongUrlFetcher {
             "lossless" -> listOf("lossless", "exhigh", "higher", "standard")
             "exhigh"   -> listOf("exhigh", "higher", "standard")
             "higher"   -> listOf("higher", "standard")
-            else       -> listOf(level)
+            "standard" -> listOf("standard")
+            else       -> listOf(level, "lossless", "exhigh", "higher", "standard")
         }
 
         for (tryLevel in fallbackLevels) {
