@@ -12,16 +12,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.graphicsLayer
+import com.takahashirinta.ncrust.warmup.AppWarmup
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
     val alpha = remember { Animatable(1f) }
 
     LaunchedEffect(Unit) {
-        // 等待 MainScreen 完成初始 Composition 与 GPU Shader 预热（约 100ms），再留出视觉驻留时间
-        delay(900)
+        // 双闸门：既要 warmup 完成（数据+封面就绪），又要满足最短驻留（避免网络太快 splash 一闪而过）。
+        // MainScreen 已经在 splash 覆盖下并行组合 + shader 预热，两条工作线在此汇合。
+        val minDwell = launch { delay(MIN_DWELL_MS) }
+        val warmupDone = launch { AppWarmup.ready.first { it } }
+        minDwell.join()
+        warmupDone.join()
         alpha.animateTo(0f, animationSpec = tween(400, easing = FastOutSlowInEasing))
         onFinished()
     }
@@ -62,3 +69,6 @@ fun SplashScreen(onFinished: () -> Unit) {
         )
     }
 }
+
+// splash 最短驻留：warmup 早于此完成时仍要撑到这个时间，避免视觉一闪
+private const val MIN_DWELL_MS = 800L

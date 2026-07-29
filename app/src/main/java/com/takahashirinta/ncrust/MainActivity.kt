@@ -57,6 +57,7 @@ import com.takahashirinta.ncrust.ui.theme.getSavedThemeIndex
 import com.takahashirinta.ncrust.ui.theme.saveThemeIndex
 import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
+import com.takahashirinta.ncrust.warmup.AppWarmup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -67,6 +68,9 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
         RetrofitClient.init(this)
+        // 冷启动即刻并发启动预热：Home 三条网络 + 封面 Coil 预取。
+        // splash 期间跑完，进入主页时 ContentCache 已就位，无 loader 闪烁。
+        AppWarmup.start(this)
         enableEdgeToEdge()
         setContent {
             var themeIndex by remember {
