@@ -1,6 +1,7 @@
 package com.takahashirinta.ncrust.network
 
 import android.content.Context
+import com.takahashirinta.ncrust.BuildConfig
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.crypto.EapiCrypto
 import okhttp3.*
@@ -34,13 +35,18 @@ object RetrofitClient {
     }
 
     val api: NcmApi by lazy {
-        val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
-        val client = OkHttpClient.Builder()
-            .addInterceptor(logging)
-            .addInterceptor(CookieInterceptor())
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
+        // BASIC 日志只在 debug 装：release 每次请求省一次 chain.proceed 拦截 + logcat 序列化。
+        // 低端机上 CPU 敏感，能省则省。
+        val client = OkHttpClient.Builder().apply {
+            if (BuildConfig.DEBUG) {
+                addInterceptor(HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BASIC
+                })
+            }
+            addInterceptor(CookieInterceptor())
+            connectTimeout(30, TimeUnit.SECONDS)
+            readTimeout(30, TimeUnit.SECONDS)
+        }.build()
 
         Retrofit.Builder()
             .baseUrl("$BASE_URL/")

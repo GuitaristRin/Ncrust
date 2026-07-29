@@ -40,10 +40,30 @@ object AppWarmup {
     // 每类内容预取多少张封面——盖住首屏可见部分即可
     private const val PREFETCH_PER_SECTION = 6
 
+    // 全部 SharedPreferences 文件名——IO 线程一次性触碰，让主线程 getSharedPreferences 命中缓存。
+    // 与各 Manager 里的 PREFS_NAME 常量保持同步。
+    private val PREFS_FILES = arrayOf(
+        "ncrust_prefs",           // CookieManager
+        "ncrust_settings",        // ThemeManager / LanguageManager / PlayerViewModel
+        "ncrust_library",         // LibraryManager
+        "ncrust_playback_state",  // PlaybackStateManager
+        "search_history"          // SearchHistoryManager
+    )
+
     fun start(context: Context) {
         if (started) return
         started = true
         val app = context.applicationContext
+
+        // 阶段零：立即触碰所有 SharedPreferences 文件，把 XML 解析从主线程拉走。
+        // SharedPreferences 按 name 单例，首次 getSharedPreferences 会同步读磁盘+解析 XML
+        // （eMMC 上单文件 30~100ms）。这里 IO 线程先跑一遍，后续主线程 get* 就都是内存命中。
+        // 独立 launch 不进 withTimeout：这些操作本身很快，即使个别慢也不该阻塞 ready 判定。
+        scope.launch {
+            for (name in PREFS_FILES) {
+                runCatching { app.getSharedPreferences(name, Context.MODE_PRIVATE) }
+            }
+        }
 
         scope.launch {
             withTimeoutOrNull(TIMEOUT_MS) {
