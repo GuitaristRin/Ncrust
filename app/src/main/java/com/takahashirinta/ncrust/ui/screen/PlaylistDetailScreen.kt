@@ -90,7 +90,7 @@ fun PlaylistDetailScreen(
             )
         },
         content = {
-            items(songs) { song ->
+            items(songs, key = { it.id }) { song ->
                 SongCard(
                     song = song,
                     style = SongCardStyle.COMPACT,

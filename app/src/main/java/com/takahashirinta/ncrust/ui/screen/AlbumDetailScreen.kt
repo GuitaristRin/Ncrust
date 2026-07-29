@@ -139,14 +139,9 @@ fun AlbumDetailScreen(
             )
         },
         content = {
-            items(songs) { song ->
-                val songItem = SongItem(
-                    id = song.id,
-                    name = song.name,
-                    artists = song.artists,
-                    album = song.album,
-                    duration = song.getDurationMs()
-                )
+            // 直接消费上面 remember(songs) 生成的 songItems，避免每次重组在 items 块内
+            // 重新 new SongItem 破坏稳定性；补 key 让 Compose 按 id diff
+            items(songItems, key = { it.id }) { songItem ->
                 SongCard(
                     song = songItem,
                     style = SongCardStyle.COMPACT,

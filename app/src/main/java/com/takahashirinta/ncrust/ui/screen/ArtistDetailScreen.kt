@@ -112,6 +112,15 @@ fun ArtistDetailScreen(
 
     LaunchedEffect(artistId) { loadData(showLoader = cached == null) }
 
+    // albumRows / hotSongItems 上移到 Composable 作用域，用 remember 缓存，
+    // 避免 items 块内反复分组 / 反复构造 SongItem 破坏稳定性
+    val albumRows = remember(albums) { albums.chunked(2) }
+    val hotSongItems = remember(hotSongs) {
+        hotSongs.map { s ->
+            SongItem(id = s.id, name = s.name, artists = s.artists, album = s.album, duration = s.getDurationMs())
+        }
+    }
+
     DetailScaffold(
         title = strings.artistDetailTitle,
         onBack = onBack,
@@ -163,14 +172,13 @@ fun ArtistDetailScreen(
                             }
                         }
                     } else {
-                        val rows = albums.chunked(2)
-                        items(rows.size) { rowIndex ->
+                        items(albumRows, key = { row -> row.first().id }) { row ->
                             // 边到边 tile：spacedBy 2dp 制造 Metro 拼贴感。
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                for (album in rows[rowIndex]) {
+                                for (album in row) {
                                     ArtistAlbumGridItem(album = album, modifier = Modifier.weight(1f), onClick = { onAlbumClick(album.id) })
                                 }
-                                if (rows[rowIndex].size == 1) Spacer(modifier = Modifier.weight(1f))
+                                if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
                             }
                             Spacer(Modifier.height(2.dp))
                         }
@@ -184,12 +192,7 @@ fun ArtistDetailScreen(
                             }
                         }
                     } else {
-                        items(hotSongs) { song ->
-                            val songItem = SongItem(
-                                id = song.id, name = song.name,
-                                artists = song.artists, album = song.album,
-                                duration = song.getDurationMs()
-                            )
+                        items(hotSongItems, key = { it.id }) { songItem ->
                             SongCard(
                                 song = songItem,
                                 style = SongCardStyle.COMPACT,
