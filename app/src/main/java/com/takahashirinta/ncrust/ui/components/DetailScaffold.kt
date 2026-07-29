@@ -52,9 +52,8 @@ fun DetailScaffold(
 ) {
     val strings = LocalStrings.current
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+        // 背景由 MainScreen 外层 Box 统一填充（详情页也是 MainScreen 内的 NavHost 子节点）
+        modifier = Modifier.fillMaxSize()
     ) {
         val stateKey = when {
             error != null -> DetailScaffoldState.Error

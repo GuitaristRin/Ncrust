@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -97,7 +96,8 @@ fun LibraryScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
     ResponsiveContent {
-        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // 背景由 MainScreen 外层 Box 统一填充，此处不重复画一层
+        Column(modifier = Modifier.fillMaxSize()) {
             // Groove 风大字页头。
             Column(
                 modifier = Modifier

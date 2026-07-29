@@ -103,7 +103,8 @@ fun SearchScreen(
         (songHistory.isNotEmpty() || albumHistory.isNotEmpty() || artistHistory.isNotEmpty())
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // 背景由 MainScreen 外层 Box 统一填充，此处不重复画一层
+        Column(modifier = Modifier.fillMaxSize()) {
             // Search input
             Box(
                 modifier = Modifier

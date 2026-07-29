@@ -1,7 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
 
 import androidx.compose.animation.Crossfade
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -164,7 +163,8 @@ fun HomeScreen(
             ResponsiveContent {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                    // 背景由 MainScreen 外层 Box 统一填充，子屏不重复画一层（消除 overdraw）
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
                 ) {
                     // Groove 风页头：statusBar + 大字页面名，代替 TopAppBar。
