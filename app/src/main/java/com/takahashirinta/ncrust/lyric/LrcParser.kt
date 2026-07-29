@@ -1,5 +1,8 @@
 package com.takahashirinta.ncrust.lyric
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class LrcLine(
     val timeMs: Long,
     val text: String

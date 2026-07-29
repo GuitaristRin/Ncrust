@@ -1,12 +1,15 @@
 package com.takahashirinta.ncrust.network.model
 
+import androidx.compose.runtime.Immutable
 import com.google.gson.annotations.SerializedName
 
+@Immutable
 data class ArtistItem(
     @SerializedName("id") val id: Long? = null,
     @SerializedName("name") val name: String
 )
 
+@Immutable
 data class AlbumItem(
     @SerializedName("id") val id: Long? = null,
     @SerializedName("name") val name: String?,

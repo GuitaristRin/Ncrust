@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.network.model
 
+import androidx.compose.runtime.Immutable
 import com.google.gson.annotations.SerializedName
 
 // ==================== 用户详情 (GET api/v1/user/detail/{uid}) ====================
@@ -9,6 +10,7 @@ data class UserDetailResponse(
     @SerializedName("profile") val profile: UserDetailProfile?
 )
 
+@Immutable
 data class UserDetailProfile(
     @SerializedName("userId") val userId: Long,
     @SerializedName("nickname") val nickname: String?,
@@ -25,6 +27,7 @@ data class PersonalizedResponse(
     @SerializedName("result") val result: List<PersonalizedItem>?
 )
 
+@Immutable
 data class PersonalizedItem(
     @SerializedName("id") val id: Long,
     @SerializedName("name") val name: String,
@@ -40,6 +43,7 @@ data class NewAlbumsResponse(
     @SerializedName("albums") val albums: List<NewAlbumItem>?
 )
 
+@Immutable
 data class NewAlbumItem(
     @SerializedName("id") val id: Long,
     @SerializedName("name") val name: String,

@@ -1,6 +1,7 @@
 package com.takahashirinta.ncrust.network
 
 import android.util.Log
+import androidx.compose.runtime.Immutable
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,7 @@ object PlaylistApi {
         userId
     }
 
+    @Immutable
     data class UserProfile(
         val userId: Long,
         val nickname: String,
@@ -206,6 +208,7 @@ object PlaylistApi {
         emptyList()
     }
 
+    @Immutable
     data class PlaylistInfo(
         val id: Long,
         val name: String,
@@ -222,6 +225,7 @@ object PlaylistApi {
         val more: Boolean
     )
 
+    @Immutable
     data class PlaylistCard(
         val id: Long,
         val name: String,
