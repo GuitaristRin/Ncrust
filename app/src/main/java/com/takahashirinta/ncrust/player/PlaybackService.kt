@@ -244,6 +244,11 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    // 上一次 setMetadata 时的 title/artist/duration 快照，用于跳过等值重发
+    private var lastMetadataTitle: String? = null
+    private var lastMetadataArtist: String? = null
+    private var lastMetadataDuration: Long = -1L
+
     private fun updatePlaybackState() {
         val state = if (player.isPlaying) {
             PlaybackStateCompat.STATE_PLAYING
@@ -269,13 +274,20 @@ class PlaybackService : MediaSessionService() {
                 .build()
         )
 
-        mediaSessionCompat?.setMetadata(
-            android.support.v4.media.MediaMetadataCompat.Builder()
-                .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE, mediaTitle)
-                .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST, mediaArtist)
-                .putLong(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION, dur)
-                .build()
-        )
+        // Metadata 只在 title/artist/duration 变化时重发——旧实现每 250ms 都要走一遍
+        // MediaMetadataCompat.Builder + 跨进程 IPC 到系统 MediaSession，纯浪费。
+        if (mediaTitle != lastMetadataTitle || mediaArtist != lastMetadataArtist || dur != lastMetadataDuration) {
+            mediaSessionCompat?.setMetadata(
+                android.support.v4.media.MediaMetadataCompat.Builder()
+                    .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE, mediaTitle)
+                    .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST, mediaArtist)
+                    .putLong(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION, dur)
+                    .build()
+            )
+            lastMetadataTitle = mediaTitle
+            lastMetadataArtist = mediaArtist
+            lastMetadataDuration = dur
+        }
     }
 
     private fun startProgressUpdates() {
