@@ -200,18 +200,20 @@ fun LibraryScreen(
                             Text(strings.noSavedAlbums, color = Color.Gray, fontSize = 16.sp)
                         }
                     } else {
+                        // rows 用 remember(savedAlbums) 缓存：仅在数据实际变化时重新分组，
+                        // 避免每次重组都 chunked() 一次
+                        val rows = remember(savedAlbums) { savedAlbums.chunked(2) }
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                             contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
                         ) {
-                            val rows = savedAlbums.chunked(2)
-                            items(rows.size) { rowIndex ->
+                            items(rows, key = { row -> row.first().albumId }) { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
-                                    for (album in rows[rowIndex]) {
+                                    for (album in row) {
                                         LibraryAlbumGridItem(
                                             album = album,
                                             modifier = Modifier.weight(1f),
@@ -219,7 +221,7 @@ fun LibraryScreen(
                                             onPlayAll = { onPlayAlbum(album.albumId) }
                                         )
                                     }
-                                    if (rows[rowIndex].size == 1) {
+                                    if (row.size == 1) {
                                         Spacer(modifier = Modifier.weight(1f))
                                     }
                                 }
@@ -252,18 +254,18 @@ fun LibraryScreen(
                             }
                         }
                         else -> {
+                            val rows = remember(playlists) { playlists.chunked(2) }
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                                 contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
                             ) {
-                                val rows = playlists.chunked(2)
-                                items(rows.size) { rowIndex ->
+                                items(rows, key = { row -> row.first().id }) { row ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
-                                        for (pl in rows[rowIndex]) {
+                                        for (pl in row) {
                                             PlaylistGridItem(
                                                 playlist = pl,
                                                 modifier = Modifier.weight(1f),
@@ -271,7 +273,7 @@ fun LibraryScreen(
                                                 onPlayAll = { onPlayPlaylist(pl.id) }
                                             )
                                         }
-                                        if (rows[rowIndex].size == 1) {
+                                        if (row.size == 1) {
                                             Spacer(modifier = Modifier.weight(1f))
                                         }
                                     }
