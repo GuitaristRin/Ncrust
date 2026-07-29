@@ -199,7 +199,7 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                                 contentPadding = PaddingValues(horizontal = 0.dp)
                             ) {
-                                items(dailySongs.take(12)) { song ->
+                                items(dailySongs.take(12), key = { it.id }) { song ->
                                     DailySongTile(
                                         song = song,
                                         onClick = { onSongClick(song) },
@@ -219,7 +219,7 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                items(playlists) { pl ->
+                                items(playlists, key = { it.id }) { pl ->
                                     PlaylistTile(
                                         playlist = pl,
                                         onClick = { onPlaylistClick(pl.id) },
@@ -234,7 +234,7 @@ fun HomeScreen(
                     // 新歌：边到边直列
                     item { SectionHeader(title = strings.newSongsTitle) }
                     item { Spacer(Modifier.height(6.dp)) }
-                    items(newSongs.toList()) { song ->
+                    items(newSongs, key = { it.id }) { song ->
                         SongCard(
                             song = song,
                             style = SongCardStyle.LIST,
