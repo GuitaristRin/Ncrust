@@ -36,9 +36,9 @@ val ruRU = Strings(
     languageSectionTitle = "Язык",
     aboutButton = "О Ncrust",
 
-    dailySongsTitle = "🌅 Ежедневные рекомендации",
-    recommendPlaylistTitle = "📋 Рекомендуемые плейлисты",
-    newSongsTitle = "🆕 Новые релизы",
+    dailySongsTitle = "Ежедневные рекомендации",
+    recommendPlaylistTitle = "Рекомендуемые плейлисты",
+    newSongsTitle = "Новые релизы",
     noMoreContent = "— Больше ничего нет —",
     trackCountSongs = { "$it треков" },
 

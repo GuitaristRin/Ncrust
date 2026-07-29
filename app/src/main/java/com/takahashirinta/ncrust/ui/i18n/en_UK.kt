@@ -36,9 +36,9 @@ val enUK = Strings(
     languageSectionTitle = "Language",
     aboutButton = "About Ncrust",
 
-    dailySongsTitle = "🌅 Daily Recommendations",
-    recommendPlaylistTitle = "📋 Recommended Playlists",
-    newSongsTitle = "🆕 New Releases",
+    dailySongsTitle = "Daily Recommendations",
+    recommendPlaylistTitle = "Recommended Playlists",
+    newSongsTitle = "New Releases",
     noMoreContent = "— No more content —",
     trackCountSongs = { "$it songs" },
 

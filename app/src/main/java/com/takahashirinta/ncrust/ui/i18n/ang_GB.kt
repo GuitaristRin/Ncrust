@@ -36,9 +36,9 @@ val angGB = Strings(
     languageSectionTitle = "Ġeþēode",
     aboutButton = "Be Ncrust",
 
-    dailySongsTitle = "🌅 Dæġhwāmlīce forþbringa",
-    recommendPlaylistTitle = "📋 Forþbringendlīce lēoþġetæles",
-    newSongsTitle = "🆕 Nīwe lēoþ",
+    dailySongsTitle = "Dæġhwāmlīce forþbringa",
+    recommendPlaylistTitle = "Forþbringendlīce lēoþġetæles",
+    newSongsTitle = "Nīwe lēoþ",
     noMoreContent = "— Nān māra —",
     trackCountSongs = { "$it lēoþ" },
 

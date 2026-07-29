@@ -36,9 +36,9 @@ val zhTW = Strings(
     languageSectionTitle = "言語",
     aboutButton = "關於 Ncrust",
 
-    dailySongsTitle = "🌅 日薦之曲",
-    recommendPlaylistTitle = "📋 薦單",
-    newSongsTitle = "🆕 新歌速至",
+    dailySongsTitle = "日薦之曲",
+    recommendPlaylistTitle = "薦單",
+    newSongsTitle = "新歌速至",
     noMoreContent = "— 無復多矣 —",
     trackCountSongs = { "凡${it}曲" },
 

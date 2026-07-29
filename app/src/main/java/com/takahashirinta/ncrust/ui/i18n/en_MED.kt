@@ -36,9 +36,9 @@ val en1400 = Strings(
     languageSectionTitle = "Langage",
     aboutButton = "Of Ncrust",
 
-    dailySongsTitle = "🌅 Dayly Redes",
-    recommendPlaylistTitle = "📋 Reded Playlistes",
-    newSongsTitle = "🆕 Newe Songes",
+    dailySongsTitle = "Dayly Redes",
+    recommendPlaylistTitle = "Reded Playlistes",
+    newSongsTitle = "Newe Songes",
     noMoreContent = "— No more matere —",
     trackCountSongs = { "$it songes" },
 

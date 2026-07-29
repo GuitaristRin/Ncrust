@@ -36,9 +36,9 @@ val jpJP = Strings(
     languageSectionTitle = "表示言語",
     aboutButton = "Ncrustについて",
 
-    dailySongsTitle = "🌅 おすすめ今日の曲",
-    recommendPlaylistTitle = "📋 おすすめプレイリスト",
-    newSongsTitle = "🆕 新着曲",
+    dailySongsTitle = "おすすめ今日の曲",
+    recommendPlaylistTitle = "おすすめプレイリスト",
+    newSongsTitle = "新着曲",
     noMoreContent = "— これ以上ありません —",
     trackCountSongs = { "${it}曲" },
 

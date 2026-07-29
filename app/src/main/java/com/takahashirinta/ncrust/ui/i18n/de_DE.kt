@@ -36,9 +36,9 @@ val deDE = Strings(
     languageSectionTitle = "Sprache",
     aboutButton = "Über Ncrust",
 
-    dailySongsTitle = "🌅 Tägliche Empfehlungen",
-    recommendPlaylistTitle = "📋 Empfohlene Playlists",
-    newSongsTitle = "🆕 Neue Veröffentlichungen",
+    dailySongsTitle = "Tägliche Empfehlungen",
+    recommendPlaylistTitle = "Empfohlene Playlists",
+    newSongsTitle = "Neue Veröffentlichungen",
     noMoreContent = "— Keine weiteren Inhalte —",
     trackCountSongs = { "$it Songs" },
 

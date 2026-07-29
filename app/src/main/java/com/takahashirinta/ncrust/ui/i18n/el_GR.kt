@@ -36,9 +36,9 @@ val elGR = Strings(
     languageSectionTitle = "Γλώσσα",
     aboutButton = "Σχετικά με το Ncrust",
 
-    dailySongsTitle = "🌅 Καθημερινές προτάσεις",
-    recommendPlaylistTitle = "📋 Προτεινόμενες λίστες αναπαραγωγής",
-    newSongsTitle = "🆕 Νέες κυκλοφορίες",
+    dailySongsTitle = "Καθημερινές προτάσεις",
+    recommendPlaylistTitle = "Προτεινόμενες λίστες αναπαραγωγής",
+    newSongsTitle = "Νέες κυκλοφορίες",
     noMoreContent = "— Δεν υπάρχει άλλο περιεχόμενο —",
     trackCountSongs = { "$it τραγούδια" },
 

@@ -36,9 +36,9 @@ val jpMY = Strings(
     languageSectionTitle = "表示 言語",
     aboutButton = "Ncrust 紹介",
 
-    dailySongsTitle = "🌅 毎日 推奨",
-    recommendPlaylistTitle = "📋 推奨 曲目",
-    newSongsTitle = "🆕 新曲 速報",
+    dailySongsTitle = "毎日 推奨",
+    recommendPlaylistTitle = "推奨 曲目",
+    newSongsTitle = "新曲 速報",
     noMoreContent = "— 無 —",
     trackCountSongs = { "全 ${it} 首" },
 

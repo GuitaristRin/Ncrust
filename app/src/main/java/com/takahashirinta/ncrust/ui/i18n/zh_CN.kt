@@ -36,9 +36,9 @@ val zhCN = Strings(
     languageSectionTitle = "显示语言",
     aboutButton = "关于 Ncrust",
 
-    dailySongsTitle = "🌅 每日推荐",
-    recommendPlaylistTitle = "📋 推荐歌单",
-    newSongsTitle = "🆕 新歌速递",
+    dailySongsTitle = "每日推荐",
+    recommendPlaylistTitle = "推荐歌单",
+    newSongsTitle = "新歌速递",
     noMoreContent = "— 没有更多了 —",
     trackCountSongs = { "${it}首歌曲" },
 

@@ -36,9 +36,9 @@ val laVA = Strings(
     languageSectionTitle = "Lingua",
     aboutButton = "De Ncrust",
 
-    dailySongsTitle = "🌅 Commendationes cotidianae",
-    recommendPlaylistTitle = "📋 Listae commendatae",
-    newSongsTitle = "🆕 Nova emissio",
+    dailySongsTitle = "Commendationes cotidianae",
+    recommendPlaylistTitle = "Listae commendatae",
+    newSongsTitle = "Nova emissio",
     noMoreContent = "— Nihil amplius —",
     trackCountSongs = { "$it carmina" },
 

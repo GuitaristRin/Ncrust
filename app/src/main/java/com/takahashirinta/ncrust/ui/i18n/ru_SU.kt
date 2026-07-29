@@ -36,9 +36,9 @@ val ruSU = Strings(
     languageSectionTitle = "Язык",
     aboutButton = "О Ncrust",
 
-    dailySongsTitle = "🌅 Пятилетка в действии",
-    recommendPlaylistTitle = "📋 Рекомендовано ЦК",
-    newSongsTitle = "🆕 Новинки социалистической индустрии",
+    dailySongsTitle = "Пятилетка в действии",
+    recommendPlaylistTitle = "Рекомендовано ЦК",
+    newSongsTitle = "Новинки социалистической индустрии",
     noMoreContent = "— План выполнен —",
     trackCountSongs = { "$it песен" },
 
