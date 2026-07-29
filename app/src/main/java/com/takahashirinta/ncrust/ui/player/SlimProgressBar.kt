@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +32,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
@@ -40,13 +42,17 @@ import kotlin.math.sin
  *  - 普通：强调色填充 + 手指离开时宽2dp
  *  - 拖动：手指按下即响应，进度跟随手指；轨道加厚至4dp，显示直角滑块指示器
  *  - 缓冲：强调色短段在轨道上从左至右周期滑动，段长随时间脉动，直到 isBuffering=false
+ *
+ * progressFlow 在 Canvas draw scope 内读取，非拖动/seek 期间仅触发重绘，不触发 Composable 重组
  */
 @Composable
 fun SlimProgressBar(
-    progress: Float,
+    progressFlow: StateFlow<Float>,
     isBuffering: Boolean,
     onSeek: (Float) -> Unit
 ) {
+    // collectAsState 创建 State 引用，只有 .value 被读的作用域才订阅
+    val progressState = progressFlow.collectAsState()
     var barWidth by remember { mutableFloatStateOf(1f) }
     var isDragging by remember { mutableStateOf(false) }
     var dragProgress by remember { mutableFloatStateOf(0f) }
@@ -67,11 +73,6 @@ fun SlimProgressBar(
         }
     }
 
-    val displayProgress = when {
-        isDragging -> dragProgress
-        isSeeking  -> seekTargetProgress
-        else       -> progress
-    }
     val showBuffering = (isBuffering || isSeeking) && !isDragging
 
     // 缓冲动画：两个独立的无限循环驱动位移和脉动
@@ -121,6 +122,12 @@ fun SlimProgressBar(
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
+            // displayProgress 移入 draw scope：非拖动/seek 时读 progressState.value，只 invalidate draw
+            val displayProgress = when {
+                isDragging -> dragProgress
+                isSeeking  -> seekTargetProgress
+                else       -> progressState.value
+            }
             val trackH = if (isDragging) 4.dp.toPx() else 2.dp.toPx()
             val topY = (size.height - trackH) / 2f
 

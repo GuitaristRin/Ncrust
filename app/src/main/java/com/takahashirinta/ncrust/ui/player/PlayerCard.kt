@@ -66,8 +66,10 @@ fun PlayerCard(
     val strings = LocalStrings.current
     val playerViewModel: PlayerViewModel = viewModel()
     val lyrics by playerViewModel.lyrics.collectAsState()
-    val currentPosition by playerViewModel.currentPosition.collectAsState()
-    val playbackProgress by playerViewModel.progress.collectAsState()
+    // currentPosition / progress 是 4Hz 更新的 StateFlow，直接传引用给需要的子组件，
+    // 让它们在最小作用域（graphicsLayer / Canvas draw / derivedStateOf / 叶子 Text）内订阅，
+    // 避免 PlayerCard 本身随位置更新 4Hz 重组
+    val duration by playerViewModel.duration.collectAsState()
     val qualityIndex by playerViewModel.currentQualityIndex.collectAsState()
     val qualityLabel = strings.qualityOptions.getOrElse(qualityIndex) { strings.qualityOptions[3] }
     val isBuffering by playerViewModel.isBuffering.collectAsState()
@@ -262,7 +264,7 @@ fun PlayerCard(
                     ) {
                         LyricsView(
                             lyrics = lyrics,
-                            currentPositionMs = currentPosition,
+                            positionFlow = playerViewModel.currentPosition,
                             isVisible = showLyrics,
                             onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
                             onUserScrolled = {},
@@ -361,9 +363,9 @@ fun PlayerCard(
                         isPlaying = isPlaying,
                         showLyrics = showLyrics,
                         showQueue = showQueue,
-                        playbackProgress = playbackProgress,
-                        currentPosition = currentPosition,
-                        duration = playerViewModel.duration.collectAsState().value,
+                        progressFlow = playerViewModel.progress,
+                        positionFlow = playerViewModel.currentPosition,
+                        duration = duration,
                         qualityLabel = qualityLabel,
                         onPlayPause = onPlayPause,
                         onPlayPrevious = onPlayPrevious,

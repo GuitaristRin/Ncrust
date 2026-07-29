@@ -11,6 +11,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,14 +23,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.formatDuration
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun FullPlayerControls(
     isPlaying: Boolean,
     showLyrics: Boolean,
     showQueue: Boolean,
-    playbackProgress: Float,
-    currentPosition: Long,
+    progressFlow: StateFlow<Float>,
+    positionFlow: StateFlow<Long>,
     duration: Long,
     qualityLabel: String = "",
     onPlayPause: () -> Unit,
@@ -48,10 +51,10 @@ fun FullPlayerControls(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
         ) {
-            Text(
-                formatDuration(currentPosition),
-                color = Color.Gray,
-                fontSize = 12.sp,
+            // 位置文本抽出为叶子 Composable：仅它随 250ms 位置更新重组，
+            // 不牵连按钮/进度条区域
+            PositionText(
+                positionFlow = positionFlow,
                 modifier = Modifier.align(Alignment.CenterStart)
             )
             Box(
@@ -82,7 +85,7 @@ fun FullPlayerControls(
             )
         }
         Spacer(Modifier.height(8.dp))
-        SlimProgressBar(progress = playbackProgress, isBuffering = isBuffering, onSeek = onSeek)
+        SlimProgressBar(progressFlow = progressFlow, isBuffering = isBuffering, onSeek = onSeek)
         Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier
@@ -178,4 +181,15 @@ fun FullPlayerControls(
             }
         }
     }
+}
+
+@Composable
+private fun PositionText(positionFlow: StateFlow<Long>, modifier: Modifier) {
+    val position by positionFlow.collectAsState()
+    Text(
+        formatDuration(position),
+        color = Color.Gray,
+        fontSize = 12.sp,
+        modifier = modifier
+    )
 }

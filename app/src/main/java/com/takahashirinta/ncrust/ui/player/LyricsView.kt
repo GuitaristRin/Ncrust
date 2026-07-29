@@ -24,12 +24,13 @@ import androidx.compose.ui.util.lerp
 import com.takahashirinta.ncrust.lyric.LrcLine
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.abs
 
 @Composable
 fun LyricsView(
     lyrics: List<LrcLine>,
-    currentPositionMs: Long,
+    positionFlow: StateFlow<Long>,
     isVisible: Boolean,
     onSeekToMs: (Long) -> Unit,
     onUserScrolled: () -> Unit,
@@ -43,9 +44,18 @@ fun LyricsView(
         return
     }
 
-    var currentIndex = -1
-    for (i in lyrics.indices) {
-        if (lyrics[i].timeMs <= currentPositionMs) currentIndex = i else break
+    // 订阅位置流：collectAsState 创建 State，不订阅本 Composable
+    val positionState = positionFlow.collectAsState()
+    // currentIndex 只有跨行时才变化 → 下游读者仅在跨行时重组，非每 250ms
+    val currentIndex by remember(lyrics) {
+        derivedStateOf {
+            val pos = positionState.value
+            var idx = -1
+            for (i in lyrics.indices) {
+                if (lyrics[i].timeMs <= pos) idx = i else break
+            }
+            idx
+        }
     }
 
     val listState = rememberLazyListState()
