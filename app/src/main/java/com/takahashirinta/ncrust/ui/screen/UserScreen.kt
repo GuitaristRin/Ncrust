@@ -6,10 +6,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -33,6 +34,7 @@ import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.RetrofitClient
+import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.i18n.LanguagePreset
 import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
@@ -93,350 +95,576 @@ fun UserScreen(
         }
     }
 
-    // 登录 / 更新 Cookie 弹窗
-    if (showDialog) {
-        Dialog(onDismissRequest = { showDialog = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF282828))
-                    .padding(24.dp)
-            ) {
-                Text(
-                    strings.loginDialogTitle,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(20.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.primary)
-                        .clickable {
-                            showDialog = false
-                            onShowWebLogin()
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(strings.webLoginButton, color = Color.Black, fontWeight = FontWeight.Medium)
-                }
-
-                Spacer(Modifier.height(20.dp))
-                Text(strings.manualCookieHint, color = Color.Gray, fontSize = 13.sp)
-                Spacer(Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = cookieText,
-                    onValueChange = { cookieText = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(strings.cookieFieldLabel) },
-                    shape = RectangleShape,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.Gray,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color.Gray.copy(alpha = 0.4f),
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        unfocusedLabelColor = Color.Gray,
-                        cursorColor = MaterialTheme.colorScheme.primary
-                    ),
-                    maxLines = 3
-                )
-
-                Spacer(Modifier.height(20.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .border(1.dp, Color.Gray.copy(alpha = 0.4f))
-                            .clickable {
-                                cookieText = ""
-                                showDialog = false
-                            }
-                            .padding(horizontal = 20.dp, vertical = 10.dp)
-                    ) {
-                        Text(strings.cancel, color = Color.Gray, fontSize = 14.sp)
-                    }
-                    if (cookieText.isNotBlank()) {
-                        Spacer(Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(MaterialTheme.colorScheme.primary)
-                                .clickable {
-                                    CookieManager.saveCookie(context, cookieText)
-                                    RetrofitClient.updateCookie(cookieText)
-                                    cookieInfo = CookieManager.getCookieInfo(context)
-                                    cookieText = ""
-                                    showDialog = false
-                                    loadProfile()
-                                }
-                                .padding(horizontal = 20.dp, vertical = 10.dp)
-                        ) {
-                            Text(strings.saveCookieButton, color = Color.Black, fontSize = 14.sp)
-                        }
-                    }
-                }
-            }
+    if (showDialog) LoginDialog(
+        cookieText = cookieText,
+        onCookieTextChange = { cookieText = it },
+        onDismiss = { showDialog = false },
+        onWebLogin = { showDialog = false; onShowWebLogin() },
+        onSave = {
+            CookieManager.saveCookie(context, cookieText)
+            RetrofitClient.updateCookie(cookieText)
+            cookieInfo = CookieManager.getCookieInfo(context)
+            cookieText = ""
+            showDialog = false
+            loadProfile()
         }
-    }
+    )
 
-    // 账户管理弹窗
-    if (showAccountDialog) {
-        Dialog(onDismissRequest = { showAccountDialog = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF282828))
-                    .padding(24.dp)
-            ) {
-                Text(
-                    strings.accountDialogTitle,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(16.dp))
-
-                if (userProfile != null) {
-                    Text(strings.nicknameLabel(userProfile!!.nickname), color = Color.White)
-                    Spacer(Modifier.height(4.dp))
-                    Text(strings.uidLabel(userProfile!!.userId.toString()), color = Color.Gray, fontSize = 13.sp)
-                    Spacer(Modifier.height(20.dp))
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Color.Gray.copy(alpha = 0.4f))
-                        .clickable {
-                            cookieText = CookieManager.getCookie(context) ?: ""
-                            showAccountDialog = false
-                            showDialog = true
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(strings.updateCookieButton, color = Color.White, fontSize = 14.sp)
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Color.Red.copy(alpha = 0.5f))
-                        .clickable {
-                            CookieManager.clearCookie(context)
-                            RetrofitClient.updateCookie(null)
-                            cookieInfo = CookieManager.getCookieInfo(context)
-                            userProfile = null
-                            showAccountDialog = false
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(strings.logoutButton, color = Color.Red, fontSize = 14.sp)
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .border(1.dp, Color.Gray.copy(alpha = 0.4f))
-                            .clickable { showAccountDialog = false }
-                            .padding(horizontal = 20.dp, vertical = 10.dp)
-                    ) {
-                        Text(strings.close, color = Color.Gray, fontSize = 14.sp)
-                    }
-                }
-            }
+    if (showAccountDialog) AccountDialog(
+        userProfile = userProfile,
+        onDismiss = { showAccountDialog = false },
+        onUpdateCookie = {
+            cookieText = CookieManager.getCookie(context) ?: ""
+            showAccountDialog = false
+            showDialog = true
+        },
+        onLogout = {
+            CookieManager.clearCookie(context)
+            RetrofitClient.updateCookie(null)
+            cookieInfo = CookieManager.getCookieInfo(context)
+            userProfile = null
+            showAccountDialog = false
         }
-    }
+    )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
+        // Groove 大字页头。
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(start = 16.dp, top = 20.dp, bottom = 8.dp)
+            ) {
+                Text(
+                    strings.tabUser,
+                    color = Color.White,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        // Profile 块。整块可点：已登录 → 账户管理；未登录 → 登录弹窗。
+        item {
+            ProfileBlock(
+                isLoading = isLoadingProfile,
+                profile = userProfile,
+                notLoggedInText = strings.notLoggedIn,
+                loginHintText = strings.loginHint,
+                uidLabel = strings.uidLabel(userProfile?.userId?.toString() ?: ""),
+                onClick = {
                     if (cookieInfo.hasCookie) showAccountDialog = true
                     else showDialog = true
                 }
-                .padding(vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(Color(0xFF404040)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (userProfile?.avatarUrl?.isNotEmpty() == true) {
-                    AsyncImage(
-                        model = userProfile!!.avatarUrl,
-                        contentDescription = strings.userAvatarDesc,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.Person,
-                        strings.userIconDesc,
-                        tint = Color.Gray,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-            }
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                if (isLoadingProfile) {
-                    Text(
-                        strings.loading,
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                } else if (userProfile != null) {
-                    Text(
-                        userProfile!!.nickname,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Text(
-                        strings.uidLabel(userProfile!!.userId.toString()),
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                } else {
-                    Text(
-                        strings.notLoggedIn,
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Text(
-                        strings.loginHint,
-                        color = Color.Gray.copy(alpha = 0.6f),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
+            )
+            Spacer(Modifier.height(24.dp))
         }
 
-        HorizontalDivider(color = Color(0xFF2A2A2A))
-        Spacer(Modifier.height(24.dp))
-
-        Text(
-            strings.qualitySectionTitle,
-            color = Color.White,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(12.dp))
-
-        QualitySelector(
-            label = strings.wifiQualityLabel,
-            selected = wifiQuality,
-            options = strings.qualityOptions,
-            onSelect = { wifiQuality = it.apply { prefs.edit().putInt("wifi_quality", it).apply() } }
-        )
-        Spacer(Modifier.height(8.dp))
-        QualitySelector(
-            label = strings.mobileQualityLabel,
-            selected = mobileQuality,
-            options = strings.qualityOptions,
-            onSelect = {
-                mobileQuality = it.apply {
+        // 音质
+        item {
+            SectionTitle(strings.qualitySectionTitle)
+            MetroDropdownRow(
+                label = strings.wifiQualityLabel,
+                selectedIndex = wifiQuality,
+                options = strings.qualityOptions,
+                onSelect = {
+                    wifiQuality = it
+                    prefs.edit().putInt("wifi_quality", it).apply()
+                }
+            )
+            MetroDropdownRow(
+                label = strings.mobileQualityLabel,
+                selectedIndex = mobileQuality,
+                options = strings.qualityOptions,
+                onSelect = {
+                    mobileQuality = it
                     prefs.edit().putInt("mobile_quality", it).apply()
                 }
-            }
-        )
-
-        Spacer(Modifier.height(24.dp))
-        Text(
-            strings.gaplessSectionTitle,
-            color = Color.White,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                strings.gaplessDescription,
-                color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.weight(1f)
             )
-            Spacer(Modifier.width(16.dp))
-            MetroSwitch(
-                checked = gaplessEnabled,
-                onCheckedChange = {
-                    gaplessEnabled = it
-                    prefs.edit().putBoolean("gapless_playback", it).apply()
-                }
-            )
+            Spacer(Modifier.height(24.dp))
         }
 
-        Spacer(Modifier.height(24.dp))
-        Text(
-            strings.themeSectionTitle,
-            color = Color.White,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(12.dp))
-        ThemeColorSelector(
-            selectedIndex = themeIndex,
-            presets = themeColorPresets,
-            onSelect = onThemeChange
-        )
-
-        Spacer(Modifier.height(24.dp))
-        Text(
-            strings.languageSectionTitle,
-            color = Color.White,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(12.dp))
-        MetroLanguageDropdown(
-            selectedCode = selectedLanguageCode,
-            presets = languagePresets,
-            onSelect = { code ->
-                if (code != selectedLanguageCode) {
-                    selectedLanguageCode = code
-                    onLanguageChange(code)
+        // 播放
+        item {
+            SectionTitle(strings.gaplessSectionTitle)
+            // 无缝播放：标题 + 描述在左（自动换行），Switch 固定 52dp 在右上角。
+            // 描述 weight(1f)，任何语言的长文都能自然换行不撑破。
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        strings.gaplessDescription,
+                        color = Color.Gray,
+                        fontSize = 13.sp
+                    )
                 }
+                Spacer(Modifier.width(16.dp))
+                MetroSwitch(
+                    checked = gaplessEnabled,
+                    onCheckedChange = {
+                        gaplessEnabled = it
+                        prefs.edit().putBoolean("gapless_playback", it).apply()
+                    }
+                )
             }
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        TextButton(onClick = onOpenAbout) {
-            Text(strings.aboutButton, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
+            Spacer(Modifier.height(24.dp))
         }
 
-        Spacer(modifier = Modifier.height(150.dp))
+        // 外观：主题色 + 语言
+        item {
+            SectionTitle(strings.themeSectionTitle)
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                ThemeColorSelector(
+                    selectedIndex = themeIndex,
+                    presets = themeColorPresets,
+                    onSelect = onThemeChange
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+
+            SectionTitle(strings.languageSectionTitle)
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                MetroLanguageDropdown(
+                    selectedCode = selectedLanguageCode,
+                    presets = languagePresets,
+                    onSelect = { code ->
+                        if (code != selectedLanguageCode) {
+                            selectedLanguageCode = code
+                            onLanguageChange(code)
+                        }
+                    }
+                )
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+
+        // 关于：单行条目，右侧带箭头。
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAbout)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    strings.aboutButton,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }
 
+/** Profile 块：96dp 方形头像 + 昵称 titleLarge + UID/登录状态 bodySmall。整块可点。 */
+@Composable
+private fun ProfileBlock(
+    isLoading: Boolean,
+    profile: PlaylistApi.UserProfile?,
+    notLoggedInText: String,
+    loginHintText: String,
+    uidLabel: String,
+    onClick: () -> Unit
+) {
+    val strings = LocalStrings.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .background(Color(0xFF404040)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (profile?.avatarUrl?.isNotEmpty() == true) {
+                AsyncImage(
+                    model = profile.avatarUrl,
+                    contentDescription = strings.userAvatarDesc,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Default.Person,
+                    strings.userIconDesc,
+                    tint = Color.Gray,
+                    modifier = Modifier.size(52.dp)
+                )
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        // 文字列 weight(1f)：任何语言的昵称/提示都能换行不撑破。
+        Column(modifier = Modifier.weight(1f)) {
+            when {
+                isLoading -> Text(
+                    strings.loading,
+                    color = Color.Gray,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Normal
+                )
+                profile != null -> {
+                    Text(
+                        profile.nickname,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        uidLabel,
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                else -> {
+                    Text(
+                        notLoggedInText,
+                        color = Color.Gray,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        loginHintText,
+                        color = Color.Gray.copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Groove 风分区标题：16sp semi-bold、上留白 4dp、左 16dp。 */
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        color = Color.White,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
+    )
+}
+
+/**
+ * 单行下拉：左侧 label + 右侧「选中值 + ▼」，点击整行弹出垂直菜单。
+ *
+ * 多语言鲁棒：
+ *  - label 用 weight(1f)，任何语言都能换行，不会挤到右侧值。
+ *  - 选中值用 maxLines=1 + Ellipsis + widthIn(max=160dp)，极端长文会截断但不会撑破布局。
+ *  - 下拉展开的菜单里每项独占一行，完整显示，用户始终能看到完整名字。
+ */
+@Composable
+private fun MetroDropdownRow(
+    label: String,
+    selectedIndex: Int,
+    options: List<String>,
+    onSelect: (Int) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = true }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                label,
+                color = Color.White,
+                fontSize = 15.sp,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                options.getOrElse(selectedIndex) { "" },
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 160.dp)
+            )
+            Icon(
+                Icons.Default.ArrowDropDown,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = RectangleShape,
+            containerColor = Color(0xFF282828)
+        ) {
+            options.forEachIndexed { index, name ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            name,
+                            color = if (index == selectedIndex) MaterialTheme.colorScheme.primary else Color.White,
+                            fontSize = 14.sp
+                        )
+                    },
+                    onClick = {
+                        onSelect(index)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoginDialog(
+    cookieText: String,
+    onCookieTextChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onWebLogin: () -> Unit,
+    onSave: () -> Unit
+) {
+    val strings = LocalStrings.current
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF282828))
+                .padding(24.dp)
+        ) {
+            Text(
+                strings.loginDialogTitle,
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(20.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable(onClick = onWebLogin)
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(strings.webLoginButton, color = Color.Black, fontWeight = FontWeight.Medium)
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Text(strings.manualCookieHint, color = Color.Gray, fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = cookieText,
+                onValueChange = onCookieTextChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(strings.cookieFieldLabel) },
+                shape = RectangleShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.Gray,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = Color.Gray.copy(alpha = 0.4f),
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = Color.Gray,
+                    cursorColor = MaterialTheme.colorScheme.primary
+                ),
+                maxLines = 3
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DialogButton(
+                    text = strings.cancel,
+                    accent = false,
+                    onClick = { onCookieTextChange(""); onDismiss() }
+                )
+                if (cookieText.isNotBlank()) {
+                    Spacer(Modifier.width(8.dp))
+                    DialogButton(
+                        text = strings.saveCookieButton,
+                        accent = true,
+                        onClick = onSave
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountDialog(
+    userProfile: PlaylistApi.UserProfile?,
+    onDismiss: () -> Unit,
+    onUpdateCookie: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val strings = LocalStrings.current
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF282828))
+                .padding(24.dp)
+        ) {
+            Text(
+                strings.accountDialogTitle,
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(16.dp))
+
+            if (userProfile != null) {
+                Text(
+                    strings.nicknameLabel(userProfile.nickname),
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    strings.uidLabel(userProfile.userId.toString()),
+                    color = Color.Gray,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(20.dp))
+            }
+
+            // 全宽按钮：容器 fillMaxWidth，文字 Center + 换行——极长翻译最多多占一行，不会撑破对话框。
+            FullWidthDialogButton(
+                text = strings.updateCookieButton,
+                accent = false,
+                onClick = onUpdateCookie
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            FullWidthDialogButton(
+                text = strings.logoutButton,
+                accent = false,
+                borderColor = Color.Red.copy(alpha = 0.5f),
+                textColor = Color.Red,
+                onClick = onLogout
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                DialogButton(
+                    text = strings.close,
+                    accent = false,
+                    onClick = onDismiss
+                )
+            }
+        }
+    }
+}
+
+/** 短按钮：内容包裹式（wrap content）。用于对话框右下"取消/关闭/保存"。 */
+@Composable
+private fun DialogButton(
+    text: String,
+    accent: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .then(
+                if (accent) Modifier.background(MaterialTheme.colorScheme.primary)
+                else Modifier.border(1.dp, Color.Gray.copy(alpha = 0.4f))
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text,
+            color = if (accent) Color.Black else Color.Gray,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/** 全宽按钮：填满可用宽度，文字居中，多行安全。用于对话框内的"更新 Cookie/退出登录"。 */
+@Composable
+private fun FullWidthDialogButton(
+    text: String,
+    accent: Boolean,
+    borderColor: Color = Color.Gray.copy(alpha = 0.4f),
+    textColor: Color = Color.White,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (accent) Modifier.background(MaterialTheme.colorScheme.primary)
+                else Modifier.border(1.dp, borderColor)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text,
+            color = if (accent) Color.Black else textColor,
+            fontSize = 14.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * 语言下拉。闭合态显示当前选中语言名 + 箭头；点击弹出所有语言。
+ *
+ * 多语言鲁棒：闭合态 Text 设 maxLines=1 + Ellipsis + weight(1f)。极长名如
+ * "Советский русский"/"Middle English" 最多截断，绝不换行撑破箭头位置。
+ */
 @Composable
 fun MetroLanguageDropdown(
     selectedCode: String,
@@ -453,10 +681,17 @@ fun MetroLanguageDropdown(
                 .border(1.dp, Color.Gray.copy(alpha = 0.4f))
                 .clickable { expanded = true }
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(selected.displayName, color = Color.White, fontSize = 14.sp)
+            Text(
+                selected.displayName,
+                color = Color.White,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(8.dp))
             Icon(
                 Icons.Default.ArrowDropDown,
                 contentDescription = null,
@@ -538,51 +773,4 @@ fun MetroSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
                 )
             }
     )
-}
-
-@Composable
-fun QualitySelector(
-    label: String,
-    selected: Int,
-    options: List<String>,
-    onSelect: (Int) -> Unit
-) {
-    Column {
-        Text(label, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(0.dp)
-        ) {
-            options.forEachIndexed { index, name ->
-                val isSelected = selected == index
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(
-                                alpha = 0.4f
-                            ),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
-                        )
-                        .clickable { onSelect(index) }
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        name,
-                        fontSize = 13.sp,
-                        color = if (isSelected) Color.Black else Color.White,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
 }
