@@ -6,7 +6,7 @@
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.12-blue?style=flat-square&logo=jetpackcompose)
 ![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
-![Version](https://img.shields.io/badge/Version-1.2.0-brightgreen?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.2.1-brightgreen?style=flat-square)
 ![APK](https://img.shields.io/badge/Release%20APK-4MB-blue?style=flat-square)
 
 **Metro / Groove Music · GPU 零重组动画 · 无缝播放 · 13 语言 · 无损音质**
@@ -50,15 +50,16 @@
 - **⚡ 无缝播放**：gapless 模式下提前预加载下一首 URL，切歌即播；TTL 5 分钟缓存，手动切歌命中缓存时零等待
 - **📶 分网络音质**：Wi-Fi / 移动数据独立偏好，默认无损 / 较好；全屏播放页实时显示当前音质标签
 
-### 🚀 v1.2.0 新增
+### 🚀 v1.2.1 新增
 
-- **🎨 Groove Music 风无边框设计**：SongCard LIST/COMPACT 行 0dp 左边距 + 72dp 封面贴屏边；DetailScaffold 去掉 M3 TopAppBar Surface，返回箭头浮层 + 半透明黑色兜底；网格 tile 2dp spacedBy 制造 Metro 拼贴感
-- **🌐 网络层网关化**：所有 `music.163.com` 硬编码 URL 收敛到 RetrofitClient，接口切换零改动
-- **💨 Sokuou 动画系统**：UWP Metro 缓动族（Quadratic~Elastic 全谱系）+ Apple 风格 `sokuouSpring(response, damping)` 弹簧预设，新代码统一动画词汇
-- **📦 ContentCache 内存缓存**：首页 + 详情页按 ID 缓存网络响应快照，命中即 Crossfade 平滑替换，彻底消除"空屏 → spinner → 跳变"
+- **🎨 Groove 化收官**：UserScreen 全面无边框改造 + 主题色选择器一行色墙 + 关于页 5 段级联入场，全页面 Metro 风格统一
 - **⚡ 冷启动统一预热**：`AppWarmup` 在 Splash 遮挡期并发跑 3 条 Home 请求 + Coil 封面预取 + 5 个 SharedPreferences 文件 IO 线程 parse，进入主页时数据/封面/prefs 全部就位
-- **🧪 深度性能优化**：@Immutable 数据类稳定化、播放器状态订阅下推（消 4Hz 全屏重组）、列表 key + 去 `.toList()` 拷贝、每屏冗余 background 去除、PlayerCard 折叠态子树 gating、通知元数据等值跳过、HttpLoggingInterceptor 仅 debug、导航返回主 tab 屏 always-mount 消卡消残影
-- **📉 R8 全量优化**：release APK 从 26 MB 降至 4 MB（84% 缩减），Gson 反射 / Retrofit 注解 / Kotlin 元数据完整保护
+- **🧪 深度性能优化**：播放器状态订阅下推（彻底根除 4Hz 全屏重组）、PlayerCard 折叠态子树 gating（展开阈值以下 dispose 重型内容）、每屏冗余 background 去除（消除 Mali 一层 fill overdraw）、@Immutable 数据类稳定化、列表补 key + 去 `.toList()` 拷贝、通知元数据等值跳过、HttpLoggingInterceptor 仅 debug、详情页返回主 tab 屏 always-mount 消卡消残影、低端机返回空 HOME 跳过动画 + popExit 延迟淡出
+- **📉 R8 全量优化**：release APK 从 25 MB 降至 4.1 MB（84% 缩减），Gson 反射 / Retrofit 注解 / Kotlin 元数据完整保护
+- **🎞️ 动画过渡铺开**：Metro 风格页面推入过渡、Tab 切换方向感知横向滑入、搜索页三态 Crossfade + SokuouTweens.CoverFade、详情页内容分支 12dp 微滑上入场
+- **📦 ContentCache 歌手详情页接入**：消除返回时的 spinner 闪现
+- **🌐 网络层网关化**：所有 `music.163.com` 硬编码 URL 收敛到 RetrofitClient，接口切换零改动
+- **🔤 14 语种 emoji 剥离**：首页分区标题统一去掉 emoji 前缀
 
 ### 🎼 支持音质
 
@@ -86,7 +87,7 @@
 
 ### 安装 APK
 
-从 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 下载最新 `Ncrust-v1.2.0.apk`（约 4 MB），允许"未知来源"安装。
+从 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 下载最新 `Ncrust-v1.2.1.apk`（约 4 MB），允许"未知来源"安装。
 
 ---
 
@@ -161,7 +162,8 @@ app/src/main/java/com/takahashirinta/ncrust/
 | v1.0.1 | 5 月 4 日 | 性能优化（零重组修复）、主题色系统、多语言框架、导航兼容性修复 |
 | v1.0.2 | 5 月 4 日 | 紧急修复：歌单页闪退（Issue #11）、WebView 小屏登录 |
 | v1.1.4 | 5 月 17 日 | 无缝播放元数据同步修复、URL 缓存去重、多语言扩充至 13 种 |
-| v1.2.0 | 7 月 29 日 | Groove Music 无边框大改、Sokuou 动画系统、ContentCache、Metro 页面推入、AppWarmup 冷启动预热、深度性能优化（@Immutable / 状态下推 / overdraw 消除 / PlayerCard gating）、R8 minify（APK 26 MB → 4 MB）、网络层网关化 |
+| v1.2.0 | 7 月 29 日 | Groove Music 无边框大改、Sokuou 动画系统、ContentCache、Metro 页面推入、AppWarmup 冷启动预热、深度性能优化、R8 minify、网络层网关化 |
+| v1.2.1 | 7 月 29 日 | 正式发布版：Groove 化收官（UserScreen / 主题色选择器 / 关于页级联入场）、冷启动预热、全链路性能优化（播放器重组0%、overdraw 消除、PlayerCard gating、@Immutable、列表补 key）、R8 minify（APK 25 MB → 4.1 MB）、导航/搜索/详情页动画过渡、ContentCache 歌手页接入、14 语种 emoji 剥离 |
 
 ---
 
