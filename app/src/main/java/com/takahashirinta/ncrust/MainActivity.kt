@@ -573,18 +573,12 @@ fun MainScreen(
 
         Scaffold(containerColor = Color.Transparent) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
-                MainNavGraph(
-                    navController = navController,
-                    onSongClick = { playSongItem(it) },
-                    onReplaceAndPlay = { replaceQueueAndPlay(it) },
-                    onInsertNext = { insertAllNext(it) },
-                    onSongInsertNext = { insertNext(it) },
-                    onSongAppendToQueue = { appendToQueue(it) },
-                    onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
-                    startDestination = NavRoutes.HOME
-                )
-
-                if (isInMain) {
+                // 主 tab 屏一直挂载（下层）：以前用 if(isInMain) 条件挂载，导航返回时
+                // tab 屏瞬间 mount + LaunchedEffect 立即触发，撞在 nav slide 动画的第一帧
+                // → 主线程 gg，返回感觉卡。现在 tab 屏永远存在，nav 详情页通过 opaque bg
+                // 从上层覆盖它，返回时 nav 只需 slide 详情页出去，tab 屏本来就在下面可见。
+                // 副作用：NavGraph 空 HOME destination 内容为空且不占布局，pointer 天然穿透。
+                Box(modifier = Modifier.fillMaxSize()) {
                     when (selectedTab) {
                         0 -> HomeScreen(
                             onSongClick = { playSongItem(it) },
@@ -695,6 +689,19 @@ fun MainScreen(
                         )
                     }
                 }
+
+                // NavGraph 在 tab 屏之上（上层）：空 HOME destination 不遮挡 tab 屏，
+                // 打开详情页时详情页 opaque bg 从上层盖住 tab 屏；返回时 slide 出去露出 tab 屏。
+                MainNavGraph(
+                    navController = navController,
+                    onSongClick = { playSongItem(it) },
+                    onReplaceAndPlay = { replaceQueueAndPlay(it) },
+                    onInsertNext = { insertAllNext(it) },
+                    onSongInsertNext = { insertNext(it) },
+                    onSongAppendToQueue = { appendToQueue(it) },
+                    onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
+                    startDestination = NavRoutes.HOME
+                )
             }
         }
 

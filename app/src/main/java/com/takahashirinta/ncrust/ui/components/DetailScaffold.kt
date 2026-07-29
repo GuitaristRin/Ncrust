@@ -52,8 +52,12 @@ fun DetailScaffold(
 ) {
     val strings = LocalStrings.current
     Box(
-        // 背景由 MainScreen 外层 Box 统一填充（详情页也是 MainScreen 内的 NavHost 子节点）
-        modifier = Modifier.fillMaxSize()
+        // 必须 opaque：nav popExit 动画期间详情页会 slide + 部分透明，
+        // 若无 bg 会透视到下方主 tab 屏（返回时 mount/绘制未完成 → 用户看到"低一层残影"）。
+        // 主 tab 屏一直在下层挂载，DetailScaffold 显示期间就是它遮住 tab 屏。
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
         val stateKey = when {
             error != null -> DetailScaffoldState.Error

@@ -4,7 +4,6 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
@@ -46,17 +45,17 @@ fun MainNavGraph(
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
     startDestination: String = NavRoutes.HOME
 ) {
-    // Metro 页面推入：进比退更"重"，滑距 1/8 屏宽，MetroDefault 曲线克制无过冲。
+    // Metro 页面推入：进比退更"重"，MetroDefault 曲线克制无过冲。
     //
-    // 关键前提——HOME 路由的 composable 内容故意为空（MainScreen 单独负责），
-    // 这意味着 exit（前进时旧页退场）与 popEnter（返回时目的页入场）作用于一个
-    // 没有像素的空 composable，配置动画只是让 Compose 走完动画机器空转，
-    // 在低端机上还会额外拉长合成窗口。显式改为 None 完全跳过。
-    // 如果未来 HOME 加入内容，需要在这里补回过渡。
+    // 关键前提——HOME 路由的 composable 内容为空（tab 屏由 MainScreen 一直挂载在下层），
+    // 空 destination 走 AnimatedContent 时 exit/popEnter 都是零像素，配置动画只是空转
+    // 拉长合成窗口，显式 None 完全跳过。
     //
-    // popExit（返回时详情页退场）延迟启动 fadeOut：前 120ms 是纯不透明滑动
-    // （GPU 最便宜的操作），最后 80ms 才做淡出。alpha 合成窗口从 200ms 缩到
-    // 80ms，配合详情页 dispose 时的 LazyColumn/Coil 拆解，掉帧窗口大幅收窄。
+    // popExit（返回时详情页退场）从 slide→fadeOut 组合改为纯 slide 到 fullWidth：
+    // 详情页现在 opaque bg，slide 只滑 1/8 屏宽的话大部分屏幕还被它遮着，必须靠
+    // fadeOut 把它变透明才露出 tab 屏——但 fadeOut 每帧都要 alpha 合成一遍全屏。
+    // 直接一次性 slide 完整屏宽出去，视觉上"完全滑走"，GPU 全程不做 alpha 合成，
+    // 主 tab 屏（一直在下层）在滑动的每一帧同步露出。低端机上帧时急剧下降。
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -70,10 +69,8 @@ fun MainNavGraph(
         popEnterTransition = { EnterTransition.None },
         popExitTransition = {
             slideOutHorizontally(
-                targetOffsetX = { fullWidth -> fullWidth / 8 },
-                animationSpec = tween(durationMillis = 200, easing = MetroDefault)
-            ) + fadeOut(
-                animationSpec = tween(durationMillis = 80, delayMillis = 120, easing = MetroDefault)
+                targetOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(durationMillis = 240, easing = MetroDefault)
             )
         }
     ) {
