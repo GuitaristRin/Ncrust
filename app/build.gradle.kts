@@ -39,7 +39,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 全量优化：删除死代码、内联、混淆、shrink 资源。
+            // 低端机冷启动的最大杠杆——DEX 体积可减 30%+，类加载时间线性下降。
+            // proguard-rules.pro 保护 Gson model 反射与 Retrofit interface 注解。
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
