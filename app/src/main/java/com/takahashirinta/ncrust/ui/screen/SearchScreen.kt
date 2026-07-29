@@ -42,6 +42,7 @@ import com.takahashirinta.ncrust.ui.components.AlbumSearchItem
 import com.takahashirinta.ncrust.ui.components.ArtistSearchItem
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
+import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
 import com.takahashirinta.ncrust.ui.viewmodel.SearchViewModel
@@ -161,7 +162,10 @@ fun SearchScreen(
                     label = "SearchContentCrossfade"
                 ) { state -> when (state) {
                     SearchContentState.History -> {
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                        ) {
                     if (songHistory.isNotEmpty()) {
                         item {
                             SearchHistorySectionHeader(
@@ -270,7 +274,6 @@ fun SearchScreen(
                         }
                     }
 
-                    item { Spacer(Modifier.height(72.dp)) }
                         }
                     }
                     SearchContentState.Results -> {
@@ -337,7 +340,10 @@ fun SearchScreen(
                                 Text(strings.searchSongsEmpty, color = Color.Gray, fontSize = 16.sp)
                             }
                         } else {
-                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                            ) {
                                 items(songs, key = { it.id }) { item ->
                                     SongCard(
                                         song = item,
@@ -379,7 +385,10 @@ fun SearchScreen(
                                 Text(strings.searchAlbumsEmpty, color = Color.Gray, fontSize = 16.sp)
                             }
                         } else {
-                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                            ) {
                                 items(albums, key = { it.id }) { album ->
                                     AlbumSearchItem(
                                         album = album,
@@ -425,7 +434,10 @@ fun SearchScreen(
                                 Text(strings.searchArtistsEmpty, color = Color.Gray, fontSize = 16.sp)
                             }
                         } else {
-                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                            ) {
                                 items(artists, key = { it.id }) { artist ->
                                     ArtistSearchItem(
                                         artist = artist,

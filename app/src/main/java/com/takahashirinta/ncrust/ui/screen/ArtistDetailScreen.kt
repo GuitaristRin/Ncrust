@@ -120,22 +120,26 @@ fun ArtistDetailScreen(
         error = error,
         onRetry = { loadData(showLoader = true) },
         header = {
-            Column {
-                Text(
-                    artist?.name ?: strings.unknownArtistName,
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                )
-                Spacer(Modifier.height(4.dp))
-                Row {
-                    artist?.albumSize?.let {
-                        Text(strings.artistAlbumCount(it), color = Color.Gray, fontSize = 14.sp)
-                        Spacer(Modifier.width(16.dp))
+            // 顶部 statusBar + 56dp 为浮层返回箭头让路（浮层箭头会盖在这块黑色上）。
+            Column(modifier = Modifier.statusBarsPadding()) {
+                Spacer(Modifier.height(56.dp))
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Text(
+                        artist?.name ?: strings.unknownArtistName,
+                        color = Color.White,
+                        fontSize = 32.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Row {
+                        artist?.albumSize?.let {
+                            Text(strings.artistAlbumCount(it), color = Color.Gray, fontSize = 14.sp)
+                            Spacer(Modifier.width(16.dp))
+                        }
+                        artist?.musicSize?.let { Text(strings.artistSongCount(it), color = Color.Gray, fontSize = 14.sp) }
                     }
-                    artist?.musicSize?.let { Text(strings.artistSongCount(it), color = Color.Gray, fontSize = 14.sp) }
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(20.dp))
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = MaterialTheme.colorScheme.background,
@@ -146,7 +150,7 @@ fun ArtistDetailScreen(
                     Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
                         text = { Text(strings.categoryTracks, color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
             }
         },
         content = {
@@ -161,13 +165,14 @@ fun ArtistDetailScreen(
                     } else {
                         val rows = albums.chunked(2)
                         items(rows.size) { rowIndex ->
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            // 边到边 tile：spacedBy 2dp 制造 Metro 拼贴感。
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 for (album in rows[rowIndex]) {
                                     ArtistAlbumGridItem(album = album, modifier = Modifier.weight(1f), onClick = { onAlbumClick(album.id) })
                                 }
                                 if (rows[rowIndex].size == 1) Spacer(modifier = Modifier.weight(1f))
                             }
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(2.dp))
                         }
                     }
                 }
@@ -208,7 +213,6 @@ fun ArtistDetailScreen(
                     }
                 }
             }
-            item { Spacer(Modifier.height(80.dp)) }
         }
     )
 }
@@ -218,11 +222,12 @@ fun ArtistAlbumGridItem(album: ArtistAlbumItem, modifier: Modifier = Modifier, o
     val strings = LocalStrings.current
     Column(modifier = modifier.clickable { onClick() }) {
         AsyncImage(model = album.picUrl, contentDescription = strings.albumCoverDesc, modifier = Modifier.fillMaxWidth().aspectRatio(1f), contentScale = ContentScale.Crop)
-        Spacer(Modifier.height(8.dp))
-        Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(6.dp))
+        Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         album.publishTime?.let {
             val year = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
-            Text("$year · ${strings.trackCount(album.size ?: 0)}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("$year · ${strings.trackCount(album.size ?: 0)}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         }
+        Spacer(Modifier.height(6.dp))
     }
 }

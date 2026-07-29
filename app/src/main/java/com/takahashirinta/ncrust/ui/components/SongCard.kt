@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,9 +58,11 @@ fun SongCard(
         SongCardStyle.LIST, SongCardStyle.COMPACT -> {
             val actualCoverSize = when {
                 coverSize != Dp.Unspecified -> coverSize
-                else -> 56.dp
+                else -> 72.dp
             }
 
+            // 无边框版式：封面贴屏幕左沿（无左 padding），文字与右侧 actions 保留 16dp 右 padding。
+            // 长按触发菜单；右侧 MoreVert 按钮取消，避免与"无边框"视觉冲突。
             Row(
                 modifier = modifier
                     .fillMaxWidth()
@@ -69,7 +70,7 @@ fun SongCard(
                         onClick = onClick,
                         onLongClick = { onShowMenu?.invoke() }
                     )
-                    .padding(vertical = 10.dp, horizontal = 16.dp),
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (showCover) {
@@ -79,7 +80,9 @@ fun SongCard(
                         modifier = Modifier.size(actualCoverSize),
                         contentScale = ContentScale.Crop
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(14.dp))
+                } else {
+                    Spacer(Modifier.width(16.dp))
                 }
 
                 Column(Modifier.weight(1f)) {
@@ -103,20 +106,12 @@ fun SongCard(
                     )
                 }
 
-                if (onShowMenu != null) {
-                    IconButton(onClick = onShowMenu) {
-                        Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                } else {
+                if (actions != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        actions?.invoke(this)
+                        actions.invoke(this)
                     }
                 }
+                Spacer(Modifier.width(16.dp))
             }
         }
 

@@ -30,6 +30,7 @@ import com.takahashirinta.ncrust.library.AlbumInfo
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
 import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
@@ -97,6 +98,21 @@ fun LibraryScreen(
     Box(modifier = Modifier.fillMaxSize()) {
     ResponsiveContent {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            // Groove 风大字页头。
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(start = 16.dp, top = 20.dp, bottom = 8.dp)
+            ) {
+                Text(
+                    strings.tabLibrary,
+                    color = Color.White,
+                    fontSize = 34.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
+                )
+            }
+            Spacer(Modifier.height(4.dp))
             TabRow(
                 selectedTabIndex = selectedCategory,
                 containerColor = MaterialTheme.colorScheme.background,
@@ -146,7 +162,7 @@ fun LibraryScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 72.dp)
+                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
                         ) {
                             items(savedSongs, key = { it.id }) { song ->
                                 SongCard(
@@ -185,15 +201,15 @@ fun LibraryScreen(
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            contentPadding = PaddingValues(bottom = 72.dp)
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
                         ) {
                             val rows = savedAlbums.chunked(2)
                             items(rows.size) { rowIndex ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
                                     for (album in rows[rowIndex]) {
                                         LibraryAlbumGridItem(
@@ -237,15 +253,15 @@ fun LibraryScreen(
                         }
                         else -> {
                             LazyColumn(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(bottom = 72.dp)
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
                             ) {
                                 val rows = playlists.chunked(2)
                                 items(rows.size) { rowIndex ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         for (pl in rows[rowIndex]) {
                                             PlaylistGridItem(
@@ -288,13 +304,14 @@ fun PlaylistGridItem(
                 contentScale = ContentScale.Crop
             )
             PlayAllCircleButton(
-                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
                 onClick = onPlayAll
             )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(playlist.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(strings.trackCount(playlist.trackCount), color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(6.dp))
+        Text(playlist.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(strings.trackCount(playlist.trackCount), color = Color.Gray, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
+        Spacer(Modifier.height(6.dp))
     }
 }
 
@@ -315,12 +332,13 @@ fun LibraryAlbumGridItem(
                 contentScale = ContentScale.Crop
             )
             PlayAllCircleButton(
-                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
                 onClick = onPlayAll
             )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(strings.albumArtistAndCount(album.artist, album.songCount), color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(6.dp))
+        Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(strings.albumArtistAndCount(album.artist, album.songCount), color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        Spacer(Modifier.height(6.dp))
     }
 }
