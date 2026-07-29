@@ -95,6 +95,11 @@ fun PlayerCard(
     val miniBarInteractionSource = remember { MutableInteractionSource() }
     // 完全展开时才激活收起按钮
     val dismissEnabled by remember { derivedStateOf { progress.value > 0.99f } }
+    // 展开态子树 gating：折叠态（progress ≈ 0）时 LyricsView / QueueView / 大封面
+    // 信息 / FullPlayerControls 全部不 mount，避免它们在屏外走 layout。阈值 0.05f
+    // 保证用户刚开始拖拽或点开动画的第一帧就 mount，视觉无跳变。derivedStateOf
+    // 使 PlayerCard 只在跨阈值时重组一次，非阈值帧不受 progress 4Hz 变化影响。
+    val expandedEnough by remember { derivedStateOf { progress.value > 0.05f } }
 
     // lyricAnimProgress：0 = 大封面，1 = 小封面；驱动封面缩放 + 内容淡入淡出
     // queueSlideProgress：0 = 歌词位置，1 = 列表位置；仅 b↔c 时动画，其他时 snap
@@ -242,155 +247,160 @@ fun PlayerCard(
                     }
                 }
 
-                // 内容区：LyricsView、QueueView、大封面信息全部始终在 Composition 中。
-                // 可见性完全由 graphicsLayer { alpha / translationX } 控制，动画帧零 recompose。
-                // 大封面信息以 Alignment.BottomStart overlay 在同一 Box 内，不占 Column 高度。
+                // 内容区外壳保留（weight(1f) 撑起 Column 布局），内容按 expandedEnough 门槛挂载。
+                // 折叠态时 LyricsView/QueueView/大封面信息全部 dispose，避免它们在屏外走
+                // layout（LyricsView 尤其重——LazyColumn + 每行 graphicsLayer + Animatable）。
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                 ) {
-                    // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
-                    // 彻底消除与列表面板的命中测试重叠（combinedClickable 忽略 isConsumed 标志）
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                val q = queueSlideProgress.value
-                                alpha = lyricAnimProgress.value * (1f - q)
-                                translationX = -q * screenWidthPx
-                            }
-                    ) {
-                        LyricsView(
-                            lyrics = lyrics,
-                            positionFlow = playerViewModel.currentPosition,
-                            isVisible = showLyrics,
-                            onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
-                            onUserScrolled = {},
-                            enabled = lyricsEnabled
-                        )
-                    }
-
-                    // 列表面板：translationX 从 +screenWidthPx 滑至 0，稳定态时完全在屏幕外
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                val q = queueSlideProgress.value
-                                alpha = lyricAnimProgress.value * q
-                                translationX = (1f - q) * screenWidthPx
-                            }
-                    ) {
-                        Row(
+                    if (expandedEnough) {
+                        // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
+                        // 彻底消除与列表面板的命中测试重叠（combinedClickable 忽略 isConsumed 标志）
+                        Box(
                             modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    val q = queueSlideProgress.value
+                                    alpha = lyricAnimProgress.value * (1f - q)
+                                    translationX = -q * screenWidthPx
+                                }
+                        ) {
+                            LyricsView(
+                                lyrics = lyrics,
+                                positionFlow = playerViewModel.currentPosition,
+                                isVisible = showLyrics,
+                                onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
+                                onUserScrolled = {},
+                                enabled = lyricsEnabled
+                            )
+                        }
+
+                        // 列表面板：translationX 从 +screenWidthPx 滑至 0，稳定态时完全在屏幕外
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    val q = queueSlideProgress.value
+                                    alpha = lyricAnimProgress.value * q
+                                    translationX = (1f - q) * screenWidthPx
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    strings.queueTitle,
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(onClick = onTogglePlayMode) {
+                                    Icon(
+                                        when (playMode) {
+                                            0 -> Icons.Default.Repeat
+                                            1 -> Icons.Default.RepeatOne
+                                            2 -> Icons.Default.Shuffle
+                                            else -> Icons.Default.Repeat
+                                        },
+                                        strings.playModeButton,
+                                        tint = if (playMode != 0) MaterialTheme.colorScheme.primary else Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                IconButton(onClick = onSavePlaylist) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        strings.saveAsPlaylist,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                            HorizontalDivider(color = Color(0xFF2A2A2A))
+                            QueueView(
+                                queue = playbackQueue,
+                                currentIndex = currentQueueIndex,
+                                onPlayIndex = onPlayFromQueue,
+                                onRemoveIndex = onRemoveFromQueue
+                            )
+                        }
+
+                        // 大封面模式下的曲名/歌手信息：overlay 在内容区底部，不占 Column 高度。
+                        // alpha 随 lyricAnimProgress 淡入淡出，无需 if 控制 Composition 成员资格。
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = 24.dp, vertical = 8.dp)
+                                .graphicsLayer {
+                                    alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) *
+                                            (1f - lyricAnimProgress.value)
+                                }
                         ) {
                             Text(
-                                strings.queueTitle,
+                                s.name,
                                 color = Color.White,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f)
+                                style = MaterialTheme.typography.titleLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            IconButton(onClick = onTogglePlayMode) {
-                                Icon(
-                                    when (playMode) {
-                                        0 -> Icons.Default.Repeat
-                                        1 -> Icons.Default.RepeatOne
-                                        2 -> Icons.Default.Shuffle
-                                        else -> Icons.Default.Repeat
-                                    },
-                                    strings.playModeButton,
-                                    tint = if (playMode != 0) MaterialTheme.colorScheme.primary else Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            IconButton(onClick = onSavePlaylist) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    strings.saveAsPlaylist,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                            Text(
+                                s.artists?.joinToString("/") { it.name } ?: "",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
-                        HorizontalDivider(color = Color(0xFF2A2A2A))
-                        QueueView(
-                            queue = playbackQueue,
-                            currentIndex = currentQueueIndex,
-                            onPlayIndex = onPlayFromQueue,
-                            onRemoveIndex = onRemoveFromQueue
-                        )
-                    }
-
-                    // 大封面模式下的曲名/歌手信息：overlay 在内容区底部，不占 Column 高度。
-                    // alpha 随 lyricAnimProgress 淡入淡出，无需 if 控制 Composition 成员资格。
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 8.dp)
-                            .graphicsLayer {
-                                alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) *
-                                        (1f - lyricAnimProgress.value)
-                            }
-                    ) {
-                        Text(
-                            s.name,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            s.artists?.joinToString("/") { it.name } ?: "",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
-                // 底部播放控件
+                // 底部播放控件：同样只在展开态挂载。FullPlayerControls 内部有 SlimProgressBar
+                // Canvas + PositionText collectAsState + 多个 IconButton，全屏 layout 成本可观。
                 Box(modifier = Modifier.graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }) {
-                    FullPlayerControls(
-                        isPlaying = isPlaying,
-                        showLyrics = showLyrics,
-                        showQueue = showQueue,
-                        progressFlow = playerViewModel.progress,
-                        positionFlow = playerViewModel.currentPosition,
-                        duration = duration,
-                        qualityLabel = qualityLabel,
-                        onPlayPause = onPlayPause,
-                        onPlayPrevious = onPlayPrevious,
-                        onPlayNext = onPlayNext,
-                        onToggleLyrics = {
-                            showLyrics = !showLyrics
-                            showQueue = false
-                        },
-                        onToggleQueue = {
-                            showQueue = !showQueue
-                            showLyrics = false
-                        },
-                        onAddToLibrary = {
-                            LibraryManager.saveSong(context, song!!)
-                            Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
-                        },
-                        isBuffering = isBuffering,
-                        onSeek = { fraction ->
-                            val dur = playerViewModel.duration.value
-                            if (dur > 0) {
-                                playerViewModel.seekTo((fraction * dur).toLong())
-                            }
-                        },
-                        onNavigateToUser = onNavigateToUser
-                    )
+                    if (expandedEnough) {
+                        FullPlayerControls(
+                            isPlaying = isPlaying,
+                            showLyrics = showLyrics,
+                            showQueue = showQueue,
+                            progressFlow = playerViewModel.progress,
+                            positionFlow = playerViewModel.currentPosition,
+                            duration = duration,
+                            qualityLabel = qualityLabel,
+                            onPlayPause = onPlayPause,
+                            onPlayPrevious = onPlayPrevious,
+                            onPlayNext = onPlayNext,
+                            onToggleLyrics = {
+                                showLyrics = !showLyrics
+                                showQueue = false
+                            },
+                            onToggleQueue = {
+                                showQueue = !showQueue
+                                showLyrics = false
+                            },
+                            onAddToLibrary = {
+                                LibraryManager.saveSong(context, song!!)
+                                Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                            },
+                            isBuffering = isBuffering,
+                            onSeek = { fraction ->
+                                val dur = playerViewModel.duration.value
+                                if (dur > 0) {
+                                    playerViewModel.seekTo((fraction * dur).toLong())
+                                }
+                            },
+                            onNavigateToUser = onNavigateToUser
+                        )
+                    }
                 }
             }
         }
