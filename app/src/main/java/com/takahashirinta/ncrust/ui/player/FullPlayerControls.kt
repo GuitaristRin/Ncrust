@@ -32,15 +32,16 @@ fun FullPlayerControls(
     showQueue: Boolean,
     progressFlow: StateFlow<Float>,
     positionFlow: StateFlow<Long>,
-    duration: Long,
-    qualityLabel: String = "",
+    durationFlow: StateFlow<Long>,
+    qualityIndexFlow: StateFlow<Int>,
+    qualityOptions: List<String>,
     onPlayPause: () -> Unit,
     onPlayPrevious: () -> Unit = {},
     onPlayNext: () -> Unit = {},
     onToggleLyrics: () -> Unit,
     onToggleQueue: () -> Unit,
     onAddToLibrary: () -> Unit = {},
-    isBuffering: Boolean = false,
+    isBufferingFlow: StateFlow<Boolean>,
     onSeek: (Float) -> Unit = {},
     onNavigateToUser: () -> Unit = {}
 ) {
@@ -67,25 +68,15 @@ fun FullPlayerControls(
                     ) { onNavigateToUser() }
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
-                Text(
-                    qualityLabel,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis
-                )
+                QualityLabel(qualityIndexFlow = qualityIndexFlow, options = qualityOptions)
             }
-            Text(
-                formatDuration(duration),
-                color = Color.Gray,
-                fontSize = 12.sp,
+            DurationText(
+                durationFlow = durationFlow,
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
         Spacer(Modifier.height(8.dp))
-        SlimProgressBar(progressFlow = progressFlow, isBuffering = isBuffering, onSeek = onSeek)
+        SlimProgressBar(progressFlow = progressFlow, isBufferingFlow = isBufferingFlow, onSeek = onSeek)
         Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier
@@ -191,5 +182,31 @@ private fun PositionText(positionFlow: StateFlow<Long>, modifier: Modifier) {
         color = Color.Gray,
         fontSize = 12.sp,
         modifier = modifier
+    )
+}
+
+@Composable
+private fun DurationText(durationFlow: StateFlow<Long>, modifier: Modifier) {
+    val duration by durationFlow.collectAsState()
+    Text(
+        formatDuration(duration),
+        color = Color.Gray,
+        fontSize = 12.sp,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun QualityLabel(qualityIndexFlow: StateFlow<Int>, options: List<String>) {
+    val qualityIndex by qualityIndexFlow.collectAsState()
+    val label = options.getOrElse(qualityIndex) { options.getOrElse(3) { "" } }
+    Text(
+        label,
+        color = MaterialTheme.colorScheme.primary,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis
     )
 }

@@ -5,6 +5,12 @@ import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.takahashirinta.ncrust.network.SongItem
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 object PlaybackStateManager {
     private const val PREFS_NAME = "ncrust_playback_state"
@@ -18,6 +24,20 @@ object PlaybackStateManager {
     // 队列持久化 key
     private const val KEY_QUEUE = "queue"
     private const val KEY_QUEUE_INDEX = "queue_index"
+
+    // 复用一个 Gson 实例：new Gson() 会构建反射映射表，几百首歌频繁调用时反射初始化非常热。
+    // Gson 本身线程安全。
+    private val gson = Gson()
+    private val songListType = object : TypeToken<List<SongItem>>() {}.type
+
+    // 队列写盘 debounce：连续 addToQueue / insertNext / removeFromQueue 会累计触发。
+    // 200 ms 合并一次能把连续 20 首歌的加入压成 1 次 IO，避免主线程 Gson.toJson 抖动。
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var pendingQueue: List<SongItem>? = null
+    private var pendingIndex: Int = 0
+    private var pendingAppContext: Context? = null
+    private var flushJob: Job? = null
+    private val flushLock = Any()
 
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -69,14 +89,37 @@ object PlaybackStateManager {
 
     // ---------- 队列持久化 ----------
     fun saveQueue(context: Context, queue: List<SongItem>, currentIndex: Int) {
+        synchronized(flushLock) {
+            pendingQueue = queue
+            pendingIndex = currentIndex
+            pendingAppContext = context.applicationContext
+            flushJob?.cancel()
+            flushJob = ioScope.launch {
+                delay(200L)
+                flushPendingQueue()
+            }
+        }
+    }
+
+    private fun flushPendingQueue() {
+        val queue: List<SongItem>
+        val index: Int
+        val ctx: Context
+        synchronized(flushLock) {
+            queue = pendingQueue ?: return
+            index = pendingIndex
+            ctx = pendingAppContext ?: return
+            pendingQueue = null
+            pendingAppContext = null
+        }
         try {
-            val json = Gson().toJson(queue)
-            getPrefs(context).edit()
+            val json = gson.toJson(queue)
+            ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
                 .putString(KEY_QUEUE, json)
-                .putInt(KEY_QUEUE_INDEX, currentIndex)
+                .putInt(KEY_QUEUE_INDEX, index)
                 .apply()
-        } catch (e: Exception) {
-            clearQueue(context)
+        } catch (_: Exception) {
+            clearQueue(ctx)
         }
     }
 
@@ -85,8 +128,7 @@ object PlaybackStateManager {
         val json = prefs.getString(KEY_QUEUE, null) ?: return null
         if (json.isEmpty() || json == "[]") return null
         return try {
-            val type = object : TypeToken<List<SongItem>>() {}.type
-            val queue: List<SongItem> = Gson().fromJson(json, type)
+            val queue: List<SongItem> = gson.fromJson(json, songListType)
             val index = prefs.getInt(KEY_QUEUE_INDEX, 0)
             Pair(queue, index)
         } catch (e: Exception) {
@@ -96,6 +138,12 @@ object PlaybackStateManager {
     }
 
     fun clearQueue(context: Context) {
+        // 也取消任何飞行中的 debounce 写，避免 clearQueue 之后又被延迟写覆盖回去
+        synchronized(flushLock) {
+            flushJob?.cancel()
+            pendingQueue = null
+            pendingAppContext = null
+        }
         getPrefs(context).edit()
             .remove(KEY_QUEUE)
             .remove(KEY_QUEUE_INDEX)

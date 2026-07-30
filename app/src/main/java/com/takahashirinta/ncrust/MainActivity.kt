@@ -378,8 +378,11 @@ fun MainScreen(
 
     // 在 Splash 遮挡期间渲染一帧全展开状态，提前编译 PlayerCard 所有 graphicsLayer 的 GPU Shader。
     LaunchedEffect(Unit) {
+        // Shader 预热：只跨过 expandedEnough 阈值(0.05f)让 graphicsLayer 编译 GPU shader，
+        // 但不要 snapTo(1f)，那会让 LyricsView / QueueView / FullPlayerControls 全部 mount 再 unmount，
+        // 在低端机上撞在 warmup 阶段是数十毫秒的 layout burst。0.06f 只让展开态视觉属性触发一次绘制。
         delay(50L)
-        progress.snapTo(1f)
+        progress.snapTo(0.06f)
         delay(32L)
         progress.snapTo(0f)
     }

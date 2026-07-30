@@ -29,7 +29,7 @@ fun SplashScreen(onFinished: () -> Unit) {
         val warmupDone = launch { AppWarmup.ready.first { it } }
         minDwell.join()
         warmupDone.join()
-        alpha.animateTo(0f, animationSpec = tween(400, easing = FastOutSlowInEasing))
+        alpha.animateTo(0f, animationSpec = tween(260, easing = FastOutSlowInEasing))
         onFinished()
     }
 
@@ -71,4 +71,4 @@ fun SplashScreen(onFinished: () -> Unit) {
 }
 
 // splash 最短驻留：warmup 早于此完成时仍要撑到这个时间，避免视觉一闪
-private const val MIN_DWELL_MS = 800L
+private const val MIN_DWELL_MS = 350L

@@ -42,7 +42,9 @@ fun QueueView(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             flingBehavior = rememberMetroFlingBehavior()
         ) {
-            itemsIndexed(queue) { index, song ->
+            // key = song.id 让 LazyColumn 在插入/删除时按身份 diff，只重建真正变化的项。
+            // 缺少 key 时删首行/中间行会重组所有可见项 → 低端机上一次修改 20+ 首歌 recomposition
+            itemsIndexed(queue, key = { _, s -> s.id }) { index, song ->
                 SongCard(
                     song = song,
                     style = SongCardStyle.COMPACT,

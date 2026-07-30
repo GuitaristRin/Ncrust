@@ -69,10 +69,9 @@ fun PlayerCard(
     // currentPosition / progress 是 4Hz 更新的 StateFlow，直接传引用给需要的子组件，
     // 让它们在最小作用域（graphicsLayer / Canvas draw / derivedStateOf / 叶子 Text）内订阅，
     // 避免 PlayerCard 本身随位置更新 4Hz 重组
-    val duration by playerViewModel.duration.collectAsState()
-    val qualityIndex by playerViewModel.currentQualityIndex.collectAsState()
-    val qualityLabel = strings.qualityOptions.getOrElse(qualityIndex) { strings.qualityOptions[3] }
-    val isBuffering by playerViewModel.isBuffering.collectAsState()
+    // duration / qualityIndex / isBuffering downgraded to leaf collect inside FullPlayerControls;
+    // subscribing at this scope would force the whole PlayerCard subtree to recompose on song
+    // change / buffer flap, dragging in AsyncImage + Column layout for no reason.
 
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
@@ -374,8 +373,9 @@ fun PlayerCard(
                             showQueue = showQueue,
                             progressFlow = playerViewModel.progress,
                             positionFlow = playerViewModel.currentPosition,
-                            duration = duration,
-                            qualityLabel = qualityLabel,
+                            durationFlow = playerViewModel.duration,
+                            qualityIndexFlow = playerViewModel.currentQualityIndex,
+                            qualityOptions = strings.qualityOptions,
                             onPlayPause = onPlayPause,
                             onPlayPrevious = onPlayPrevious,
                             onPlayNext = onPlayNext,
@@ -391,7 +391,7 @@ fun PlayerCard(
                                 LibraryManager.saveSong(context, song!!)
                                 Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                             },
-                            isBuffering = isBuffering,
+                            isBufferingFlow = playerViewModel.isBuffering,
                             onSeek = { fraction ->
                                 val dur = playerViewModel.duration.value
                                 if (dur > 0) {

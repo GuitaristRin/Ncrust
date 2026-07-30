@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.State
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -48,9 +49,12 @@ import kotlin.math.sin
 @Composable
 fun SlimProgressBar(
     progressFlow: StateFlow<Float>,
-    isBuffering: Boolean,
+    isBufferingFlow: StateFlow<Boolean>,
     onSeek: (Float) -> Unit
 ) {
+    // isBufferingFlow 由内部叶子 collect：SlimProgressBar 常驻在 FullPlayerControls，
+    // isBuffering 每次抖动都会走到这里，避免让父层因布尔值变化而重组
+    val isBuffering by isBufferingFlow.collectAsState()
     // collectAsState 创建 State 引用，只有 .value 被读的作用域才订阅
     val progressState = progressFlow.collectAsState()
     var barWidth by remember { mutableFloatStateOf(1f) }
@@ -75,20 +79,10 @@ fun SlimProgressBar(
 
     val showBuffering = (isBuffering || isSeeking) && !isDragging
 
-    // 缓冲动画：两个独立的无限循环驱动位移和脉动
-    val infiniteTransition = rememberInfiniteTransition(label = "bufAnim")
-    val slidePhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
-        label = "bufSlide"
-    )
-    val pulsePhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(700, easing = LinearEasing)),
-        label = "bufPulse"
-    )
+    // 缓冲动画懒启动：只有当 showBuffering 为 true 时才创建 rememberInfiniteTransition。
+    // 旧实现无论是否缓冲都常驻两条无限循环，Compose 每帧都会 invalidate 本 composable，
+    // 让 Canvas 每帧重跑一次 draw block（即便分支不进入）。低端机上纯浪费。
+    val bufferingPhases: BufferingPhases? = if (showBuffering) rememberBufferingPhases() else null
 
     val accent = MaterialTheme.colorScheme.primary
     val trackColor = Color(0xFF3A3A3A)
@@ -134,10 +128,10 @@ fun SlimProgressBar(
             // 轨道底色
             drawRect(trackColor, topLeft = Offset(0f, topY), size = Size(size.width, trackH))
 
-            if (showBuffering) {
+            if (showBuffering && bufferingPhases != null) {
                 // 脉动段：halfLen 在 0.10~0.16 之间震荡，center 从 -0.20 线性移动到 1.20
-                val halfLen = 0.10f + 0.06f * abs(sin(pulsePhase * PI).toFloat())
-                val center = slidePhase * 1.40f - 0.20f
+                val halfLen = 0.10f + 0.06f * abs(sin(bufferingPhases.pulse.value * PI).toFloat())
+                val center = bufferingPhases.slide.value * 1.40f - 0.20f
                 val segStart = (center - halfLen).coerceAtLeast(0f)
                 val segEnd   = (center + halfLen).coerceAtMost(1f)
                 if (segEnd > segStart) {
@@ -173,4 +167,27 @@ fun SlimProgressBar(
             }
         }
     }
+}
+
+private data class BufferingPhases(
+    val slide: State<Float>,
+    val pulse: State<Float>,
+)
+
+@Composable
+private fun rememberBufferingPhases(): BufferingPhases {
+    val transition = rememberInfiniteTransition(label = "bufAnim")
+    val slide = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
+        label = "bufSlide"
+    )
+    val pulse = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(700, easing = LinearEasing)),
+        label = "bufPulse"
+    )
+    return BufferingPhases(slide, pulse)
 }

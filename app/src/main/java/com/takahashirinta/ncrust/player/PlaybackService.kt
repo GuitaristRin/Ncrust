@@ -249,6 +249,12 @@ class PlaybackService : MediaSessionService() {
     private var lastMetadataArtist: String? = null
     private var lastMetadataDuration: Long = -1L
 
+    // setPlaybackState 去重：state 未变且距上次刷新 < STATE_MIN_INTERVAL_MS 时跳过
+    // 位置精度对锁屏/通知条完全足够，跨进程 Binder 每次 1~3 ms，低端机 4Hz IPC 就吃满
+    private var lastPlaybackStateInt: Int = -1
+    private var lastPlaybackStateSentAt: Long = 0L
+    private val STATE_MIN_INTERVAL_MS = 900L
+
     private fun updatePlaybackState() {
         val state = if (player.isPlaying) {
             PlaybackStateCompat.STATE_PLAYING
@@ -259,20 +265,26 @@ class PlaybackService : MediaSessionService() {
         val position = player.currentPosition
         val dur = if (player.duration > 0) player.duration else 0L
 
-        mediaSessionCompat?.setPlaybackState(
-            PlaybackStateCompat.Builder()
-                .setState(state, position, 1f)
-                .setActions(
-                    PlaybackStateCompat.ACTION_PLAY or
-                            PlaybackStateCompat.ACTION_PAUSE or
-                            PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-                            PlaybackStateCompat.ACTION_SEEK_TO or
-                            PlaybackStateCompat.ACTION_PLAY_PAUSE
-                )
-                .setBufferedPosition(dur)
-                .build()
-        )
+        val now = System.currentTimeMillis()
+        val stateChanged = state != lastPlaybackStateInt
+        if (stateChanged || now - lastPlaybackStateSentAt >= STATE_MIN_INTERVAL_MS) {
+            mediaSessionCompat?.setPlaybackState(
+                PlaybackStateCompat.Builder()
+                    .setState(state, position, 1f)
+                    .setActions(
+                        PlaybackStateCompat.ACTION_PLAY or
+                                PlaybackStateCompat.ACTION_PAUSE or
+                                PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                                PlaybackStateCompat.ACTION_SEEK_TO or
+                                PlaybackStateCompat.ACTION_PLAY_PAUSE
+                    )
+                    .setBufferedPosition(dur)
+                    .build()
+            )
+            lastPlaybackStateInt = state
+            lastPlaybackStateSentAt = now
+        }
 
         // Metadata 只在 title/artist/duration 变化时重发——旧实现每 250ms 都要走一遍
         // MediaMetadataCompat.Builder + 跨进程 IPC 到系统 MediaSession，纯浪费。
@@ -298,7 +310,10 @@ class PlaybackService : MediaSessionService() {
                     onProgressUpdate?.invoke(player.currentPosition, player.duration)
                     updatePlaybackState()
                 }
-                delay(250)
+                // 500 ms tick：歌词滚动/进度条精度感知不到差异，但把 UI 层 4Hz
+                // 广播降到 2Hz，PlayerViewModel 的三个 StateFlow / SlimProgressBar
+                // 每秒重绘次数直接减半，低端机主线程 snapshot 广播压力显著下降
+                delay(500)
             }
         }
     }
