@@ -150,12 +150,16 @@ fun MainScreen(
     // 卡片相关尺寸
     val navBarHeightPx = with(density) { 56.dp.toPx() }
     val miniBarHeightPx = with(density) { 56.dp.toPx() }
-    val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // M3 NavigationBar 实际高度为 80dp，navBarHeightPx 使用的是 56dp，差值 24dp 需要一并补偿
-    val fullCardExtraOffsetPx = with(density) { (statusBarHeightDp + 24.dp).toPx() }
+    val statusBarHeightPx = with(density) {
+        WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
+    }
     val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
 
-    val collapsedOffsetY = screenHeightPx - systemNavBarHeightPx - navBarHeightPx - miniBarHeightPx - fullCardExtraOffsetPx
+    // miniBar 底 = navBar 顶。navBar 视觉 56dp 之下由 navigationBarsPadding 补系统导航栏。
+    // 减 statusBarHeightPx 抵消 PlayerCard 内 miniBar 自带的 statusBarsPadding，
+    // 否则 miniBar 会向下漂 statusBar 高度、盖住 navBar 顶。
+    val collapsedOffsetY =
+        screenHeightPx - systemNavBarHeightPx - navBarHeightPx - miniBarHeightPx - statusBarHeightPx
 
     val totalDragDistancePx = screenHeightPx * 0.85f
 
@@ -749,6 +753,8 @@ fun MainScreen(
 
         // zIndex(1.5f) renders PivotNav above PlayerCardOverlay (zIndex=1f),
         // so it appears on top of the mini player bar when the player is collapsed.
+        // background 放在 navigationBarsPadding 之外：surface 覆盖 56dp 视觉栏 + 系统栏预留
+        // 一整段，一直涂到物理屏幕底；如果反过来，栏下方就是透明，露出后景空隙。
         val navStrings = LocalStrings.current
         Box(
             modifier = Modifier
@@ -758,8 +764,9 @@ fun MainScreen(
                     translationY = navBarHideOffset * progress.value
                 }
                 .fillMaxWidth()
-                .height(56.dp)
                 .background(LocalNcrustColors.current.surface)
+                .navigationBarsPadding()
+                .height(56.dp)
         ) {
             NcrustPivotNav(
                 selectedTab = selectedTab,
