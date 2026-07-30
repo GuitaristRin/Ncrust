@@ -230,7 +230,7 @@ fun DetailHeader(
             }
             if (onPlayAll != null) {
                 Spacer(Modifier.width(12.dp))
-                PlayAllCircleButton(size = 48.dp, onClick = onPlayAll)
+                PlayAllButton(size = 48.dp, onClick = onPlayAll)
             }
         }
         // 右侧附加操作（如"收藏专辑"按钮），左对齐、无 divider。

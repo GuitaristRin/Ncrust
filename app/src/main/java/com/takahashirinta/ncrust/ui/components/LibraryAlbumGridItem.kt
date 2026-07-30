@@ -5,7 +5,6 @@ import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -42,7 +41,7 @@ fun LibraryAlbumGridItem(
                     .align(Alignment.BottomEnd)
                     .padding(8.dp)
                     .size(36.dp)
-                    .background(LocalNcrustColors.current.primary, shape = CircleShape)
+                    .background(LocalNcrustColors.current.primary)
                     .clickable { onPlayAll() },
                 contentAlignment = Alignment.Center
             ) {

@@ -36,7 +36,7 @@ import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
 import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
-import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
+import com.takahashirinta.ncrust.ui.components.PlayAllButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
@@ -298,7 +298,7 @@ fun PlaylistGridItem(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            PlayAllCircleButton(
+            PlayAllButton(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
                 onClick = onPlayAll
             )
@@ -326,7 +326,7 @@ fun LibraryAlbumGridItem(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            PlayAllCircleButton(
+            PlayAllButton(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
                 onClick = onPlayAll
             )

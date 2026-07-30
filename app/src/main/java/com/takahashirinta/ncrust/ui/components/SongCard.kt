@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -167,7 +166,7 @@ fun SongCard(
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun PlayAllCircleButton(
+fun PlayAllButton(
     modifier: Modifier = Modifier,
     size: Dp = 36.dp,
     onClick: () -> Unit
@@ -175,7 +174,7 @@ fun PlayAllCircleButton(
     Box(
         modifier = modifier
             .size(size)
-            .background(LocalNcrustColors.current.primary, CircleShape)
+            .background(LocalNcrustColors.current.primary)
             .combinedClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

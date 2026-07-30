@@ -30,7 +30,7 @@ import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
 import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
-import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
+import com.takahashirinta.ncrust.ui.components.PlayAllButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
@@ -311,7 +311,7 @@ private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            PlayAllCircleButton(
+            PlayAllButton(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
                 size = 34.dp,
                 onClick = onPlayAll
