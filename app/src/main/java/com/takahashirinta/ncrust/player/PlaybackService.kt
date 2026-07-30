@@ -22,7 +22,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.MediaSession as M3MediaSession
 import androidx.palette.graphics.Palette
-import coil.ImageLoader
+import coil.Coil
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.takahashirinta.ncrust.MainActivity
@@ -218,7 +218,7 @@ class PlaybackService : MediaSessionService() {
     private fun loadArtwork(url: String) {
         scope.launch(Dispatchers.IO) {
             try {
-                val imageLoader = ImageLoader(this@PlaybackService)
+                val imageLoader = Coil.imageLoader(this@PlaybackService)
                 val request = ImageRequest.Builder(this@PlaybackService)
                     .data(url)
                     .size(512, 512)
