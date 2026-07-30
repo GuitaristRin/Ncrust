@@ -45,6 +45,7 @@ import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
+import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
 import com.takahashirinta.ncrust.ui.viewmodel.SearchViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.text.TextStyle
@@ -165,7 +166,8 @@ fun SearchScreen(
                     SearchContentState.History -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                            flingBehavior = rememberMetroFlingBehavior()
                         ) {
                     if (songHistory.isNotEmpty()) {
                         item {
@@ -343,7 +345,8 @@ fun SearchScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                                flingBehavior = rememberMetroFlingBehavior()
                             ) {
                                 items(songs, key = { it.id }) { item ->
                                     SongCard(
@@ -388,7 +391,8 @@ fun SearchScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                                flingBehavior = rememberMetroFlingBehavior()
                             ) {
                                 items(albums, key = { it.id }) { album ->
                                     AlbumSearchItem(
@@ -437,7 +441,8 @@ fun SearchScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                                flingBehavior = rememberMetroFlingBehavior()
                             ) {
                                 items(artists, key = { it.id }) { artist ->
                                     ArtistSearchItem(

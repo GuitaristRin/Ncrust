@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouPresets
+import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.PlaylistApi
@@ -129,7 +130,8 @@ fun UserScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+        contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+        flingBehavior = rememberMetroFlingBehavior()
     ) {
         // Groove 大字页头。
         item {

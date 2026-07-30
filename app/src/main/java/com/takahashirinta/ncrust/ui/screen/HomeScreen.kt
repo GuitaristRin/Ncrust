@@ -29,6 +29,7 @@ import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
+import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
 import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
@@ -165,7 +166,8 @@ fun HomeScreen(
                     state = listState,
                     // 背景由 MainScreen 外层 Box 统一填充，子屏不重复画一层（消除 overdraw）
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                    contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                    flingBehavior = rememberMetroFlingBehavior()
                 ) {
                     // Groove 风页头：statusBar + 大字页面名，代替 TopAppBar。
                     item {
@@ -197,7 +199,8 @@ fun HomeScreen(
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                contentPadding = PaddingValues(horizontal = 0.dp)
+                                contentPadding = PaddingValues(horizontal = 0.dp),
+                                flingBehavior = rememberMetroFlingBehavior()
                             ) {
                                 items(dailySongs.take(12), key = { it.id }) { song ->
                                     DailySongTile(
@@ -217,7 +220,8 @@ fun HomeScreen(
                         item {
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                flingBehavior = rememberMetroFlingBehavior()
                             ) {
                                 items(playlists, key = { it.id }) { pl ->
                                     PlaylistTile(

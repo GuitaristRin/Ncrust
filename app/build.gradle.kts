@@ -118,6 +118,11 @@ dependencies {
     // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.8.5")
 
+    // Baseline Profile installer——把 src/main/baseline-prof.txt 打包进 APK，
+    // 首次启动时 profileinstaller 会请求 ART AOT 编译这些类，消除冷启前 30s 的 JIT 抖动。
+    // 生成方式：手写 class-level 预加载列表（当前）；后续可接 :baselineprofile 模块自动采样。
+    implementation("androidx.profileinstaller:profileinstaller:1.4.0")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

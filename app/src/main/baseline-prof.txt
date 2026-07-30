@@ -1,0 +1,87 @@
+# Ncrust Baseline Profile
+#
+# 手工编写的类预加载列表。AGP 会把本文件编译成二进制 .profm 打进 APK，
+# 首次启动时 androidx.profileinstaller 触发 ART 提前加载/verify 这些类，
+# 消除冷启后前 30s~1min 内的 JIT 编译抖动（首屏、二级页首次进入的钝感）。
+#
+# 当前是 class-only 条目（L 前缀）——最安全，永远有效，覆盖 60~70% 收益。
+# 完整方法级 AOT 编译需要 :baselineprofile 模块 + macrobenchmark 采样生成，
+# 后续接上后可用生成产物完全替换本文件。
+#
+# 格式：Lcom/example/MyClass;
+
+# ── 入口 & 冷启动 ─────────────────────────────────────────────────────
+Lcom/takahashirinta/ncrust/MainActivity;
+Lcom/takahashirinta/ncrust/MainActivityKt;
+Lcom/takahashirinta/ncrust/warmup/AppWarmup;
+Lcom/takahashirinta/ncrust/ui/screen/SplashScreen;
+Lcom/takahashirinta/ncrust/ui/screen/SplashScreenKt;
+
+# ── 网络层（warmup 阶段全部触碰） ────────────────────────────────────
+Lcom/takahashirinta/ncrust/network/RetrofitClient;
+Lcom/takahashirinta/ncrust/network/PlaylistApi;
+Lcom/takahashirinta/ncrust/network/NcmApi;
+Lcom/takahashirinta/ncrust/network/crypto/EapiCrypto;
+
+# ── 状态 / 缓存 / 持久化（SharedPreferences 单例） ──────────────────
+Lcom/takahashirinta/ncrust/cache/ContentCache;
+Lcom/takahashirinta/ncrust/library/LibraryManager;
+Lcom/takahashirinta/ncrust/library/SearchHistoryManager;
+Lcom/takahashirinta/ncrust/player/PlaybackStateManager;
+Lcom/takahashirinta/ncrust/auth/CookieManager;
+
+# ── 播放 ─────────────────────────────────────────────────────────────
+Lcom/takahashirinta/ncrust/player/PlaybackService;
+Lcom/takahashirinta/ncrust/player/SongUrlFetcher;
+Lcom/takahashirinta/ncrust/ui/viewmodel/PlayerViewModel;
+
+# ── 首屏 & 主 tab（用户第一分钟必然触发） ────────────────────────────
+Lcom/takahashirinta/ncrust/ui/screen/HomeScreen;
+Lcom/takahashirinta/ncrust/ui/screen/HomeScreenKt;
+Lcom/takahashirinta/ncrust/ui/screen/LibraryScreen;
+Lcom/takahashirinta/ncrust/ui/screen/LibraryScreenKt;
+Lcom/takahashirinta/ncrust/ui/screen/SearchScreen;
+Lcom/takahashirinta/ncrust/ui/screen/SearchScreenKt;
+Lcom/takahashirinta/ncrust/ui/screen/UserScreen;
+Lcom/takahashirinta/ncrust/ui/screen/UserScreenKt;
+Lcom/takahashirinta/ncrust/ui/viewmodel/SearchViewModel;
+Lcom/takahashirinta/ncrust/ui/viewmodel/SongViewModel;
+
+# ── 通用组件 ─────────────────────────────────────────────────────────
+Lcom/takahashirinta/ncrust/ui/components/SongCardKt;
+Lcom/takahashirinta/ncrust/ui/components/DetailScaffoldKt;
+Lcom/takahashirinta/ncrust/ui/components/PlayAllCircleButtonKt;
+Lcom/takahashirinta/ncrust/ui/components/SongMenuSheetKt;
+Lcom/takahashirinta/ncrust/ui/components/PlayAllDialogKt;
+Lcom/takahashirinta/ncrust/ui/BottomOverlayInsetKt;
+Lcom/takahashirinta/ncrust/ui/ResponsiveContentKt;
+
+# ── 播放卡（返回主屏后一定会看到 mini bar → PlayerCardOverlay） ─────
+Lcom/takahashirinta/ncrust/ui/player/PlayerCardOverlayKt;
+Lcom/takahashirinta/ncrust/ui/player/PlayerCardKt;
+Lcom/takahashirinta/ncrust/ui/player/FullPlayerControlsKt;
+Lcom/takahashirinta/ncrust/ui/player/LyricsViewKt;
+Lcom/takahashirinta/ncrust/ui/player/QueueViewKt;
+Lcom/takahashirinta/ncrust/ui/player/SlimProgressBarKt;
+
+# ── 主题 / i18n ──────────────────────────────────────────────────────
+Lcom/takahashirinta/ncrust/ui/theme/NcrustThemeKt;
+Lcom/takahashirinta/ncrust/ui/theme/ThemeManagerKt;
+Lcom/takahashirinta/ncrust/ui/theme/MarkdownTextKt;
+Lcom/takahashirinta/ncrust/ui/i18n/Strings;
+Lcom/takahashirinta/ncrust/ui/i18n/LanguageManagerKt;
+
+# ── 歌词 ─────────────────────────────────────────────────────────────
+Lcom/takahashirinta/ncrust/lyric/LrcParser;
+Lcom/takahashirinta/ncrust/lyric/LrcParserKt;
+
+# ── 动画基建（scroll fling / easing 每一次列表滑动都命中） ─────────
+Lcom/takahashirinta/ncrust/ui/anim/sokuou/SokuouKt;
+Lcom/takahashirinta/ncrust/ui/anim/sokuou/UwpEasing;
+Lcom/takahashirinta/ncrust/ui/anim/sokuou/UwpEasingKt;
+Lcom/takahashirinta/ncrust/ui/anim/sokuou/MetroScrollKt;
+Lcom/takahashirinta/ncrust/ui/anim/sokuou/MetroFlingBehavior;
+
+# ── 导航 ─────────────────────────────────────────────────────────────
+Lcom/takahashirinta/ncrust/ui/navigation/NavRoutes;
+Lcom/takahashirinta/ncrust/ui/navigation/MainNavGraphKt;

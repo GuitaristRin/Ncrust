@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
@@ -37,7 +38,10 @@ fun QueueView(
         return
     }
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            flingBehavior = rememberMetroFlingBehavior()
+        ) {
             itemsIndexed(queue) { index, song ->
                 SongCard(
                     song = song,

@@ -28,6 +28,7 @@ import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
 import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
+import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 /**
@@ -106,7 +107,8 @@ fun DetailScaffold(
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                            flingBehavior = rememberMetroFlingBehavior()
                         ) {
                             item { header() }
                             content()

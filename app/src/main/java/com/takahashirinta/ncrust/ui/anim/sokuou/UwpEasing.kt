@@ -114,6 +114,8 @@ fun uwpEasing(variant: UwpEasing, mode: EasingMode = EasingMode.EaseOut): Easing
 // 常用命名 easing——Metro 风格短时、克制的过渡。
 val MetroDefault: Easing = uwpEasing(UwpEasing.Quadratic, EasingMode.EaseOut)
 val MetroCubic: Easing = uwpEasing(UwpEasing.Cubic, EasingMode.EaseOut)
+val MetroQuartic: Easing = uwpEasing(UwpEasing.Quartic, EasingMode.EaseOut)
+val MetroQuintic: Easing = uwpEasing(UwpEasing.Quintic, EasingMode.EaseOut)
 val MetroSine: Easing = uwpEasing(UwpEasing.Sine, EasingMode.EaseOut)
 val MetroBackOut: Easing = uwpEasing(UwpEasing.Back(amplitude = 1f), EasingMode.EaseOut)
 val MetroBounceOut: Easing = uwpEasing(UwpEasing.Bounce(), EasingMode.EaseOut)

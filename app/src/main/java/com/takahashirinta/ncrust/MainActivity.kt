@@ -30,6 +30,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -57,6 +58,7 @@ import com.takahashirinta.ncrust.ui.theme.getSavedThemeIndex
 import com.takahashirinta.ncrust.ui.theme.saveThemeIndex
 import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
+import com.takahashirinta.ncrust.ui.anim.sokuou.metroViewConfiguration
 import com.takahashirinta.ncrust.warmup.AppWarmup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -80,7 +82,14 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(getSavedLanguageCode(this@MainActivity))
             }
 
-            CompositionLocalProvider(LocalStrings provides stringsForCode(languageCode)) {
+            val baseViewConfig = LocalViewConfiguration.current
+            val metroConfig = remember(baseViewConfig) { metroViewConfiguration(baseViewConfig) }
+            CompositionLocalProvider(
+                LocalStrings provides stringsForCode(languageCode),
+                // Metro 起始阈值：touchSlop ≈8dp → ≈12dp。按下时的手指微抖不会立即滚动，
+                // 消除"神经质"输入印象。配合 MetroFlingBehavior 覆盖 fling 阶段。
+                LocalViewConfiguration provides metroConfig,
+            ) {
                 NcrustTheme(primaryColor = themeColorForIndex(themeIndex)) {
                     var showSplash by remember { mutableStateOf(true) }
                     Box(modifier = Modifier.fillMaxSize()) {

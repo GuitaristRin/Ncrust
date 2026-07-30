@@ -32,6 +32,7 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
+import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
 import com.takahashirinta.ncrust.ui.components.PlayAllCircleButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
@@ -162,7 +163,8 @@ fun LibraryScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                            flingBehavior = rememberMetroFlingBehavior()
                         ) {
                             items(savedSongs, key = { it.id }) { song ->
                                 SongCard(
@@ -206,7 +208,8 @@ fun LibraryScreen(
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
-                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                            flingBehavior = rememberMetroFlingBehavior()
                         ) {
                             items(rows, key = { row -> row.first().albumId }) { row ->
                                 Row(
@@ -258,7 +261,8 @@ fun LibraryScreen(
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
-                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                                flingBehavior = rememberMetroFlingBehavior()
                             ) {
                                 items(rows, key = { row -> row.first().id }) { row ->
                                     Row(
