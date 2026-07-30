@@ -114,6 +114,10 @@ fun SearchScreen(
         // 背景由 MainScreen 外层 Box 统一填充，此处不重复画一层
         Column(modifier = Modifier.fillMaxSize()) {
             // Search input
+            // BasicTextField 本身没有 M3 TextField 的隐式 56dp min-height 与内 padding，
+            // 得手动在 decorationBox 里补齐——heightIn(min=56.dp) 保住触控区高度，内容
+            // 纵向居中、左右 16dp 内边距对齐 M3 视觉。否则搜索框会塌成一条 20dp 高的
+            // 细条，看着像被压扁的 Chip。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -127,18 +131,28 @@ fun SearchScreen(
                     singleLine = true,
                     keyboardActions = KeyboardActions(onDone = {}),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    textStyle = LocalTextStyle.current.copy(color = Color.White),
+                    textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 18.sp),
                     cursorBrush = SolidColor(Color.White),
                     decorationBox = { innerTextField ->
-                        Box(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp)
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
                             if (query.isEmpty()) {
                                 Text(
                                     strings.searchPlaceholder,
-                                    color = Color.White.copy(alpha = 0.5f)
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 18.sp
                                 )
                             }
                             innerTextField()
-                            Row(modifier = Modifier.align(Alignment.CenterEnd)) {
+                            Row(
+                                modifier = Modifier.align(Alignment.CenterEnd),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 if (isLoading) NcrustProgressIndicator(
                                     modifier = Modifier.size(24.dp),
                                     color = currentThemeColor
