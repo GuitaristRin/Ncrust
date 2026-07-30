@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.components.NcrustIconButton
+import com.takahashirinta.ncrust.ui.components.NcrustProgressIndicator
 import com.takahashirinta.ncrust.ui.components.NcrustTabRow
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
@@ -132,11 +134,11 @@ fun SearchScreen(
                     textStyle = LocalTextStyle.current.copy(color = Color.White),
                     trailingIcon = {
                         Row {
-                            if (isLoading) CircularProgressIndicator(
+                            if (isLoading) NcrustProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 color = currentThemeColor
                             )
-                            if (query.isNotEmpty()) IconButton(onClick = { viewModel.clearQuery() }) {
+                            if (query.isNotEmpty()) NcrustIconButton(onClick = { viewModel.clearQuery() }) {
                                 Icon(Icons.Default.Clear, strings.clearSearchButton, tint = Color.White.copy(alpha = 0.7f))
                             }
                         }
@@ -572,7 +574,7 @@ fun SongSearchItem(
         coverSize = 56.dp,
         onClick = onPlay,
         actions = {
-            IconButton(onClick = onAddToLibrary) {
+            NcrustIconButton(onClick = onAddToLibrary) {
                 Icon(
                     Icons.Default.Add,
                     strings.actionAddToLibrary,
@@ -580,7 +582,7 @@ fun SongSearchItem(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            IconButton(onClick = onInsertNext) {
+            NcrustIconButton(onClick = onInsertNext) {
                 Icon(
                     Icons.AutoMirrored.Filled.PlaylistPlay,
                     strings.actionInsertNext,
@@ -588,7 +590,7 @@ fun SongSearchItem(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            IconButton(onClick = onAppendToQueue) {
+            NcrustIconButton(onClick = onAppendToQueue) {
                 Icon(
                     Icons.AutoMirrored.Filled.PlaylistAdd,
                     strings.actionAddToPlaylist,

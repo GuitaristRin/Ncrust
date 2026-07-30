@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.player
+import com.takahashirinta.ncrust.ui.components.NcrustIconButton
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
@@ -302,7 +303,7 @@ fun PlayerCard(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.weight(1f)
                                 )
-                                IconButton(onClick = onTogglePlayMode) {
+                                NcrustIconButton(onClick = onTogglePlayMode) {
                                     Icon(
                                         when (playMode) {
                                             0 -> Icons.Default.Repeat
@@ -315,7 +316,7 @@ fun PlayerCard(
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
-                                IconButton(onClick = onSavePlaylist) {
+                                NcrustIconButton(onClick = onSavePlaylist) {
                                     Icon(
                                         Icons.Default.Add,
                                         strings.saveAsPlaylist,
@@ -408,7 +409,7 @@ fun PlayerCard(
         }
 
         // 迷你播放栏叠加层：始终在 Composition 中，透明度仅在绘制阶段控制，避免动画期间触发重组
-        Surface(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
@@ -429,8 +430,8 @@ fun PlayerCard(
                 )
                 .graphicsLayer {
                     alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
-                },
-            color = LocalNcrustColors.current.surface
+                }
+                .background(LocalNcrustColors.current.surface)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -460,14 +461,14 @@ fun PlayerCard(
                         )
                     }
                     if (miniBarEnabled) {
-                        IconButton(onClick = onPlayPause) {
+                        NcrustIconButton(onClick = onPlayPause) {
                             Icon(
                                 if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 null,
                                 tint = Color.White
                             )
                         }
-                        IconButton(onClick = onPlayNext) {
+                        NcrustIconButton(onClick = onPlayNext) {
                             Icon(Icons.Default.SkipNext, null, tint = Color.White)
                         }
                     } else {
@@ -537,7 +538,7 @@ fun PlayerCard(
                 contentAlignment = Alignment.CenterEnd
             ) {
                 if (dismissEnabled) {
-                    IconButton(onClick = onDismiss) {
+                    NcrustIconButton(onClick = onDismiss) {
                         Icon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = Color.White)
                     }
                 }

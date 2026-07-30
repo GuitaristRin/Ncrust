@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.player
+import com.takahashirinta.ncrust.ui.components.NcrustIconButton
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.background
@@ -8,7 +9,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -51,7 +51,7 @@ fun QueueView(
                     onClick = { onPlayIndex(index) },
                     isCurrentPlaying = index == currentIndex,
                     actions = {
-                        IconButton(onClick = { onRemoveIndex(index) }) {
+                        NcrustIconButton(onClick = { onRemoveIndex(index) }) {
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = null,

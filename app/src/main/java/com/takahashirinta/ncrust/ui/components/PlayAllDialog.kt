@@ -1,6 +1,7 @@
 package com.takahashirinta.ncrust.ui.components
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -27,11 +28,7 @@ fun PlayAllDialog(
 ) {
     val strings = LocalStrings.current
     Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            color = LocalNcrustColors.current.surface,
-            shape = RectangleShape,
-            tonalElevation = 0.dp
-        ) {
+        Box(modifier = Modifier.background(LocalNcrustColors.current.surface)) {
             Column {
                 Box(
                     modifier = Modifier

@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.components.NcrustProgressIndicator
 import com.takahashirinta.ncrust.ui.components.NcrustTabRow
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
@@ -226,7 +227,7 @@ fun LibraryScreen(
                     when {
                         isLoadingPlaylists -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = LocalNcrustColors.current.primary)
+                                NcrustProgressIndicator(color = LocalNcrustColors.current.primary)
                             }
                         }
                         playlistError != null -> {

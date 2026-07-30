@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.components.NcrustIconButton
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 
 import androidx.compose.foundation.clickable
@@ -8,7 +9,6 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -62,7 +62,7 @@ fun LibrarySongListItem(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        IconButton(onClick = onInsertNext) {
+        NcrustIconButton(onClick = onInsertNext) {
             Icon(
                 Icons.AutoMirrored.Filled.PlaylistPlay,
                 strings.actionInsertNext,
@@ -70,7 +70,7 @@ fun LibrarySongListItem(
                 modifier = Modifier.size(24.dp)
             )
         }
-        IconButton(onClick = onAppendToQueue) {
+        NcrustIconButton(onClick = onAppendToQueue) {
             Icon(
                 Icons.AutoMirrored.Filled.PlaylistAdd,
                 strings.actionAddToPlaylist,
@@ -78,7 +78,7 @@ fun LibrarySongListItem(
                 modifier = Modifier.size(24.dp)
             )
         }
-        IconButton(onClick = onRemove) {
+        NcrustIconButton(onClick = onRemove) {
             Icon(
                 Icons.Default.Delete,
                 strings.actionRemoveFromLibrary,

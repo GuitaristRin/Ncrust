@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.components.NcrustIconButton
+import com.takahashirinta.ncrust.ui.components.NcrustProgressIndicator
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.AnimatedVisibility
@@ -8,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -77,7 +80,7 @@ fun DetailScaffold(
             when (state) {
                 DetailScaffoldState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = LocalNcrustColors.current.primary)
+                        NcrustProgressIndicator(color = LocalNcrustColors.current.primary)
                     }
                 }
                 DetailScaffoldState.Error -> {
@@ -86,8 +89,14 @@ fun DetailScaffold(
                             Text(error ?: "", color = Color.Red, fontSize = 16.sp)
                             if (onRetry != null) {
                                 Spacer(Modifier.height(16.dp))
-                                Button(onClick = onRetry) {
-                                    Text(strings.retry)
+                                Box(
+                                    modifier = Modifier
+                                        .background(LocalNcrustColors.current.primary)
+                                        .clickable(onClick = onRetry)
+                                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(strings.retry, color = Color.Black)
                                 }
                             }
                         }
@@ -159,7 +168,7 @@ fun TopScrimIconButton(
                 .statusBarsPadding()
                 .padding(horizontal = 4.dp, vertical = 4.dp)
         ) {
-            IconButton(onClick = onClick) {
+            NcrustIconButton(onClick = onClick) {
                 Icon(
                     icon,
                     contentDescription = contentDescription,
