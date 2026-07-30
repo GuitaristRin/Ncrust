@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.player
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -70,7 +70,7 @@ fun QueueView(
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(MaterialTheme.colorScheme.background, Color.Transparent)
+                        listOf(LocalNcrustColors.current.background, Color.Transparent)
                     )
                 )
         )
@@ -81,7 +81,7 @@ fun QueueView(
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, MaterialTheme.colorScheme.background)
+                        listOf(Color.Transparent, LocalNcrustColors.current.background)
                     )
                 )
         )

@@ -1,10 +1,10 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,7 +59,7 @@ fun AlbumSearchItem(
             Text(
                 album.name,
                 color = Color.White,
-                style = MaterialTheme.typography.bodyLarge,
+                style = LocalNcrustTypography.current.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -68,7 +68,7 @@ fun AlbumSearchItem(
                     if (publishYear.isNotEmpty()) " · $publishYear" else ""
                 }${album.company?.let { " · $it" } ?: ""}",
                 color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall,
+                style = LocalNcrustTypography.current.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -77,7 +77,7 @@ fun AlbumSearchItem(
             Text(
                 strings.trackCount(it),
                 color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall
+                style = LocalNcrustTypography.current.bodySmall
             )
         }
     }

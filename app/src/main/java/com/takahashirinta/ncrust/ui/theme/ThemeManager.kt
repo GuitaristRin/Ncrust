@@ -2,9 +2,9 @@ package com.takahashirinta.ncrust.ui.theme
 
 import android.content.Context
 import androidx.compose.ui.graphics.Color
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color as ComposeColor
 
 /**
@@ -65,13 +65,12 @@ fun NcrustTheme(
     primaryColor: Color = Color(0xFF1DB954),
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = primaryColor,
-            background = Color(0xFF000000),
-            surface = Color(0xFF1A1A1A),
-            surfaceVariant = Color(0xFF1A1A1A)
-        ),
+    val colors = remember(primaryColor) {
+        DefaultNcrustColors.copy(primary = primaryColor)
+    }
+    CompositionLocalProvider(
+        LocalNcrustColors provides colors,
+        LocalNcrustTypography provides DefaultNcrustTypography,
         content = content
     )
 }

@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import android.Manifest
 import android.os.Build
@@ -570,7 +571,7 @@ fun MainScreen(
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(LocalNcrustColors.current.background)) {
         // PlayerCardOverlay is FIRST child: processes first in Compose Main pass (siblings are
         // dispatched in composition order). Its inner consumer modifier in PlayerCard prevents
         // Scaffold's SongCards from receiving events when the player is fully expanded.
@@ -754,7 +755,7 @@ fun MainScreen(
                 .graphicsLayer {
                     translationY = navBarHideOffset * progress.value
                 },
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = LocalNcrustColors.current.surface
         ) {
             NavigationBarItem(
                 selected = selectedTab == 0,

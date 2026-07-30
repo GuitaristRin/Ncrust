@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -41,7 +42,7 @@ fun LibraryAlbumGridItem(
                     .align(Alignment.BottomEnd)
                     .padding(8.dp)
                     .size(36.dp)
-                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
+                    .background(LocalNcrustColors.current.primary, shape = CircleShape)
                     .clickable { onPlayAll() },
                 contentAlignment = Alignment.Center
             ) {
@@ -57,14 +58,14 @@ fun LibraryAlbumGridItem(
         Text(
             album.name,
             color = Color.White,
-            style = MaterialTheme.typography.bodyMedium,
+            style = LocalNcrustTypography.current.bodyMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
             strings.albumArtistAndCount(album.artist, album.songCount),
             color = Color.Gray,
-            style = MaterialTheme.typography.bodySmall,
+            style = LocalNcrustTypography.current.bodySmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

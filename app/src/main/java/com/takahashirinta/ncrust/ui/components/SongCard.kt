@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
@@ -88,8 +90,8 @@ fun SongCard(
                 Column(Modifier.weight(1f)) {
                     Text(
                         song.name,
-                        color = if (isCurrentPlaying) MaterialTheme.colorScheme.primary else Color.White,
-                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isCurrentPlaying) LocalNcrustColors.current.primary else Color.White,
+                        style = LocalNcrustTypography.current.bodyLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -100,7 +102,7 @@ fun SongCard(
                             if (durationStr.isNotEmpty()) append("  $durationStr")
                         },
                         color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = LocalNcrustTypography.current.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -147,14 +149,14 @@ fun SongCard(
                 Text(
                     song.name,
                     color = Color.White,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = LocalNcrustTypography.current.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     "$artistStr · $albumName",
                     color = Color.Gray,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = LocalNcrustTypography.current.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -173,7 +175,7 @@ fun PlayAllCircleButton(
     Box(
         modifier = modifier
             .size(size)
-            .background(MaterialTheme.colorScheme.primary, CircleShape)
+            .background(LocalNcrustColors.current.primary, CircleShape)
             .combinedClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

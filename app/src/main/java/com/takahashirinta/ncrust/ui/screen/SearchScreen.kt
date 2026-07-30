@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -288,8 +290,8 @@ fun SearchScreen(
                         100 -> 2
                         else -> 0
                     },
-                    containerColor = MaterialTheme.colorScheme.background,
-                    contentColor = MaterialTheme.colorScheme.primary
+                    containerColor = LocalNcrustColors.current.background,
+                    contentColor = LocalNcrustColors.current.primary
                 ) {
                     categories.forEachIndexed { index, title ->
                         Tab(
@@ -313,9 +315,9 @@ fun SearchScreen(
                                 Text(
                                     title,
                                     color = when {
-                                        index == 0 && currentType == 1 -> MaterialTheme.colorScheme.primary
-                                        index == 1 && currentType == 10 -> MaterialTheme.colorScheme.primary
-                                        index == 2 && currentType == 100 -> MaterialTheme.colorScheme.primary
+                                        index == 0 && currentType == 1 -> LocalNcrustColors.current.primary
+                                        index == 1 && currentType == 10 -> LocalNcrustColors.current.primary
+                                        index == 2 && currentType == 100 -> LocalNcrustColors.current.primary
                                         else -> Color.Gray
                                     },
                                     fontSize = 14.sp
@@ -544,7 +546,7 @@ private fun SearchHistoryItemCard(
                 Text(
                     item.title,
                     color = Color.White,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = LocalNcrustTypography.current.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -552,7 +554,7 @@ private fun SearchHistoryItemCard(
                     Text(
                         item.subtitle,
                         color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = LocalNcrustTypography.current.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

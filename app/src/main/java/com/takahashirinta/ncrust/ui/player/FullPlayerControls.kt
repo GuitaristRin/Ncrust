@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.player
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -140,7 +140,7 @@ fun FullPlayerControls(
                 Icon(
                     Icons.Default.Lyrics,
                     strings.lyricsButton,
-                    tint = if (showLyrics) MaterialTheme.colorScheme.primary else Color.White,
+                    tint = if (showLyrics) LocalNcrustColors.current.primary else Color.White,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -153,7 +153,7 @@ fun FullPlayerControls(
                 Icon(
                     Icons.AutoMirrored.Filled.PlaylistPlay,
                     strings.queueButton,
-                    tint = if (showQueue) MaterialTheme.colorScheme.primary else Color.White,
+                    tint = if (showQueue) LocalNcrustColors.current.primary else Color.White,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -202,7 +202,7 @@ private fun QualityLabel(qualityIndexFlow: StateFlow<Int>, options: List<String>
     val label = options.getOrElse(qualityIndex) { options.getOrElse(3) { "" } }
     Text(
         label,
-        color = MaterialTheme.colorScheme.primary,
+        color = LocalNcrustColors.current.primary,
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
         maxLines = 1,

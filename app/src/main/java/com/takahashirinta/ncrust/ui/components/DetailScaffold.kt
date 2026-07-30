@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -60,7 +61,7 @@ fun DetailScaffold(
         // 主 tab 屏一直在下层挂载，DetailScaffold 显示期间就是它遮住 tab 屏。
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(LocalNcrustColors.current.background)
     ) {
         val stateKey = when {
             error != null -> DetailScaffoldState.Error
@@ -76,7 +77,7 @@ fun DetailScaffold(
             when (state) {
                 DetailScaffoldState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        CircularProgressIndicator(color = LocalNcrustColors.current.primary)
                     }
                 }
                 DetailScaffoldState.Error -> {
@@ -218,7 +219,7 @@ fun DetailHeader(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         subtitle,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = LocalNcrustColors.current.primary,
                         fontSize = 14.sp
                     )
                 }

@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -46,12 +47,12 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
                     .padding(start = 16.dp, end = 16.dp, top = 72.dp, bottom = 16.dp)
             ) {
                 songDetail?.let { song ->
-                    Text(song.name, color = Color.White, style = MaterialTheme.typography.headlineMedium)
+                    Text(song.name, color = Color.White, style = LocalNcrustTypography.current.headlineMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         song.artists.joinToString("/") { it.name },
                         color = Color(0xFF1DB954),
-                        style = MaterialTheme.typography.titleMedium
+                        style = LocalNcrustTypography.current.titleMedium
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(song.album.name ?: strings.unknownAlbum, color = Color.Gray)
@@ -61,11 +62,11 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-                Text(strings.lyricsLabel, color = Color.White, style = MaterialTheme.typography.titleLarge)
+                Text(strings.lyricsLabel, color = Color.White, style = LocalNcrustTypography.current.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 lyric?.let { lrc ->
-                    Text(lrc, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                    Text(lrc, color = Color.White, style = LocalNcrustTypography.current.bodyMedium)
                 } ?: Text(strings.noLyrics, color = Color.Gray)
             }
         }

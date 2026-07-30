@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -116,8 +118,8 @@ fun LibraryScreen(
             Spacer(Modifier.height(4.dp))
             TabRow(
                 selectedTabIndex = selectedCategory,
-                containerColor = MaterialTheme.colorScheme.background,
-                contentColor = MaterialTheme.colorScheme.primary
+                containerColor = LocalNcrustColors.current.background,
+                contentColor = LocalNcrustColors.current.primary
             ) {
                 categories.forEachIndexed { index, title ->
                     Tab(
@@ -126,7 +128,7 @@ fun LibraryScreen(
                         text = {
                             Text(
                                 title,
-                                color = if (selectedCategory == index) MaterialTheme.colorScheme.primary else Color.Gray,
+                                color = if (selectedCategory == index) LocalNcrustColors.current.primary else Color.Gray,
                                 fontSize = 14.sp
                             )
                         }
@@ -237,7 +239,7 @@ fun LibraryScreen(
                     when {
                         isLoadingPlaylists -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                CircularProgressIndicator(color = LocalNcrustColors.current.primary)
                             }
                         }
                         playlistError != null -> {
@@ -246,7 +248,7 @@ fun LibraryScreen(
                                     Text(playlistError!!, color = Color.Red, fontSize = 14.sp)
                                     Spacer(Modifier.height(8.dp))
                                     TextButton(onClick = { loadPlaylists() }) {
-                                        Text(strings.retry, color = MaterialTheme.colorScheme.primary)
+                                        Text(strings.retry, color = LocalNcrustColors.current.primary)
                                     }
                                 }
                             }
@@ -315,8 +317,8 @@ fun PlaylistGridItem(
             )
         }
         Spacer(Modifier.height(6.dp))
-        Text(playlist.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-        Text(strings.trackCount(playlist.trackCount), color = Color.Gray, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(playlist.name, color = Color.White, style = LocalNcrustTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(strings.trackCount(playlist.trackCount), color = Color.Gray, style = LocalNcrustTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
         Spacer(Modifier.height(6.dp))
     }
 }
@@ -343,8 +345,8 @@ fun LibraryAlbumGridItem(
             )
         }
         Spacer(Modifier.height(6.dp))
-        Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-        Text(strings.albumArtistAndCount(album.artist, album.songCount), color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(album.name, color = Color.White, style = LocalNcrustTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(strings.albumArtistAndCount(album.artist, album.songCount), color = Color.Gray, style = LocalNcrustTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         Spacer(Modifier.height(6.dp))
     }
 }

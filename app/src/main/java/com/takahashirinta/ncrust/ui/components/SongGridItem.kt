@@ -1,9 +1,9 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -57,14 +57,14 @@ fun SongGridItem(song: SongItem, modifier: Modifier = Modifier, onClick: () -> U
         Text(
             song.name,
             color = Color.White,
-            style = MaterialTheme.typography.bodyMedium,
+            style = LocalNcrustTypography.current.bodyMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
             "$artistStr · ${song.album?.name ?: ""}",
             color = Color.Gray,
-            style = MaterialTheme.typography.bodySmall,
+            style = LocalNcrustTypography.current.bodySmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

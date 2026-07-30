@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,7 +9,6 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -50,14 +50,14 @@ fun LibrarySongListItem(
             Text(
                 song.name,
                 color = Color.White,
-                style = MaterialTheme.typography.bodyMedium,
+                style = LocalNcrustTypography.current.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 "$artistStr · ${song.album?.name ?: ""}",
                 color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall,
+                style = LocalNcrustTypography.current.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

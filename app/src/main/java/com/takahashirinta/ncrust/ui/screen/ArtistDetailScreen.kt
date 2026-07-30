@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -151,13 +153,13 @@ fun ArtistDetailScreen(
                 Spacer(Modifier.height(20.dp))
                 TabRow(
                     selectedTabIndex = selectedTab,
-                    containerColor = MaterialTheme.colorScheme.background,
-                    contentColor = MaterialTheme.colorScheme.primary
+                    containerColor = LocalNcrustColors.current.background,
+                    contentColor = LocalNcrustColors.current.primary
                 ) {
                     Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
-                        text = { Text(strings.categoryAlbums, color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
+                        text = { Text(strings.categoryAlbums, color = if (selectedTab == 0) LocalNcrustColors.current.primary else Color.Gray, fontSize = 14.sp) })
                     Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                        text = { Text(strings.categoryTracks, color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Gray, fontSize = 14.sp) })
+                        text = { Text(strings.categoryTracks, color = if (selectedTab == 1) LocalNcrustColors.current.primary else Color.Gray, fontSize = 14.sp) })
                 }
                 Spacer(Modifier.height(12.dp))
             }
@@ -226,10 +228,10 @@ fun ArtistAlbumGridItem(album: ArtistAlbumItem, modifier: Modifier = Modifier, o
     Column(modifier = modifier.clickable { onClick() }) {
         AsyncImage(model = album.picUrl, contentDescription = strings.albumCoverDesc, modifier = Modifier.fillMaxWidth().aspectRatio(1f), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(6.dp))
-        Text(album.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(album.name, color = Color.White, style = LocalNcrustTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         album.publishTime?.let {
             val year = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
-            Text("$year · ${strings.trackCount(album.size ?: 0)}", color = Color.Gray, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+            Text("$year · ${strings.trackCount(album.size ?: 0)}", color = Color.Gray, style = LocalNcrustTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         }
         Spacer(Modifier.height(6.dp))
     }

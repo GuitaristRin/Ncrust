@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
@@ -71,7 +70,7 @@ fun ThemeColorSelector(
             text = colorNames.getOrElse(selectedIndex) {
                 presets.getOrElse(selectedIndex) { presets[0] }.label
             },
-            color = MaterialTheme.colorScheme.primary,
+            color = LocalNcrustColors.current.primary,
             fontSize = 14.sp
         )
     }

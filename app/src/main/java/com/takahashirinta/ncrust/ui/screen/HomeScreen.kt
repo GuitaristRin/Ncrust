@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.clickable
@@ -141,7 +142,7 @@ fun HomeScreen(
     ) { loading ->
         if (loading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                CircularProgressIndicator(color = LocalNcrustColors.current.primary)
             }
         } else {
             ResponsiveContent {
@@ -254,7 +255,7 @@ private fun SectionHeader(title: String, onPlayAll: (() -> Unit)? = null) {
                 Icon(
                     Icons.Default.PlayArrow,
                     contentDescription = LocalStrings.current.playAllButton,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = LocalNcrustColors.current.primary,
                     modifier = Modifier.size(28.dp)
                 )
             }

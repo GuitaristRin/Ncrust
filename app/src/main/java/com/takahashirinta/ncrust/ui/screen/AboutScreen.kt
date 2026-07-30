@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -41,7 +42,7 @@ private val VERSION = "v${BuildConfig.VERSION_NAME}"
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
     val s = LocalStrings.current
-    val accent = MaterialTheme.colorScheme.primary
+    val accent = LocalNcrustColors.current.primary
     BackHandler { onBack() }
     // Groove 无边框：不再套 M3 TopAppBar Surface，返回箭头浮在内容上方共用 TopScrimIconButton。
     Box(

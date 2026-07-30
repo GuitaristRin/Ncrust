@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
@@ -411,7 +413,7 @@ private fun MetroDropdownRow(
             Spacer(Modifier.width(12.dp))
             Text(
                 options.getOrElse(selectedIndex) { "" },
-                color = MaterialTheme.colorScheme.primary,
+                color = LocalNcrustColors.current.primary,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -435,7 +437,7 @@ private fun MetroDropdownRow(
                     text = {
                         Text(
                             name,
-                            color = if (index == selectedIndex) MaterialTheme.colorScheme.primary else Color.White,
+                            color = if (index == selectedIndex) LocalNcrustColors.current.primary else Color.White,
                             fontSize = 14.sp
                         )
                     },
@@ -468,7 +470,7 @@ private fun LoginDialog(
             Text(
                 strings.loginDialogTitle,
                 color = Color.White,
-                style = MaterialTheme.typography.titleLarge,
+                style = LocalNcrustTypography.current.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(20.dp))
@@ -476,7 +478,7 @@ private fun LoginDialog(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primary)
+                    .background(LocalNcrustColors.current.primary)
                     .clickable(onClick = onWebLogin)
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
@@ -497,11 +499,11 @@ private fun LoginDialog(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.Gray,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedBorderColor = LocalNcrustColors.current.primary,
                     unfocusedBorderColor = Color.Gray.copy(alpha = 0.4f),
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = LocalNcrustColors.current.primary,
                     unfocusedLabelColor = Color.Gray,
-                    cursorColor = MaterialTheme.colorScheme.primary
+                    cursorColor = LocalNcrustColors.current.primary
                 ),
                 maxLines = 3
             )
@@ -549,7 +551,7 @@ private fun AccountDialog(
             Text(
                 strings.accountDialogTitle,
                 color = Color.White,
-                style = MaterialTheme.typography.titleLarge,
+                style = LocalNcrustTypography.current.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(16.dp))
@@ -615,7 +617,7 @@ private fun DialogButton(
     Box(
         modifier = Modifier
             .then(
-                if (accent) Modifier.background(MaterialTheme.colorScheme.primary)
+                if (accent) Modifier.background(LocalNcrustColors.current.primary)
                 else Modifier.border(1.dp, Color.Gray.copy(alpha = 0.4f))
             )
             .clickable(onClick = onClick)
@@ -644,7 +646,7 @@ private fun FullWidthDialogButton(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (accent) Modifier.background(MaterialTheme.colorScheme.primary)
+                if (accent) Modifier.background(LocalNcrustColors.current.primary)
                 else Modifier.border(1.dp, borderColor)
             )
             .clickable(onClick = onClick)
@@ -715,7 +717,7 @@ fun MetroLanguageDropdown(
                         Text(
                             preset.displayName,
                             color = if (preset.code == selectedCode)
-                                MaterialTheme.colorScheme.primary else Color.White,
+                                LocalNcrustColors.current.primary else Color.White,
                             fontSize = 14.sp
                         )
                     },
@@ -739,7 +741,7 @@ fun MetroLanguageDropdown(
 
 @Composable
 fun MetroSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val accent = MaterialTheme.colorScheme.primary
+    val accent = LocalNcrustColors.current.primary
     val trackOff = Color(0xFF333333)
     val borderOff = Color.Gray.copy(alpha = 0.35f)
     // 单一 progress 驱动 track 颜色、border 颜色、thumb 位移。旧实现两个 animateXxxAsState

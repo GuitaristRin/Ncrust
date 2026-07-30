@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -128,7 +129,7 @@ fun AlbumDetailScreen(
                             ) {
                                 Text(
                                     strings.actionSaveAlbum,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = LocalNcrustColors.current.primary,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )

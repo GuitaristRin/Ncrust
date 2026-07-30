@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.player
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -7,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -159,7 +159,7 @@ fun LyricsView(
                         lineHeight = 42.sp,                        // ← 恢复原来行高
                         color = when {
                             index < currentIndex -> Color.White.copy(alpha = 0.6f)
-                            index == currentIndex -> MaterialTheme.colorScheme.primary
+                            index == currentIndex -> LocalNcrustColors.current.primary
                             else -> Color.Gray.copy(alpha = 0.4f)
                         },
                         modifier = Modifier
@@ -186,7 +186,7 @@ fun LyricsView(
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(MaterialTheme.colorScheme.background, Color.Transparent)
+                        listOf(LocalNcrustColors.current.background, Color.Transparent)
                     )
                 )
         )
@@ -198,7 +198,7 @@ fun LyricsView(
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, MaterialTheme.colorScheme.background)
+                        listOf(Color.Transparent, LocalNcrustColors.current.background)
                     )
                 )
         )

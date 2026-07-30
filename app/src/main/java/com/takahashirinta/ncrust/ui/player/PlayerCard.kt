@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.player
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.MarqueeAnimationMode
@@ -197,7 +199,7 @@ fun PlayerCard(
             modifier = Modifier
                 .fillMaxSize()
                 .offset(y = 24.dp)
-                .background(MaterialTheme.colorScheme.background)
+                .background(LocalNcrustColors.current.background)
         )
 
         Column(
@@ -225,7 +227,7 @@ fun PlayerCard(
                         Text(
                             s.name,
                             color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = LocalNcrustTypography.current.titleMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Clip,
                             modifier = Modifier.basicMarquee(
@@ -239,7 +241,7 @@ fun PlayerCard(
                         Text(
                             s.artists?.joinToString("/") { it.name } ?: "",
                             color = Color.Gray,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = LocalNcrustTypography.current.bodyMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -309,7 +311,7 @@ fun PlayerCard(
                                             else -> Icons.Default.Repeat
                                         },
                                         strings.playModeButton,
-                                        tint = if (playMode != 0) MaterialTheme.colorScheme.primary else Color.White,
+                                        tint = if (playMode != 0) LocalNcrustColors.current.primary else Color.White,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -346,14 +348,14 @@ fun PlayerCard(
                             Text(
                                 s.name,
                                 color = Color.White,
-                                style = MaterialTheme.typography.titleLarge,
+                                style = LocalNcrustTypography.current.titleLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 s.artists?.joinToString("/") { it.name } ?: "",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodyLarge,
+                                color = LocalNcrustColors.current.primary,
+                                style = LocalNcrustTypography.current.bodyLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -428,7 +430,7 @@ fun PlayerCard(
                 .graphicsLayer {
                     alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
                 },
-            color = MaterialTheme.colorScheme.surface
+            color = LocalNcrustColors.current.surface
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -445,14 +447,14 @@ fun PlayerCard(
                         Text(
                             s.name,
                             color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = LocalNcrustTypography.current.bodyMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             s.artists?.joinToString("/") { it.name } ?: "",
                             color = Color.Gray,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = LocalNcrustTypography.current.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -484,7 +486,7 @@ fun PlayerCard(
                     Text(
                         strings.noSongPlaying,
                         color = Color(0xFF808080),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = LocalNcrustTypography.current.bodyMedium,
                         modifier = Modifier.padding(horizontal = 12.dp)
                     )
                 }

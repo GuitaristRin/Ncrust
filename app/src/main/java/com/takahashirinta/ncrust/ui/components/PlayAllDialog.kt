@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,7 +28,7 @@ fun PlayAllDialog(
     val strings = LocalStrings.current
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
+            color = LocalNcrustColors.current.surface,
             shape = RectangleShape,
             tonalElevation = 0.dp
         ) {
@@ -55,7 +56,7 @@ fun PlayAllDialog(
                     Icon(
                         Icons.Default.PlayArrow,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = LocalNcrustColors.current.primary,
                         modifier = Modifier.size(26.dp)
                     )
                     Spacer(Modifier.width(16.dp))

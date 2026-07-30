@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.player
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -84,7 +84,7 @@ fun SlimProgressBar(
     // 让 Canvas 每帧重跑一次 draw block（即便分支不进入）。低端机上纯浪费。
     val bufferingPhases: BufferingPhases? = if (showBuffering) rememberBufferingPhases() else null
 
-    val accent = MaterialTheme.colorScheme.primary
+    val accent = LocalNcrustColors.current.primary
     val trackColor = Color(0xFF3A3A3A)
 
     Box(

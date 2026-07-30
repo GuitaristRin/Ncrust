@@ -1,4 +1,6 @@
 package com.takahashirinta.ncrust.ui.components
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
+import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -70,7 +72,7 @@ fun SongMenuSheet(
                 .align(Alignment.BottomCenter)
                 .onSizeChanged { sheetHeightPx = it.height.toFloat() }
                 .graphicsLayer { translationY = size.height * (1f - progress.value) }
-                .background(MaterialTheme.colorScheme.surface)
+                .background(LocalNcrustColors.current.surface)
         ) {
             // 信息区：可拖拽下滑收起
             Row(
@@ -121,7 +123,7 @@ fun SongMenuSheet(
                     Text(
                         song.name,
                         color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = LocalNcrustTypography.current.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -129,8 +131,8 @@ fun SongMenuSheet(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         song.artists?.joinToString("/") { it.name } ?: "",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodyMedium,
+                        color = LocalNcrustColors.current.primary,
+                        style = LocalNcrustTypography.current.bodyMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -140,7 +142,7 @@ fun SongMenuSheet(
                         Text(
                             albumName,
                             color = Color.Gray,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = LocalNcrustTypography.current.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -175,7 +177,7 @@ fun SongMenuSheet(
                     Text(
                         action.label,
                         color = Color.White,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = LocalNcrustTypography.current.bodyLarge
                     )
                 }
             }
