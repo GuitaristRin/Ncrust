@@ -7,7 +7,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -17,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -35,7 +35,9 @@ import com.takahashirinta.ncrust.ui.i18n.LocalStrings
  * 无边框详情页骨架。
  *
  * 与旧版差异：
- *  - 没有 M3 TopAppBar 的实体 Surface。返回箭头浮在内容最上层，带半透明黑色圆兜底（应对浅色封面）。
+ *  - 没有 M3 TopAppBar 的实体 Surface。顶部使用向下渐隐的深色 scrim 提供图标可读性，
+ *    避免以往"半透明黑色方块"堆在角落的突兀感——scrim 与内容边缘自然融合，仍无任何 border。
+ *  - 返回箭头是裸图标，无背板，Ripple 以图标中心为原点，触控区扩大到 44dp。
  *  - 内容 LazyColumn 从屏幕顶部开始（延伸到 status bar 下），第一项 header() 会填满整个可视区宽度。
  *  - title 参数已弃用（Groove 风：页面标题由 header 本身承担），保留以兼容签名。
  */
@@ -118,21 +120,52 @@ fun DetailScaffold(
             }
         }
 
-        // 浮层返回箭头。半透明黑色方块兜底应对浅色封面。
+        TopScrimIconButton(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = strings.back,
+            onClick = onBack
+        )
+    }
+}
+
+/**
+ * 顶部渐隐 scrim + 裸图标。scrim 承担"让白色图标在任意封面上可读"的职责，
+ * 图标本身无背板，M3 IconButton 提供 48dp 触控区 + 默认 ripple。
+ * 所有二级页面（详情、关于、WebView 登录）共用此组件以保证一致性。
+ */
+@Composable
+fun TopScrimIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    alignment: Alignment = Alignment.TopStart
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.55f),
+                        1f to Color.Transparent
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .align(alignment)
                 .statusBarsPadding()
-                .padding(start = 8.dp, top = 8.dp)
-                .size(40.dp)
-                .background(Color.Black.copy(alpha = 0.45f))
-                .clickable(onClick = onBack),
-            contentAlignment = Alignment.Center
+                .padding(horizontal = 4.dp, vertical = 4.dp)
         ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = strings.back,
-                tint = Color.White
-            )
+            IconButton(onClick = onClick) {
+                Icon(
+                    icon,
+                    contentDescription = contentDescription,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }

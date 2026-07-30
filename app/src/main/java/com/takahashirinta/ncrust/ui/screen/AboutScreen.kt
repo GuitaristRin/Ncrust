@@ -7,11 +7,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ import com.takahashirinta.ncrust.BuildConfig
 import com.takahashirinta.ncrust.R
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
+import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 // 版本号动态读取 BuildConfig.VERSION_NAME（对应 build.gradle.kts 的 versionName），
@@ -41,26 +43,21 @@ fun AboutScreen(onBack: () -> Unit) {
     val s = LocalStrings.current
     val accent = MaterialTheme.colorScheme.primary
     BackHandler { onBack() }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(s.aboutTitle, color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, s.back, tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1A1A1A))
-            )
-        },
-        containerColor = Color(0xFF121212)
-    ) { innerPadding ->
-        ResponsiveContent(modifier = Modifier.padding(innerPadding)) {
+    // Groove 无边框：不再套 M3 TopAppBar Surface，返回箭头浮在内容上方共用 TopScrimIconButton。
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212))
+    ) {
+        ResponsiveContent {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                    // 顶部预留 status bar + 80dp 让首元素落在 scrim 之下、返回箭头不会盖住 logo。
+                    .padding(horizontal = 24.dp)
+                    .statusBarsPadding()
+                    .padding(top = 72.dp, bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // 5 段级联：0/40/80/120/160ms 起，每段 200ms 淡入 + 8dp 微滑上。
@@ -127,6 +124,12 @@ fun AboutScreen(onBack: () -> Unit) {
                 }
             }
         }
+
+        TopScrimIconButton(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = s.back,
+            onClick = onBack
+        )
     }
 }
 

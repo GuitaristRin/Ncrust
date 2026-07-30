@@ -45,6 +45,7 @@ import com.takahashirinta.ncrust.player.PlaybackStateManager
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
+import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
 import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
 import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
@@ -523,25 +524,14 @@ fun MainScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             )
-            // 关闭按钮：深色半透明底色，确保在白色登录页上可见
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .padding(12.dp)
-                    .size(40.dp)
-                    .background(Color(0x80000000)),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(onClick = { showWebLogin = false }) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "关闭",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+            // 顶部渐隐 scrim + 裸叉号：与二级页面返回箭头共用 TopScrimIconButton，
+            // scrim 覆盖白色登录页顶部区域相当于"浏览器 chrome"，图标不再是孤立的黑方块。
+            TopScrimIconButton(
+                icon = Icons.Default.Close,
+                contentDescription = LocalStrings.current.close,
+                onClick = { showWebLogin = false },
+                alignment = Alignment.TopEnd
+            )
         }
         return
     }

@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.SongViewModel
 
@@ -28,32 +30,20 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
         viewModel.loadSongDetail(songId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(strings.songDetailTitle, color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = strings.back,
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF121212)
-                )
-            )
-        },
-        containerColor = Color(0xFF121212)
-    ) { innerPadding ->
-        ResponsiveContent(modifier = Modifier.padding(innerPadding)) {
+    // Groove 无边框：不再套 M3 TopAppBar Surface，返回箭头浮在内容上方共用 TopScrimIconButton。
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212))
+    ) {
+        ResponsiveContent {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    // 顶部预留 status bar + 72dp 让首行文字落在 scrim 之下、不被返回箭头挡住。
+                    .statusBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, top = 72.dp, bottom = 16.dp)
             ) {
                 songDetail?.let { song ->
                     Text(song.name, color = Color.White, style = MaterialTheme.typography.headlineMedium)
@@ -79,6 +69,12 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
                 } ?: Text(strings.noLyrics, color = Color.Gray)
             }
         }
+
+        TopScrimIconButton(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = strings.back,
+            onClick = onBack
+        )
     }
 }
 
