@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +38,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.widget.Toast
+
+// 新歌速递容量：一次装够，不做分页。首页只是一瞥的展示位，
+// 不是深度浏览入口——用户想探索会去搜索/歌单。
+private const val NEW_SONGS_LIMIT = 20
 
 @Composable
 fun HomeScreen(
@@ -62,10 +65,7 @@ fun HomeScreen(
     var isLoading by remember {
         mutableStateOf(dailySongs.isEmpty() && playlists.isEmpty() && newSongs.isEmpty())
     }
-    var isLoadingMore by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var hasMore by remember { mutableStateOf(true) }
-    var offset by remember { mutableIntStateOf(newSongs.size) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -95,48 +95,31 @@ fun HomeScreen(
         }
     }
 
-    fun loadNewSongs(reset: Boolean) {
+    fun loadNewSongs() {
         coroutineScope.launch(Dispatchers.IO) {
-            if (reset) {
-                offset = 0
-                if (newSongs.isEmpty()) isLoading = true
-            } else {
-                isLoadingMore = true
-            }
+            if (newSongs.isEmpty()) isLoading = true
             error = null
             try {
-                val list = PlaylistApi.getTopSongs(limit = 10, offset = offset)
-                hasMore = list.size >= 10
+                val list = PlaylistApi.getTopSongs(limit = NEW_SONGS_LIMIT, offset = 0)
                 withContext(Dispatchers.Main) {
-                    if (reset) {
-                        newSongs.clear()
-                        newSongs.addAll(list)
-                        ContentCache.homeNewSongs = list.toList()
-                        isLoading = false
-                    } else {
-                        newSongs.addAll(list)
-                        isLoadingMore = false
-                    }
-                    offset += list.size
+                    newSongs.clear()
+                    newSongs.addAll(list)
+                    ContentCache.homeNewSongs = list.toList()
+                    isLoading = false
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { error = strings.loadFailed(e.message); isLoading = false; isLoadingMore = false }
+                withContext(Dispatchers.Main) {
+                    error = strings.loadFailed(e.message)
+                    isLoading = false
+                }
             }
         }
     }
-
-    val shouldLoadMore = remember {
-        derivedStateOf {
-            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            last >= newSongs.size - 3 && !isLoadingMore && hasMore && newSongs.isNotEmpty()
-        }
-    }
-    LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) loadNewSongs(false) }
 
     LaunchedEffect(Unit) {
         loadDailySongs()
         loadPlaylists()
-        loadNewSongs(true)
+        loadNewSongs()
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -245,23 +228,6 @@ fun HomeScreen(
                             onClick = { onSongClick(song) },
                             onShowMenu = { onShowSongMenu(song, songMenu(song)) }
                         )
-                    }
-                    if (isLoadingMore) {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                            }
-                        }
-                    }
-                    if (!hasMore && newSongs.isNotEmpty()) {
-                        item {
-                            Text(
-                                strings.noMoreContent,
-                                color = Color.Gray,
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                textAlign = TextAlign.Center
-                            )
-                        }
                     }
                 }
             }

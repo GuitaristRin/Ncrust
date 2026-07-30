@@ -76,7 +76,9 @@ object AppWarmup {
                         runCatching { PlaylistApi.getRecommendPlaylists() }.getOrNull()
                     }
                     val topDeferred = async {
-                        runCatching { PlaylistApi.getTopSongs(limit = 10, offset = 0) }.getOrNull()
+                        // limit 与 HomeScreen NEW_SONGS_LIMIT 对齐——warmup 一次装够，
+                        // 不留"缓存 10 条 → 刷新变 20 条"的可见 diff
+                        runCatching { PlaylistApi.getTopSongs(limit = 20, offset = 0) }.getOrNull()
                     }
                     dailyDeferred.await()?.let { ContentCache.homeDailySongs = it }
                     plsDeferred.await()?.let { ContentCache.homeRecommendPlaylists = it }
