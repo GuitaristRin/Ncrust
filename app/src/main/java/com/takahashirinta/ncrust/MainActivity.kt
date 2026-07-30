@@ -43,7 +43,9 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.player.PlaybackStateManager
+import com.takahashirinta.ncrust.ui.components.NcrustPivotNav
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
+import com.takahashirinta.ncrust.ui.components.PivotTabItem
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
 import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
@@ -745,53 +747,32 @@ fun MainScreen(
             )
         }
 
-        // zIndex(1.5f) renders NavigationBar above PlayerCardOverlay (zIndex=1f),
+        // zIndex(1.5f) renders PivotNav above PlayerCardOverlay (zIndex=1f),
         // so it appears on top of the mini player bar when the player is collapsed.
         val navStrings = LocalStrings.current
-        NavigationBar(
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .zIndex(1.5f)
                 .graphicsLayer {
                     translationY = navBarHideOffset * progress.value
-                },
-            containerColor = LocalNcrustColors.current.surface
+                }
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(LocalNcrustColors.current.surface)
         ) {
-            NavigationBarItem(
-                selected = selectedTab == 0,
-                onClick = {
-                    selectedTab = 0
+            NcrustPivotNav(
+                selectedTab = selectedTab,
+                onTabSelected = { tab ->
+                    selectedTab = tab
                     if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
                 },
-                icon = { Icon(Icons.Default.Home, navStrings.tabHome) },
-                label = { Text(navStrings.tabHome) }
-            )
-            NavigationBarItem(
-                selected = selectedTab == 1,
-                onClick = {
-                    selectedTab = 1
-                    if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
-                },
-                icon = { Icon(Icons.Default.LibraryMusic, navStrings.tabLibrary) },
-                label = { Text(navStrings.tabLibrary) }
-            )
-            NavigationBarItem(
-                selected = selectedTab == 2,
-                onClick = {
-                    selectedTab = 2
-                    if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
-                },
-                icon = { Icon(Icons.Default.Search, navStrings.tabSearch) },
-                label = { Text(navStrings.tabSearch) }
-            )
-            NavigationBarItem(
-                selected = selectedTab == 3,
-                onClick = {
-                    selectedTab = 3
-                    if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
-                },
-                icon = { Icon(Icons.Default.Person, navStrings.tabUser) },
-                label = { Text(navStrings.tabUser) }
+                items = listOf(
+                    PivotTabItem(Icons.Default.Home, navStrings.tabHome),
+                    PivotTabItem(Icons.Default.LibraryMusic, navStrings.tabLibrary),
+                    PivotTabItem(Icons.Default.Search, navStrings.tabSearch),
+                    PivotTabItem(Icons.Default.Person, navStrings.tabUser),
+                )
             )
         }
 
