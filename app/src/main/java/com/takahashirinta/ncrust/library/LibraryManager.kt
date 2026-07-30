@@ -1,6 +1,7 @@
 package com.takahashirinta.ncrust.library
 
 import android.content.Context
+import androidx.compose.runtime.Immutable
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.takahashirinta.ncrust.network.SongItem
@@ -170,6 +171,7 @@ object LibraryManager {
     }
 }
 
+@Immutable
 data class AlbumInfo(
     val albumId: Long,
     val name: String,
