@@ -97,11 +97,13 @@ fun PlayerCard(
     val miniBarInteractionSource = remember { MutableInteractionSource() }
     // 完全展开时才激活收起按钮
     val dismissEnabled by remember { derivedStateOf { progress.value > 0.99f } }
-    // 展开态子树 gating：折叠态（progress ≈ 0）时 LyricsView / QueueView / 大封面
-    // 信息 / FullPlayerControls 全部不 mount，避免它们在屏外走 layout。阈值 0.05f
-    // 保证用户刚开始拖拽或点开动画的第一帧就 mount，视觉无跳变。derivedStateOf
-    // 使 PlayerCard 只在跨阈值时重组一次，非阈值帧不受 progress 4Hz 变化影响。
-    val expandedEnough by remember { derivedStateOf { progress.value > 0.05f } }
+    // 展开态子树常挂载（无 gate）：LyricsView / QueueView / FullPlayerControls / 大封面
+    // 信息在 MainScreen 首次 composition 时即挂载，交互只切 graphicsLayer alpha，不再
+    // 走 mount/dispose。这是"Apple Music 手感"的关键——原生 View 系统里 player subview
+    // 是 app 启动就构建好、隐藏用 visibility=GONE 的；我们此前用 if (expandedEnough) 条件
+    // 挂载来省折叠态 layout 成本，但把构造成本压到了首次跨阈值那一帧，压不进单帧就必然卡。
+    // 常挂载的代价：折叠态 LazyColumn 仍走一次 layout（懒渲染，实际每帧 1-3ms），交换
+    // 首次 expand 永远不卡。冷启动那一次成本由 Splash + AppWarmup 兜底吸收。
 
     // lyricAnimProgress：0 = 大封面，1 = 小封面；驱动封面缩放 + 内容淡入淡出
     // queueSlideProgress：0 = 歌词位置，1 = 列表位置；仅 b↔c 时动画，其他时 snap
@@ -249,19 +251,17 @@ fun PlayerCard(
                     }
                 }
 
-                // 内容区外壳保留（weight(1f) 撑起 Column 布局），内容按 expandedEnough 门槛挂载。
-                // 折叠态时 LyricsView/QueueView/大封面信息全部 dispose，避免它们在屏外走
-                // layout（LyricsView 尤其重——LazyColumn + 每行 graphicsLayer + Animatable）。
+                // 内容区外壳。子内容常挂载（无 gate）——见文件头对 expandedEnough 的注释。
+                // alpha=0 时 draw 阶段短路，layout 仍走但 LazyColumn/Canvas 都是懒的，运行时开销可控。
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                 ) {
-                    if (expandedEnough) {
-                        // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
-                        // 彻底消除与列表面板的命中测试重叠（combinedClickable 忽略 isConsumed 标志）
-                        Box(
+                    // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
+                    // 彻底消除与列表面板的命中测试重叠（combinedClickable 忽略 isConsumed 标志）
+                    Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
@@ -361,15 +361,13 @@ fun PlayerCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
-                // 底部播放控件：同样只在展开态挂载。FullPlayerControls 内部有 SlimProgressBar
-                // Canvas + PositionText collectAsState + 多个 IconButton，全屏 layout 成本可观。
+                // 底部播放控件常挂载（与内容区同理）。FullPlayerControls 内部有 SlimProgressBar
+                // Canvas + PositionText collectAsState + 多个 IconButton，成本一次性付在 MainScreen 首帧。
                 Box(modifier = Modifier.graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }) {
-                    if (expandedEnough) {
                         FullPlayerControls(
                             isPlaying = isPlaying,
                             showLyrics = showLyrics,
@@ -403,7 +401,6 @@ fun PlayerCard(
                             },
                             onNavigateToUser = onNavigateToUser
                         )
-                    }
                 }
             }
         }
