@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
@@ -27,6 +28,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -118,40 +120,35 @@ fun SearchScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .background(desaturatedFill)
             ) {
-                TextField(
+                BasicTextField(
                     value = query,
                     onValueChange = { viewModel.onQueryChanged(it) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardActions = KeyboardActions(onDone = {}),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    placeholder = {
-                        Text(
-                            strings.searchPlaceholder,
-                            color = Color.White.copy(alpha = 0.5f)
-                        )
-                    },
                     textStyle = LocalTextStyle.current.copy(color = Color.White),
-                    trailingIcon = {
-                        Row {
-                            if (isLoading) NcrustProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = currentThemeColor
-                            )
-                            if (query.isNotEmpty()) NcrustIconButton(onClick = { viewModel.clearQuery() }) {
-                                Icon(Icons.Default.Clear, strings.clearSearchButton, tint = Color.White.copy(alpha = 0.7f))
+                    cursorBrush = SolidColor(Color.White),
+                    decorationBox = { innerTextField ->
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            if (query.isEmpty()) {
+                                Text(
+                                    strings.searchPlaceholder,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                            innerTextField()
+                            Row(modifier = Modifier.align(Alignment.CenterEnd)) {
+                                if (isLoading) NcrustProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = currentThemeColor
+                                )
+                                if (query.isNotEmpty()) NcrustIconButton(onClick = { viewModel.clearQuery() }) {
+                                    Icon(Icons.Default.Clear, strings.clearSearchButton, tint = Color.White.copy(alpha = 0.7f))
+                                }
                             }
                         }
-                    },
-                    colors = TextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        cursorColor = Color.White,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    )
+                    }
                 )
             }
 
