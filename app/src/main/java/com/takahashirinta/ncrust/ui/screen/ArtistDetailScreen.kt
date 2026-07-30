@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.components.NcrustTabRow
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
@@ -151,16 +152,11 @@ fun ArtistDetailScreen(
                     }
                 }
                 Spacer(Modifier.height(20.dp))
-                TabRow(
+                NcrustTabRow(
                     selectedTabIndex = selectedTab,
-                    containerColor = LocalNcrustColors.current.background,
-                    contentColor = LocalNcrustColors.current.primary
-                ) {
-                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
-                        text = { Text(strings.categoryAlbums, color = if (selectedTab == 0) LocalNcrustColors.current.primary else Color.Gray, fontSize = 14.sp) })
-                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                        text = { Text(strings.categoryTracks, color = if (selectedTab == 1) LocalNcrustColors.current.primary else Color.Gray, fontSize = 14.sp) })
-                }
+                    titles = listOf(strings.categoryAlbums, strings.categoryTracks),
+                    onTabSelected = { index -> selectedTab = index }
+                )
                 Spacer(Modifier.height(12.dp))
             }
         },

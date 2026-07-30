@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.components.NcrustTabRow
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
@@ -283,49 +284,25 @@ fun SearchScreen(
                     }
                     SearchContentState.Results -> {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            TabRow(
-                    selectedTabIndex = when (currentType) {
-                        1 -> 0
-                        10 -> 1
-                        100 -> 2
-                        else -> 0
-                    },
-                    containerColor = LocalNcrustColors.current.background,
-                    contentColor = LocalNcrustColors.current.primary
-                ) {
-                    categories.forEachIndexed { index, title ->
-                        Tab(
-                            selected = when {
-                                index == 0 -> currentType == 1
-                                index == 1 -> currentType == 10
-                                index == 2 -> currentType == 100
-                                else -> false
-                            },
-                            onClick = {
-                                viewModel.onTypeChanged(
-                                    when (index) {
-                                        0 -> 1
-                                        1 -> 10
-                                        2 -> 100
-                                        else -> 1
-                                    }
-                                )
-                            },
-                            text = {
-                                Text(
-                                    title,
-                                    color = when {
-                                        index == 0 && currentType == 1 -> LocalNcrustColors.current.primary
-                                        index == 1 && currentType == 10 -> LocalNcrustColors.current.primary
-                                        index == 2 && currentType == 100 -> LocalNcrustColors.current.primary
-                                        else -> Color.Gray
-                                    },
-                                    fontSize = 14.sp
-                                )
-                            }
-                        )
-                    }
-                }
+                            NcrustTabRow(
+                                selectedTabIndex = when (currentType) {
+                                    1 -> 0
+                                    10 -> 1
+                                    100 -> 2
+                                    else -> 0
+                                },
+                                titles = categories,
+                                onTabSelected = { index ->
+                                    viewModel.onTypeChanged(
+                                        when (index) {
+                                            0 -> 1
+                                            1 -> 10
+                                            2 -> 100
+                                            else -> 1
+                                        }
+                                    )
+                                }
+                            )
 
                 error?.let {
                     Text(

@@ -1,4 +1,5 @@
 package com.takahashirinta.ncrust.ui.screen
+import com.takahashirinta.ncrust.ui.components.NcrustTabRow
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
@@ -116,25 +117,11 @@ fun LibraryScreen(
                 )
             }
             Spacer(Modifier.height(4.dp))
-            TabRow(
+            NcrustTabRow(
                 selectedTabIndex = selectedCategory,
-                containerColor = LocalNcrustColors.current.background,
-                contentColor = LocalNcrustColors.current.primary
-            ) {
-                categories.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedCategory == index,
-                        onClick = { selectedCategory = index },
-                        text = {
-                            Text(
-                                title,
-                                color = if (selectedCategory == index) LocalNcrustColors.current.primary else Color.Gray,
-                                fontSize = 14.sp
-                            )
-                        }
-                    )
-                }
-            }
+                titles = categories,
+                onTabSelected = { index -> selectedCategory = index }
+            )
 
             // Tab 切换用 AnimatedContent 做方向感知的横向滑入。
             // 距离 1/16 屏宽（比 NavGraph 的 1/8 更轻——同页内切 tab，不应有"翻页"的重量感）；
