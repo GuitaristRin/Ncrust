@@ -226,9 +226,17 @@ fun MainScreen(
     }
 
     fun addToQueue(song: SongItem) {
-        playbackQueue = playbackQueue.filter { it.id != song.id }
-        playbackQueue = playbackQueue + song
-        currentQueueIndex = playbackQueue.size - 1
+        // playSongItem 专用：让 currentQueueIndex 指向即将播放的这首歌本身。
+        // 若歌已在队列中，就地跳过去不重排；否则追加到队尾。
+        // 严禁在循环里调用（会导致 currentQueueIndex 跑到最后而实际播首曲，
+        // 结束后 playNext 回绕到 0 → 永远回放第一首）。批量场景请用 replaceQueueAndPlay。
+        val existing = playbackQueue.indexOfFirst { it.id == song.id }
+        if (existing >= 0) {
+            currentQueueIndex = existing
+        } else {
+            playbackQueue = playbackQueue + song
+            currentQueueIndex = playbackQueue.size - 1
+        }
         if (playMode == 2) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
@@ -418,19 +426,32 @@ fun MainScreen(
     }
 
     fun insertNext(song: SongItem) {
-        playbackQueue = playbackQueue.filter { it.id != song.id }
-        val mutable = playbackQueue.toMutableList()
-        val insertPos = (currentQueueIndex + 1).coerceAtMost(mutable.size)
-        mutable.add(insertPos, song)
-        playbackQueue = mutable
-        if (currentQueueIndex < 0) currentQueueIndex = 0
+        // 关键不变量：playbackQueue[currentQueueIndex] 必须始终等于当前正在播的歌。
+        // 直接 .filter 会把当前歌之前的重复项也删掉，让 currentQueueIndex 指错下一项——
+        // 于是"下一首"变成当前歌的后一首之后的项。所以先记录当前歌 id，过滤后重新定位。
+        val currentId = playbackQueue.getOrNull(currentQueueIndex)?.id
+        if (song.id == currentId) return  // 已在播的曲无需"下一首"到自己
+        val filtered = playbackQueue.filter { it.id != song.id }.toMutableList()
+        val newCurrentIndex = if (currentId != null)
+            filtered.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        else -1
+        val insertPos = (newCurrentIndex + 1).coerceIn(0, filtered.size)
+        filtered.add(insertPos, song)
+        playbackQueue = filtered
+        currentQueueIndex = if (newCurrentIndex < 0) 0 else newCurrentIndex
+        if (playMode == 2) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
     fun appendToQueue(song: SongItem) {
-        playbackQueue = playbackQueue.filter { it.id != song.id }
-        playbackQueue = playbackQueue + song
-        if (currentQueueIndex < 0) currentQueueIndex = 0
+        val currentId = playbackQueue.getOrNull(currentQueueIndex)?.id
+        if (song.id == currentId) return
+        val filtered = playbackQueue.filter { it.id != song.id }
+        playbackQueue = filtered + song
+        currentQueueIndex = if (currentId != null)
+            playbackQueue.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        else 0
+        if (playMode == 2) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
@@ -449,24 +470,34 @@ fun MainScreen(
             replaceQueueAndPlay(songs)
             return
         }
-        val ids = songs.map { it.id }.toSet()
+        val currentId = playbackQueue.getOrNull(currentQueueIndex)?.id
+        // 不允许把当前歌本身"塞到下一首"——那会让当前歌在队列里被 filter 掉、
+        // currentQueueIndex 指向的东西完全变了。
+        val toInsert = if (currentId != null) songs.filter { it.id != currentId } else songs
+        if (toInsert.isEmpty()) return
+        val ids = toInsert.map { it.id }.toSet()
         val filtered = playbackQueue.filter { it.id !in ids }.toMutableList()
-        val insertPos = (currentQueueIndex + 1).coerceAtMost(filtered.size)
-        filtered.addAll(insertPos, songs)
+        val newCurrentIndex = if (currentId != null)
+            filtered.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        else 0
+        val insertPos = (newCurrentIndex + 1).coerceIn(0, filtered.size)
+        filtered.addAll(insertPos, toInsert)
         playbackQueue = filtered
+        currentQueueIndex = newCurrentIndex
         if (playMode == 2) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
     fun appendAllToQueue(songs: List<SongItem>) {
         if (songs.isEmpty()) return
-        val existingIds = playbackQueue.map { it.id }.toSet()
-        val newSongs = songs.filter { it.id !in existingIds }
-        if (newSongs.isEmpty()) return
         if (currentQueueIndex < 0) {
             replaceQueueAndPlay(songs)
             return
         }
+        val existingIds = playbackQueue.map { it.id }.toSet()
+        val newSongs = songs.filter { it.id !in existingIds }
+        if (newSongs.isEmpty()) return
+        // 尾追加不动 currentQueueIndex 前面的项，无需修正索引。
         playbackQueue = playbackQueue + newSongs
         if (playMode == 2) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
@@ -596,13 +627,10 @@ fun MainScreen(
                                 }
                             },
                             onPlayDailyAll = { songs ->
-                                for (song in songs) addToQueue(song)
-                                if (songs.isNotEmpty()) {
-                                    currentSong = songs.first()
-                                    val (title, artist, artwork) = songParams(songs.first())
-                                    playerViewModel.playSong(songs.first().id, title = title, artist = artist, artworkUrl = artwork)
-                                    expandCard()
-                                }
+                                // 直接替换队列并从头播放。
+                                // 旧实现循环 addToQueue → 每次都把 currentQueueIndex 推到队尾，
+                                // 而 playSong 播的是 songs[0]，两者错位，导致下一首回绕 0 → 永远回放首曲。
+                                replaceQueueAndPlay(songs)
                             },
                             onSongInsertNext = { insertNext(it) },
                             onSongAppendToQueue = { appendToQueue(it) },

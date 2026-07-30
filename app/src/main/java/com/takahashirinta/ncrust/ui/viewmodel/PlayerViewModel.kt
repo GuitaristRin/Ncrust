@@ -114,7 +114,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             currentSongName.value = savedState.songName
             currentSongArtist.value = savedState.songArtist
             currentSongArtwork.value = savedState.songArtwork
-            isPlaying.value = false
+
+            // Activity 冷重建但前台 Service 还活着的场景：不能盲写 isPlaying=false，
+            // 否则 UI 显示暂停但音频还在响，用户要点多次按钮才能让状态与音频对齐。
+            // 直接从 live service 拉真值，同时把 duration/position 一并同步——
+            // 否则 500ms 心跳到来前 duration=0，togglePlayPause 会误走全量 playSong 分支导致重取 URL。
+            val svc = PlaybackService.instance
+            if (svc != null) {
+                runCatching {
+                    val p = svc.player
+                    isPlaying.value = p.isPlaying
+                    val livePos = p.currentPosition
+                    val liveDur = p.duration
+                    if (liveDur > 0) {
+                        currentPosition.value = livePos
+                        duration.value = liveDur
+                        progress.value = livePos.toFloat() / liveDur.toFloat()
+                    }
+                }
+            } else {
+                isPlaying.value = false
+            }
 
             if (savedState.songId > 0) {
                 viewModelScope.launch { fetchLyrics(savedState.songId) }
