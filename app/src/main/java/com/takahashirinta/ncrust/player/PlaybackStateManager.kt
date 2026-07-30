@@ -11,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object PlaybackStateManager {
     private const val PREFS_NAME = "ncrust_playback_state"
@@ -101,7 +102,7 @@ object PlaybackStateManager {
         }
     }
 
-    private fun flushPendingQueue() {
+    private suspend fun flushPendingQueue() {
         val queue: List<SongItem>
         val index: Int
         val ctx: Context
@@ -113,22 +114,28 @@ object PlaybackStateManager {
             pendingAppContext = null
         }
         try {
-            val json = gson.toJson(queue)
-            ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-                .putString(KEY_QUEUE, json)
-                .putInt(KEY_QUEUE_INDEX, index)
-                .apply()
+            // Gson 反射序列化是 CPU 密集，切 Default 避免 IO 线程池被占。
+            val json = withContext(Dispatchers.Default) { gson.toJson(queue) }
+            withContext(Dispatchers.IO) {
+                ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                    .putString(KEY_QUEUE, json)
+                    .putInt(KEY_QUEUE_INDEX, index)
+                    .apply()
+            }
         } catch (_: Exception) {
             clearQueue(ctx)
         }
     }
 
-    fun getQueue(context: Context): Pair<List<SongItem>, Int>? {
+    suspend fun getQueue(context: Context): Pair<List<SongItem>, Int>? {
         val prefs = getPrefs(context)
         val json = prefs.getString(KEY_QUEUE, null) ?: return null
         if (json.isEmpty() || json == "[]") return null
         return try {
-            val queue: List<SongItem> = gson.fromJson(json, songListType)
+            // Gson 反射反序列化是 CPU 密集，切 Default 避免主线程卡顿（队列几百首时 50ms+）。
+            val queue: List<SongItem> = withContext(Dispatchers.Default) {
+                gson.fromJson(json, songListType)
+            }
             val index = prefs.getInt(KEY_QUEUE_INDEX, 0)
             Pair(queue, index)
         } catch (e: Exception) {
