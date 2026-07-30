@@ -13,6 +13,7 @@
 # ── 入口 & 冷启动 ─────────────────────────────────────────────────────
 Lcom/takahashirinta/ncrust/MainActivity;
 Lcom/takahashirinta/ncrust/MainActivityKt;
+Lcom/takahashirinta/ncrust/NcrustApplication;
 Lcom/takahashirinta/ncrust/warmup/AppWarmup;
 Lcom/takahashirinta/ncrust/ui/screen/SplashScreen;
 Lcom/takahashirinta/ncrust/ui/screen/SplashScreenKt;
@@ -50,9 +51,10 @@ Lcom/takahashirinta/ncrust/ui/viewmodel/SongViewModel;
 # ── 通用组件 ─────────────────────────────────────────────────────────
 Lcom/takahashirinta/ncrust/ui/components/SongCardKt;
 Lcom/takahashirinta/ncrust/ui/components/DetailScaffoldKt;
-Lcom/takahashirinta/ncrust/ui/components/PlayAllCircleButtonKt;
 Lcom/takahashirinta/ncrust/ui/components/SongMenuSheetKt;
 Lcom/takahashirinta/ncrust/ui/components/PlayAllDialogKt;
+Lcom/takahashirinta/ncrust/ui/components/NcrustPivotNavKt;
+Lcom/takahashirinta/ncrust/ui/components/NcrustTabRowKt;
 Lcom/takahashirinta/ncrust/ui/BottomOverlayInsetKt;
 Lcom/takahashirinta/ncrust/ui/ResponsiveContentKt;
 
@@ -67,6 +69,8 @@ Lcom/takahashirinta/ncrust/ui/player/SlimProgressBarKt;
 # ── 主题 / i18n ──────────────────────────────────────────────────────
 Lcom/takahashirinta/ncrust/ui/theme/NcrustThemeKt;
 Lcom/takahashirinta/ncrust/ui/theme/ThemeManagerKt;
+Lcom/takahashirinta/ncrust/ui/theme/NcrustColorsKt;
+Lcom/takahashirinta/ncrust/ui/theme/NcrustTypographyKt;
 Lcom/takahashirinta/ncrust/ui/theme/MarkdownTextKt;
 Lcom/takahashirinta/ncrust/ui/i18n/Strings;
 Lcom/takahashirinta/ncrust/ui/i18n/LanguageManagerKt;
