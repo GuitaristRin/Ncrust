@@ -255,29 +255,6 @@ cd Ncrust
 
 ---
 
-## 📜 白茶
-
-我做 Ncrust 的时候，脑子里想的不是代码，不是架构，不是用户增长。
-
-我想的是白茶。
-
-清水什么也没有，太淡。
-糖水太热烈，甜得发腻。
-
-白茶不一样。
-它有味道，但温和。
-它不吵，你需要安静下来，才能品到它的回甘。
-
-Ncrust 就是白茶。
-直角是白茶，原生是白茶，无下载是白茶。
-不讨好，但有立场。
-不炫耀，但有质感。
-
-如果你习惯了糖水，Ncrust 可能不适合你。
-但如果你想试试白茶——我泡好了。
-
----
-
 ## 📄 许可证
 
 ```
@@ -310,10 +287,10 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=GuitaristRin%2FNcrust&type=date&legend=top-left">
+[[<a href="https://www.star-history.com/?repos=GuitaristRin%2FNcrust&type=date&legend=top-left">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&theme=dark&legend=top-left" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&legend=top-left" />
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&legend=top-left" />
  </picture>
-</a>
+</a>](https://www.star-history.com/?repos=GuitaristRin%2FNcrust&type=date&legend=top-left)](https://www.star-history.com/?repos=GuitaristRin%2FNcrust&type=date&legend=top-left)
