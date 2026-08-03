@@ -15,15 +15,9 @@ data class Strings(
     val back: String,
 
     // Auth / Account
-    val loginDialogTitle: String,
-    val webLoginButton: String,
-    val manualCookieHint: String,
-    val cookieFieldLabel: String,
-    val saveCookieButton: String,
     val accountDialogTitle: String,
     val nicknameLabel: (String) -> String,
     val uidLabel: (String) -> String,
-    val updateCookieButton: String,
     val logoutButton: String,
     val notLoggedIn: String,
     val loginHint: String,

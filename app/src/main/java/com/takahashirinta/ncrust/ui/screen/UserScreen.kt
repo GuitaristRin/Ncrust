@@ -58,10 +58,8 @@ fun UserScreen(
     val context = LocalContext.current
     val strings = LocalStrings.current
     val coroutineScope = rememberCoroutineScope()
-    var cookieText by remember { mutableStateOf("") }
-    var showDialog by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
-    var cookieInfo by remember { mutableStateOf(CookieManager.getCookieInfo(context)) }
+    var hasCookie by remember { mutableStateOf(CookieManager.hasCookie(context)) }
 
     var userProfile by remember { mutableStateOf<PlaylistApi.UserProfile?>(null) }
     var isLoadingProfile by remember { mutableStateOf(false) }
@@ -76,12 +74,24 @@ fun UserScreen(
     fun loadProfile() {
         if (!CookieManager.hasCookie(context)) {
             userProfile = null
+            hasCookie = false
             return
         }
         coroutineScope.launch {
             isLoadingProfile = true
             try {
-                userProfile = PlaylistApi.getUserProfile()
+                val profile = PlaylistApi.getUserProfile()
+                // 服务端对失效 cookie 会返回空 account/profile → userId=0。
+                // 此时判定为已过期，主动清除本地 cookie，避免 UI 卡在 "UID: 0"。
+                if (profile.userId == 0L) {
+                    CookieManager.clearCookie(context)
+                    RetrofitClient.updateCookie(null)
+                    hasCookie = false
+                    userProfile = null
+                } else {
+                    userProfile = profile
+                    hasCookie = true
+                }
             } catch (_: Exception) {
                 userProfile = null
             } finally {
@@ -93,38 +103,18 @@ fun UserScreen(
     LaunchedEffect(Unit) { loadProfile() }
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) {
-            cookieInfo = CookieManager.getCookieInfo(context)
+            hasCookie = CookieManager.hasCookie(context)
             loadProfile()
         }
     }
 
-    if (showDialog) LoginDialog(
-        cookieText = cookieText,
-        onCookieTextChange = { cookieText = it },
-        onDismiss = { showDialog = false },
-        onWebLogin = { showDialog = false; onShowWebLogin() },
-        onSave = {
-            CookieManager.saveCookie(context, cookieText)
-            RetrofitClient.updateCookie(cookieText)
-            cookieInfo = CookieManager.getCookieInfo(context)
-            cookieText = ""
-            showDialog = false
-            loadProfile()
-        }
-    )
-
     if (showAccountDialog) AccountDialog(
         userProfile = userProfile,
         onDismiss = { showAccountDialog = false },
-        onUpdateCookie = {
-            cookieText = CookieManager.getCookie(context) ?: ""
-            showAccountDialog = false
-            showDialog = true
-        },
         onLogout = {
             CookieManager.clearCookie(context)
             RetrofitClient.updateCookie(null)
-            cookieInfo = CookieManager.getCookieInfo(context)
+            hasCookie = false
             userProfile = null
             showAccountDialog = false
         }
@@ -153,7 +143,7 @@ fun UserScreen(
             Spacer(Modifier.height(12.dp))
         }
 
-        // Profile 块。整块可点：已登录 → 账户管理；未登录 → 登录弹窗。
+        // Profile 块。整块可点：已登录 → 账户管理；未登录 → 直接进 WebView 登录。
         item {
             ProfileBlock(
                 isLoading = isLoadingProfile,
@@ -162,8 +152,8 @@ fun UserScreen(
                 loginHintText = strings.loginHint,
                 uidLabel = strings.uidLabel(userProfile?.userId?.toString() ?: ""),
                 onClick = {
-                    if (cookieInfo.hasCookie) showAccountDialog = true
-                    else showDialog = true
+                    if (hasCookie) showAccountDialog = true
+                    else onShowWebLogin()
                 }
             )
             Spacer(Modifier.height(24.dp))
@@ -452,92 +442,9 @@ private fun MetroDropdownRow(
 }
 
 @Composable
-private fun LoginDialog(
-    cookieText: String,
-    onCookieTextChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onWebLogin: () -> Unit,
-    onSave: () -> Unit
-) {
-    val strings = LocalStrings.current
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF282828))
-                .padding(24.dp)
-        ) {
-            Text(
-                strings.loginDialogTitle,
-                color = Color.White,
-                style = LocalNcrustTypography.current.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(20.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LocalNcrustColors.current.primary)
-                    .clickable(onClick = onWebLogin)
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(strings.webLoginButton, color = Color.Black, fontWeight = FontWeight.Medium)
-            }
-
-            Spacer(Modifier.height(20.dp))
-            Text(strings.manualCookieHint, color = Color.Gray, fontSize = 13.sp)
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = cookieText,
-                onValueChange = onCookieTextChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(strings.cookieFieldLabel) },
-                shape = RectangleShape,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.Gray,
-                    focusedBorderColor = LocalNcrustColors.current.primary,
-                    unfocusedBorderColor = Color.Gray.copy(alpha = 0.4f),
-                    focusedLabelColor = LocalNcrustColors.current.primary,
-                    unfocusedLabelColor = Color.Gray,
-                    cursorColor = LocalNcrustColors.current.primary
-                ),
-                maxLines = 3
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                DialogButton(
-                    text = strings.cancel,
-                    accent = false,
-                    onClick = { onCookieTextChange(""); onDismiss() }
-                )
-                if (cookieText.isNotBlank()) {
-                    Spacer(Modifier.width(8.dp))
-                    DialogButton(
-                        text = strings.saveCookieButton,
-                        accent = true,
-                        onClick = onSave
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun AccountDialog(
     userProfile: PlaylistApi.UserProfile?,
     onDismiss: () -> Unit,
-    onUpdateCookie: () -> Unit,
     onLogout: () -> Unit
 ) {
     val strings = LocalStrings.current
@@ -575,14 +482,6 @@ private fun AccountDialog(
             }
 
             // 全宽按钮：容器 fillMaxWidth，文字 Center + 换行——极长翻译最多多占一行，不会撑破对话框。
-            FullWidthDialogButton(
-                text = strings.updateCookieButton,
-                accent = false,
-                onClick = onUpdateCookie
-            )
-
-            Spacer(Modifier.height(8.dp))
-
             FullWidthDialogButton(
                 text = strings.logoutButton,
                 accent = false,
