@@ -13,7 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.takahashirinta.ncrust.network.SongItem
-import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
+import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.screen.*
 import java.net.URLDecoder

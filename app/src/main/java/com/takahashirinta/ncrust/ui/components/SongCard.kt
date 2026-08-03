@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
-import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouPresets
+import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouPresets
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
 

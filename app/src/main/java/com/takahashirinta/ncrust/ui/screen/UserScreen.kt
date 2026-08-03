@@ -31,8 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouPresets
-import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouPresets
+import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.PlaylistApi

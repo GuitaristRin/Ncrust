@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.BuildConfig
 import com.takahashirinta.ncrust.R
 import com.takahashirinta.ncrust.ui.ResponsiveContent
-import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
+import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
 import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 

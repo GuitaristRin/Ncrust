@@ -30,8 +30,8 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.library.LibraryManager
-import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
-import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouTweens
+import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
 import com.takahashirinta.ncrust.ui.components.PlayAllButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle

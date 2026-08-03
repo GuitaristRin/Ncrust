@@ -73,6 +73,12 @@ android {
 }
 
 dependencies {
+    // Kanesumi —— Metro 组件库。通过组合构建从 ../../projects/Kanesumi 接入
+    // (见 settings.gradle.kts 的 includeBuild)。core/anim 由 controls/structure
+    // 的 api 依赖自动带出,这里只列上游两件。
+    implementation("io.github.takahashirinta:kanesumi-controls:0.1.0-SNAPSHOT")
+    implementation("io.github.takahashirinta:kanesumi-structure:0.1.0-SNAPSHOT")
+
     implementation("androidx.core:core-ktx:1.13.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.12.0")

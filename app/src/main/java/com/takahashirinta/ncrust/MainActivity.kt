@@ -62,7 +62,9 @@ import com.takahashirinta.ncrust.ui.theme.getSavedThemeIndex
 import com.takahashirinta.ncrust.ui.theme.saveThemeIndex
 import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
-import com.takahashirinta.ncrust.ui.anim.sokuou.metroViewConfiguration
+import io.github.takahashirinta.kanesumi.anim.sokuou.metroViewConfiguration
+import io.github.takahashirinta.kanesumi.core.theme.MetroColors
+import io.github.takahashirinta.kanesumi.core.theme.MetroTheme
 import com.takahashirinta.ncrust.warmup.AppWarmup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -95,6 +97,24 @@ class MainActivity : ComponentActivity() {
                 LocalViewConfiguration provides metroConfig,
             ) {
                 NcrustTheme(primaryColor = themeColorForIndex(themeIndex)) {
+                    // Kanesumi Metro* 组件读 LocalMetroColors / LocalMetroTypography,
+                    // 并通过 MetroTheme 注入的 LocalIndication -> MetroIndication 拿到直角
+                    // 闪切反馈。这里从 NcrustColors 派生 MetroColors,让两套主题源共享同一
+                    // 组配色 -- Ncrust* 与 Metro* 组件可以并存,视觉一致。
+                    // divider / onPrimary / pressTint 走 MetroColors 默认。
+                    val ncrust = LocalNcrustColors.current
+                    val metroColors = remember(ncrust) {
+                        MetroColors(
+                            background = ncrust.background,
+                            surface = ncrust.surface,
+                            surfaceVariant = ncrust.surfaceVariant,
+                            primary = ncrust.primary,
+                            onBackground = ncrust.onBackground,
+                            onSurface = ncrust.onSurface,
+                            onSurfaceVariant = ncrust.onSurfaceVariant,
+                        )
+                    }
+                    MetroTheme(colors = metroColors) {
                     var showSplash by remember { mutableStateOf(true) }
                     Box(modifier = Modifier.fillMaxSize()) {
                         MainScreen(
@@ -113,6 +133,7 @@ class MainActivity : ComponentActivity() {
                             SplashScreen(onFinished = { showSplash = false })
                         }
                     }
+                    }  // MetroTheme
                 }
             }
         }

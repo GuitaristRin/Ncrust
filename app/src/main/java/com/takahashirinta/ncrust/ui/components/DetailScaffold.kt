@@ -30,9 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
-import com.takahashirinta.ncrust.ui.anim.sokuou.MetroDefault
-import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
-import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
+import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouTweens
+import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 /**

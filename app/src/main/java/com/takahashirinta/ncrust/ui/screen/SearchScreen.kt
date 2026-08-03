@@ -1,20 +1,16 @@
 package com.takahashirinta.ncrust.ui.screen
-import com.takahashirinta.ncrust.ui.components.NcrustIconButton
-import com.takahashirinta.ncrust.ui.components.NcrustProgressIndicator
-import com.takahashirinta.ncrust.ui.components.NcrustTabRow
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
@@ -23,48 +19,51 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlaylistPlay
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.library.SearchHistoryManager
-import com.takahashirinta.ncrust.network.AlbumSearchItem
-import com.takahashirinta.ncrust.network.ArtistSearchItem
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
+import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.components.AlbumSearchItem
 import com.takahashirinta.ncrust.ui.components.ArtistSearchItem
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
-import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
-import com.takahashirinta.ncrust.ui.anim.sokuou.SokuouTweens
-import com.takahashirinta.ncrust.ui.anim.sokuou.rememberMetroFlingBehavior
-import com.takahashirinta.ncrust.ui.viewmodel.SearchViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.material3.LocalTextStyle
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
-import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.theme.desaturateColor
+import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
+import com.takahashirinta.ncrust.ui.viewmodel.SearchViewModel
+import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouTweens
+import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenu
+import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenuItem
+import io.github.takahashirinta.kanesumi.controls.MetroIconButton
+import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
+import io.github.takahashirinta.kanesumi.controls.MetroTabItem
+import io.github.takahashirinta.kanesumi.controls.MetroTabRow
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import android.widget.Toast
 
 enum class BatchQueueAction { PLAY_NOW, INSERT_NEXT, APPEND }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     onSongClick: (SongItem) -> Unit,
@@ -131,7 +130,7 @@ fun SearchScreen(
                     singleLine = true,
                     keyboardActions = KeyboardActions(onDone = {}),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 18.sp),
+                    textStyle = TextStyle(color = Color.White, fontSize = 18.sp),
                     cursorBrush = SolidColor(Color.White),
                     decorationBox = { innerTextField ->
                         Box(
@@ -142,10 +141,10 @@ fun SearchScreen(
                             contentAlignment = Alignment.CenterStart
                         ) {
                             if (query.isEmpty()) {
-                                Text(
-                                    strings.searchPlaceholder,
+                                MetroText(
+                                    text = strings.searchPlaceholder,
                                     color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 18.sp
+                                    style = TextStyle(fontSize = 18.sp),
                                 )
                             }
                             innerTextField()
@@ -153,12 +152,16 @@ fun SearchScreen(
                                 modifier = Modifier.align(Alignment.CenterEnd),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (isLoading) NcrustProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = currentThemeColor
+                                if (isLoading) MetroProgressIndicator(
+                                    sizeDp = 24.dp,
+                                    color = currentThemeColor,
                                 )
-                                if (query.isNotEmpty()) NcrustIconButton(onClick = { viewModel.clearQuery() }) {
-                                    Icon(Icons.Default.Clear, strings.clearSearchButton, tint = Color.White.copy(alpha = 0.7f))
+                                if (query.isNotEmpty()) MetroIconButton(onClick = { viewModel.clearQuery() }) {
+                                    MetroIcon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = strings.clearSearchButton,
+                                        tint = Color.White.copy(alpha = 0.7f),
+                                    )
                                 }
                             }
                         }
@@ -203,26 +206,34 @@ fun SearchScreen(
                                 onClick = {
                                     onSongClick(song)
                                 },
-                                menuContent = {
-                                    DropdownMenuItem(
-                                        text = { Text(strings.playButton, color = Color.White, fontSize = 14.sp) },
-                                        onClick = { onSongClick(song) }
+                                menuContent = { onDismiss ->
+                                    MetroDropdownMenuItem(
+                                        text = strings.playButton,
+                                        textColor = Color.White,
+                                        onClick = { onDismiss(); onSongClick(song) },
                                     )
-                                    DropdownMenuItem(
-                                        text = { Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
-                                        onClick = { onInsertNext(song) }
+                                    MetroDropdownMenuItem(
+                                        text = strings.actionInsertNext,
+                                        textColor = Color.White,
+                                        onClick = { onDismiss(); onInsertNext(song) },
                                     )
-                                    DropdownMenuItem(
-                                        text = { Text(strings.actionAddToLibrary, color = Color.White, fontSize = 14.sp) },
-                                        onClick = { LibraryManager.saveSong(context, song)
- Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show() }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(strings.searchHistoryDelete, color = Color.Red.copy(alpha = 0.85f), fontSize = 14.sp) },
+                                    MetroDropdownMenuItem(
+                                        text = strings.actionAddToLibrary,
+                                        textColor = Color.White,
                                         onClick = {
+                                            onDismiss()
+                                            LibraryManager.saveSong(context, song)
+                                            Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                                        },
+                                    )
+                                    MetroDropdownMenuItem(
+                                        text = strings.searchHistoryDelete,
+                                        textColor = Color.Red.copy(alpha = 0.85f),
+                                        onClick = {
+                                            onDismiss()
                                             SearchHistoryManager.remove(context, SearchHistoryManager.TYPE_SONG, item.id)
                                             refreshHistory()
-                                        }
+                                        },
                                     )
                                 }
                             )
@@ -244,17 +255,20 @@ fun SearchScreen(
                             SearchHistoryItemCard(
                                 item = item,
                                 onClick = { onAlbumClick(item.id) },
-                                menuContent = {
-                                    DropdownMenuItem(
-                                        text = { Text(strings.albumDetailTitle, color = Color.White, fontSize = 14.sp) },
-                                        onClick = { onAlbumClick(item.id) }
+                                menuContent = { onDismiss ->
+                                    MetroDropdownMenuItem(
+                                        text = strings.albumDetailTitle,
+                                        textColor = Color.White,
+                                        onClick = { onDismiss(); onAlbumClick(item.id) },
                                     )
-                                    DropdownMenuItem(
-                                        text = { Text(strings.searchHistoryDelete, color = Color.Red.copy(alpha = 0.85f), fontSize = 14.sp) },
+                                    MetroDropdownMenuItem(
+                                        text = strings.searchHistoryDelete,
+                                        textColor = Color.Red.copy(alpha = 0.85f),
                                         onClick = {
+                                            onDismiss()
                                             SearchHistoryManager.remove(context, SearchHistoryManager.TYPE_ALBUM, item.id)
                                             refreshHistory()
-                                        }
+                                        },
                                     )
                                 }
                             )
@@ -276,17 +290,20 @@ fun SearchScreen(
                             SearchHistoryItemCard(
                                 item = item,
                                 onClick = { onArtistClick(item.id) },
-                                menuContent = {
-                                    DropdownMenuItem(
-                                        text = { Text(strings.artistDetailTitle, color = Color.White, fontSize = 14.sp) },
-                                        onClick = { onArtistClick(item.id) }
+                                menuContent = { onDismiss ->
+                                    MetroDropdownMenuItem(
+                                        text = strings.artistDetailTitle,
+                                        textColor = Color.White,
+                                        onClick = { onDismiss(); onArtistClick(item.id) },
                                     )
-                                    DropdownMenuItem(
-                                        text = { Text(strings.searchHistoryDelete, color = Color.Red.copy(alpha = 0.85f), fontSize = 14.sp) },
+                                    MetroDropdownMenuItem(
+                                        text = strings.searchHistoryDelete,
+                                        textColor = Color.Red.copy(alpha = 0.85f),
                                         onClick = {
+                                            onDismiss()
                                             SearchHistoryManager.remove(context, SearchHistoryManager.TYPE_ARTIST, item.id)
                                             refreshHistory()
-                                        }
+                                        },
                                     )
                                 }
                             )
@@ -297,14 +314,14 @@ fun SearchScreen(
                     }
                     SearchContentState.Results -> {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            NcrustTabRow(
+                            MetroTabRow(
+                                items = categories.map { MetroTabItem(it) },
                                 selectedTabIndex = when (currentType) {
                                     1 -> 0
                                     10 -> 1
                                     100 -> 2
                                     else -> 0
                                 },
-                                titles = categories,
                                 onTabSelected = { index ->
                                     viewModel.onTypeChanged(
                                         when (index) {
@@ -318,10 +335,10 @@ fun SearchScreen(
                             )
 
                 error?.let {
-                    Text(
-                        strings.loadFailed(it),
+                    MetroText(
+                        text = strings.loadFailed(it),
                         color = Color.Red,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
 
@@ -332,7 +349,11 @@ fun SearchScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(strings.searchSongsEmpty, color = Color.Gray, fontSize = 16.sp)
+                                MetroText(
+                                    text = strings.searchSongsEmpty,
+                                    color = Color.Gray,
+                                    style = TextStyle(fontSize = 16.sp),
+                                )
                             }
                         } else {
                             LazyColumn(
@@ -378,7 +399,11 @@ fun SearchScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(strings.searchAlbumsEmpty, color = Color.Gray, fontSize = 16.sp)
+                                MetroText(
+                                    text = strings.searchAlbumsEmpty,
+                                    color = Color.Gray,
+                                    style = TextStyle(fontSize = 16.sp),
+                                )
                             }
                         } else {
                             LazyColumn(
@@ -394,22 +419,24 @@ fun SearchScreen(
                                             onAlbumClick(album.id)
                                         },
                                         menuContent = {
-                                            DropdownMenuItem(
-                                                text = { Text(strings.playAllButton, color = Color.White, fontSize = 14.sp) },
+                                            // AlbumSearchItem 内部仍是 M3 DropdownMenuItem
+                                            // (那个组件本次未迁,菜单契约保持不变)。
+                                            androidx.compose.material3.DropdownMenuItem(
+                                                text = { androidx.compose.material3.Text(strings.playAllButton, color = Color.White, fontSize = 14.sp) },
                                                 onClick = {
                                                     SearchHistoryManager.addAlbum(context, album)
                                                     onAlbumBatch(album.id, BatchQueueAction.PLAY_NOW)
                                                 }
                                             )
-                                            DropdownMenuItem(
-                                                text = { Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
+                                            androidx.compose.material3.DropdownMenuItem(
+                                                text = { androidx.compose.material3.Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
                                                 onClick = {
                                                     SearchHistoryManager.addAlbum(context, album)
                                                     onAlbumBatch(album.id, BatchQueueAction.INSERT_NEXT)
                                                 }
                                             )
-                                            DropdownMenuItem(
-                                                text = { Text(strings.actionAppendToQueue, color = Color.White, fontSize = 14.sp) },
+                                            androidx.compose.material3.DropdownMenuItem(
+                                                text = { androidx.compose.material3.Text(strings.actionAppendToQueue, color = Color.White, fontSize = 14.sp) },
                                                 onClick = {
                                                     SearchHistoryManager.addAlbum(context, album)
                                                     onAlbumBatch(album.id, BatchQueueAction.APPEND)
@@ -428,7 +455,11 @@ fun SearchScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(strings.searchArtistsEmpty, color = Color.Gray, fontSize = 16.sp)
+                                MetroText(
+                                    text = strings.searchArtistsEmpty,
+                                    color = Color.Gray,
+                                    style = TextStyle(fontSize = 16.sp),
+                                )
                             }
                         } else {
                             LazyColumn(
@@ -444,22 +475,23 @@ fun SearchScreen(
                                             onArtistClick(artist.id)
                                         },
                                         menuContent = {
-                                            DropdownMenuItem(
-                                                text = { Text(strings.playAllButton, color = Color.White, fontSize = 14.sp) },
+                                            // 同上,ArtistSearchItem 未迁,菜单契约保持 M3。
+                                            androidx.compose.material3.DropdownMenuItem(
+                                                text = { androidx.compose.material3.Text(strings.playAllButton, color = Color.White, fontSize = 14.sp) },
                                                 onClick = {
                                                     SearchHistoryManager.addArtist(context, artist)
                                                     onArtistBatch(artist.name, BatchQueueAction.PLAY_NOW)
                                                 }
                                             )
-                                            DropdownMenuItem(
-                                                text = { Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
+                                            androidx.compose.material3.DropdownMenuItem(
+                                                text = { androidx.compose.material3.Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
                                                 onClick = {
                                                     SearchHistoryManager.addArtist(context, artist)
                                                     onArtistBatch(artist.name, BatchQueueAction.INSERT_NEXT)
                                                 }
                                             )
-                                            DropdownMenuItem(
-                                                text = { Text(strings.actionAppendToQueue, color = Color.White, fontSize = 14.sp) },
+                                            androidx.compose.material3.DropdownMenuItem(
+                                                text = { androidx.compose.material3.Text(strings.actionAppendToQueue, color = Color.White, fontSize = 14.sp) },
                                                 onClick = {
                                                     SearchHistoryManager.addArtist(context, artist)
                                                     onArtistBatch(artist.name, BatchQueueAction.APPEND)
@@ -493,15 +525,24 @@ private fun SearchHistorySectionHeader(title: String, clearLabel: String, onClea
             .padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            title,
+        MetroText(
+            text = title,
             color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f)
+            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+            modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = onClear) {
-            Text(clearLabel, color = Color.Gray, fontSize = 12.sp)
+        // TextButton 替换:直角矩形 tap target,无背景 -- 与 Metro 的 "borderless"
+        // 原则契合。padding 补齐视觉高度。
+        Box(
+            modifier = Modifier
+                .clickable(onClick = onClear)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            MetroText(
+                text = clearLabel,
+                color = Color.Gray,
+                style = TextStyle(fontSize = 12.sp),
+            )
         }
     }
 }
@@ -511,7 +552,7 @@ private fun SearchHistorySectionHeader(title: String, clearLabel: String, onClea
 private fun SearchHistoryItemCard(
     item: SearchHistoryManager.HistoryItem,
     onClick: () -> Unit,
-    menuContent: @Composable ColumnScope.() -> Unit
+    menuContent: @Composable ColumnScope.(onDismiss: () -> Unit) -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     Box {
@@ -533,31 +574,30 @@ private fun SearchHistoryItemCard(
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    item.title,
+                MetroText(
+                    text = item.title,
                     color = Color.White,
-                    style = LocalNcrustTypography.current.bodyLarge,
+                    style = LocalMetroTypography.current.bodyLarge,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (!item.subtitle.isNullOrEmpty()) {
-                    Text(
-                        item.subtitle,
+                    MetroText(
+                        text = item.subtitle,
                         color = Color.Gray,
-                        style = LocalNcrustTypography.current.bodySmall,
+                        style = LocalMetroTypography.current.bodySmall,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
         }
-        DropdownMenu(
+        MetroDropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            shape = RectangleShape,
-            containerColor = Color(0xFF282828)
+            containerColor = Color(0xFF282828),
         ) {
-            menuContent()
+            menuContent { showMenu = false }
         }
     }
 }
@@ -585,28 +625,25 @@ fun SongSearchItem(
         coverSize = 56.dp,
         onClick = onPlay,
         actions = {
-            NcrustIconButton(onClick = onAddToLibrary) {
-                Icon(
-                    Icons.Default.Add,
-                    strings.actionAddToLibrary,
+            MetroIconButton(onClick = onAddToLibrary) {
+                MetroIcon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = strings.actionAddToLibrary,
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
                 )
             }
-            NcrustIconButton(onClick = onInsertNext) {
-                Icon(
-                    Icons.AutoMirrored.Filled.PlaylistPlay,
-                    strings.actionInsertNext,
+            MetroIconButton(onClick = onInsertNext) {
+                MetroIcon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                    contentDescription = strings.actionInsertNext,
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
                 )
             }
-            NcrustIconButton(onClick = onAppendToQueue) {
-                Icon(
-                    Icons.AutoMirrored.Filled.PlaylistAdd,
-                    strings.actionAddToPlaylist,
+            MetroIconButton(onClick = onAppendToQueue) {
+                MetroIcon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    contentDescription = strings.actionAddToPlaylist,
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
                 )
             }
         }
