@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -148,7 +147,6 @@ fun formatDuration(ms: Long): String {
     return "%d:%02d".format(minutes, seconds)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     themeIndex: Int = 0,
@@ -633,8 +631,12 @@ fun MainScreen(
         )
         } // end PlayerCardOverlay wrapper
 
-        Scaffold(containerColor = Color.Transparent) { innerPadding ->
-            Box(modifier = Modifier.padding(innerPadding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.systemBars.asPaddingValues())
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 // 主 tab 屏一直挂载（下层）：以前用 if(isInMain) 条件挂载，导航返回时
                 // tab 屏瞬间 mount + LaunchedEffect 立即触发，撞在 nav slide 动画的第一帧
                 // → 主线程 gg，返回感觉卡。现在 tab 屏永远存在，nav 详情页通过 opaque bg
