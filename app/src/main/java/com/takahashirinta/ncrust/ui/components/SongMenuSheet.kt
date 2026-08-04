@@ -1,29 +1,25 @@
 package com.takahashirinta.ncrust.ui.components
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
-import kotlinx.coroutines.launch
+import io.github.takahashirinta.kanesumi.controls.MetroBottomSheet
+import io.github.takahashirinta.kanesumi.controls.MetroDivider
+import io.github.takahashirinta.kanesumi.core.insets.metroNavigationBarsPadding
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
 data class SongMenuAction(
     val icon: ImageVector,
@@ -37,73 +33,15 @@ fun SongMenuSheet(
     actions: List<SongMenuAction>,
     onDismiss: () -> Unit
 ) {
-    val progress = remember { Animatable(0f) }
-    val coroutineScope = rememberCoroutineScope()
-    var sheetHeightPx by remember { mutableStateOf(0f) }
-
-    LaunchedEffect(Unit) {
-        progress.animateTo(1f, tween(400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
-    }
-
-    fun animateDismiss() {
-        coroutineScope.launch {
-            progress.animateTo(0f, tween(260, easing = FastOutSlowInEasing))
-            onDismiss()
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Scrim — 点击收起
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = progress.value * 0.6f }
-                .background(Color.Black)
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() }
-                ) { animateDismiss() }
-        )
-
-        // Sheet 主体
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .onSizeChanged { sheetHeightPx = it.height.toFloat() }
-                .graphicsLayer { translationY = size.height * (1f - progress.value) }
-                .background(LocalNcrustColors.current.surface)
-        ) {
-            // 信息区：可拖拽下滑收起
+    MetroBottomSheet(
+        onDismiss = onDismiss,
+        // 信息区作为 dragHandle：MetroBottomSheet 只在 handle 区挂纵向拖拽手势，
+        // 语义与旧实现（整块信息区可下滑收起）一致。
+        dragHandle = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(112.dp)
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onDragStart = {},
-                            onDragEnd = {
-                                coroutineScope.launch {
-                                    if (progress.value < 0.6f) {
-                                        progress.animateTo(0f, tween(260, easing = FastOutSlowInEasing))
-                                        onDismiss()
-                                    } else {
-                                        progress.animateTo(1f, tween(300, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
-                                    }
-                                }
-                            },
-                            onVerticalDrag = { change, dragAmount ->
-                                change.consume()
-                                if (sheetHeightPx > 0f) {
-                                    coroutineScope.launch {
-                                        progress.snapTo(
-                                            (progress.value - dragAmount / sheetHeightPx).coerceIn(0f, 1f)
-                                        )
-                                    }
-                                }
-                            }
-                        )
-                    },
+                    .height(112.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 直角封面，贴屏左边缘，112dp = 2x 迷你播放栏封面高
@@ -120,69 +58,65 @@ fun SongMenuSheet(
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
+                    MetroText(
                         song.name,
                         color = Color.White,
-                        style = LocalNcrustTypography.current.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        style = LocalMetroTypography.current.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(
+                    MetroText(
                         song.artists?.joinToString("/") { it.name } ?: "",
-                        color = LocalNcrustColors.current.primary,
-                        style = LocalNcrustTypography.current.bodyMedium,
+                        color = LocalMetroColors.current.primary,
+                        style = LocalMetroTypography.current.bodyMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     val albumName = song.album?.name
                     if (!albumName.isNullOrEmpty()) {
                         Spacer(Modifier.height(2.dp))
-                        Text(
+                        MetroText(
                             albumName,
                             color = Color.Gray,
-                            style = LocalNcrustTypography.current.bodySmall,
+                            style = LocalMetroTypography.current.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
+        },
+    ) {
+        MetroDivider()
 
-            HorizontalDivider(color = Color(0xFF2A2A2A))
-
-            // 可扩展操作列表
-            actions.forEach { action ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() }
-                        ) {
-                            action.onClick()
-                            animateDismiss()
-                        }
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        action.icon,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(Modifier.width(16.dp))
-                    Text(
-                        action.label,
-                        color = Color.White,
-                        style = LocalNcrustTypography.current.bodyLarge
-                    )
-                }
+        // 可扩展操作列表
+        actions.forEach { action ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        action.onClick()
+                        onDismiss()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MetroIcon(
+                    imageVector = action.icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    sizeDp = 24.dp
+                )
+                Spacer(Modifier.width(16.dp))
+                MetroText(
+                    action.label,
+                    color = Color.White,
+                    style = LocalMetroTypography.current.bodyLarge
+                )
             }
-
-            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
+
+        Spacer(Modifier.metroNavigationBarsPadding())
     }
 }
