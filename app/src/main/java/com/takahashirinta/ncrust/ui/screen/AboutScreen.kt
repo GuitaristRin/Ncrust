@@ -1,6 +1,4 @@
 package com.takahashirinta.ncrust.ui.screen
-import com.takahashirinta.ncrust.ui.components.NcrustIconButton
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -15,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -24,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -32,6 +30,9 @@ import com.takahashirinta.ncrust.BuildConfig
 import com.takahashirinta.ncrust.R
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
+import io.github.takahashirinta.kanesumi.controls.MetroDivider
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
@@ -39,11 +40,10 @@ import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 // 避免发版时忘记同步。
 private val VERSION = "v${BuildConfig.VERSION_NAME}"
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
     val s = LocalStrings.current
-    val accent = LocalNcrustColors.current.primary
+    val accent = LocalMetroColors.current.primary
     BackHandler { onBack() }
     // Groove 无边框：不再套 M3 TopAppBar Surface，返回箭头浮在内容上方共用 TopScrimIconButton。
     Box(
@@ -73,12 +73,12 @@ fun AboutScreen(onBack: () -> Unit) {
                             contentScale = ContentScale.Fit
                         )
                         Spacer(Modifier.height(16.dp))
-                        Text("Ncrust", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = accent)
-                        Text(VERSION, fontSize = 14.sp, color = accent.copy(alpha = 0.72f))
+                        MetroText("Ncrust", color = accent, style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold))
+                        MetroText(VERSION, color = accent.copy(alpha = 0.72f), style = TextStyle(fontSize = 14.sp))
                         Spacer(Modifier.height(6.dp))
-                        Text(s.aboutAppSubtitle, fontSize = 13.sp, color = Color(0xFF888888))
+                        MetroText(s.aboutAppSubtitle, color = Color(0xFF888888), style = TextStyle(fontSize = 13.sp))
                         Spacer(Modifier.height(28.dp))
-                        HorizontalDivider(color = Color(0xFF272727))
+                        MetroDivider(color = Color(0xFF272727))
                         Spacer(Modifier.height(20.dp))
                     }
                 }
@@ -158,12 +158,10 @@ private fun CascadeBlock(delayMillis: Int, content: @Composable () -> Unit) {
 
 @Composable
 private fun AboutSection(title: String, accent: Color) {
-    Text(
+    MetroText(
         title,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
         color = accent,
-        letterSpacing = 1.5.sp,
+        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 10.dp)
@@ -179,17 +177,16 @@ private fun AboutRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
+        MetroText(
             label,
-            fontSize = 13.sp,
             color = Color(0xFF888888),
+            style = TextStyle(fontSize = 13.sp),
             modifier = Modifier.weight(1f)
         )
-        Text(
+        MetroText(
             value,
-            fontSize = 13.sp,
             color = Color(0xFFDDDDDD),
-            textAlign = TextAlign.End,
+            style = TextStyle(fontSize = 13.sp, textAlign = TextAlign.End),
             modifier = Modifier.weight(1.5f)
         )
     }
