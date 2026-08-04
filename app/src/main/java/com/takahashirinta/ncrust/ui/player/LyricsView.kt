@@ -1,41 +1,53 @@
 package com.takahashirinta.ncrust.ui.player
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.lerp
 import com.takahashirinta.ncrust.lyric.LrcLine
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import io.github.takahashirinta.kanesumi.controls.MetroLyricLine
+import io.github.takahashirinta.kanesumi.controls.MetroLyricsPanel
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
-import kotlin.math.abs
 
+/**
+ * 歌词面板 —— 渲染交给 Kanesumi 的 MetroLyricsPanel(左对齐大字,每行独立
+ * 弹簧单位,静态效果 = 原版 LazyColumn 实现)。这里只做播放器侧对接:
+ *
+ *  - 位置外推:Service 侧刻意保持 2Hz 广播(见 PlaybackService.startProgressUpdates
+ *    注释),若直接喂给面板,跨行检测会滞后最多 500ms。这里用 withFrameNanos
+ *    在帧时钟上做线性外推(播放时 position ≈ 墙钟),让当前行切换精确落在
+ *    时间戳上;暂停/隐藏时停掉帧循环,不空转。锚点在每次 2Hz 采样到达时
+ *    重置,外推永远从最近真实值出发。
+ *  - tap-to-seek:点击行 → 本地立即跳 position + 回调解绑回调,瞬时反馈。
+ */
 @Composable
 fun LyricsView(
     lyrics: List<LrcLine>,
     positionFlow: StateFlow<Long>,
+    isPlaying: Boolean,
     isVisible: Boolean,
     onSeekToMs: (Long) -> Unit,
-    onUserScrolled: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    onUserScrolled: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     if (lyrics.isEmpty()) {
@@ -45,165 +57,79 @@ fun LyricsView(
         return
     }
 
-    // 订阅位置流：collectAsState 创建 State，不订阅本 Composable
+    // list 引用保持稳定,让面板的测量缓存以它为 key 不被误清。
+    val metroLines = remember(lyrics) { lyrics.map { MetroLyricLine(it.timeMs, it.text) } }
+
+    // 订阅位置流:collectAsState 建 State;displayPosition 只在面板 draw/derived
+    // 阶段被读,帧循环每帧写一次也只 invalidateDraw,不触发本 Composable 重组。
     val positionState = positionFlow.collectAsState()
-    // currentIndex 只有跨行时才变化 → 下游读者仅在跨行时重组，非每 250ms
-    val currentIndex by remember(lyrics) {
-        derivedStateOf {
-            val pos = positionState.value
-            var idx = -1
-            for (i in lyrics.indices) {
-                if (lyrics[i].timeMs <= pos) idx = i else break
+    val displayPosition = remember { mutableLongStateOf(0L) }
+    val anchor = remember { PositionAnchor().apply { anchorNanos = System.nanoTime() } }
+
+    // 2Hz 采样到达时重置外推锚点(首帧前锚点已就位,避免一帧闪到末尾)。
+    LaunchedEffect(Unit) {
+        snapshotFlow { positionState.value }.collect { pos ->
+            anchor.anchorPosMs = pos
+            anchor.anchorNanos = System.nanoTime()
+        }
+    }
+
+    // 帧时钟外推:只在播放且可见时跑。暂停/隐藏即停,不空转。
+    LaunchedEffect(isPlaying, isVisible) {
+        if (!isPlaying || !isVisible) {
+            displayPosition.longValue = positionState.value
+            return@LaunchedEffect
+        }
+        while (true) {
+            withFrameNanos { now ->
+                displayPosition.longValue =
+                    anchor.anchorPosMs + (now - anchor.anchorNanos) / 1_000_000L
             }
-            idx
-        }
-    }
-
-    val listState = rememberLazyListState()
-    var userScrolling by remember { mutableStateOf(false) }
-    var programmaticScrolling by remember { mutableStateOf(false) }
-    var lastAutoScrolledIndex by remember { mutableIntStateOf(-1) }
-
-    // Drives per-line alpha/scale in graphicsLayer — only invalidates draw phase, never recomposition
-    val smoothCurrentIndex = remember { Animatable(currentIndex.coerceAtLeast(0).toFloat()) }
-
-    LaunchedEffect(currentIndex) {
-        if (currentIndex >= 0) {
-            smoothCurrentIndex.animateTo(
-                currentIndex.toFloat(),
-                tween(180, easing = FastOutSlowInEasing)
-            )
-        }
-    }
-
-    val lyricsKey = remember(lyrics) { lyrics.hashCode() }
-    LaunchedEffect(lyricsKey) {
-        userScrolling = false
-        lastAutoScrolledIndex = -1
-        smoothCurrentIndex.snapTo(0f)
-        listState.scrollToItem(0)
-    }
-
-    fun scrollOffset(): Int {
-        val vh = listState.layoutInfo.viewportSize.height
-        return if (vh > 0) -(vh * 0.36f).toInt() else 0
-    }
-
-    // Instant jump when lyrics panel opens; waits one frame for layout if needed
-    LaunchedEffect(isVisible) {
-        if (!isVisible || lyrics.isEmpty()) return@LaunchedEffect
-        var vh = listState.layoutInfo.viewportSize.height
-        if (vh == 0) { delay(16); vh = listState.layoutInfo.viewportSize.height }
-        val idx = currentIndex.coerceAtLeast(0)
-        val offset = if (vh > 0) -(vh * 0.36f).toInt() else 0
-        smoothCurrentIndex.snapTo(idx.toFloat())
-        // index +1 accounts for the leading top-spacer item
-        listState.scrollToItem((idx + 1).coerceIn(1, lyrics.size), offset)
-        lastAutoScrolledIndex = idx
-    }
-
-    // Auto-scroll on lyric line change
-    LaunchedEffect(currentIndex) {
-        if (!isVisible || userScrolling || currentIndex < 0 || currentIndex == lastAutoScrolledIndex) return@LaunchedEffect
-        lastAutoScrolledIndex = currentIndex
-        val offset = scrollOffset()
-        try {
-            programmaticScrolling = true
-            listState.animateScrollToItem((currentIndex + 1).coerceIn(1, lyrics.size), offset)
-        } finally {
-            programmaticScrolling = false
-        }
-    }
-
-    // Detect manual scroll; resume auto-scroll after 5s
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress && !programmaticScrolling) {
-            if (!userScrolling) {
-                userScrolling = true
-                onUserScrolled()
-            }
-        } else if (!listState.isScrollInProgress && userScrolling) {
-            delay(5000)
-            userScrolling = false
-            lastAutoScrolledIndex = -1
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            userScrollEnabled = enabled,
+        MetroLyricsPanel(
+            lines = metroLines,
+            currentPositionMillis = { displayPosition.longValue },
+            isVisible = isVisible,
+            enabled = enabled,
+            onLineClick = if (enabled) { ms ->
+                // 点击行:本地立即定位,不等 2Hz 采样回传,seek 手感即时。
+                anchor.anchorPosMs = ms
+                anchor.anchorNanos = System.nanoTime()
+                displayPosition.longValue = ms
+                onSeekToMs(ms)
+            } else { _ -> },
+            onUserScrolled = onUserScrolled,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),
-        ) {
-            item(key = "top_spacer") { Spacer(Modifier.height(200.dp)) }
+        )
 
-            itemsIndexed(lyrics, key = { index, _ -> index }) { index, line ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .pointerInput(enabled, line.timeMs) {
-                            if (enabled) detectTapGestures {
-                                userScrolling = false
-                                lastAutoScrolledIndex = -1
-                                onSeekToMs(line.timeMs)
-                            }
-                        }
-                        .padding(vertical = 10.dp)
-                ) {
-                    MetroText(
-                        text = line.text,
-                        style = TextStyle(
-                            fontSize = 32.sp,                          // ← 恢复原来字号
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 42.sp,                        // ← 恢复原来行高
-                        ),
-                        softWrap = true,
-                        color = when {
-                            index < currentIndex -> Color.White.copy(alpha = 0.6f)
-                            index == currentIndex -> LocalMetroColors.current.primary
-                            else -> Color.Gray.copy(alpha = 0.4f)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                val dist = abs(index.toFloat() - smoothCurrentIndex.value)
-                                // 激活行保持全尺寸，非激活行缩小；营造 Apple Music 的层次感
-                                val scale = lerp(1.0f, 0.82f, (dist / 1.8f).coerceIn(0f, 1f))
-                                scaleX = scale
-                                scaleY = scale
-                                transformOrigin = TransformOrigin(0f, 0.5f)
-                            }
-                    )
-                }
-            }
-
-            item(key = "bottom_spacer") { Spacer(Modifier.height(200.dp)) }
-        }
-
+        // 上下边缘淡出,让歌词从黑里浮出来(沿用原实现)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
                 .align(Alignment.TopCenter)
                 .background(
-                    Brush.verticalGradient(
-                        listOf(LocalMetroColors.current.background, Color.Transparent)
-                    )
+                    Brush.verticalGradient(listOf(LocalMetroColors.current.background, Color.Transparent))
                 )
         )
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
                 .align(Alignment.BottomCenter)
                 .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, LocalMetroColors.current.background)
-                    )
+                    Brush.verticalGradient(listOf(Color.Transparent, LocalMetroColors.current.background))
                 )
         )
     }
+}
+
+private class PositionAnchor {
+    var anchorPosMs: Long = 0L
+    var anchorNanos: Long = 0L
 }

@@ -276,10 +276,11 @@ fun PlayerCard(
                             LyricsView(
                                 lyrics = lyrics,
                                 positionFlow = playerViewModel.currentPosition,
+                                isPlaying = isPlaying,
                                 isVisible = showLyrics,
                                 onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
+                                enabled = lyricsEnabled,
                                 onUserScrolled = {},
-                                enabled = lyricsEnabled
                             )
                         }
 
