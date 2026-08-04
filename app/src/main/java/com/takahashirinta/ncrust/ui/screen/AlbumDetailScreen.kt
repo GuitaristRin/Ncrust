@@ -1,5 +1,4 @@
 package com.takahashirinta.ncrust.ui.screen
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,11 +14,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlaylistPlay
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +35,8 @@ import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import android.widget.Toast
 
 @Composable
@@ -127,11 +128,10 @@ fun AlbumDetailScreen(
                                     }
                                     .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text(
+                                MetroText(
                                     strings.actionSaveAlbum,
-                                    color = LocalNcrustColors.current.primary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    color = LocalMetroColors.current.primary,
+                                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 )
                             }
                         }

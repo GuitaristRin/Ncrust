@@ -1,7 +1,4 @@
 package com.takahashirinta.ncrust.ui.screen
-import com.takahashirinta.ncrust.ui.components.NcrustTabRow
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,13 +7,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlaylistPlay
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +28,10 @@ import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import io.github.takahashirinta.kanesumi.controls.MetroTabItem
+import io.github.takahashirinta.kanesumi.controls.MetroTabRow
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.launch
 import android.widget.Toast
 
@@ -136,25 +137,24 @@ fun ArtistDetailScreen(
             Column(modifier = Modifier.statusBarsPadding()) {
                 Spacer(Modifier.height(56.dp))
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text(
+                    MetroText(
                         artist?.name ?: strings.unknownArtistName,
                         color = Color.White,
-                        fontSize = 32.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
+                        style = TextStyle(fontSize = 32.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Normal)
                     )
                     Spacer(Modifier.height(6.dp))
                     Row {
                         artist?.albumSize?.let {
-                            Text(strings.artistAlbumCount(it), color = Color.Gray, fontSize = 14.sp)
+                            MetroText(strings.artistAlbumCount(it), color = Color.Gray, style = TextStyle(fontSize = 14.sp))
                             Spacer(Modifier.width(16.dp))
                         }
-                        artist?.musicSize?.let { Text(strings.artistSongCount(it), color = Color.Gray, fontSize = 14.sp) }
+                        artist?.musicSize?.let { MetroText(strings.artistSongCount(it), color = Color.Gray, style = TextStyle(fontSize = 14.sp)) }
                     }
                 }
                 Spacer(Modifier.height(20.dp))
-                NcrustTabRow(
+                MetroTabRow(
+                    items = listOf(MetroTabItem(strings.categoryAlbums), MetroTabItem(strings.categoryTracks)),
                     selectedTabIndex = selectedTab,
-                    titles = listOf(strings.categoryAlbums, strings.categoryTracks),
                     onTabSelected = { index -> selectedTab = index }
                 )
                 Spacer(Modifier.height(12.dp))
@@ -166,7 +166,7 @@ fun ArtistDetailScreen(
                     if (albums.isEmpty()) {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                                Text(strings.noAlbums, color = Color.Gray, fontSize = 16.sp)
+                                MetroText(strings.noAlbums, color = Color.Gray, style = TextStyle(fontSize = 16.sp))
                             }
                         }
                     } else {
@@ -186,7 +186,7 @@ fun ArtistDetailScreen(
                     if (hotSongs.isEmpty()) {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                                Text(strings.noHotSongs, color = Color.Gray, fontSize = 16.sp)
+                                MetroText(strings.noHotSongs, color = Color.Gray, style = TextStyle(fontSize = 16.sp))
                             }
                         }
                     } else {
@@ -224,10 +224,10 @@ fun ArtistAlbumGridItem(album: ArtistAlbumItem, modifier: Modifier = Modifier, o
     Column(modifier = modifier.clickable { onClick() }) {
         AsyncImage(model = album.picUrl, contentDescription = strings.albumCoverDesc, modifier = Modifier.fillMaxWidth().aspectRatio(1f), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(6.dp))
-        Text(album.name, color = Color.White, style = LocalNcrustTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(album.name, color = Color.White, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         album.publishTime?.let {
             val year = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
-            Text("$year · ${strings.trackCount(album.size ?: 0)}", color = Color.Gray, style = LocalNcrustTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+            MetroText("$year · ${strings.trackCount(album.size ?: 0)}", color = Color.Gray, style = LocalMetroTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         }
         Spacer(Modifier.height(6.dp))
     }

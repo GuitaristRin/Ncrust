@@ -1,6 +1,4 @@
 package com.takahashirinta.ncrust.ui.screen
-import com.takahashirinta.ncrust.ui.components.NcrustIconButton
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,7 +6,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,8 +15,9 @@ import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.SongViewModel
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
     val strings = LocalStrings.current
@@ -48,27 +46,27 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
                     .padding(start = 16.dp, end = 16.dp, top = 72.dp, bottom = 16.dp)
             ) {
                 songDetail?.let { song ->
-                    Text(song.name, color = Color.White, style = LocalNcrustTypography.current.headlineMedium)
+                    MetroText(song.name, color = Color.White, style = LocalMetroTypography.current.headlineMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
+                    MetroText(
                         song.artists.joinToString("/") { it.name },
                         color = Color(0xFF1DB954),
-                        style = LocalNcrustTypography.current.titleMedium
+                        style = LocalMetroTypography.current.titleMedium
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(song.album.name ?: strings.unknownAlbum, color = Color.Gray)
+                    MetroText(song.album.name ?: strings.unknownAlbum, color = Color.Gray)
                     if (song.duration > 0) {
-                        Text(formatDuration(song.duration), color = Color.Gray)
+                        MetroText(formatDuration(song.duration), color = Color.Gray)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-                Text(strings.lyricsLabel, color = Color.White, style = LocalNcrustTypography.current.titleLarge)
+                MetroText(strings.lyricsLabel, color = Color.White, style = LocalMetroTypography.current.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 lyric?.let { lrc ->
-                    Text(lrc, color = Color.White, style = LocalNcrustTypography.current.bodyMedium)
-                } ?: Text(strings.noLyrics, color = Color.Gray)
+                    MetroText(lrc, color = Color.White, style = LocalMetroTypography.current.bodyMedium)
+                } ?: MetroText(strings.noLyrics, color = Color.Gray)
             }
         }
 
