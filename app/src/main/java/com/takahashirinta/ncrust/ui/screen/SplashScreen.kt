@@ -3,17 +3,18 @@ package com.takahashirinta.ncrust.ui.screen
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.graphicsLayer
 import com.takahashirinta.ncrust.warmup.AppWarmup
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -43,26 +44,23 @@ fun SplashScreen(onFinished: () -> Unit) {
             modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
+            MetroText(
                 "Ncrust",
                 color = Color(0xFF1DB954),
-                fontSize = 48.sp,
-                fontWeight = FontWeight.ExtraBold
+                style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
             )
             Spacer(Modifier.height(8.dp))
-            Text(
+            MetroText(
                 "A Re-defined Music Player",
                 color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal
+                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal)
             )
         }
 
-        Text(
+        MetroText(
             "Artwork by Project Arcturius",
             color = Color.Gray.copy(alpha = 0.5f),
-            fontSize = 12.sp,
-            textAlign = TextAlign.Center,
+            style = TextStyle(fontSize = 12.sp, textAlign = TextAlign.Center),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 48.dp)
