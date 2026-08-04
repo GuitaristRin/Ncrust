@@ -418,28 +418,29 @@ fun SearchScreen(
                                             SearchHistoryManager.addAlbum(context, album)
                                             onAlbumClick(album.id)
                                         },
-                                        menuContent = {
-                                            // AlbumSearchItem 内部仍是 M3 DropdownMenuItem
-                                            // (那个组件本次未迁,菜单契约保持不变)。
-                                            androidx.compose.material3.DropdownMenuItem(
-                                                text = { androidx.compose.material3.Text(strings.playAllButton, color = Color.White, fontSize = 14.sp) },
+                                        menuContent = { onDismiss ->
+                                            MetroDropdownMenuItem(
+                                                text = strings.playAllButton,
                                                 onClick = {
                                                     SearchHistoryManager.addAlbum(context, album)
                                                     onAlbumBatch(album.id, BatchQueueAction.PLAY_NOW)
+                                                    onDismiss()
                                                 }
                                             )
-                                            androidx.compose.material3.DropdownMenuItem(
-                                                text = { androidx.compose.material3.Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
+                                            MetroDropdownMenuItem(
+                                                text = strings.actionInsertNext,
                                                 onClick = {
                                                     SearchHistoryManager.addAlbum(context, album)
                                                     onAlbumBatch(album.id, BatchQueueAction.INSERT_NEXT)
+                                                    onDismiss()
                                                 }
                                             )
-                                            androidx.compose.material3.DropdownMenuItem(
-                                                text = { androidx.compose.material3.Text(strings.actionAppendToQueue, color = Color.White, fontSize = 14.sp) },
+                                            MetroDropdownMenuItem(
+                                                text = strings.actionAppendToQueue,
                                                 onClick = {
                                                     SearchHistoryManager.addAlbum(context, album)
                                                     onAlbumBatch(album.id, BatchQueueAction.APPEND)
+                                                    onDismiss()
                                                 }
                                             )
                                         }
@@ -474,27 +475,29 @@ fun SearchScreen(
                                             SearchHistoryManager.addArtist(context, artist)
                                             onArtistClick(artist.id)
                                         },
-                                        menuContent = {
-                                            // 同上,ArtistSearchItem 未迁,菜单契约保持 M3。
-                                            androidx.compose.material3.DropdownMenuItem(
-                                                text = { androidx.compose.material3.Text(strings.playAllButton, color = Color.White, fontSize = 14.sp) },
+                                        menuContent = { onDismiss ->
+                                            MetroDropdownMenuItem(
+                                                text = strings.playAllButton,
                                                 onClick = {
                                                     SearchHistoryManager.addArtist(context, artist)
                                                     onArtistBatch(artist.name, BatchQueueAction.PLAY_NOW)
+                                                    onDismiss()
                                                 }
                                             )
-                                            androidx.compose.material3.DropdownMenuItem(
-                                                text = { androidx.compose.material3.Text(strings.actionInsertNext, color = Color.White, fontSize = 14.sp) },
+                                            MetroDropdownMenuItem(
+                                                text = strings.actionInsertNext,
                                                 onClick = {
                                                     SearchHistoryManager.addArtist(context, artist)
                                                     onArtistBatch(artist.name, BatchQueueAction.INSERT_NEXT)
+                                                    onDismiss()
                                                 }
                                             )
-                                            androidx.compose.material3.DropdownMenuItem(
-                                                text = { androidx.compose.material3.Text(strings.actionAppendToQueue, color = Color.White, fontSize = 14.sp) },
+                                            MetroDropdownMenuItem(
+                                                text = strings.actionAppendToQueue,
                                                 onClick = {
                                                     SearchHistoryManager.addArtist(context, artist)
                                                     onArtistBatch(artist.name, BatchQueueAction.APPEND)
+                                                    onDismiss()
                                                 }
                                             )
                                         }
