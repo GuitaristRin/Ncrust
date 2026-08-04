@@ -99,6 +99,7 @@ data class Strings(
     val aboutSectionTechStack: String,
     val aboutLangLabel: String,
     val aboutUIFrameworkLabel: String,
+    val aboutDesignSystemLabel: String = "Design System",
     val aboutAudioEngineLabel: String,
     val aboutNetworkLabel: String,
     val aboutImageLabel: String,

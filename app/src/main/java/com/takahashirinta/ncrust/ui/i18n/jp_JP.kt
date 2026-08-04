@@ -88,6 +88,7 @@ val jpJP = Strings(
     aboutSectionTechStack = "技術スタック",
     aboutLangLabel = "言語",
     aboutUIFrameworkLabel = "UIフレームワーク",
+    aboutDesignSystemLabel = "UIコンポーネント",
     aboutAudioEngineLabel = "オーディオエンジン",
     aboutNetworkLabel = "ネットワーク",
     aboutImageLabel = "画像",

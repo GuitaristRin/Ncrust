@@ -88,6 +88,7 @@ val zhTW = Strings(
     aboutSectionTechStack = "技術棧",
     aboutLangLabel = "語言",
     aboutUIFrameworkLabel = "UI 框架",
+    aboutDesignSystemLabel = "元件庫",
     aboutAudioEngineLabel = "音訊引擎",
     aboutNetworkLabel = "網路函式庫",
     aboutImageLabel = "圖片函式庫",

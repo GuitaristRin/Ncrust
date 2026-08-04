@@ -88,6 +88,7 @@ val zhCN = Strings(
     aboutSectionTechStack = "技术栈",
     aboutLangLabel = "语言",
     aboutUIFrameworkLabel = "UI 框架",
+    aboutDesignSystemLabel = "组件库",
     aboutAudioEngineLabel = "音频引擎",
     aboutNetworkLabel = "网络库",
     aboutImageLabel = "图片库",

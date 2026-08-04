@@ -99,6 +99,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         AboutSection(s.aboutSectionTechStack.uppercase(), accent)
                         AboutRow(s.aboutLangLabel, "Kotlin")
                         AboutRow(s.aboutUIFrameworkLabel, "Jetpack Compose")
+                        AboutRow(s.aboutDesignSystemLabel, "Kanesumi")
                         AboutRow(s.aboutAudioEngineLabel, "Media3 ExoPlayer")
                         AboutRow(s.aboutNetworkLabel, "Retrofit + OkHttp")
                         AboutRow(s.aboutImageLabel, "Coil")
