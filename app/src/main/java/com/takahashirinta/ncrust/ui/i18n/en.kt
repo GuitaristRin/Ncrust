@@ -1,6 +1,6 @@
 package com.takahashirinta.ncrust.ui.i18n
 
-val enUS = Strings(
+val en = Strings(
     tabHome = "Home",
     tabLibrary = "Library",
     tabSearch = "Search",

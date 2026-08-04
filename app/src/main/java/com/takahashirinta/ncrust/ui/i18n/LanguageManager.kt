@@ -12,18 +12,12 @@ data class LanguagePreset(
 val languagePresets: List<LanguagePreset> = listOf(
     LanguagePreset("zh-CN", "简体中文", zhCN),
     LanguagePreset("zh-TW", "繁體中文", zhTW),
-    LanguagePreset("en-US", "English (US)", enUS),
-    LanguagePreset("en-UK", "English (UK)", enUK),
+    LanguagePreset("en-US", "English", en),
     LanguagePreset("ja-JP", "日本語", jpJP),
     LanguagePreset("ja-MY", "万葉仮名", jpMY),
-    LanguagePreset("ang-GB", "Ænglisc", angGB),
-    LanguagePreset("en-1400", "Middle English", en1400),
     LanguagePreset("ko-KP", "조선어", koNK),
     LanguagePreset("de-DE", "Deutsch", deDE),
     LanguagePreset("ru-RU", "Русский", ruRU),
-    LanguagePreset("ru-SU", "Советский русский", ruSU),
-    LanguagePreset("el-GR", "Ελληνικά", elGR),
-    LanguagePreset("la-VA", "Lingua Latina", laVA),
 )
 
 val LocalStrings = compositionLocalOf { zhCN }
@@ -41,4 +35,6 @@ fun saveLanguageCode(context: Context, code: String) {
 }
 
 fun stringsForCode(code: String): Strings =
-    languagePresets.find { it.code == code }?.strings ?: zhCN
+    languagePresets.find { it.code == code }?.strings
+        // 旧版 "en-UK" 已并入 "en-US"，保留映射避免老用户语言设置静默回退中文
+        ?: if (code == "en-UK") en else zhCN
