@@ -6,13 +6,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -22,7 +23,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.HorizontalDivider
+import io.github.takahashirinta.kanesumi.controls.MetroDivider
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
 /**
  * 简易 Markdown 渲染器。
@@ -60,50 +62,49 @@ fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
                 // 水平分割线：--- 或 ***
                 line.trimStart().matches(Regex("^[-*]{3,}$")) -> {
                     Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(color = Color(0xFF2A2A2A))
+                    MetroDivider(color = Color(0xFF2A2A2A))
                     Spacer(Modifier.height(8.dp))
                 }
                 // 标题
                 line.trimStart().startsWith("### ") -> {
                     Spacer(Modifier.height(16.dp))
-                    Text(
+                    MetroText(
                         text = line.trimStart().removePrefix("### "),
                         color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
+                        style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     )
                     Spacer(Modifier.height(8.dp))
                 }
                 line.trimStart().startsWith("## ") -> {
                     Spacer(Modifier.height(20.dp))
-                    Text(
+                    MetroText(
                         text = line.trimStart().removePrefix("## "),
                         color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                        style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     )
                     Spacer(Modifier.height(8.dp))
                 }
                 line.trimStart().startsWith("# ") -> {
                     Spacer(Modifier.height(24.dp))
-                    Text(
+                    MetroText(
                         text = line.trimStart().removePrefix("# "),
                         color = Color(0xFF1DB954),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold
+                        style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
                     )
                     Spacer(Modifier.height(8.dp))
                 }
                 // 无序列表：- item
                 line.trimStart().startsWith("- ") -> {
                     Row(modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)) {
-                        Text("•", color = Color(0xFF1DB954), fontSize = 16.sp)
+                        MetroText("•", color = Color(0xFF1DB954), style = TextStyle(fontSize = 16.sp))
                         Spacer(Modifier.width(8.dp))
-                        Text(
+                        BasicText(
                             text = parseInlineMarkdown(line.trimStart().removePrefix("- ")),
-                            color = Color.White.copy(alpha = 0.85f),
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp
+                            style = TextStyle(
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 16.sp,
+                                lineHeight = 24.sp
+                            )
                         )
                     }
                 }
@@ -114,11 +115,13 @@ fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
                 // 普通段落（含行内样式）
                 else -> {
                     Spacer(Modifier.height(4.dp))
-                    Text(
+                    BasicText(
                         text = parseInlineMarkdown(line),
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
+                        style = TextStyle(
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        )
                     )
                     Spacer(Modifier.height(4.dp))
                 }
