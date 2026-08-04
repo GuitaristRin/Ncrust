@@ -1,8 +1,4 @@
 package com.takahashirinta.ncrust.ui.screen
-import com.takahashirinta.ncrust.ui.components.NcrustProgressIndicator
-import com.takahashirinta.ncrust.ui.components.NcrustTabRow
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -17,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +21,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.library.AlbumInfo
@@ -37,6 +31,12 @@ import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
+import io.github.takahashirinta.kanesumi.controls.MetroTabItem
+import io.github.takahashirinta.kanesumi.controls.MetroTabRow
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import com.takahashirinta.ncrust.ui.components.PlayAllButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
@@ -45,7 +45,6 @@ import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
 import android.widget.Toast
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     onSongClick: (SongItem) -> Unit,
@@ -110,17 +109,16 @@ fun LibraryScreen(
                     .statusBarsPadding()
                     .padding(start = 16.dp, top = 20.dp, bottom = 8.dp)
             ) {
-                Text(
+                MetroText(
                     strings.tabLibrary,
                     color = Color.White,
-                    fontSize = 34.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
+                    style = LocalMetroTypography.current.pageHeading,
                 )
             }
             Spacer(Modifier.height(4.dp))
-            NcrustTabRow(
+            MetroTabRow(
                 selectedTabIndex = selectedCategory,
-                titles = categories,
+                items = categories.map { MetroTabItem(it) },
                 onTabSelected = { index -> selectedCategory = index }
             )
 
@@ -148,7 +146,7 @@ fun LibraryScreen(
                 0 -> {
                     if (savedSongs.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(strings.noSavedSongs, color = Color.Gray, fontSize = 16.sp)
+                            MetroText(strings.noSavedSongs, color = Color.Gray, style = LocalMetroTypography.current.bodyLarge)
                         }
                     } else {
                         LazyColumn(
@@ -189,7 +187,7 @@ fun LibraryScreen(
                 1 -> {
                     if (savedAlbums.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(strings.noSavedAlbums, color = Color.Gray, fontSize = 16.sp)
+                            MetroText(strings.noSavedAlbums, color = Color.Gray, style = LocalMetroTypography.current.bodyLarge)
                         }
                     } else {
                         // rows 用 remember(savedAlbums) 缓存：仅在数据实际变化时重新分组，
@@ -227,23 +225,27 @@ fun LibraryScreen(
                     when {
                         isLoadingPlaylists -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                NcrustProgressIndicator(color = LocalNcrustColors.current.primary)
+                                MetroProgressIndicator(color = LocalMetroColors.current.primary)
                             }
                         }
                         playlistError != null -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(playlistError!!, color = Color.Red, fontSize = 14.sp)
+                                    MetroText(playlistError!!, color = Color.Red, style = LocalMetroTypography.current.bodyMedium)
                                     Spacer(Modifier.height(8.dp))
-                                    TextButton(onClick = { loadPlaylists() }) {
-                                        Text(strings.retry, color = LocalNcrustColors.current.primary)
+                                    Box(
+                                        modifier = Modifier
+                                            .clickable(onClick = { loadPlaylists() })
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    ) {
+                                        MetroText(strings.retry, color = LocalMetroColors.current.primary)
                                     }
                                 }
                             }
                         }
                         playlists.isEmpty() -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text(strings.noPlaylists, color = Color.Gray, fontSize = 16.sp)
+                                MetroText(strings.noPlaylists, color = Color.Gray, style = LocalMetroTypography.current.bodyLarge)
                             }
                         }
                         else -> {
@@ -305,8 +307,8 @@ fun PlaylistGridItem(
             )
         }
         Spacer(Modifier.height(6.dp))
-        Text(playlist.name, color = Color.White, style = LocalNcrustTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-        Text(strings.trackCount(playlist.trackCount), color = Color.Gray, style = LocalNcrustTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(playlist.name, color = Color.White, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(strings.trackCount(playlist.trackCount), color = Color.Gray, style = LocalMetroTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
         Spacer(Modifier.height(6.dp))
     }
 }
@@ -333,8 +335,8 @@ fun LibraryAlbumGridItem(
             )
         }
         Spacer(Modifier.height(6.dp))
-        Text(album.name, color = Color.White, style = LocalNcrustTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-        Text(strings.albumArtistAndCount(album.artist, album.songCount), color = Color.Gray, style = LocalNcrustTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(album.name, color = Color.White, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(strings.albumArtistAndCount(album.artist, album.songCount), color = Color.Gray, style = LocalMetroTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         Spacer(Modifier.height(6.dp))
     }
 }
