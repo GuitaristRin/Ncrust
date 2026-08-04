@@ -6,15 +6,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
 /**
  * 主题色选择器 —— Groove 风：一行 6 个方形色块 + 下方选中色名。
@@ -55,23 +57,23 @@ fun ThemeColorSelector(
                     contentAlignment = Alignment.Center
                 ) {
                     if (isSelected) {
-                        Icon(
-                            Icons.Default.Check,
+                        MetroIcon(
+                            imageVector = Icons.Default.Check,
                             contentDescription = null,
                             tint = checkColor,
-                            modifier = Modifier.size(26.dp)
+                            sizeDp = 26.dp
                         )
                     }
                 }
             }
         }
         Spacer(Modifier.height(10.dp))
-        Text(
+        MetroText(
             text = colorNames.getOrElse(selectedIndex) {
                 presets.getOrElse(selectedIndex) { presets[0] }.label
             },
-            color = LocalNcrustColors.current.primary,
-            fontSize = 14.sp
+            color = LocalMetroColors.current.primary,
+            style = TextStyle(fontSize = 14.sp)
         )
     }
 }
