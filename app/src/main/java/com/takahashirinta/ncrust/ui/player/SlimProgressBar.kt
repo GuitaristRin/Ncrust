@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.PI
@@ -84,7 +85,7 @@ fun SlimProgressBar(
     // 让 Canvas 每帧重跑一次 draw block（即便分支不进入）。低端机上纯浪费。
     val bufferingPhases: BufferingPhases? = if (showBuffering) rememberBufferingPhases() else null
 
-    val accent = LocalNcrustColors.current.primary
+    val accent = LocalMetroColors.current.primary
     val trackColor = Color(0xFF3A3A3A)
 
     Box(

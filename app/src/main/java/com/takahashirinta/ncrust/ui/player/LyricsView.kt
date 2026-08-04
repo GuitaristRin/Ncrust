@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,12 +16,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import com.takahashirinta.ncrust.lyric.LrcLine
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.abs
@@ -39,7 +41,7 @@ fun LyricsView(
     val strings = LocalStrings.current
     if (lyrics.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(strings.noLyrics, color = Color.Gray, fontSize = 18.sp)
+            MetroText(strings.noLyrics, color = Color.Gray, style = TextStyle(fontSize = 18.sp))
         }
         return
     }
@@ -151,15 +153,17 @@ fun LyricsView(
                         }
                         .padding(vertical = 10.dp)
                 ) {
-                    Text(
+                    MetroText(
                         text = line.text,
-                        fontSize = 32.sp,                          // ← 恢复原来字号
-                        fontWeight = FontWeight.Bold,
+                        style = TextStyle(
+                            fontSize = 32.sp,                          // ← 恢复原来字号
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 42.sp,                        // ← 恢复原来行高
+                        ),
                         softWrap = true,
-                        lineHeight = 42.sp,                        // ← 恢复原来行高
                         color = when {
                             index < currentIndex -> Color.White.copy(alpha = 0.6f)
-                            index == currentIndex -> LocalNcrustColors.current.primary
+                            index == currentIndex -> LocalMetroColors.current.primary
                             else -> Color.Gray.copy(alpha = 0.4f)
                         },
                         modifier = Modifier
@@ -186,7 +190,7 @@ fun LyricsView(
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(LocalNcrustColors.current.background, Color.Transparent)
+                        listOf(LocalMetroColors.current.background, Color.Transparent)
                     )
                 )
         )
@@ -198,7 +202,7 @@ fun LyricsView(
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, LocalNcrustColors.current.background)
+                        listOf(Color.Transparent, LocalMetroColors.current.background)
                     )
                 )
         )

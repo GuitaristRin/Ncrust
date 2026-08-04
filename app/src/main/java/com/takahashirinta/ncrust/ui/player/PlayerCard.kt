@@ -1,7 +1,4 @@
 package com.takahashirinta.ncrust.ui.player
-import com.takahashirinta.ncrust.ui.components.NcrustIconButton
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.MarqueeAnimationMode
@@ -13,7 +10,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +22,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,6 +33,12 @@ import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
+import io.github.takahashirinta.kanesumi.controls.MetroDivider
+import io.github.takahashirinta.kanesumi.controls.MetroIconButton
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.launch
 import android.widget.Toast
 
@@ -202,7 +205,7 @@ fun PlayerCard(
             modifier = Modifier
                 .fillMaxSize()
                 .offset(y = 24.dp)
-                .background(LocalNcrustColors.current.background)
+                .background(LocalMetroColors.current.background)
         )
 
         Column(
@@ -227,10 +230,10 @@ fun PlayerCard(
                             .fillMaxWidth()
                             .graphicsLayer { alpha = lyricAnimProgress.value }
                     ) {
-                        Text(
+                        MetroText(
                             s.name,
                             color = Color.White,
-                            style = LocalNcrustTypography.current.titleMedium,
+                            style = LocalMetroTypography.current.titleMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Clip,
                             modifier = Modifier.basicMarquee(
@@ -241,10 +244,10 @@ fun PlayerCard(
                                 velocity = 48.dp
                             )
                         )
-                        Text(
+                        MetroText(
                             s.artists?.joinToString("/") { it.name } ?: "",
                             color = Color.Gray,
-                            style = LocalNcrustTypography.current.bodyMedium,
+                            style = LocalMetroTypography.current.bodyMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -296,36 +299,35 @@ fun PlayerCard(
                                     .padding(horizontal = 16.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
+                                MetroText(
                                     strings.queueTitle,
                                     color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
                                     modifier = Modifier.weight(1f)
                                 )
-                                NcrustIconButton(onClick = onTogglePlayMode) {
-                                    Icon(
-                                        when (playMode) {
+                                MetroIconButton(onClick = onTogglePlayMode) {
+                                    MetroIcon(
+                                        imageVector = when (playMode) {
                                             0 -> Icons.Default.Repeat
                                             1 -> Icons.Default.RepeatOne
                                             2 -> Icons.Default.Shuffle
                                             else -> Icons.Default.Repeat
                                         },
-                                        strings.playModeButton,
-                                        tint = if (playMode != 0) LocalNcrustColors.current.primary else Color.White,
-                                        modifier = Modifier.size(24.dp)
+                                        contentDescription = strings.playModeButton,
+                                        tint = if (playMode != 0) LocalMetroColors.current.primary else Color.White,
+                                        sizeDp = 24.dp
                                     )
                                 }
-                                NcrustIconButton(onClick = onSavePlaylist) {
-                                    Icon(
-                                        Icons.Default.Add,
-                                        strings.saveAsPlaylist,
+                                MetroIconButton(onClick = onSavePlaylist) {
+                                    MetroIcon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = strings.saveAsPlaylist,
                                         tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
+                                        sizeDp = 24.dp
                                     )
                                 }
                             }
-                            HorizontalDivider(color = Color(0xFF2A2A2A))
+                            MetroDivider(color = Color(0xFF2A2A2A))
                             QueueView(
                                 queue = playbackQueue,
                                 currentIndex = currentQueueIndex,
@@ -346,17 +348,17 @@ fun PlayerCard(
                                             (1f - lyricAnimProgress.value)
                                 }
                         ) {
-                            Text(
+                            MetroText(
                                 s.name,
                                 color = Color.White,
-                                style = LocalNcrustTypography.current.titleLarge,
+                                style = LocalMetroTypography.current.titleLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Text(
+                            MetroText(
                                 s.artists?.joinToString("/") { it.name } ?: "",
-                                color = LocalNcrustColors.current.primary,
-                                style = LocalNcrustTypography.current.bodyLarge,
+                                color = LocalMetroColors.current.primary,
+                                style = LocalMetroTypography.current.bodyLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -428,7 +430,7 @@ fun PlayerCard(
                 .graphicsLayer {
                     alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
                 }
-                .background(LocalNcrustColors.current.surface)
+                .background(LocalMetroColors.current.surface)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -442,31 +444,31 @@ fun PlayerCard(
                             .weight(1f)
                             .padding(horizontal = 12.dp)
                     ) {
-                        Text(
+                        MetroText(
                             s.name,
                             color = Color.White,
-                            style = LocalNcrustTypography.current.bodyMedium,
+                            style = LocalMetroTypography.current.bodyMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(
+                        MetroText(
                             s.artists?.joinToString("/") { it.name } ?: "",
                             color = Color.Gray,
-                            style = LocalNcrustTypography.current.bodySmall,
+                            style = LocalMetroTypography.current.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     if (miniBarEnabled) {
-                        NcrustIconButton(onClick = onPlayPause) {
-                            Icon(
-                                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                null,
+                        MetroIconButton(onClick = onPlayPause) {
+                            MetroIcon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = null,
                                 tint = Color.White
                             )
                         }
-                        NcrustIconButton(onClick = onPlayNext) {
-                            Icon(Icons.Default.SkipNext, null, tint = Color.White)
+                        MetroIconButton(onClick = onPlayNext) {
+                            MetroIcon(Icons.Default.SkipNext, null, tint = Color.White)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(96.dp))
@@ -479,12 +481,17 @@ fun PlayerCard(
                             .background(Color(0xFF404040)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.MusicNote, null, tint = Color(0xFF808080), modifier = Modifier.size(24.dp))
+                        MetroIcon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = Color(0xFF808080),
+                            sizeDp = 24.dp
+                        )
                     }
-                    Text(
+                    MetroText(
                         strings.noSongPlaying,
                         color = Color(0xFF808080),
-                        style = LocalNcrustTypography.current.bodyMedium,
+                        style = LocalMetroTypography.current.bodyMedium,
                         modifier = Modifier.padding(horizontal = 12.dp)
                     )
                 }
@@ -535,8 +542,8 @@ fun PlayerCard(
                 contentAlignment = Alignment.CenterEnd
             ) {
                 if (dismissEnabled) {
-                    NcrustIconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = Color.White)
+                    MetroIconButton(onClick = onDismiss) {
+                        MetroIcon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = Color.White)
                     }
                 }
             }

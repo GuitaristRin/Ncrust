@@ -1,5 +1,4 @@
 package com.takahashirinta.ncrust.ui.player
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,12 +14,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.formatDuration
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.flow.StateFlow
 
 @Composable
@@ -91,11 +92,11 @@ fun FullPlayerControls(
                     .clickable { onPlayPrevious() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.SkipPrevious,
-                    strings.prevButton,
+                MetroIcon(
+                    imageVector = Icons.Default.SkipPrevious,
+                    contentDescription = strings.prevButton,
                     tint = Color.White,
-                    modifier = Modifier.size(36.dp)
+                    sizeDp = 36.dp
                 )
             }
             Spacer(Modifier.width(24.dp))
@@ -105,11 +106,11 @@ fun FullPlayerControls(
                     .clickable { onPlayPause() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    if (isPlaying) strings.pauseButton else strings.playButton,
+                MetroIcon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) strings.pauseButton else strings.playButton,
                     tint = Color.White,
-                    modifier = Modifier.size(56.dp)
+                    sizeDp = 56.dp
                 )
             }
             Spacer(Modifier.width(24.dp))
@@ -119,11 +120,11 @@ fun FullPlayerControls(
                     .clickable { onPlayNext() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.SkipNext,
-                    strings.nextButton,
+                MetroIcon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = strings.nextButton,
                     tint = Color.White,
-                    modifier = Modifier.size(36.dp)
+                    sizeDp = 36.dp
                 )
             }
         }
@@ -137,11 +138,11 @@ fun FullPlayerControls(
                     .clickable { onToggleLyrics() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Lyrics,
-                    strings.lyricsButton,
-                    tint = if (showLyrics) LocalNcrustColors.current.primary else Color.White,
-                    modifier = Modifier.size(28.dp)
+                MetroIcon(
+                    imageVector = Icons.Default.Lyrics,
+                    contentDescription = strings.lyricsButton,
+                    tint = if (showLyrics) LocalMetroColors.current.primary else Color.White,
+                    sizeDp = 28.dp
                 )
             }
             Box(
@@ -150,11 +151,11 @@ fun FullPlayerControls(
                     .clickable { onToggleQueue() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.PlaylistPlay,
-                    strings.queueButton,
-                    tint = if (showQueue) LocalNcrustColors.current.primary else Color.White,
-                    modifier = Modifier.size(28.dp)
+                MetroIcon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                    contentDescription = strings.queueButton,
+                    tint = if (showQueue) LocalMetroColors.current.primary else Color.White,
+                    sizeDp = 28.dp
                 )
             }
             Box(
@@ -163,11 +164,11 @@ fun FullPlayerControls(
                     .clickable { onAddToLibrary() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Add,
-                    strings.addToLibraryButton,
+                MetroIcon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = strings.addToLibraryButton,
                     tint = Color.White,
-                    modifier = Modifier.size(28.dp)
+                    sizeDp = 28.dp
                 )
             }
         }
@@ -177,10 +178,10 @@ fun FullPlayerControls(
 @Composable
 private fun PositionText(positionFlow: StateFlow<Long>, modifier: Modifier) {
     val position by positionFlow.collectAsState()
-    Text(
+    MetroText(
         formatDuration(position),
         color = Color.Gray,
-        fontSize = 12.sp,
+        style = TextStyle(fontSize = 12.sp),
         modifier = modifier
     )
 }
@@ -188,10 +189,10 @@ private fun PositionText(positionFlow: StateFlow<Long>, modifier: Modifier) {
 @Composable
 private fun DurationText(durationFlow: StateFlow<Long>, modifier: Modifier) {
     val duration by durationFlow.collectAsState()
-    Text(
+    MetroText(
         formatDuration(duration),
         color = Color.Gray,
-        fontSize = 12.sp,
+        style = TextStyle(fontSize = 12.sp),
         modifier = modifier
     )
 }
@@ -200,11 +201,10 @@ private fun DurationText(durationFlow: StateFlow<Long>, modifier: Modifier) {
 private fun QualityLabel(qualityIndexFlow: StateFlow<Int>, options: List<String>) {
     val qualityIndex by qualityIndexFlow.collectAsState()
     val label = options.getOrElse(qualityIndex) { options.getOrElse(3) { "" } }
-    Text(
+    MetroText(
         label,
-        color = LocalNcrustColors.current.primary,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.SemiBold,
+        color = LocalMetroColors.current.primary,
+        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
         maxLines = 1,
         softWrap = false,
         overflow = TextOverflow.Ellipsis

@@ -1,6 +1,4 @@
 package com.takahashirinta.ncrust.ui.player
-import com.takahashirinta.ncrust.ui.components.NcrustIconButton
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,17 +6,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.network.SongItem
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.controls.MetroIconButton
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
@@ -33,7 +34,7 @@ fun QueueView(
     val strings = LocalStrings.current
     if (queue.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(strings.emptyQueue, color = Color.Gray, fontSize = 16.sp)
+            MetroText(strings.emptyQueue, color = Color.Gray, style = TextStyle(fontSize = 16.sp))
         }
         return
     }
@@ -51,12 +52,12 @@ fun QueueView(
                     onClick = { onPlayIndex(index) },
                     isCurrentPlaying = index == currentIndex,
                     actions = {
-                        NcrustIconButton(onClick = { onRemoveIndex(index) }) {
-                            Icon(
-                                Icons.Default.Close,
+                        MetroIconButton(onClick = { onRemoveIndex(index) }) {
+                            MetroIcon(
+                                imageVector = Icons.Default.Close,
                                 contentDescription = null,
                                 tint = Color.Gray,
-                                modifier = Modifier.size(20.dp)
+                                sizeDp = 20.dp
                             )
                         }
                     }
@@ -70,7 +71,7 @@ fun QueueView(
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(LocalNcrustColors.current.background, Color.Transparent)
+                        listOf(LocalMetroColors.current.background, Color.Transparent)
                     )
                 )
         )
@@ -81,7 +82,7 @@ fun QueueView(
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, LocalNcrustColors.current.background)
+                        listOf(Color.Transparent, LocalMetroColors.current.background)
                     )
                 )
         )
