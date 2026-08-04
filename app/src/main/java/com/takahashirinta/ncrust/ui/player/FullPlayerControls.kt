@@ -88,7 +88,7 @@ fun FullPlayerControls(
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(60.dp)
                     .clickable { onPlayPrevious() },
                 contentAlignment = Alignment.Center
             ) {
@@ -96,13 +96,13 @@ fun FullPlayerControls(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = strings.prevButton,
                     tint = Color.White,
-                    sizeDp = 44.dp
+                    sizeDp = 40.dp
                 )
             }
             Spacer(Modifier.width(32.dp))
             Box(
                 modifier = Modifier
-                    .size(88.dp)
+                    .size(84.dp)
                     .clickable { onPlayPause() },
                 contentAlignment = Alignment.Center
             ) {
@@ -110,13 +110,13 @@ fun FullPlayerControls(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) strings.pauseButton else strings.playButton,
                     tint = Color.White,
-                    sizeDp = 64.dp
+                    sizeDp = 56.dp
                 )
             }
             Spacer(Modifier.width(32.dp))
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(60.dp)
                     .clickable { onPlayNext() },
                 contentAlignment = Alignment.Center
             ) {
@@ -124,7 +124,7 @@ fun FullPlayerControls(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = strings.nextButton,
                     tint = Color.White,
-                    sizeDp = 44.dp
+                    sizeDp = 40.dp
                 )
             }
         }
@@ -134,7 +134,7 @@ fun FullPlayerControls(
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(56.dp)
                     .clickable { onToggleLyrics() },
                 contentAlignment = Alignment.Center
             ) {
@@ -142,12 +142,12 @@ fun FullPlayerControls(
                     imageVector = Icons.Default.Lyrics,
                     contentDescription = strings.lyricsButton,
                     tint = if (showLyrics) LocalMetroColors.current.primary else Color.White,
-                    sizeDp = 36.dp
+                    sizeDp = 32.dp
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(56.dp)
                     .clickable { onToggleQueue() },
                 contentAlignment = Alignment.Center
             ) {
@@ -155,12 +155,12 @@ fun FullPlayerControls(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                     contentDescription = strings.queueButton,
                     tint = if (showQueue) LocalMetroColors.current.primary else Color.White,
-                    sizeDp = 36.dp
+                    sizeDp = 32.dp
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(56.dp)
                     .clickable { onAddToLibrary() },
                 contentAlignment = Alignment.Center
             ) {
@@ -168,7 +168,7 @@ fun FullPlayerControls(
                     imageVector = Icons.Default.Add,
                     contentDescription = strings.addToLibraryButton,
                     tint = Color.White,
-                    sizeDp = 36.dp
+                    sizeDp = 32.dp
                 )
             }
         }
