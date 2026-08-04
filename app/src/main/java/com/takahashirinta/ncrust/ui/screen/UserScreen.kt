@@ -1,38 +1,34 @@
 package com.takahashirinta.ncrust.ui.screen
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouPresets
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenu
+import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenuItem
+import io.github.takahashirinta.kanesumi.controls.MetroSwitch
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.PlaylistApi
@@ -133,11 +129,10 @@ fun UserScreen(
                     .statusBarsPadding()
                     .padding(start = 16.dp, top = 20.dp, bottom = 8.dp)
             ) {
-                Text(
+                MetroText(
                     strings.tabUser,
                     color = Color.White,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Normal
+                    style = LocalMetroTypography.current.pageHeading,
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -195,10 +190,10 @@ fun UserScreen(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
+                    MetroText(
                         strings.gaplessDescription,
                         color = Color.Gray,
-                        fontSize = 13.sp
+                        style = LocalMetroTypography.current.caption,
                     )
                 }
                 Spacer(Modifier.width(16.dp))
@@ -250,17 +245,17 @@ fun UserScreen(
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
+                MetroText(
                     strings.aboutButton,
                     color = Color.White,
-                    fontSize = 15.sp,
+                    style = TextStyle(fontSize = 15.sp),
                     modifier = Modifier.weight(1f)
                 )
-                Icon(
+                MetroIcon(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = Color.Gray,
-                    modifier = Modifier.size(20.dp)
+                    sizeDp = 20.dp,
                 )
             }
         }
@@ -299,11 +294,11 @@ private fun ProfileBlock(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Icon(
+                MetroIcon(
                     Icons.Default.Person,
                     strings.userIconDesc,
                     tint = Color.Gray,
-                    modifier = Modifier.size(52.dp)
+                    sizeDp = 52.dp,
                 )
             }
         }
@@ -311,44 +306,41 @@ private fun ProfileBlock(
         // 文字列 weight(1f)：任何语言的昵称/提示都能换行不撑破。
         Column(modifier = Modifier.weight(1f)) {
             when {
-                isLoading -> Text(
+                isLoading -> MetroText(
                     strings.loading,
                     color = Color.Gray,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Normal
+                    style = TextStyle(fontSize = 20.sp),
                 )
                 profile != null -> {
-                    Text(
+                    MetroText(
                         profile.nickname,
                         color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Normal,
+                        style = LocalMetroTypography.current.title,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(
+                    MetroText(
                         uidLabel,
                         color = Color.Gray,
-                        fontSize = 12.sp,
+                        style = LocalMetroTypography.current.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
                 else -> {
-                    Text(
+                    MetroText(
                         notLoggedInText,
                         color = Color.Gray,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Normal,
+                        style = LocalMetroTypography.current.title,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(
+                    MetroText(
                         loginHintText,
                         color = Color.Gray.copy(alpha = 0.6f),
-                        fontSize = 12.sp,
+                        style = LocalMetroTypography.current.bodySmall,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -361,11 +353,10 @@ private fun ProfileBlock(
 /** Groove 风分区标题：16sp semi-bold、上留白 4dp、左 16dp。 */
 @Composable
 private fun SectionTitle(text: String) {
-    Text(
+    MetroText(
         text,
         color = Color.White,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.SemiBold,
+        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
         modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
     )
 }
@@ -394,43 +385,38 @@ private fun MetroDropdownRow(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
+            MetroText(
                 label,
                 color = Color.White,
-                fontSize = 15.sp,
+                style = TextStyle(fontSize = 15.sp),
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.width(12.dp))
-            Text(
+            MetroText(
                 options.getOrElse(selectedIndex) { "" },
-                color = LocalNcrustColors.current.primary,
-                fontSize = 15.sp,
+                color = LocalMetroColors.current.primary,
+                style = TextStyle(fontSize = 15.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 160.dp)
             )
-            Icon(
+            MetroIcon(
                 Icons.Default.ArrowDropDown,
                 contentDescription = null,
                 tint = Color.Gray,
-                modifier = Modifier.size(20.dp)
+                sizeDp = 20.dp,
             )
         }
-        DropdownMenu(
+        // alignment = BottomEnd 让菜单右对齐箭头,而不是散在整宽 Row 的左侧。
+        MetroDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            shape = RectangleShape,
-            containerColor = Color(0xFF282828)
+            alignment = Alignment.BottomEnd,
         ) {
             options.forEachIndexed { index, name ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            name,
-                            color = if (index == selectedIndex) LocalNcrustColors.current.primary else Color.White,
-                            fontSize = 14.sp
-                        )
-                    },
+                MetroDropdownMenuItem(
+                    text = name,
+                    textColor = if (index == selectedIndex) LocalMetroColors.current.primary else Color.White,
                     onClick = {
                         onSelect(index)
                         expanded = false
@@ -455,26 +441,25 @@ private fun AccountDialog(
                 .background(Color(0xFF282828))
                 .padding(24.dp)
         ) {
-            Text(
+            MetroText(
                 strings.accountDialogTitle,
                 color = Color.White,
-                style = LocalNcrustTypography.current.titleLarge,
-                fontWeight = FontWeight.Bold
+                style = LocalMetroTypography.current.titleLarge.copy(fontWeight = FontWeight.Bold),
             )
             Spacer(Modifier.height(16.dp))
 
             if (userProfile != null) {
-                Text(
+                MetroText(
                     strings.nicknameLabel(userProfile.nickname),
                     color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(
+                MetroText(
                     strings.uidLabel(userProfile.userId.toString()),
                     color = Color.Gray,
-                    fontSize = 13.sp,
+                    style = TextStyle(fontSize = 13.sp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -516,16 +501,16 @@ private fun DialogButton(
     Box(
         modifier = Modifier
             .then(
-                if (accent) Modifier.background(LocalNcrustColors.current.primary)
+                if (accent) Modifier.background(LocalMetroColors.current.primary)
                 else Modifier.border(1.dp, Color.Gray.copy(alpha = 0.4f))
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
-        Text(
+        MetroText(
             text,
             color = if (accent) Color.Black else Color.Gray,
-            fontSize = 14.sp,
+            style = TextStyle(fontSize = 14.sp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -545,17 +530,17 @@ private fun FullWidthDialogButton(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (accent) Modifier.background(LocalNcrustColors.current.primary)
+                if (accent) Modifier.background(LocalMetroColors.current.primary)
                 else Modifier.border(1.dp, borderColor)
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
+        MetroText(
             text,
             color = if (accent) Color.Black else textColor,
-            fontSize = 14.sp,
+            style = TextStyle(fontSize = 14.sp),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
@@ -586,94 +571,42 @@ fun MetroLanguageDropdown(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
+            MetroText(
                 selected.displayName,
                 color = Color.White,
-                fontSize = 14.sp,
+                style = TextStyle(fontSize = 14.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.width(8.dp))
-            Icon(
+            MetroIcon(
                 Icons.Default.ArrowDropDown,
                 contentDescription = null,
                 tint = Color.Gray,
-                modifier = Modifier.size(20.dp)
+                sizeDp = 20.dp,
             )
         }
 
-        DropdownMenu(
+        // alignment = BottomEnd 让菜单右对齐箭头。maxWidthDp 放大以承载长语言名。
+        MetroDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RectangleShape,
-            containerColor = Color(0xFF282828)
+            alignment = Alignment.BottomEnd,
+            maxWidthDp = 320.dp,
         ) {
             presets.forEach { preset ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            preset.displayName,
-                            color = if (preset.code == selectedCode)
-                                LocalNcrustColors.current.primary else Color.White,
-                            fontSize = 14.sp
-                        )
-                    },
+                MetroDropdownMenuItem(
+                    text = preset.displayName,
+                    textColor = if (preset.code == selectedCode)
+                        LocalMetroColors.current.primary else Color.White,
                     onClick = {
                         onSelect(preset.code)
                         expanded = false
                     },
-                    colors = MenuItemColors(
-                        textColor = Color.White,
-                        leadingIconColor = Color.White,
-                        trailingIconColor = Color.White,
-                        disabledTextColor = Color.Gray,
-                        disabledLeadingIconColor = Color.Gray,
-                        disabledTrailingIconColor = Color.Gray
-                    )
                 )
             }
         }
     }
 }
 
-@Composable
-fun MetroSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val accent = LocalNcrustColors.current.primary
-    val trackOff = Color(0xFF333333)
-    val borderOff = Color.Gray.copy(alpha = 0.35f)
-    // 单一 progress 驱动 track 颜色、border 颜色、thumb 位移。旧实现两个 animateXxxAsState
-    // 每次翻转触发一次 MetroSwitch recomposition；这里 drawBehind 只在 draw 阶段读取 .value。
-    val progress = remember { Animatable(if (checked) 1f else 0f) }
-    LaunchedEffect(checked) {
-        progress.animateTo(if (checked) 1f else 0f, SokuouPresets.ToggleFlip)
-    }
-    Box(
-        modifier = Modifier
-            .width(52.dp)
-            .height(28.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { onCheckedChange(!checked) }
-            .drawBehind {
-                val p = progress.value
-                val track = lerp(trackOff, accent, p)
-                val border = lerp(borderOff, accent, p)
-                drawRect(track)
-                val strokeWidth = 1.dp.toPx()
-                drawRect(color = border, style = Stroke(width = strokeWidth))
-                val padPx = 3.dp.toPx()
-                val thumbW = 22.dp.toPx()
-                val travel = size.width - padPx * 2f - thumbW
-                val thumbX = padPx + travel * p
-                val thumbColor = if (p > 0.5f) Color.Black else Color.White
-                drawRect(
-                    color = thumbColor,
-                    topLeft = Offset(thumbX, padPx),
-                    size = Size(thumbW, size.height - padPx * 2f)
-                )
-            }
-    )
-}
