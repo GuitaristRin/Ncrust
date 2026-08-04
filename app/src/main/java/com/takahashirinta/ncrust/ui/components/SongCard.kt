@@ -1,6 +1,4 @@
 package com.takahashirinta.ncrust.ui.components
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustTypography
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
@@ -9,7 +7,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +20,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
 import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouPresets
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
 
@@ -87,21 +88,21 @@ fun SongCard(
                 }
 
                 Column(Modifier.weight(1f)) {
-                    Text(
+                    MetroText(
                         song.name,
-                        color = if (isCurrentPlaying) LocalNcrustColors.current.primary else Color.White,
-                        style = LocalNcrustTypography.current.bodyLarge,
+                        color = if (isCurrentPlaying) LocalMetroColors.current.primary else Color.White,
+                        style = LocalMetroTypography.current.bodyLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
+                    MetroText(
                         buildString {
                             append(artistStr)
                             if (albumName.isNotEmpty()) append(" · $albumName")
                             if (durationStr.isNotEmpty()) append("  $durationStr")
                         },
                         color = Color.Gray,
-                        style = LocalNcrustTypography.current.bodySmall,
+                        style = LocalMetroTypography.current.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -145,17 +146,17 @@ fun SongCard(
                     contentScale = ContentScale.Crop
                 )
                 Spacer(Modifier.height(8.dp))
-                Text(
+                MetroText(
                     song.name,
                     color = Color.White,
-                    style = LocalNcrustTypography.current.bodyMedium,
+                    style = LocalMetroTypography.current.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
+                MetroText(
                     "$artistStr · $albumName",
                     color = Color.Gray,
-                    style = LocalNcrustTypography.current.bodySmall,
+                    style = LocalMetroTypography.current.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -174,15 +175,15 @@ fun PlayAllButton(
     Box(
         modifier = modifier
             .size(size)
-            .background(LocalNcrustColors.current.primary)
+            .background(LocalMetroColors.current.primary)
             .combinedClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            Icons.Default.PlayArrow,
-            LocalStrings.current.playAllButton,
+        MetroIcon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = LocalStrings.current.playAllButton,
             tint = Color.Black,
-            modifier = Modifier.size((size * 0.55f))
+            sizeDp = size * 0.55f
         )
     }
 }
