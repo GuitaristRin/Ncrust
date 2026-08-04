@@ -1,7 +1,4 @@
 package com.takahashirinta.ncrust.ui.screen
-import com.takahashirinta.ncrust.ui.components.NcrustIconButton
-import com.takahashirinta.ncrust.ui.components.NcrustProgressIndicator
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.clickable
@@ -13,16 +10,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.network.PlaylistApi
@@ -32,6 +26,12 @@ import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.library.LibraryManager
 import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouTweens
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.controls.MetroIconButton
+import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
+import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import com.takahashirinta.ncrust.ui.components.PlayAllButton
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
@@ -144,7 +144,7 @@ fun HomeScreen(
     ) { loading ->
         if (loading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                NcrustProgressIndicator(color = LocalNcrustColors.current.primary)
+                MetroProgressIndicator(color = LocalMetroColors.current.primary)
             }
         } else {
             ResponsiveContent {
@@ -163,11 +163,10 @@ fun HomeScreen(
                                 .statusBarsPadding()
                                 .padding(start = 16.dp, top = 20.dp, bottom = 8.dp)
                         ) {
-                            Text(
+                            MetroText(
                                 strings.tabHome,
                                 color = Color.White,
-                                fontSize = 34.sp,
-                                fontWeight = FontWeight.Normal
+                                style = LocalMetroTypography.current.pageHeading,
                             )
                         }
                         Spacer(Modifier.height(12.dp))
@@ -245,20 +244,19 @@ private fun SectionHeader(title: String, onPlayAll: (() -> Unit)? = null) {
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
+        MetroText(
             title,
             color = Color.White,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Normal,
+            style = LocalMetroTypography.current.title,
             modifier = Modifier.weight(1f)
         )
         if (onPlayAll != null) {
-            NcrustIconButton(onClick = onPlayAll) {
-                Icon(
+            MetroIconButton(onClick = onPlayAll) {
+                MetroIcon(
                     Icons.Default.PlayArrow,
                     contentDescription = LocalStrings.current.playAllButton,
-                    tint = LocalNcrustColors.current.primary,
-                    modifier = Modifier.size(28.dp)
+                    tint = LocalMetroColors.current.primary,
+                    sizeDp = 28.dp,
                 )
             }
         }
@@ -282,18 +280,18 @@ private fun DailySongTile(song: SongItem, onClick: () -> Unit, onLongClick: () -
             contentScale = ContentScale.Crop
         )
         Spacer(Modifier.height(6.dp))
-        Text(
+        MetroText(
             song.name,
             color = Color.White,
-            fontSize = 13.sp,
+            style = LocalMetroTypography.current.caption,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 6.dp)
         )
-        Text(
+        MetroText(
             song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist,
             color = Color.Gray,
-            fontSize = 11.sp,
+            style = LocalMetroTypography.current.label,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 6.dp)
@@ -320,18 +318,18 @@ private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit
             )
         }
         Spacer(Modifier.height(6.dp))
-        Text(
+        MetroText(
             playlist.name,
             color = Color.White,
-            fontSize = 13.sp,
+            style = LocalMetroTypography.current.caption,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 6.dp)
         )
-        Text(
+        MetroText(
             strings.trackCountSongs(playlist.trackCount),
             color = Color.Gray,
-            fontSize = 11.sp,
+            style = LocalMetroTypography.current.label,
             modifier = Modifier.padding(horizontal = 6.dp)
         )
     }
