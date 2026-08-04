@@ -22,8 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
-import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenu
-import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenuItem
+import io.github.takahashirinta.kanesumi.controls.MetroSelectorFlyout
 import io.github.takahashirinta.kanesumi.controls.MetroSwitch
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
@@ -407,23 +406,14 @@ private fun MetroDropdownRow(
                 sizeDp = 20.dp,
             )
         }
-        // alignment = BottomEnd 让菜单右对齐箭头,而不是散在整宽 Row 的左侧。
-        MetroDropdownMenu(
+        // UWP ComboBox 移植:选中项落回锚点原位,菜单从锚点双向展开。
+        MetroSelectorFlyout(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            alignment = Alignment.BottomEnd,
-        ) {
-            options.forEachIndexed { index, name ->
-                MetroDropdownMenuItem(
-                    text = name,
-                    textColor = if (index == selectedIndex) LocalMetroColors.current.primary else Color.White,
-                    onClick = {
-                        onSelect(index)
-                        expanded = false
-                    }
-                )
-            }
-        }
+            options = options,
+            selectedIndex = selectedIndex,
+            onSelect = onSelect,
+        )
     }
 }
 
@@ -588,25 +578,18 @@ fun MetroLanguageDropdown(
             )
         }
 
-        // alignment = BottomEnd 让菜单右对齐箭头。maxWidthDp 放大以承载长语言名。
-        MetroDropdownMenu(
+        // UWP ComboBox 移植:选中项落回锚点原位,内部滚动到选中语言。
+        val selectedIndex = presets.indexOfFirst { it.code == selectedCode }.coerceAtLeast(0)
+        MetroSelectorFlyout(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            alignment = Alignment.BottomEnd,
-            maxWidthDp = 320.dp,
-        ) {
-            presets.forEach { preset ->
-                MetroDropdownMenuItem(
-                    text = preset.displayName,
-                    textColor = if (preset.code == selectedCode)
-                        LocalMetroColors.current.primary else Color.White,
-                    onClick = {
-                        onSelect(preset.code)
-                        expanded = false
-                    },
-                )
-            }
-        }
+            options = presets.map { it.displayName },
+            selectedIndex = selectedIndex,
+            onSelect = { index ->
+                onSelect(presets[index].code)
+                expanded = false
+            },
+        )
     }
 }
 
