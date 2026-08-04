@@ -63,6 +63,7 @@ import com.takahashirinta.ncrust.ui.theme.saveThemeIndex
 import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import io.github.takahashirinta.kanesumi.anim.sokuou.metroViewConfiguration
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroTheme
 import com.takahashirinta.ncrust.warmup.AppWarmup
@@ -598,7 +599,7 @@ fun MainScreen(
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(LocalNcrustColors.current.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(LocalMetroColors.current.background)) {
         // PlayerCardOverlay is FIRST child: processes first in Compose Main pass (siblings are
         // dispatched in composition order). Its inner consumer modifier in PlayerCard prevents
         // Scaffold's SongCards from receiving events when the player is fully expanded.
@@ -785,7 +786,7 @@ fun MainScreen(
                     translationY = navBarHideOffset * progress.value
                 }
                 .fillMaxWidth()
-                .background(LocalNcrustColors.current.surface)
+                .background(LocalMetroColors.current.surface)
                 .navigationBarsPadding()
                 .height(56.dp)
         ) {

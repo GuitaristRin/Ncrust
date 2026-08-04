@@ -1,5 +1,4 @@
 package com.takahashirinta.ncrust.ui.player
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
