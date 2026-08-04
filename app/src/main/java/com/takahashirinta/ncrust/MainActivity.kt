@@ -43,9 +43,9 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.player.PlaybackStateManager
-import com.takahashirinta.ncrust.ui.components.NcrustPivotNav
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
-import com.takahashirinta.ncrust.ui.components.PivotTabItem
+import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNav
+import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNavItem
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
 import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
@@ -789,18 +789,22 @@ fun MainScreen(
                 .navigationBarsPadding()
                 .height(56.dp)
         ) {
-            NcrustPivotNav(
-                selectedTab = selectedTab,
-                onTabSelected = { tab ->
+            // autoReserveBottomStack=false: Ncrust 用自己的 BottomOverlayInsetDp 常量管
+            // 底部预留,不接 MetroShell 的 MetroBottomStackScope,否则 rememberBottomStackReservation
+            // 会因缺 CompositionLocal 而 crash。
+            MetroBottomNav(
+                selectedIndex = selectedTab,
+                onSelected = { tab ->
                     selectedTab = tab
                     if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
                 },
                 items = listOf(
-                    PivotTabItem(Icons.Default.Home, navStrings.tabHome),
-                    PivotTabItem(Icons.Default.LibraryMusic, navStrings.tabLibrary),
-                    PivotTabItem(Icons.Default.Search, navStrings.tabSearch),
-                    PivotTabItem(Icons.Default.Person, navStrings.tabUser),
-                )
+                    MetroBottomNavItem(Icons.Default.Home, navStrings.tabHome),
+                    MetroBottomNavItem(Icons.Default.LibraryMusic, navStrings.tabLibrary),
+                    MetroBottomNavItem(Icons.Default.Search, navStrings.tabSearch),
+                    MetroBottomNavItem(Icons.Default.Person, navStrings.tabUser),
+                ),
+                autoReserveBottomStack = false,
             )
         }
 
