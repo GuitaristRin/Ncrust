@@ -1,7 +1,4 @@
 package com.takahashirinta.ncrust.ui.components
-import com.takahashirinta.ncrust.ui.components.NcrustIconButton
-import com.takahashirinta.ncrust.ui.components.NcrustProgressIndicator
-import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -16,14 +13,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +30,10 @@ import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
 import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouTweens
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
+import io.github.takahashirinta.kanesumi.core.theme.MetroText
+import io.github.takahashirinta.kanesumi.structure.MetroTopScrim
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 
 /**
@@ -64,7 +65,7 @@ fun DetailScaffold(
         // 主 tab 屏一直在下层挂载，DetailScaffold 显示期间就是它遮住 tab 屏。
         modifier = Modifier
             .fillMaxSize()
-            .background(LocalNcrustColors.current.background)
+            .background(LocalMetroColors.current.background)
     ) {
         val stateKey = when {
             error != null -> DetailScaffoldState.Error
@@ -80,23 +81,23 @@ fun DetailScaffold(
             when (state) {
                 DetailScaffoldState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        NcrustProgressIndicator(color = LocalNcrustColors.current.primary)
+                        MetroProgressIndicator(color = LocalMetroColors.current.primary)
                     }
                 }
                 DetailScaffoldState.Error -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(error ?: "", color = Color.Red, fontSize = 16.sp)
+                            MetroText(error ?: "", color = Color.Red, style = TextStyle(fontSize = 16.sp))
                             if (onRetry != null) {
                                 Spacer(Modifier.height(16.dp))
                                 Box(
                                     modifier = Modifier
-                                        .background(LocalNcrustColors.current.primary)
+                                        .background(LocalMetroColors.current.primary)
                                         .clickable(onClick = onRetry)
                                         .padding(horizontal = 24.dp, vertical = 8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(strings.retry, color = Color.Black)
+                                    MetroText(strings.retry, color = Color.Black)
                                 }
                             }
                         }
@@ -140,44 +141,24 @@ fun DetailScaffold(
 
 /**
  * 顶部渐隐 scrim + 裸图标。scrim 承担"让白色图标在任意封面上可读"的职责，
- * 图标本身无背板，M3 IconButton 提供 48dp 触控区 + 默认 ripple。
- * 所有二级页面（详情、关于、WebView 登录）共用此组件以保证一致性。
+ * 图标本身无背板。所有二级页面（详情、关于、WebView 登录）共用此组件以保证一致性。
+ *
+ * 实现委托给库的 MetroTopScrim（同语义：渐隐 scrim + 48dp 触控区 + 直角闪切），
+ * 保留本签名以便现有调用方不改。
  */
 @Composable
 fun TopScrimIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
     alignment: Alignment = Alignment.TopStart
 ) {
-    Box(modifier = Modifier.fillMaxWidth()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .background(
-                    Brush.verticalGradient(
-                        0f to Color.Black.copy(alpha = 0.55f),
-                        1f to Color.Transparent
-                    )
-                )
-        )
-        Box(
-            modifier = Modifier
-                .align(alignment)
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp)
-        ) {
-            NcrustIconButton(onClick = onClick) {
-                Icon(
-                    icon,
-                    contentDescription = contentDescription,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-    }
+    MetroTopScrim(
+        icon = icon,
+        contentDescription = contentDescription,
+        onClick = onClick,
+        alignment = alignment
+    )
 }
 
 private enum class DetailScaffoldState { Loading, Error, Content }
@@ -216,25 +197,24 @@ fun DetailHeader(
             verticalAlignment = Alignment.Top
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                MetroText(
                     title,
                     color = Color.White,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Normal,
+                    style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Normal),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (subtitle != null) {
                     Spacer(Modifier.height(6.dp))
-                    Text(
+                    MetroText(
                         subtitle,
-                        color = LocalNcrustColors.current.primary,
-                        fontSize = 14.sp
+                        color = LocalMetroColors.current.primary,
+                        style = TextStyle(fontSize = 14.sp)
                     )
                 }
                 infoLines.forEach { line ->
                     Spacer(Modifier.height(3.dp))
-                    Text(line, color = Color.Gray, fontSize = 13.sp)
+                    MetroText(line, color = Color.Gray, style = TextStyle(fontSize = 13.sp))
                 }
             }
             if (onPlayAll != null) {
