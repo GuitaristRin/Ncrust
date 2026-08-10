@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ## Build Commands
 
@@ -25,7 +25,7 @@ Commit messages follow **Conventional Commits** with a lowercase type prefix:
 | `feat:` | User-visible new capability (features, UI additions, new APIs) |
 | `fix:` | Bug fix; no new behaviour beyond restoring correctness |
 | `chore:` | Housekeeping (delete unused files, rename directories, gitignore updates) |
-| `docs:` | Docs-only changes (README, CLAUDE.md, in-code comments) |
+| `docs:` | Docs-only changes (README, AGENTS.md, in-code comments) |
 | `build:` | Build system / dependencies / version bumps |
 | `refactor:` | Code shape change without behavioural change |
 | `perf:` | Performance-only optimisation |
@@ -202,10 +202,8 @@ Composables read strings via `val s = LocalStrings.current` — never hardcode U
 ## Key Constraints
 
 - **Kanesumi Design**: No rounded corners anywhere in the player. No spring/bounce animations. Cover always fills the full screen width (`fillMaxWidth().aspectRatio(1f)` with scale 1.0 in large mode).
-- **Borderless list style (Groove)**: `SongCard` LIST/COMPACT rows have `0dp` left padding — the 72dp cover is flush to the screen edge. Only the right side keeps 16dp padding for text. `DetailScaffold` has no M3 `TopAppBar` Surface — the back arrow floats over the content with a semi-transparent black square backdrop. `DetailHeader` uses a full-width cover (`fillMaxWidth().aspectRatio(1f)`) with title/subtitle/info stacked below. Grid tiles use `spacedBy(2.dp)` for the "Kanesumi tile wall" feel; text under a tile gets `padding(horizontal = 6.dp)` to avoid touching the screen edge. Home and Library screens use a 34sp Regular page header (`statusBarsPadding()` + start 16dp) instead of an M3 `TopAppBar`.
-- **Bottom overlay inset**: The mini player bar (56dp) sits above the M3 `NavigationBar` (actual 80dp), which is drawn as a sibling overlay, not as `Scaffold.bottomBar`. So `Scaffold.innerPadding.bottom` only accounts for the system navigation bar — it does **not** reserve space for the mini bar or the M3 NavigationBar. Any scrollable content (`LazyColumn` / `LazyRow` / `verticalScroll` Column) must add `contentPadding = PaddingValues(bottom = BottomOverlayInsetDp)` (144dp = 80 + 56 + 8dp visual buffer, from `ui/BottomOverlayInset.kt`) or the last items get hidden behind the mini bar. **Do not** append a manual `Spacer(bottom)` at the end of a list — use `contentPadding` so the value is centralised and can be tuned in one place.
 - **Responsive layout**: `ResponsiveContent.kt` wraps all screens with a 360dp max-width center container. Wide-screen and fold support is handled there; don't hardcode widths elsewhere.
 - **Search debounce**: 500ms in `SearchViewModel` — don't remove it.
 - **No coroutines library import needed**: Coroutines ship with the Kotlin stdlib in this project's configuration.
 - **Lyrics auto-scroll**: Golden-section positioning with a 5-second manual-scroll pause. Logic lives in `LyricsView.kt`.
-- **System bar height compensation**: `collapsedOffsetY` (the Y position of the mini bar) subtracts `systemNavBarHeightPx + navBarHeightPx(56) + miniBarHeightPx(56) + statusBarHeightPx` from screen height. The `statusBarHeightPx` term cancels the `.statusBarsPadding()` that `PlayerCard` applies internally to the mini-bar overlay; without it the mini bar drifts down by the status-bar height and covers the top of the nav bar. The NcrustPivotNav container itself wears `.navigationBarsPadding()` so its 56dp visual bar sits directly above the system nav-bar inset; that is what makes `miniBarBottom == navBarTop`. Any change to either side (the padding on the pivot nav, or the padding on the mini bar) must be matched on the other, or the seam reopens.
+- **System bar height compensation**: `collapsedOffsetY` (the Y position of the mini bar) factors in `systemNavBarHeightPx` so the card lands correctly under both gesture-nav and 3-button-nav. `fullCardExtraOffsetPx` adds `statusBarHeightDp + 24dp` to compensate for M3 `NavigationBar`'s actual 80dp height vs. the 56dp design constant. Touch any of these values carefully.

@@ -9,7 +9,7 @@
 ![Version](https://img.shields.io/badge/Version-1.2.1-brightgreen?style=flat-square)
 ![APK](https://img.shields.io/badge/Release%20APK-4MB-blue?style=flat-square)
 
-**Metro / Groove Music · GPU 零重组动画 · 无缝播放 · 13 语言 · 无损音质**
+**Kanesumi Design / Groove 风 · GPU 零重组动画 · 无缝播放 · 13 语言 · 无损音质**
 
 纯 Kotlin/Jetpack Compose 构建 · Media3 播放引擎 · eapi 加密直连
 
@@ -52,11 +52,11 @@
 
 ### 🚀 v1.2.1 新增
 
-- **🎨 Groove 化收官**：UserScreen 全面无边框改造 + 主题色选择器一行色墙 + 关于页 5 段级联入场，全页面 Metro 风格统一
+- **🎨 Groove 化收官**：UserScreen 全面无边框改造 + 主题色选择器一行色墙 + 关于页 5 段级联入场，全页面 Kanesumi 风格统一
 - **⚡ 冷启动统一预热**：`AppWarmup` 在 Splash 遮挡期并发跑 3 条 Home 请求 + Coil 封面预取 + 5 个 SharedPreferences 文件 IO 线程 parse，进入主页时数据/封面/prefs 全部就位
 - **🧪 深度性能优化**：播放器状态订阅下推（彻底根除 4Hz 全屏重组）、PlayerCard 折叠态子树 gating（展开阈值以下 dispose 重型内容）、每屏冗余 background 去除（消除 Mali 一层 fill overdraw）、@Immutable 数据类稳定化、列表补 key + 去 `.toList()` 拷贝、通知元数据等值跳过、HttpLoggingInterceptor 仅 debug、详情页返回主 tab 屏 always-mount 消卡消残影、低端机返回空 HOME 跳过动画 + popExit 延迟淡出
 - **📉 R8 全量优化**：release APK 从 25 MB 降至 4.1 MB（84% 缩减），Gson 反射 / Retrofit 注解 / Kotlin 元数据完整保护
-- **🎞️ 动画过渡铺开**：Metro 风格页面推入过渡、Tab 切换方向感知横向滑入、搜索页三态 Crossfade + SokuouTweens.CoverFade、详情页内容分支 12dp 微滑上入场
+- **🎞️ 动画过渡铺开**：Kanesumi 风格页面推入过渡、Tab 切换方向感知横向滑入、搜索页三态 Crossfade + SokuouTweens.CoverFade、详情页内容分支 12dp 微滑上入场
 - **📦 ContentCache 歌手详情页接入**：消除返回时的 spinner 闪现
 - **🌐 网络层网关化**：所有 `music.163.com` 硬编码 URL 收敛到 RetrofitClient，接口切换零改动
 - **🔤 14 语种 emoji 剥离**：首页分区标题统一去掉 emoji 前缀
@@ -139,11 +139,11 @@ app/src/main/java/com/takahashirinta/ncrust/
 | 三层图层架构 | 主页面 → 卡片层 → 导航栏，视觉与触摸独立 |
 | GPU 零重组动画 | `graphicsLayer` 替代 `animateFloatAsState`，组件常驻不销毁 |
 | 单 Animatable 驱动 | `progress` 0→1 控制所有播放器动画状态 |
-| Metro / Groove 无边框 | 直角切割，纯色细线进度条，封面贴屏边，浮层返回箭头，拒绝装饰 |
+| Kanesumi Design / Groove 无边框 | 直角切割，纯色细线进度条，封面贴屏边，浮层返回箭头，拒绝装饰 |
 | 主 tab 屏 always-mount | 详情页 opaque 从上层覆盖 tab 屏，返回时不 remount 消除动画卡顿 |
 | 状态订阅下推 | 高频 StateFlow（currentPosition 4Hz）由子组件在 draw scope / derivedStateOf 内订阅，父级零重组 |
 | PlayerCard 折叠态 gating | progress < 0.05 时 LyricsView/QueueView/FullPlayerControls 全部 dispose |
-| Sokuou 动画系统 | UWP Metro 缓动族 + Apple 风格弹簧预设，新代码统一动画词汇 |
+| Sokuou 动画系统 | UWP 缓动族 + Apple 风格弹簧预设，新代码统一动画词汇 |
 | ContentCache + Crossfade | 网络响应内存快照 + 平滑替换，彻底消除"空屏→spinner→跳变" |
 | AppWarmup 冷启动预热 | Splash 遮挡期并发跑网络 + 图片 + SharedPreferences，进主页时全部就位 |
 | R8 全量优化 | isMinifyEnabled + isShrinkResources，proguard-rules 保护 Gson/Retrofit 反射 |
@@ -162,7 +162,7 @@ app/src/main/java/com/takahashirinta/ncrust/
 | v1.0.1 | 5 月 4 日 | 性能优化（零重组修复）、主题色系统、多语言框架、导航兼容性修复 |
 | v1.0.2 | 5 月 4 日 | 紧急修复：歌单页闪退（Issue #11）、WebView 小屏登录 |
 | v1.1.4 | 5 月 17 日 | 无缝播放元数据同步修复、URL 缓存去重、多语言扩充至 13 种 |
-| v1.2.0 | 7 月 29 日 | Groove Music 无边框大改、Sokuou 动画系统、ContentCache、Metro 页面推入、AppWarmup 冷启动预热、深度性能优化、R8 minify、网络层网关化 |
+| v1.2.0 | 7 月 29 日 | Groove Music 无边框大改、Sokuou 动画系统、ContentCache、Kanesumi 页面推入、AppWarmup 冷启动预热、深度性能优化、R8 minify、网络层网关化 |
 | v1.2.1 | 7 月 29 日 | 正式发布版：Groove 化收官（UserScreen / 主题色选择器 / 关于页级联入场）、冷启动预热、全链路性能优化（播放器重组0%、overdraw 消除、PlayerCard gating、@Immutable、列表补 key）、R8 minify（APK 25 MB → 4.1 MB）、导航/搜索/详情页动画过渡、ContentCache 歌手页接入、14 语种 emoji 剥离 |
 
 ---
@@ -197,7 +197,7 @@ app/src/main/java/com/takahashirinta/ncrust/
 | Groove Music 无边框设计 | ✅ |
 | Sokuou 动画系统（UWP 缓动 + Apple 弹簧） | ✅ |
 | ContentCache 内存缓存 + Crossfade | ✅ |
-| Metro 页面推入过渡 | ✅ |
+| Kanesumi 页面推入过渡 | ✅ |
 | 网络层网关化 | ✅ |
 | Release 签名打包 + R8 minify | ✅ |
 | 深度性能优化（详见「v1.2.0 新增」章节） | ✅ |
