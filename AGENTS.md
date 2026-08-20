@@ -113,9 +113,9 @@ eapi encryption (`crypto/EapiCrypto.kt`): URL path → AES-128-ECB with MD5 sign
 
 `PlaybackService` is a `MediaSessionService` running ExoPlayer. `PlayerViewModel` holds all playback state as `MutableStateFlow`. `PlaybackStateManager` serializes the queue and current song to SharedPreferences via Gson so playback survives process kill.
 
-Song URL resolution (`SongUrlFetcher`) falls back through quality levels (super-master → hi-res → lossless → standard) based on a SharedPreferences setting.
+Song URL resolution (`SongUrlFetcher`) starts at the user's chosen quality and falls back down the ladder (e.g. `dolby → hires → lossless → exhigh → higher → standard`, or `lossless → exhigh → higher → standard`) based on a SharedPreferences setting. The payload carries `encodeType` (`mp4` for Dolby, `flac` otherwise) and an official-client `header` (os/appver/osver/deviceId + random requestId). A song that yields no playable URL at any tier is skipped, never given a broken fallback link.
 
-`PlayerViewModel` tracks two independent quality preferences — `wifiQuality` and `mobileQuality` — as indices into a 5-level ladder:
+`PlayerViewModel` tracks two independent quality preferences — `wifiQuality` and `mobileQuality` — as indices into a 7-level ladder:
 
 | Index | Display | API level |
 |---|---|---|
@@ -124,8 +124,14 @@ Song URL resolution (`SongUrlFetcher`) falls back through quality levels (super-
 | 2 | 更好 | exhigh |
 | 3 | 无损 | lossless |
 | 4 | 高解析 | hires |
+| 5 | 高清环绕声 | jyeffect |
+| 6 | 杜比全景声 | dolby |
 
 Defaults: Wi-Fi = 3 (lossless), Mobile = 1 (higher). The selected quality label is shown as a badge in `FullPlayerControls`.
+
+#### Playback reporting (webLog)
+
+Ncrust reports a completed play back to NetEase so local listening feeds the recommendation/指数 system — the official web player's `webLog` mechanism (`player/PlayReporter.kt`). On natural song end **or** progress ≥ 80%, it POSTs a form `logs=JSON([{action:"play", json:{...}}])` to `clientlogusf.music.163.com/api/feedback/weblog?csrf_token=` carrying the session cookie. This path does **not** use eapi/weapi encryption (verified against the live web player JS — no `encSecKey`/`clientSign`). Reporting is fire-and-forget, deduped per song, and never blocks playback.
 
 ### Queue Management
 

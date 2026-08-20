@@ -34,7 +34,7 @@
 - **🏠 首页发现**：新歌速递、推荐歌单、日推歌曲，懒加载分页
 - **🔍 多维度搜索**：单曲 / 专辑 / 艺人搜索，500ms 防抖，三标签 Tab 切换，Crossfade 三态过渡
 - **📚 本地曲库**：单曲封面墙（两列网格）、专辑自动派生（按 albumId 去重），Tab 切换方向感知横向滑入
-- **🎧 无损播放**：eapi 加密获取 FLAC 无损流，完整音质降级链
+- **🎧 无损播放**：eapi 加密获取 FLAC 无损流，完整音质降级链（含杜比全景声/高清环绕声）
 - **🎭 全屏播放器**：三层图层架构，拖拽手势（25% 阈值吸附），迷你栏/全屏流畅切换
 - **🎼 歌词显示**：LRC 逐行解析，上黄金分割点自动定位，手动滚动 5 秒后恢复，上下渐变融入
 - **⏯️ 播放队列**：插播/追加/移除/点击切歌，三种模式（列表循环/单曲循环/随机），持久化存储
@@ -66,10 +66,12 @@
 | 参数 | 说明 | 要求 |
 |------|------|------|
 | `standard` | 标准音质 (128kbps) | 普通账号 |
+| `higher` | 较好音质 | 普通账号 |
 | `exhigh` | 极高音质 (320kbps) | 普通账号 |
 | `lossless` | 无损音质 (FLAC) | 黑胶 VIP |
 | `hires` | Hi-Res 音质 | 黑胶 VIP |
-| `jymaster` | 超清母带 | 黑胶 SVIP |
+| `jyeffect` | 高清环绕声 | 黑胶 VIP |
+| `dolby` | 杜比全景声 | 黑胶 VIP |
 
 ---
 
@@ -116,7 +118,8 @@ app/src/main/java/com/takahashirinta/ncrust/
 ├── player/
 │   ├── PlaybackService.kt       # MediaSessionService + MediaStyle 通知
 │   ├── PlaybackStateManager.kt  # 队列 + 当前曲目持久化
-│   └── SongUrlFetcher.kt        # 音质降级链（super → hi-res → lossless → standard）
+│   ├── SongUrlFetcher.kt        # 音质降级链（dolby/jyeffect→hires→lossless→…）
+│   └── PlayReporter.kt          # webLog 播放行为上报（反馈到推荐/听歌指数）
 ├── warmup/
 │   └── AppWarmup.kt             # 冷启动预热单例（Home 请求 + 封面预取 + prefs XML parse）
 └── ui/
