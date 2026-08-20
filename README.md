@@ -103,7 +103,7 @@ app/src/main/java/com/takahashirinta/ncrust/
 ├── cache/
 │   └── ContentCache.kt          # 网络响应内存快照（首页 + 详情按 ID）
 ├── library/
-│   ├── LibraryManager.kt        # 本地曲库（收藏歌曲 + 专辑派生）
+│   ├── LibraryManager.kt        # 云同步收藏库（收藏单曲=云端收藏，收藏专辑=云端专辑）
 │   └── SearchHistoryManager.kt  # 搜索历史（10 条上限）
 ├── lyric/
 │   └── LrcParser.kt             # LRC → LrcLine.timeMs

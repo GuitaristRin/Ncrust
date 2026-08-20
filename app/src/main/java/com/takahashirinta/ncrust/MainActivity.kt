@@ -555,6 +555,13 @@ fun MainScreen(
 
     var showWebLogin by remember { mutableStateOf(false) }
     var cookieRefreshTrigger by remember { mutableIntStateOf(0) }
+
+    // 登录成功后后台拉取一次云端收藏，供收藏页使用。
+    LaunchedEffect(cookieRefreshTrigger) {
+        if (cookieRefreshTrigger > 0) {
+            LibraryManager.refreshFromCloud(context)
+        }
+    }
     if (showWebLogin) {
         Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
             AndroidView(
@@ -675,7 +682,20 @@ fun MainScreen(
                             onAlbumClick = { albumId -> navController.navigate(NavRoutes.album(albumId)) },
                             onPlayAlbum = { albumId ->
                                 val albumSongs = LibraryManager.getSongsByAlbumId(context, albumId)
-                                if (albumSongs.isNotEmpty()) pendingPlayAllSongs = albumSongs
+                                if (albumSongs.isNotEmpty()) {
+                                    pendingPlayAllSongs = albumSongs
+                                } else {
+                                    // 云端收藏的专辑可能不在收藏单曲缓存里，兜底拉专辑详情播放
+                                    coroutineScope.launch {
+                                        try {
+                                            val detail = RetrofitClient.api.getAlbumDetail(albumId)
+                                            val songs = detail.songs?.map {
+                                                SongItem(id = it.id, name = it.name, artists = it.artists, album = it.album, duration = it.getDurationMs())
+                                            }
+                                            if (!songs.isNullOrEmpty()) pendingPlayAllSongs = songs
+                                        } catch (_: Exception) {}
+                                    }
+                                }
                             },
                             onPlaylistClick = { pl ->
                                 navController.navigate(NavRoutes.playlist(pl.id, pl.name, pl.coverImgUrl))
@@ -690,7 +710,8 @@ fun MainScreen(
                             },
                             onSongInsertNext = { insertNext(it) },
                             onSongAppendToQueue = { appendToQueue(it) },
-                            onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions }
+                            onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
+                            refreshTrigger = cookieRefreshTrigger
                         )
 
                         2 -> SearchScreen(

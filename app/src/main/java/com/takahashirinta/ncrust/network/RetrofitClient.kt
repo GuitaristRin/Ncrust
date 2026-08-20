@@ -4,6 +4,7 @@ import android.content.Context
 import com.takahashirinta.ncrust.BuildConfig
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.crypto.EapiCrypto
+import com.takahashirinta.ncrust.network.crypto.WeapiCrypto
 import okhttp3.*
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -78,6 +79,27 @@ object RetrofitClient {
             .header("Cookie", currentCookie ?: "")
             .build()
 
+        return plainClient.newCall(request).execute()
+    }
+
+    /**
+     * weapi 加密 POST。用于受保护但走 weapi 的接口（收藏单曲列表、收藏专辑等）。
+     * 表单携带 `params` + `encSecKey`，session Cookie 由上层传入。
+     */
+    fun weapiPost(path: String, payloadJson: String): okhttp3.Response {
+        val (params, encSecKey) = WeapiCrypto.encryptParams(payloadJson)
+        val fullUrl = "https://music.163.com" + path
+        val requestBody = FormBody.Builder()
+            .add("params", params)
+            .add("encSecKey", encSecKey)
+            .build()
+        val request = Request.Builder()
+            .url(fullUrl)
+            .post(requestBody)
+            .header("User-Agent", UA)
+            .header("Referer", "https://music.163.com/")
+            .header("Cookie", currentCookie ?: "")
+            .build()
         return plainClient.newCall(request).execute()
     }
 

@@ -79,7 +79,7 @@ Package layout under `com.takahashirinta.ncrust/`:
 | `ui/i18n/` | Runtime i18n system: `Strings` data class, per-language files, `LanguageManager` |
 | `ui/anim/sokuou/` | Sokuou animation system: UWP easing family + Apple-style spring presets + `sokuouSpring(response, damping)` bridge |
 | `auth/` | Cookie singleton (MUSIC_U extraction, SharedPreferences storage) |
-| `library/` | Saved songs singleton, album derivation by `albumId` |
+| `library/` | Cloud-synced favorites: 「收藏单曲」= NetEase like API, 「收藏专辑」= 云端专辑收藏; local SharedPreferences cache + background refresh |
 | `lyric/` | LRC parser: `[MM:SS.mm]` → `LrcLine.timeMs` |
 | `cache/` | `ContentCache` — in-memory network response snapshot (Home + Album/Playlist/Artist by ID + userProfile). Not persisted; resets on process kill. |
 
@@ -181,7 +181,7 @@ The load pattern in every screen that reads from network:
 No dependency injection framework. Singletons are used as service locators:
 - `RetrofitClient` — HTTP client
 - `CookieManager` — session cookies
-- `LibraryManager` — saved songs (persistent, SharedPreferences)
+- `LibraryManager` — cloud-backed favorites (liked songs + subscribed albums; persistent SharedPreferences cache, `refreshFromCloud()` pulls from NetEase)
 - `PlaybackStateManager` — persisted playback state
 - `ContentCache` — in-memory network snapshot for UX (not persisted)
 - `ThemeManager` — theme color preference

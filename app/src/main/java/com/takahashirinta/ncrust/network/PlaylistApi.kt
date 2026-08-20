@@ -74,6 +74,8 @@ object PlaylistApi {
         val playlistArray = json.optJSONArray("playlist") ?: JSONArray()
         for (i in 0 until playlistArray.length()) {
             val item = playlistArray.getJSONObject(i)
+            // 红心歌单（「我喜欢的音乐」等 specialType!=0 的特殊歌单）不作为普通歌单收藏展示，跳过。
+            if (item.optInt("specialType") != 0) continue
             playlists.add(
                 PlaylistInfo(
                     id = item.optLong("id"),
@@ -184,8 +186,7 @@ object PlaylistApi {
         )
     }
 
-    private suspend fun fetchSongDetails(ids: List<Long>): List<SongItem> = withContext(Dispatchers.IO) {
-        val cArray = JSONArray()
+    private suspend fun fetchSongDetails(ids: List<Long>): List<SongItem> = withContext(Dispatchers.IO) {        val cArray = JSONArray()
         ids.forEach { id -> cArray.put(JSONObject().put("id", id)) }
         val payload = mapOf("c" to cArray.toString())
         // Single retry with 500ms delay to survive transient network blips on large playlists.
@@ -207,6 +208,9 @@ object PlaylistApi {
         lastError?.let { Log.e("PlaylistApi", "fetchSongDetails gave up after retry", it) }
         emptyList()
     }
+
+    /** 按 ID 批量拉取单曲详细信息（eapi/v3/song/detail），用于重建收藏单曲元数据。 */
+    suspend fun getSongsByIds(ids: List<Long>): List<SongItem> = fetchSongDetails(ids)
 
     @Immutable
     data class PlaylistInfo(
@@ -327,6 +331,74 @@ object PlaylistApi {
             "/eapi/radio/trash/add",
             mapOf("songId" to songId.toString(), "alg" to "itembased", "time" to "25")
         )
+        val body = response.body?.string() ?: return@withContext false
+        JSONObject(body).optInt("code", -1) == 200
+    }
+
+    // ==================== 云端收藏（收藏单曲 / 收藏专辑） ====================
+
+    /** 获取云端「我喜欢的音乐」单曲 ID 列表（weapi）。 */
+    suspend fun getLikedSongIds(uid: Long): List<Long> = withContext(Dispatchers.IO) {
+        val payload = JSONObject().put("uid", uid).toString()
+        val response = RetrofitClient.weapiPost("/api/song/like/get", payload)
+        val body = response.body?.string() ?: throw Exception("empty response")
+        val json = JSONObject(body)
+        val idsJson = json.optJSONObject("data") ?: throw Exception("no data: $body")
+        val ids = idsJson.optJSONArray("ids") ?: return@withContext emptyList()
+        (0 until ids.length()).map { ids.getLong(it) }
+    }
+
+    /** 收藏(like=true) / 取消收藏(false) 单曲（weapi）。 */
+    suspend fun likeSong(songId: Long, like: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val payload = JSONObject()
+            .put("alg", "itembased")
+            .put("trackId", songId)
+            .put("like", like)
+            .put("time", 3)
+            .toString()
+        val response = RetrofitClient.weapiPost("/api/radio/like", payload)
+        val body = response.body?.string() ?: return@withContext false
+        JSONObject(body).optInt("code", -1) == 200
+    }
+
+    /** 收藏的专辑（云端的「我收藏的专辑」，weapi）。 */
+    @Immutable
+    data class CloudAlbum(
+        val albumId: Long,
+        val name: String,
+        val artist: String,
+        val picUrl: String,
+        val songCount: Int
+    )
+
+    suspend fun getSubscribedAlbums(limit: Int = 100, offset: Int = 0): List<CloudAlbum> = withContext(Dispatchers.IO) {
+        val payload = JSONObject()
+            .put("limit", limit)
+            .put("offset", offset)
+            .put("total", true)
+            .toString()
+        val response = RetrofitClient.weapiPost("/api/album/sublist", payload)
+        val body = response.body?.string() ?: throw Exception("empty response")
+        val json = JSONObject(body)
+        val data = json.optJSONObject("data") ?: throw Exception("no data: $body")
+        val arr = data.optJSONArray("albums") ?: return@withContext emptyList()
+        (0 until arr.length()).map { i ->
+            val a = arr.getJSONObject(i)
+            CloudAlbum(
+                albumId = a.optLong("id"),
+                name = a.optString("name"),
+                artist = a.optJSONObject("artist")?.optString("name") ?: "",
+                picUrl = a.optString("picUrl"),
+                songCount = a.optInt("size")
+            )
+        }
+    }
+
+    /** 收藏(sub=true) / 取消收藏(false) 专辑（weapi）。 */
+    suspend fun subAlbum(albumId: Long, sub: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val action = if (sub) "sub" else "unsub"
+        val payload = JSONObject().put("id", albumId).toString()
+        val response = RetrofitClient.weapiPost("/api/album/$action", payload)
         val body = response.body?.string() ?: return@withContext false
         JSONObject(body).optInt("code", -1) == 200
     }

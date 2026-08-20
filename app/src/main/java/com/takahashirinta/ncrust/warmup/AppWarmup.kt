@@ -3,7 +3,9 @@ package com.takahashirinta.ncrust.warmup
 import android.content.Context
 import coil.Coil
 import coil.request.ImageRequest
+import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.cache.ContentCache
+import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +85,12 @@ object AppWarmup {
                     dailyDeferred.await()?.let { ContentCache.homeDailySongs = it }
                     plsDeferred.await()?.let { ContentCache.homeRecommendPlaylists = it }
                     topDeferred.await()?.let { ContentCache.homeNewSongs = it }
+                }
+
+                // 阶段一·五：已登录则后台拉一次收藏库（单曲+专辑）写入缓存，
+                // 让重新安装/冷启动后进收藏页直接有数据，无需二次等待。
+                if (CookieManager.hasCookie(app)) {
+                    runCatching { LibraryManager.refreshFromCloud(app) }
                 }
 
                 // 阶段二：封面预取到 Coil 全局 ImageLoader 的内存+磁盘缓存

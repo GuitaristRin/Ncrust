@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.cache.ContentCache
+import com.takahashirinta.ncrust.library.AlbumInfo
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
@@ -123,7 +124,13 @@ fun AlbumDetailScreen(
                                 modifier = Modifier
                                     .background(Color(0xFF2A2A2A))
                                     .clickable {
-                                        LibraryManager.saveSongs(context, songItems)
+                                        LibraryManager.subscribeAlbum(context, AlbumInfo(
+                                            albumId = albumId,
+                                            name = album?.name ?: "",
+                                            picUrl = album?.picUrl ?: "",
+                                            artist = album?.artist?.name ?: "",
+                                            songCount = songItems.size
+                                        ))
                                         Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
                                     }
                                     .padding(horizontal = 12.dp, vertical = 6.dp)

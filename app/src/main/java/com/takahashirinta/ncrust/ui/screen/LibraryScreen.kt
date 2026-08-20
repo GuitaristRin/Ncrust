@@ -54,7 +54,8 @@ fun LibraryScreen(
     onPlayPlaylist: (Long) -> Unit = {},
     onSongInsertNext: (SongItem) -> Unit = {},
     onSongAppendToQueue: (SongItem) -> Unit = {},
-    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
+    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
+    refreshTrigger: Int = 0
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -90,11 +91,30 @@ fun LibraryScreen(
         }
     }
 
-    LaunchedEffect(selectedCategory) {
+    fun reloadLocal() {
         savedSongs = LibraryManager.getSavedSongs(context)
         savedAlbums = LibraryManager.getSavedAlbums(context)
+    }
+
+    LaunchedEffect(selectedCategory) {
+        reloadLocal()
         if (selectedCategory == 2 && playlists.isEmpty() && !isLoadingPlaylists) {
             loadPlaylists()
+        }
+    }
+
+    // 进入收藏页时后台拉取云端收藏（收藏单曲 + 收藏专辑），刷新后平滑 diff 更新。
+    // 失败/未登录不影响展示——本地缓存先渲染，绝不出现空白+加载动画。
+    LaunchedEffect(Unit) {
+        LibraryManager.refreshFromCloud(context)
+        reloadLocal()
+    }
+
+    // 登录完成后（cookieRefreshTrigger 变化）再拉一次云端，保证重新安装/刚登录后库非空。
+    LaunchedEffect(refreshTrigger) {
+        if (refreshTrigger > 0) {
+            LibraryManager.refreshFromCloud(context)
+            reloadLocal()
         }
     }
 
@@ -158,6 +178,11 @@ fun LibraryScreen(
                                 SongCard(
                                     song = song,
                                     style = SongCardStyle.LIST,
+                                    modifier = Modifier.animateItem(
+                                        fadeInSpec = tween(150, easing = MetroDefault),
+                                        placementSpec = tween(220, easing = MetroDefault),
+                                        fadeOutSpec = tween(120, easing = MetroDefault)
+                                    ),
                                     onClick = { onSongClick(song) },
                                     onShowMenu = {
                                         onShowSongMenu(song, listOf(
@@ -201,7 +226,13 @@ fun LibraryScreen(
                         ) {
                             items(rows, key = { row -> row.first().albumId }) { row ->
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .animateItem(
+                                            fadeInSpec = tween(150, easing = MetroDefault),
+                                            placementSpec = tween(220, easing = MetroDefault),
+                                            fadeOutSpec = tween(120, easing = MetroDefault)
+                                        ),
                                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
                                     for (album in row) {
@@ -258,7 +289,13 @@ fun LibraryScreen(
                             ) {
                                 items(rows, key = { row -> row.first().id }) { row ->
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .animateItem(
+                                                fadeInSpec = tween(150, easing = MetroDefault),
+                                                placementSpec = tween(220, easing = MetroDefault),
+                                                fadeOutSpec = tween(120, easing = MetroDefault)
+                                            ),
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         for (pl in row) {
