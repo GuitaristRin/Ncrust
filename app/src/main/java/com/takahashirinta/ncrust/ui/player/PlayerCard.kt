@@ -169,7 +169,9 @@ fun PlayerCard(
             }
             // Inner modifier → runs first within this node in Main pass.
             // Handles drag-to-collapse; runs before the outer consumer so it sees unconsumed MOVE.
-            .pointerInput(Unit) {
+            // 仅在有歌（!hasSong = 暂无播放）时可拖拽；用 hasSong 作 key，来了歌后手势重新激活。
+            .pointerInput(hasSong) {
+                if (!hasSong) return@pointerInput
                 var dragStartProgress = 0f
                 detectVerticalDragGestures(
                     onDragStart = { dragStartProgress = progress.value },
@@ -415,7 +417,8 @@ fun PlayerCard(
                 .statusBarsPadding()
                 .height(56.dp)
                 .then(
-                    if (miniBarEnabled) Modifier.clickable(
+                    // 暂无播放（hasSong=false）时不可点击展开，避免空白播放器被拉起。
+                    if (miniBarEnabled && hasSong) Modifier.clickable(
                         interactionSource = miniBarInteractionSource,
                         indication = null,
                         onClick = {
