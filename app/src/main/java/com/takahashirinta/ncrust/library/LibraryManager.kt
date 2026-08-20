@@ -1,6 +1,7 @@
 package com.takahashirinta.ncrust.library
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.Immutable
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -249,15 +250,26 @@ object LibraryManager {
      * 未登录返回 false。返回是否成功拉取（供调用方判断是否需要提示）。
      */
     suspend fun refreshFromCloud(context: Context): Boolean = withContext(Dispatchers.IO) {
-        if (!CookieManager.hasCookie(context)) return@withContext false
+        if (!CookieManager.hasCookie(context)) {
+            Log.w(TAG, "refreshFromCloud: no cookie, skip")
+            return@withContext false
+        }
         val uid: Long = try {
             PlaylistApi.getCurrentUserId()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "refreshFromCloud: getCurrentUserId failed: ${e.message}")
             return@withContext false
         }
 
-        val likedIds = try { PlaylistApi.getLikedSongIds(uid) } catch (_: Exception) { return@withContext false }
-        val cloudAlbums = try { PlaylistApi.getSubscribedAlbums() } catch (_: Exception) { return@withContext false }
+        val likedIds = try { PlaylistApi.getLikedSongIds(uid) } catch (e: Exception) {
+            Log.e(TAG, "refreshFromCloud: getLikedSongIds failed: ${e.message}")
+            return@withContext false
+        }
+        val cloudAlbums = try { PlaylistApi.getSubscribedAlbums() } catch (e: Exception) {
+            Log.e(TAG, "refreshFromCloud: getSubscribedAlbums failed: ${e.message}")
+            return@withContext false
+        }
+        Log.i(TAG, "refreshFromCloud: uid=$uid liked=${likedIds.size} albums=${cloudAlbums.size}")
 
         // 重建收藏单曲：保留已有缓存元数据，缺失的批量补详情。
         val existing = getSavedSongs(context)
@@ -284,6 +296,8 @@ object LibraryManager {
         scheduleFlush(context)
         true
     }
+
+    private const val TAG = "LibraryManager"
 }
 
 @Immutable

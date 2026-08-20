@@ -6,6 +6,7 @@ import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.crypto.EapiCrypto
 import com.takahashirinta.ncrust.network.crypto.WeapiCrypto
 import okhttp3.*
+import org.json.JSONObject
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -83,12 +84,19 @@ object RetrofitClient {
     }
 
     /**
-     * weapi 加密 POST。用于受保护但走 weapi 的接口（收藏单曲列表、收藏专辑等）。
-     * 表单携带 `params` + `encSecKey`，session Cookie 由上层传入。
+     * weapi 加密 POST。用于受保护但走 weapi 的接口（喜欢单曲列表、收藏专辑等）。
+     *
+     * 参考官方 weapi：POST 路径为 `/weapi/<去掉 /api/ 前缀>`（并非 /api/…），payload 需
+     * 注入 `csrf_token`（来自 Cookie 的 __csrf）。session Cookie 由上层传入。
      */
     fun weapiPost(path: String, payloadJson: String): okhttp3.Response {
-        val (params, encSecKey) = WeapiCrypto.encryptParams(payloadJson)
-        val fullUrl = "https://music.163.com" + path
+        val rawPayload = try { JSONObject(payloadJson) } catch (_: Exception) { JSONObject() }
+        getCsrfToken()?.let {
+            if (it.isNotEmpty() && !rawPayload.has("csrf_token")) rawPayload.put("csrf_token", it)
+        }
+        val (params, encSecKey) = WeapiCrypto.encryptParams(rawPayload.toString())
+        val weapiPath = if (path.startsWith("/api/")) "/weapi/" + path.removePrefix("/api/") else path
+        val fullUrl = "https://music.163.com" + weapiPath
         val requestBody = FormBody.Builder()
             .add("params", params)
             .add("encSecKey", encSecKey)
