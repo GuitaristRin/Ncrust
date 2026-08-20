@@ -407,13 +407,16 @@ object PlaylistApi {
     )
 
     suspend fun getSubscribedAlbums(limit: Int = 100, offset: Int = 0): List<CloudAlbum> = withContext(Dispatchers.IO) {
-        val payload = JSONObject()
-            .put("limit", limit)
-            .put("offset", offset)
-            .put("total", true)
-            .toString()
-        val response = RetrofitClient.weapiPost("/api/album/sublist", payload)
+        val payload = mapOf(
+            "limit" to limit.toString(),
+            "offset" to offset.toString(),
+            "total" to "true"
+        )
+        // 客户端(接口域)用的是 eapi 端点 /eapi/album/sublist；weapi 那条网页端读取为空，
+        // 故改用 eapi 读「我收藏的专辑」。raw body 打日志便于真机确凿定位。
+        val response = RetrofitClient.eapiPost("/eapi/album/sublist", payload)
         val body = response.body?.string() ?: throw Exception("empty response")
+        Log.i("PlaylistApi", "album/sublist(eapi) body=$body")
         val json = JSONObject(body)
         val data = json.optJSONObject("data") ?: throw Exception("no data: $body")
         val arr = data.optJSONArray("albums") ?: return@withContext emptyList()
@@ -429,11 +432,11 @@ object PlaylistApi {
         }
     }
 
-    /** 收藏(sub=true) / 取消收藏(false) 专辑（weapi）。 */
+    /** 收藏(sub=true) / 取消收藏(false) 专辑（eapi，与客户端一致）。 */
     suspend fun subAlbum(albumId: Long, sub: Boolean): Boolean = withContext(Dispatchers.IO) {
         val action = if (sub) "sub" else "unsub"
-        val payload = JSONObject().put("id", albumId).toString()
-        val response = RetrofitClient.weapiPost("/api/album/$action", payload)
+        val payload = mapOf("id" to albumId.toString())
+        val response = RetrofitClient.eapiPost("/eapi/album/$action", payload)
         val body = response.body?.string() ?: return@withContext false
         JSONObject(body).optInt("code", -1) == 200
     }
