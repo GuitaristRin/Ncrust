@@ -413,19 +413,24 @@ object PlaylistApi {
             "total" to "true"
         )
         // 客户端(接口域)用的是 eapi 端点 /eapi/album/sublist；weapi 那条网页端读取为空，
-        // 故改用 eapi 读「我收藏的专辑」。raw body 打日志便于真机确凿定位。
+        // 故改用 eapi 读「我收藏的专辑」。eapi 返回 data 直接是专辑数组(非 weapi 的 data.albums)。
         val response = RetrofitClient.eapiPost("/eapi/album/sublist", payload)
         val body = response.body?.string() ?: throw Exception("empty response")
-        Log.i("PlaylistApi", "album/sublist(eapi) body=$body")
         val json = JSONObject(body)
-        val data = json.optJSONObject("data") ?: throw Exception("no data: $body")
-        val arr = data.optJSONArray("albums") ?: return@withContext emptyList()
+        val arr: JSONArray = when {
+            json.optJSONArray("data") != null -> json.optJSONArray("data")
+            json.optJSONObject("data") != null -> json.optJSONObject("data").optJSONArray("albums")
+            else -> return@withContext emptyList()
+        }
         (0 until arr.length()).map { i ->
             val a = arr.getJSONObject(i)
             CloudAlbum(
                 albumId = a.optLong("id"),
                 name = a.optString("name"),
-                artist = a.optJSONObject("artist")?.optString("name") ?: "",
+                artist = a.optJSONArray("artists")
+                    ?.takeIf { it.length() > 0 }
+                    ?.getJSONObject(0)?.optString("name")
+                    ?: a.optJSONObject("artist")?.optString("name") ?: "",
                 picUrl = a.optString("picUrl"),
                 songCount = a.optInt("size")
             )
