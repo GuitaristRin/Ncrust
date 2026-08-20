@@ -14,6 +14,7 @@ import com.takahashirinta.ncrust.lyric.LrcParser
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.player.PlaybackService
 import com.takahashirinta.ncrust.player.PlaybackStateManager
+import com.takahashirinta.ncrust.player.PlayReporter
 import com.takahashirinta.ncrust.player.SongUrlFetcher
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,11 +42,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var playJob: Job? = null
     private var preloadJob: Job? = null
 
+    // 防止同一首歌重复上报播放行为。
+    private var lastReportedSongId = -1L
+
     // Incremented on every explicit playSong call; lets preloadNextSong detect staleness.
     private var songPlayVersion = 0
 
     val currentQualityIndex = MutableStateFlow(3)
-    private val qualityApiLevels = listOf("standard", "higher", "exhigh", "lossless", "hires")
+    private val qualityApiLevels = listOf("standard", "higher", "exhigh", "lossless", "hires", "jyeffect", "dolby")
 
     private var gaplessEnabled = false
     private val PRELOAD_THRESHOLD_MS = 20_000L
@@ -76,6 +80,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             duration.value = dur
             progress.value = if (dur > 0) pos.toFloat() / dur.toFloat() else 0f
 
+            // 播放行为上报: 进度达 80% 视为"听完",每首歌只上报一次。
+            val sid = currentSongId.value ?: -1L
+            if (sid > 0 && sid != lastReportedSongId && PlayReporter.reachedCompletion(pos, dur)) {
+                lastReportedSongId = sid
+                PlayReporter.reportPlay(sid, pos, dur, end = "playend", isWifi = isOnWifi())
+            }
+
             // Signal the preload window once per song (guarded by !needsPreload.value).
             if (gaplessEnabled && dur > 0 && pos > 1_000L && !needsPreload.value) {
                 val remaining = dur - pos
@@ -84,7 +95,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
-        PlaybackService.onPlaybackEnded = { onSongEndedCallback?.invoke() }
+        PlaybackService.onPlaybackEnded = {
+            // 自然播放结束时,若尚未上报则补一条 playend。
+            val sid = currentSongId.value ?: -1L
+            if (sid > 0 && sid != lastReportedSongId) {
+                lastReportedSongId = sid
+                PlayReporter.reportPlay(sid, duration.value, duration.value, end = "playend", isWifi = isOnWifi())
+            }
+            onSongEndedCallback?.invoke()
+        }
         PlaybackService.onPlaybackPrevious = { onSongPreviousCallback?.invoke() }
         PlaybackService.onIsPlayingChanged = { playing -> isPlaying.value = playing }
         PlaybackService.onBufferingChanged = { buffering -> isBuffering.value = buffering }
