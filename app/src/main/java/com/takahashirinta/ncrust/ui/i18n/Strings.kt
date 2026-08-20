@@ -33,6 +33,10 @@ data class Strings(
     val themeColorNames: List<String>,
     val languageSectionTitle: String,
     val aboutButton: String,
+    val storageSectionTitle: String,
+    val cacheSizeLabel: (Long) -> String,
+    val clearCache: String,
+    val cacheCleared: String,
 
     // Home screen
     val dailySongsTitle: String,
@@ -162,3 +166,13 @@ data class Strings(
     // Feedback toasts
     val addedToLibrary: String,
 )
+
+/** 字节数格式化为人类可读的 B/KB/MB/GB，供 cacheSizeLabel 复用。 */
+fun formatCacheBytes(bytes: Long): String {
+    if (bytes < 1024L) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024.0) return "%.1f KB".format(kb)
+    val mb = kb / 1024.0
+    if (mb < 1024.0) return "%.1f MB".format(mb)
+    return "%.2f GB".format(mb / 1024.0)
+}

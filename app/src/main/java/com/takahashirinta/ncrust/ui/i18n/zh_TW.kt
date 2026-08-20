@@ -29,6 +29,10 @@ val zhTW = Strings(
     themeColorNames = listOf("雲杉青", "鈷藍", "緋紅", "琥珀黃", "堇紫", "素白"),
     languageSectionTitle = "言語",
     aboutButton = "關於 Ncrust",
+    storageSectionTitle = "儲存與快取",
+    cacheSizeLabel = { b -> "快取占用 ${formatCacheBytes(b)}" },
+    clearCache = "清除快取",
+    cacheCleared = "快取已清除",
 
     dailySongsTitle = "日薦之曲",
     recommendPlaylistTitle = "薦單",

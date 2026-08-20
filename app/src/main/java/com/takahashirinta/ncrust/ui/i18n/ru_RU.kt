@@ -29,6 +29,10 @@ val ruRU = Strings(
     themeColorNames = listOf("Ель", "Кобальт", "Багровый", "Янтарный", "Фиолетовый", "Белый"),
     languageSectionTitle = "Язык",
     aboutButton = "О Ncrust",
+    storageSectionTitle = "Хранилище и кэш",
+    cacheSizeLabel = { b -> "Кэш: ${formatCacheBytes(b)}" },
+    clearCache = "Очистить кэш",
+    cacheCleared = "Кэш очищен",
 
     dailySongsTitle = "Ежедневные рекомендации",
     recommendPlaylistTitle = "Рекомендуемые плейлисты",

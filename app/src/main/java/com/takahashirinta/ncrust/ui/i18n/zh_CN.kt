@@ -29,6 +29,10 @@ val zhCN = Strings(
     themeColorNames = listOf("云杉", "钴蓝", "绯红", "琥珀", "堇紫", "素白"),
     languageSectionTitle = "显示语言",
     aboutButton = "关于 Ncrust",
+    storageSectionTitle = "存储与缓存",
+    cacheSizeLabel = { b -> "缓存占用 ${formatCacheBytes(b)}" },
+    clearCache = "清除缓存",
+    cacheCleared = "缓存已清除",
 
     dailySongsTitle = "每日推荐",
     recommendPlaylistTitle = "推荐歌单",

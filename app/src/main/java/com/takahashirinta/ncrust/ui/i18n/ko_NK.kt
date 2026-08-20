@@ -29,6 +29,10 @@ val koNK = Strings(
     themeColorNames = listOf("가문비", "코발트", "진홍", "호박", "제비꽃", "하양"),
     languageSectionTitle = "표시 언어",
     aboutButton = "Ncrust 소개",
+    storageSectionTitle = "저장소 및 캐시",
+    cacheSizeLabel = { b -> "캐시: ${formatCacheBytes(b)}" },
+    clearCache = "캐시 지우기",
+    cacheCleared = "캐시가 삭제되었습니다",
 
     dailySongsTitle = "날마다 추천곡",
     recommendPlaylistTitle = "추천 목록",

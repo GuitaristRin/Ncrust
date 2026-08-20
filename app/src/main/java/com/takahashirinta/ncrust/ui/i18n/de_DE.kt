@@ -29,6 +29,10 @@ val deDE = Strings(
     themeColorNames = listOf("Fichte", "Kobalt", "Karmesinrot", "Bernstein", "Violett", "Weiß"),
     languageSectionTitle = "Sprache",
     aboutButton = "Über Ncrust",
+    storageSectionTitle = "Speicher & Cache",
+    cacheSizeLabel = { b -> "Cache: ${formatCacheBytes(b)}" },
+    clearCache = "Cache leeren",
+    cacheCleared = "Cache geleert",
 
     dailySongsTitle = "Tägliche Empfehlungen",
     recommendPlaylistTitle = "Empfohlene Playlists",

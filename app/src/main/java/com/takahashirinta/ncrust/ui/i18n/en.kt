@@ -29,6 +29,10 @@ val en = Strings(
     themeColorNames = listOf("Spruce", "Cobalt", "Crimson", "Amber", "Violet", "White"),
     languageSectionTitle = "Language",
     aboutButton = "About Ncrust",
+    storageSectionTitle = "Storage & Cache",
+    cacheSizeLabel = { b -> "Cache: ${formatCacheBytes(b)}" },
+    clearCache = "Clear Cache",
+    cacheCleared = "Cache cleared",
 
     dailySongsTitle = "Daily Recommendations",
     recommendPlaylistTitle = "Recommended Playlists",

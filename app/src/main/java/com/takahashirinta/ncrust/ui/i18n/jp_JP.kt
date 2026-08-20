@@ -29,6 +29,10 @@ val jpJP = Strings(
     themeColorNames = listOf("スプルース", "コバルト", "クリムゾン", "アンバー", "バイオレット", "ホワイト"),
     languageSectionTitle = "表示言語",
     aboutButton = "Ncrustについて",
+    storageSectionTitle = "ストレージとキャッシュ",
+    cacheSizeLabel = { b -> "キャッシュ: ${formatCacheBytes(b)}" },
+    clearCache = "キャッシュを消去",
+    cacheCleared = "キャッシュを消去しました",
 
     dailySongsTitle = "おすすめ今日の曲",
     recommendPlaylistTitle = "おすすめプレイリスト",

@@ -30,6 +30,9 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.auth.CookieManager
+import com.takahashirinta.ncrust.cache.ContentCache
+import android.content.Context
+import android.widget.Toast
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
@@ -230,6 +233,45 @@ fun UserScreen(
                             onLanguageChange(code)
                         }
                     }
+                )
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+
+        // 存储与缓存：显示当前占用，点击清除（内存缓存 + 图片磁盘缓存 + WebView 缓存）。
+        item {
+            SectionTitle(strings.storageSectionTitle)
+            var cacheSize by remember { mutableStateOf(currentCacheSize(context)) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        ContentCache.clearAll()
+                        runCatching { coil.Coil.imageLoader(context).memoryCache?.clear() }
+                        runCatching { coil.Coil.imageLoader(context).diskCache?.clear() }
+                        runCatching {
+                            context.cacheDir?.let { dir ->
+                                dir.listFiles()
+                                    ?.filter { it.name == "WebView" || it.name == "http" }
+                                    ?.forEach { it.deleteRecursively() }
+                            }
+                        }
+                        cacheSize = currentCacheSize(context)
+                        Toast.makeText(context, strings.cacheCleared, Toast.LENGTH_SHORT).show()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MetroText(
+                    strings.cacheSizeLabel(cacheSize),
+                    color = Color.White,
+                    style = TextStyle(fontSize = 15.sp),
+                    modifier = Modifier.weight(1f)
+                )
+                MetroText(
+                    strings.clearCache,
+                    color = LocalMetroColors.current.primary,
+                    style = TextStyle(fontSize = 15.sp)
                 )
             }
             Spacer(Modifier.height(32.dp))
@@ -593,3 +635,19 @@ fun MetroLanguageDropdown(
     }
 }
 
+
+/** 统计应用缓存占用：图片磁盘缓存 + 缓存目录（含 WebView 缓存）。 */
+private fun currentCacheSize(context: Context): Long {
+    var total = 0L
+    runCatching { coil.Coil.imageLoader(context).diskCache?.size?.let { total += it } }
+    runCatching { context.cacheDir?.let { total += folderSize(it) } }
+    return total
+}
+
+private fun folderSize(dir: java.io.File): Long {
+    var size = 0L
+    dir.listFiles()?.forEach { f ->
+        size += if (f.isDirectory) folderSize(f) else f.length()
+    }
+    return size
+}
