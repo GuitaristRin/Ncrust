@@ -37,6 +37,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var onSongEndedCallback: (() -> Unit)? = null
     private var onSongPreviousCallback: (() -> Unit)? = null
     private var onSongTransitionedCallback: (() -> Unit)? = null
+    private var onUnplayableCallback: (() -> Unit)? = null
     private var playJob: Job? = null
     private var preloadJob: Job? = null
 
@@ -145,6 +146,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun setOnSongEndedCallback(callback: () -> Unit) { onSongEndedCallback = callback }
     fun setOnSongPreviousCallback(callback: () -> Unit) { onSongPreviousCallback = callback }
     fun setOnSongTransitionedCallback(callback: () -> Unit) { onSongTransitionedCallback = callback }
+    fun setOnUnplayableCallback(callback: () -> Unit) { onUnplayableCallback = callback }
 
     fun resetPreloadFlag() { needsPreload.value = false }
 
@@ -204,6 +206,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         playJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = SongUrlFetcher.fetch(songId, selectedQuality)
+                if (result == null) {
+                    // 该歌在所有音质档位都取不到可播放的 URL（无版权 / 需会员且当前无订阅）。
+                    // 前一个版本会兜底喂给 ExoPlayer 一个 404 的 HTML 链接导致无限缓冲"卡住"，
+                    // 现在改成交由 MainScreen 跳下一首，绝不播放坏链接。
+                    Log.w("PlayerViewModel", "no playable url for songId=$songId, skipping")
+                    withContext(Dispatchers.Main) { onUnplayableCallback?.invoke() }
+                    return@launch
+                }
                 val actualIdx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                 fetchLyrics(songId)
                 withContext(Dispatchers.Main) {
@@ -252,6 +262,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 else
                     qualityApiLevels.getOrElse(prefs.getInt("mobile_quality", 1)) { "higher" }
                 val result = SongUrlFetcher.fetch(songId, quality)
+                if (result == null) {
+                    // 预加载失败：可能无版权/无订阅，忽略即可，等当前歌结束时由 songEnded 跳歌。
+                    currentlyPreloadingSongId = -1L
+                    return@launch
+                }
                 withContext(Dispatchers.Main) {
                     currentlyPreloadingSongId = -1L
                     // Store in cache regardless of staleness — URL is valid even if a new song started.

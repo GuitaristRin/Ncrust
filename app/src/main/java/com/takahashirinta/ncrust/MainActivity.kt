@@ -5,6 +5,7 @@ import android.Manifest
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.Animatable
@@ -341,6 +342,7 @@ fun MainScreen(
         playerViewModel.setOnSongPreviousCallback { playPrevious() }
         playerViewModel.setOnSongEndedCallback { songEnded = true }
         playerViewModel.setOnSongTransitionedCallback { songTransitioned = true }
+        playerViewModel.setOnUnplayableCallback { playNext() }
     }
 
     // 无缝播放：当进入当前歌曲的最后 20 秒时，预取下一首的 URL 并加入 ExoPlayer 队列。
@@ -819,6 +821,14 @@ fun MainScreen(
                     onDismiss = { menuSong = null }
                 )
             }
+        }
+
+        // 全屏播放器展开时拦截系统返回：先收起播放器而不是直接退出应用。
+        // 播放器是独立 overlay 层不在 NavHost 里，必须自己处理 back（此前侧滑会穿透到
+        // Activity 根部直接把 app finish 掉）。放在 NavHost 之后组合，OnBackPressedDispatcher
+        // 按注册逆序回调，保证它比 Navigation 的 BackHandler 更优先命中。
+        BackHandler(enabled = progress.value > 0.01f) {
+            collapseCard()
         }
     }
 }

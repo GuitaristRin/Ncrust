@@ -13,7 +13,9 @@ object SongUrlFetcher {
     private const val TAG = "SongUrlFetcher"
     private const val SONG_URL_PATH = "/eapi/song/enhance/player/url/v1"
 
-    suspend fun fetch(songId: Long, level: String = "lossless"): SongUrlResult = withContext(Dispatchers.IO) {
+    // Returns null when no level yields a playable URL (e.g. VIP-only song without a
+    // subscription, or no valid session). Callers must skip the song instead of playing.
+    suspend fun fetch(songId: Long, level: String = "lossless"): SongUrlResult? = withContext(Dispatchers.IO) {
         // Try the requested level first, then fall back down the quality ladder.
         val fallbackLevels = when (level) {
             "hires"    -> listOf("hires", "lossless", "exhigh", "higher", "standard")
@@ -34,6 +36,9 @@ object SongUrlFetcher {
                 val data = json.optJSONArray("data") ?: continue
                 if (data.length() > 0) {
                     val obj = data.getJSONObject(0)
+                    // code != 200 means the level is unavailable (404 = no resource / not entitled).
+                    // There is no point accepting such an entry, so advance down the ladder.
+                    if (obj.optInt("code", 200) != 200) continue
                     val url = obj.optString("url")
                     val actualLevel = obj.optString("level", tryLevel)
                     if (!url.isNullOrEmpty()) {
@@ -46,8 +51,11 @@ object SongUrlFetcher {
             }
         }
 
-        Log.e(TAG, "all levels exhausted, falling back to outer url")
-        SongUrlResult("https://music.163.com/song/media/outer/url?id=$songId.mp3", "standard")
+        // 所有档位都取不到可播放的 URL。绝不要用 https://music.163.com/song/media/outer/url?id=X.mp3
+        // 兜底 —— 那个旧端点对无版权/需会员的歌曲返回 302→404 的 HTML 页面，ExoPlayer 拿到非音频流
+        // 会无限缓冲（"卡住"）。这里直接返回 null，让上层跳歌而不是播放坏链接。
+        Log.e(TAG, "no playable url for songId=$songId at any level")
+        null
     }
 
     private fun buildPayload(songId: Long, level: String): Map<String, String> {

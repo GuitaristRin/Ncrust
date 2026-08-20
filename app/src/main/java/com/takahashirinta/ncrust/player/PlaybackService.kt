@@ -73,6 +73,7 @@ class PlaybackService : MediaSessionService() {
                     .build(),
                 true
             )
+            .setHandleAudioBecomingNoisy(true)
             .build()
 
         mediaSessionCompat = MediaSessionCompat(this, "NcrustSession").apply {
