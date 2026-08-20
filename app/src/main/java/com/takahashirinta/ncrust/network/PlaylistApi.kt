@@ -364,11 +364,24 @@ object PlaylistApi {
         null
     }
 
-    /** 获取「我喜欢的音乐」全部单曲（红心歌单，走 playlist detail 拿完整元数据）。 */
-    suspend fun getLikedSongs(uid: Long): List<SongItem> = withContext(Dispatchers.IO) {
+    /** 获取「我喜欢的音乐」全部单曲 ID（红心歌单 trackIds，有序、轻量、不会拉全部详情）。 */
+    suspend fun getLikedTrackIds(uid: Long): List<Long> = withContext(Dispatchers.IO) {
         val playlistId = getLikedPlaylistId(uid) ?: return@withContext emptyList()
-        getPlaylistDetail(playlistId)
+        val payload = mapOf(
+            "id" to playlistId.toString(),
+            "n" to "1000",
+            "s" to "0"
+        )
+        val response = RetrofitClient.eapiPost(PLAYLIST_DETAIL_PATH, payload)
+        val body = response.body?.string() ?: return@withContext emptyList()
+        val json = JSONObject(body)
+        val playlistObj = json.optJSONObject("playlist") ?: return@withContext emptyList()
+        val trackIds = playlistObj.optJSONArray("trackIds") ?: return@withContext emptyList()
+        return@withContext (0 until trackIds.length()).map { trackIds.getJSONObject(it).optLong("id") }
     }
+
+    /** 按 ID 批量拉取单曲详情（eapi/v3/song/detail），供收藏单曲分页 lazy 加载用。 */
+    suspend fun getSongsByIds(ids: List<Long>): List<SongItem> = fetchSongDetails(ids)
 
     /** 收藏(like=true) / 取消收藏(false) 单曲（weapi）。 */
     suspend fun likeSong(songId: Long, like: Boolean): Boolean = withContext(Dispatchers.IO) {

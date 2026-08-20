@@ -34,15 +34,23 @@ object LibraryManager {
     private const val PREFS_NAME = "ncrust_library"
     private const val KEY_SONGS = "saved_songs"
     private const val KEY_ALBUMS = "saved_albums"
+    private const val KEY_LIKED_IDS = "liked_ids"
+
+    // 收藏单曲分页加载：进页先拉首屏 BATCH 首详情渲染，滚动到底再补下一批。
+    const val LIKED_BATCH_SIZE = 50
 
     private val gson = Gson()
     private val songListType = object : TypeToken<List<SongItem>>() {}.type
     private val albumListType = object : TypeToken<List<AlbumInfo>>() {}.type
+    private val idListType = object : TypeToken<List<Long>>() {}.type
 
     @Volatile private var cachedSongs: MutableList<SongItem>? = null
     private val songsLock = Any()
     @Volatile private var cachedAlbums: MutableList<AlbumInfo>? = null
     private val albumsLock = Any()
+    // 红心歌单全部单曲 id（有序），作为分页加载的底表。
+    @Volatile private var cachedLikedIds: List<Long>? = null
+    private val idsLock = Any()
 
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var flushJob: Job? = null
@@ -84,6 +92,22 @@ object LibraryManager {
         }
     }
 
+    private fun ensureLikedIdsLoaded(context: Context): List<Long> {
+        val current = cachedLikedIds
+        if (current != null) return current
+        return synchronized(idsLock) {
+            cachedLikedIds ?: run {
+                val parsed = runCatching {
+                    val json = prefs(context).getString(KEY_LIKED_IDS, null)
+                    if (json.isNullOrEmpty()) emptyList<Long>()
+                    else (gson.fromJson<List<Long>>(json, idListType) ?: emptyList())
+                }.getOrDefault(emptyList())
+                cachedLikedIds = parsed
+                parsed
+            }
+        }
+    }
+
     private fun scheduleFlush(context: Context) {
         synchronized(flushLock) {
             pendingAppContext = context.applicationContext
@@ -99,16 +123,20 @@ object LibraryManager {
         val ctx: Context
         val songsSnapshot: List<SongItem>
         val albumsSnapshot: List<AlbumInfo>
+        val likedIdsSnapshot: List<Long>
         synchronized(flushLock) {
             ctx = pendingAppContext ?: return
             pendingAppContext = null
         }
+
         synchronized(songsLock) { songsSnapshot = cachedSongs?.toList() ?: emptyList() }
         synchronized(albumsLock) { albumsSnapshot = cachedAlbums?.toList() ?: emptyList() }
+        synchronized(idsLock) { likedIdsSnapshot = cachedLikedIds?.toList() ?: emptyList() }
         runCatching {
             prefs(ctx).edit()
                 .putString(KEY_SONGS, gson.toJson(songsSnapshot))
                 .putString(KEY_ALBUMS, gson.toJson(albumsSnapshot))
+                .putString(KEY_LIKED_IDS, gson.toJson(likedIdsSnapshot))
                 .apply()
         }
     }
@@ -186,37 +214,10 @@ object LibraryManager {
 
     // ==================== 专辑（云端收藏） ====================
 
-    /** 收藏页「专辑」栏：返回云端收藏的专辑（本地缓存）。未同步前回退为旧派生行为。 */
+    /** 收藏页「专辑」栏：返回云端「收藏的专辑」（album_sublist 缓存）。纯云端，不派生。 */
     fun getSavedAlbums(context: Context): List<AlbumInfo> {
         val albums = ensureAlbumsLoaded(context)
-        synchronized(albumsLock) {
-            if (albums.isNotEmpty()) return albums.toList()
-        }
-        // 尚未做过云端同步（本地无专辑缓存）时，回退到从收藏单曲派生，保证兼容旧数据。
-        return getSavedAlbumsLegacy(context)
-    }
-
-    private fun getSavedAlbumsLegacy(context: Context): List<AlbumInfo> {
-        val songs = getSavedSongs(context)
-        val albumMap = linkedMapOf<Long, AlbumInfo>()
-        for (song in songs) {
-            val al = song.album ?: continue
-            if (al.id == null) continue
-            val albumId = al.id
-            if (!albumMap.containsKey(albumId)) {
-                albumMap[albumId] = AlbumInfo(
-                    albumId = albumId,
-                    name = al.name ?: "未知专辑",
-                    picUrl = al.picUrl ?: "",
-                    artist = song.artists?.firstOrNull()?.name ?: "未知歌手",
-                    songCount = 1
-                )
-            } else {
-                val existing = albumMap[albumId]!!
-                albumMap[albumId] = existing.copy(songCount = existing.songCount + 1)
-            }
-        }
-        return albumMap.values.toList()
+        return synchronized(albumsLock) { albums.toList() }
     }
 
     /** 收藏专辑（订阅云端）：先落本地缓存，再异步同步云端。 */
@@ -261,14 +262,17 @@ object LibraryManager {
             return@withContext false
         }
 
-        // 单曲与专辑各自独立尝试、独立提交：任一步失败不致整体放弃，
-        // 避免"专辑拉取失败 → 连坐把单曲也清空"。
+        // 单曲与专辑各自独立尝试、独立提交：任一步失败不致整体放弃。
         var anySuccess = false
 
+        // 单曲：先拉全量有序 trackIds 作底表，只需首屏分批详情即可渲染(懒加载)。
         try {
-            val likedSongs = PlaylistApi.getLikedSongs(uid)
-            Log.i(TAG, "refreshFromCloud: liked=${likedSongs.size}")
-            synchronized(songsLock) { cachedSongs = likedSongs.toMutableList() }
+            val likedIds = PlaylistApi.getLikedTrackIds(uid)
+            Log.i(TAG, "refreshFromCloud: likedIds=${likedIds.size}")
+            synchronized(idsLock) { cachedLikedIds = likedIds }
+            val firstBatch = if (likedIds.size > LIKED_BATCH_SIZE) likedIds.take(LIKED_BATCH_SIZE) else likedIds
+            val firstSongs = if (firstBatch.isNotEmpty()) PlaylistApi.getSongsByIds(firstBatch) else emptyList()
+            synchronized(songsLock) { cachedSongs = firstSongs.toMutableList() }
             anySuccess = true
         } catch (e: Exception) {
             Log.e(TAG, "refreshFromCloud: liked songs failed: ${e.message}")
@@ -295,6 +299,30 @@ object LibraryManager {
 
         if (anySuccess) scheduleFlush(context)
         true
+    }
+
+    /** 红心歌单全部单曲 id（有序），供收藏页做分页懒加载的底表。 */
+    fun getLikedSongIds(context: Context): List<Long> = ensureLikedIdsLoaded(context)
+
+    /**
+     * 分页拉取下一批收藏单曲详情（滚动到底时调用）。会追加进本地缓存并返回新渲染项。
+     */
+    suspend fun loadMoreLikedSongs(context: Context): List<SongItem> = withContext(Dispatchers.IO) {
+        val allIds = ensureLikedIdsLoaded(context)
+        val loaded = synchronized(songsLock) { cachedSongs?.size ?: 0 }
+        if (allIds.isEmpty() || loaded >= allIds.size) return@withContext emptyList()
+        val sliceEnd = minOf(loaded + LIKED_BATCH_SIZE, allIds.size)
+        val slice = allIds.subList(loaded, sliceEnd)
+        val fetched = try { PlaylistApi.getSongsByIds(slice) } catch (e: Exception) {
+            Log.e(TAG, "loadMoreLikedSongs failed: ${e.message}")
+            return@withContext emptyList()
+        }
+        synchronized(songsLock) {
+            val songs = cachedSongs ?: mutableListOf()
+            val seen = songs.mapTo(mutableSetOf()) { it.id }
+            for (s in fetched) if (s.id !in seen) songs.add(s)
+            songs.toList()
+        }.also { scheduleFlush(context) }
     }
 
     private const val TAG = "LibraryManager"

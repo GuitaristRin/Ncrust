@@ -11,9 +11,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -118,6 +121,21 @@ fun LibraryScreen(
         }
     }
 
+    // 收藏单曲分页懒加载：滚动到列表末尾时拉取下一批详情。
+    val songListState = rememberLazyListState()
+    LaunchedEffect(selectedCategory) {
+        if (selectedCategory != 0) return@LaunchedEffect
+        snapshotFlow { songListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .distinctUntilChanged()
+            .collect { lastIndex ->
+                val total = LibraryManager.getLikedSongIds(context).size
+                if (lastIndex >= savedSongs.size - 5 && savedSongs.size < total) {
+                    val more = LibraryManager.loadMoreLikedSongs(context)
+                    if (more.isNotEmpty()) savedSongs = more
+                }
+            }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
     ResponsiveContent {
         // 背景由 MainScreen 外层 Box 统一填充，此处不重复画一层
@@ -171,6 +189,7 @@ fun LibraryScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
+                            state = songListState,
                             contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
                             flingBehavior = rememberMetroFlingBehavior()
                         ) {
@@ -178,11 +197,6 @@ fun LibraryScreen(
                                 SongCard(
                                     song = song,
                                     style = SongCardStyle.LIST,
-                                    modifier = Modifier.animateItem(
-                                        fadeInSpec = tween(150, easing = MetroDefault),
-                                        placementSpec = tween(220, easing = MetroDefault),
-                                        fadeOutSpec = tween(120, easing = MetroDefault)
-                                    ),
                                     onClick = { onSongClick(song) },
                                     onShowMenu = {
                                         onShowSongMenu(song, listOf(
