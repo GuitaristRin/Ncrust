@@ -261,27 +261,18 @@ object LibraryManager {
             return@withContext false
         }
 
-        val likedIds = try { PlaylistApi.getLikedSongIds(uid) } catch (e: Exception) {
-            Log.e(TAG, "refreshFromCloud: getLikedSongIds failed: ${e.message}")
+        val likedSongs = try { PlaylistApi.getLikedSongs(uid) } catch (e: Exception) {
+            Log.e(TAG, "refreshFromCloud: getLikedSongs failed: ${e.message}")
             return@withContext false
         }
         val cloudAlbums = try { PlaylistApi.getSubscribedAlbums() } catch (e: Exception) {
             Log.e(TAG, "refreshFromCloud: getSubscribedAlbums failed: ${e.message}")
             return@withContext false
         }
-        Log.i(TAG, "refreshFromCloud: uid=$uid liked=${likedIds.size} albums=${cloudAlbums.size}")
+        Log.i(TAG, "refreshFromCloud: uid=$uid liked=${likedSongs.size} albums=${cloudAlbums.size}")
 
-        // 重建收藏单曲：保留已有缓存元数据，缺失的批量补详情。
-        val existing = getSavedSongs(context)
-        val byId = existing.associateBy { it.id }
-        val missingIds = likedIds.filter { it !in byId }
-        val fetched = if (missingIds.isNotEmpty()) {
-            runCatching { PlaylistApi.getSongsByIds(missingIds) }.getOrDefault(emptyList())
-        } else emptyList()
-        val fetchedById = fetched.associateBy { it.id }
-        val rebuilt = likedIds.mapNotNull { byId[it] ?: fetchedById[it] }
-
-        synchronized(songsLock) { cachedSongs = rebuilt.toMutableList() }
+        // 红心歌单详情已带完整元数据，直接整体重建缓存（云端为真源）。
+        synchronized(songsLock) { cachedSongs = likedSongs.toMutableList() }
         synchronized(albumsLock) {
             cachedAlbums = cloudAlbums.map {
                 AlbumInfo(

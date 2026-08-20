@@ -209,9 +209,6 @@ object PlaylistApi {
         emptyList()
     }
 
-    /** 按 ID 批量拉取单曲详细信息（eapi/v3/song/detail），用于重建收藏单曲元数据。 */
-    suspend fun getSongsByIds(ids: List<Long>): List<SongItem> = fetchSongDetails(ids)
-
     @Immutable
     data class PlaylistInfo(
         val id: Long,
@@ -337,15 +334,40 @@ object PlaylistApi {
 
     // ==================== 云端收藏（收藏单曲 / 收藏专辑） ====================
 
-    /** 获取云端「我喜欢的音乐」单曲 ID 列表（weapi）。 */
-    suspend fun getLikedSongIds(uid: Long): List<Long> = withContext(Dispatchers.IO) {
-        val payload = JSONObject().put("uid", uid).toString()
-        val response = RetrofitClient.weapiPost("/api/song/like/get", payload)
-        val body = response.body?.string() ?: throw Exception("empty response")
+    /**
+     * 找到「我喜欢的音乐」（红心歌单）的 playlist id。
+     *
+     * 该歌单在 /eapi/user/playlist 中作为用户自己的特殊歌单出现（specialType != 0，
+     * 普通自建歌单为 0），正是收藏页单曲 tab 的数据源。与官方 weapi 的 likelist
+     * （/api/song/like/get，eapi 加密）等价，但走已证明可用的 playlist-detail 路径。
+     */
+    suspend fun getLikedPlaylistId(uid: Long): Long? = withContext(Dispatchers.IO) {
+        val payload = mapOf(
+            "uid" to uid.toString(),
+            "limit" to "200",
+            "offset" to "0",
+            "includeVideo" to "false"
+        )
+        val response = RetrofitClient.eapiPost(USER_PLAYLIST_PATH, payload)
+        val body = response.body?.string() ?: return@withContext null
         val json = JSONObject(body)
-        val idsJson = json.optJSONObject("data") ?: throw Exception("no data: $body")
-        val ids = idsJson.optJSONArray("ids") ?: return@withContext emptyList()
-        (0 until ids.length()).map { ids.getLong(it) }
+        val arr = json.optJSONArray("playlist") ?: return@withContext null
+        for (i in 0 until arr.length()) {
+            val item = arr.getJSONObject(i)
+            if (item.optInt("specialType") != 0) return@withContext item.optLong("id")
+        }
+        // 兜底：按名字识别「我喜欢的音乐」
+        for (i in 0 until arr.length()) {
+            val item = arr.getJSONObject(i)
+            if (item.optString("name").contains("我喜欢的音乐")) return@withContext item.optLong("id")
+        }
+        null
+    }
+
+    /** 获取「我喜欢的音乐」全部单曲（红心歌单，走 playlist detail 拿完整元数据）。 */
+    suspend fun getLikedSongs(uid: Long): List<SongItem> = withContext(Dispatchers.IO) {
+        val playlistId = getLikedPlaylistId(uid) ?: return@withContext emptyList()
+        getPlaylistDetail(playlistId)
     }
 
     /** 收藏(like=true) / 取消收藏(false) 单曲（weapi）。 */
