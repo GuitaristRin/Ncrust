@@ -261,30 +261,39 @@ object LibraryManager {
             return@withContext false
         }
 
-        val likedSongs = try { PlaylistApi.getLikedSongs(uid) } catch (e: Exception) {
-            Log.e(TAG, "refreshFromCloud: getLikedSongs failed: ${e.message}")
-            return@withContext false
-        }
-        val cloudAlbums = try { PlaylistApi.getSubscribedAlbums() } catch (e: Exception) {
-            Log.e(TAG, "refreshFromCloud: getSubscribedAlbums failed: ${e.message}")
-            return@withContext false
-        }
-        Log.i(TAG, "refreshFromCloud: uid=$uid liked=${likedSongs.size} albums=${cloudAlbums.size}")
+        // 单曲与专辑各自独立尝试、独立提交：任一步失败不致整体放弃，
+        // 避免"专辑拉取失败 → 连坐把单曲也清空"。
+        var anySuccess = false
 
-        // 红心歌单详情已带完整元数据，直接整体重建缓存（云端为真源）。
-        synchronized(songsLock) { cachedSongs = likedSongs.toMutableList() }
-        synchronized(albumsLock) {
-            cachedAlbums = cloudAlbums.map {
-                AlbumInfo(
-                    albumId = it.albumId,
-                    name = it.name,
-                    picUrl = it.picUrl,
-                    artist = it.artist,
-                    songCount = it.songCount
-                )
-            }.toMutableList()
+        try {
+            val likedSongs = PlaylistApi.getLikedSongs(uid)
+            Log.i(TAG, "refreshFromCloud: liked=${likedSongs.size}")
+            synchronized(songsLock) { cachedSongs = likedSongs.toMutableList() }
+            anySuccess = true
+        } catch (e: Exception) {
+            Log.e(TAG, "refreshFromCloud: liked songs failed: ${e.message}")
         }
-        scheduleFlush(context)
+
+        try {
+            val cloudAlbums = PlaylistApi.getSubscribedAlbums()
+            Log.i(TAG, "refreshFromCloud: albums=${cloudAlbums.size}")
+            synchronized(albumsLock) {
+                cachedAlbums = cloudAlbums.map {
+                    AlbumInfo(
+                        albumId = it.albumId,
+                        name = it.name,
+                        picUrl = it.picUrl,
+                        artist = it.artist,
+                        songCount = it.songCount
+                    )
+                }.toMutableList()
+            }
+            anySuccess = true
+        } catch (e: Exception) {
+            Log.e(TAG, "refreshFromCloud: albums failed: ${e.message}")
+        }
+
+        if (anySuccess) scheduleFlush(context)
         true
     }
 
