@@ -62,8 +62,7 @@ object RetrofitClient {
         path: String,
         payload: Map<String, String>,
         useInterface: Boolean = false
-    ): Response {
-        val host = if (useInterface) INTERFACE_URL else BASE_URL
+    ): Response {        val host = if (useInterface) INTERFACE_URL else BASE_URL
         val fullUrl = host + path
         val anyPayload = payload.mapValues { it.value as Any }
         val params = EapiCrypto.encryptParams(fullUrl, anyPayload)
@@ -84,8 +83,47 @@ object RetrofitClient {
     }
 
     /**
-     * weapi 加密 POST。用于受保护但走 weapi 的接口（喜欢单曲列表、收藏专辑等）。
-     *
+     * 带官方安卓客户端身份头的 eapi POST。像 /eapi/radio/like 这类**写接口**受风控,
+     * 仅靠 payload 里的 header 不够——风险控制还会校验 HTTP 层的 os/appver/osver/
+     * deviceId/requestId 与安卓 UA,缺失或带第三方库指纹(Pyncm 的 "pyncm!")会返回 -460。
+     */
+    fun eapiPostClientIdentity(
+        path: String,
+        payload: Map<String, String>,
+        useInterface: Boolean = false
+    ): Response {
+        val host = if (useInterface) INTERFACE_URL else BASE_URL
+        val fullUrl = host + path
+        val anyPayload = payload.mapValues { it.value as Any }
+        val params = EapiCrypto.encryptParams(fullUrl, anyPayload)
+
+        val osver = android.os.Build.VERSION.RELEASE ?: ""
+        val deviceId = (0 until 20).joinToString("") { "0123456789abcdef"[(Math.random() * 16).toInt()].toString() }
+        val appver = BuildConfig.VERSION_NAME
+
+        val requestBody = FormBody.Builder()
+            .add("params", params)
+            .build()
+
+        val request = Request.Builder()
+            .url(fullUrl)
+            .post(requestBody)
+            .header("User-Agent", "NeteaseMusic/$appver (SM-G9910; Android $osver)")
+            .header("Referer", "https://music.163.com/")
+            .header("Cookie", currentCookie ?: "")
+            .header("os", "android")
+            .header("appver", appver)
+            .header("osver", osver)
+            .header("deviceId", deviceId)
+            .header("requestId", (20_000_000..30_000_000).random().toString())
+            .header("channel", "yykj")
+            .build()
+
+        return plainClient.newCall(request).execute()
+    }
+
+    /**
+     * weapi 加密 POST。用于受保护但走 weapi 的接口。
      * 参考官方 weapi：POST 路径为 `/weapi/<去掉 /api/ 前缀>`（并非 /api/…），payload 需
      * 注入 `csrf_token`（来自 Cookie 的 __csrf）。session Cookie 由上层传入。
      */

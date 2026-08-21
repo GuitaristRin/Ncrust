@@ -23,6 +23,22 @@ object EapiCrypto {
         return aesEncrypt(paramsStr)
     }
 
+    /**
+     * 解密 eapi 响应（部分写接口返回 AES-ECB 加密 JSON，如 /eapi/radio/like）。
+     * 与请求同钥匙 e82ckenh8dichen8，PKCS5 去填充后去掉尾部冗余 '\r'。
+     */
+    fun decryptResponse(body: String): String {
+        val bytes = try { java.util.Base64.getDecoder().decode(body) } catch (_: Exception) { return "" }
+        if (bytes.isEmpty()) return ""
+        return try {
+            val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
+            cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(AES_KEY, "AES"))
+            String(cipher.doFinal(bytes), Charsets.UTF_8).trimEnd('\r', '\n', ' ')
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
     private fun aesEncrypt(data: String): String {
         val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
         val keySpec = SecretKeySpec(AES_KEY, "AES")

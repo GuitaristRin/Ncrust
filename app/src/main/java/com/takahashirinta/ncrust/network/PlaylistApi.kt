@@ -2,6 +2,8 @@ package com.takahashirinta.ncrust.network
 
 import android.util.Log
 import androidx.compose.runtime.Immutable
+import com.takahashirinta.ncrust.BuildConfig
+import com.takahashirinta.ncrust.network.crypto.EapiCrypto
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import kotlinx.coroutines.Dispatchers
@@ -383,17 +385,44 @@ object PlaylistApi {
     /** 按 ID 批量拉取单曲详情（eapi/v3/song/detail），供收藏单曲分页 lazy 加载用。 */
     suspend fun getSongsByIds(ids: List<Long>): List<SongItem> = fetchSongDetails(ids)
 
-    /** 收藏(like=true) / 取消收藏(false) 单曲（weapi）。 */
+    /**
+     * 收藏(like=true) / 取消收藏(false) 单曲。
+     *
+     * 走官方安卓客户端协议：eapi `/eapi/radio/like` + 客户端身份头 + 真随机 deviceId，
+     * 并对**加密响应**做 AES 解密（eapi 写接口返回加密 JSON，读取接口为明文）。
+     *
+     * 注意：like 写操作受网易账号/IP 级风险控制，本账号四种协议变体(eapi 最小/eapi+PC 指纹/
+     * eapi+安卓身份/经典 weapi)均被 `-460「检测到您的网络环境存在风险」`或异常响应拦截而
+     * 读取全部正常——这是服务端风控，非本实现问题。真实官方 like 协议待后续抓包确认。
+     */
     suspend fun likeSong(songId: Long, like: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val payload = JSONObject()
-            .put("alg", "itembased")
-            .put("trackId", songId)
-            .put("like", like)
-            .put("time", 3)
-            .toString()
-        val response = RetrofitClient.weapiPost("/api/radio/like", payload)
-        val body = response.body?.string() ?: return@withContext false
-        JSONObject(body).optInt("code", -1) == 200
+        val header = JSONObject()
+            .put("os", "android")
+            .put("appver", BuildConfig.VERSION_NAME)
+            .put("osver", android.os.Build.VERSION.RELEASE.orEmpty())
+            .put("deviceId", (0 until 20).joinToString("") { "0123456789abcdef"[(Math.random() * 16).toInt()].toString() })
+            .put("requestId", (20_000_000..30_000_000).random().toString())
+        val payload = mapOf(
+            "alg" to "itembased",
+            "trackId" to songId.toString(),
+            "like" to like.toString(),
+            "time" to (System.currentTimeMillis() / 1000).toString(),
+            "e_r" to "TRUE",
+            "header" to header.toString(),
+            "csrf_token" to (RetrofitClient.getCsrfToken().orEmpty())
+        )
+        val http = try {
+            RetrofitClient.eapiPostClientIdentity("/eapi/radio/like", payload)
+        } catch (e: Throwable) {
+            Log.w("PlaylistApi", "likeSong req failed id=$songId like=$like", e)
+            return@withContext false
+        }
+        val raw = try { http.body?.bytes() } catch (_: Throwable) { null } ?: return@withContext false
+        val plain = EapiCrypto.decryptResponse(java.util.Base64.getEncoder().encodeToString(raw))
+        val jsonText = plain.ifEmpty { String(raw) }
+        val code = try { JSONObject(jsonText).optInt("code", -1) } catch (_: Throwable) { -1 }
+        Log.i("PlaylistApi", "likeSong(eapi/client) id=$songId like=$like code=$code")
+        code == 200
     }
 
     /** 收藏的专辑（云端的「我收藏的专辑」，weapi）。 */
