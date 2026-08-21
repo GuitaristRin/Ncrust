@@ -2,7 +2,6 @@ package com.takahashirinta.ncrust.network
 
 import android.util.Log
 import androidx.compose.runtime.Immutable
-import com.takahashirinta.ncrust.BuildConfig
 import com.takahashirinta.ncrust.network.crypto.EapiCrypto
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
@@ -396,23 +395,16 @@ object PlaylistApi {
      * 读取全部正常——这是服务端风控，非本实现问题。真实官方 like 协议待后续抓包确认。
      */
     suspend fun likeSong(songId: Long, like: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val header = JSONObject()
-            .put("os", "android")
-            .put("appver", BuildConfig.VERSION_NAME)
-            .put("osver", android.os.Build.VERSION.RELEASE.orEmpty())
-            .put("deviceId", (0 until 20).joinToString("") { "0123456789abcdef"[(Math.random() * 16).toInt()].toString() })
-            .put("requestId", (20_000_000..30_000_000).random().toString())
         val payload = mapOf(
             "alg" to "itembased",
             "trackId" to songId.toString(),
             "like" to like.toString(),
             "time" to (System.currentTimeMillis() / 1000).toString(),
             "e_r" to "TRUE",
-            "header" to header.toString(),
             "csrf_token" to (RetrofitClient.getCsrfToken().orEmpty())
         )
         val http = try {
-            RetrofitClient.eapiPostClientIdentity("/eapi/radio/like", payload)
+            RetrofitClient.eapiPostOfficial("/eapi/radio/like", payload)
         } catch (e: Throwable) {
             Log.w("PlaylistApi", "likeSong req failed id=$songId like=$like", e)
             return@withContext false

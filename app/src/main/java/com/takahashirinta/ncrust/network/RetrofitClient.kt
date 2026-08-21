@@ -15,7 +15,11 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
     private const val BASE_URL = "https://music.163.com"
     private const val INTERFACE_URL = "https://interface3.music.163.com"
+    // eapi 客户端接口域：官方/参考实现全部 eapi 打到 interface.music.163.com（非 music.163.com）。
+    // 读接口在 music 上宽松可通,但写操作(如 /eapi/radio/like)发错 host 会被判 -460 风险。
+    private const val API_URL = "https://interface.music.163.com"
     private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    private const val IOS_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
 
     private var currentCookie: String? = null
 
@@ -62,7 +66,7 @@ object RetrofitClient {
         path: String,
         payload: Map<String, String>,
         useInterface: Boolean = false
-    ): Response {        val host = if (useInterface) INTERFACE_URL else BASE_URL
+    ): Response {        val host = if (useInterface) INTERFACE_URL else API_URL
         val fullUrl = host + path
         val anyPayload = payload.mapValues { it.value as Any }
         val params = EapiCrypto.encryptParams(fullUrl, anyPayload)
@@ -83,40 +87,58 @@ object RetrofitClient {
     }
 
     /**
-     * 带官方安卓客户端身份头的 eapi POST。像 /eapi/radio/like 这类**写接口**受风控,
-     * 仅靠 payload 里的 header 不够——风险控制还会校验 HTTP 层的 os/appver/osver/
-     * deviceId/requestId 与安卓 UA,缺失或带第三方库指纹(Pyncm 的 "pyncm!")会返回 -460。
+     * 逐行对齐官方/参考实现的 eapi 请求：
+     *  - 发到 interface.music.163.com/eapi/...
+     *  - 设备字段(osver/deviceId/os/appver/.../__csrf/MUSIC_U)以 **Cookie** 形式发送
+     *    (createHeaderCookie 同款),非独立 HTTP 头
+     *  - iOS UA；data.header 同时写入加密 body
+     * 用于写接口(如 /eapi/radio/like)以彻底对齐客户端指纹,排除 -460 风控的字段形态差异。
      */
-    fun eapiPostClientIdentity(
-        path: String,
-        payload: Map<String, String>,
-        useInterface: Boolean = false
-    ): Response {
-        val host = if (useInterface) INTERFACE_URL else BASE_URL
-        val fullUrl = host + path
-        val anyPayload = payload.mapValues { it.value as Any }
-        val params = EapiCrypto.encryptParams(fullUrl, anyPayload)
+    fun eapiPostOfficial(path: String, payload: Map<String, String>): Response {
+        val fullUrl = API_URL + path
+        val csrf = getCsrfToken().orEmpty()
+        val mus: Map<String, String> = (currentCookie ?: "")
+            .split(';')
+            .asSequence()
+            .map { it.trim() }
+            .filter { it.contains('=') }
+            .map { it.split('=', limit = 2) }
+            .associate { it[0].trim() to it.getOrElse(1) { "" } }
+        val header = LinkedHashMap<String, String>()
+        header["os"] = "iphone"
+        header["appver"] = "8.9.60"
+        header["deviceId"] = mus["deviceId"] ?: run {
+            (0 until 20).joinToString("") { "0123456789abcdef"[(Math.random() * 16).toInt()].toString() }
+        }
+        header["osver"] = mus["osver"] ?: "16.0"
+        header["versioncode"] = "140"
+        header["mobilename"] = ""
+        header["buildver"] = (System.currentTimeMillis() / 1000).toString().take(10)
+        header["resolution"] = "1920x1080"
+        header["__csrf"] = csrf
+        header["channel"] = "yykj"
+        header["requestId"] = (20_000_000..30_000_000).random().toString()
+        mus["MUSIC_U"]?.let { header["MUSIC_U"] = it }
+        mus["MUSIC_A"]?.let { header["MUSIC_A"] = it }
 
-        val osver = android.os.Build.VERSION.RELEASE ?: ""
-        val deviceId = (0 until 20).joinToString("") { "0123456789abcdef"[(Math.random() * 16).toInt()].toString() }
-        val appver = BuildConfig.VERSION_NAME
+        val cookieStr = header.entries.joinToString(";") { (k, v) ->
+            java.net.URLEncoder.encode(k, "UTF-8") + "=" + java.net.URLEncoder.encode(v, "UTF-8")
+        }
 
-        val requestBody = FormBody.Builder()
-            .add("params", params)
-            .build()
+        val data = payload.toMutableMap()
+        val headerJson = JSONObject()
+        header.forEach { (k, v) -> headerJson.put(k, v) }
+        data["header"] = headerJson.toString()
+        val params = EapiCrypto.encryptParams(fullUrl, data)
+
+        val requestBody = FormBody.Builder().add("params", params).build()
 
         val request = Request.Builder()
             .url(fullUrl)
             .post(requestBody)
-            .header("User-Agent", "NeteaseMusic/$appver (SM-G9910; Android $osver)")
+            .header("User-Agent", IOS_UA)
             .header("Referer", "https://music.163.com/")
-            .header("Cookie", currentCookie ?: "")
-            .header("os", "android")
-            .header("appver", appver)
-            .header("osver", osver)
-            .header("deviceId", deviceId)
-            .header("requestId", (20_000_000..30_000_000).random().toString())
-            .header("channel", "yykj")
+            .header("Cookie", cookieStr)
             .build()
 
         return plainClient.newCall(request).execute()
