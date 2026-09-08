@@ -4,12 +4,35 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/../Kanesumi-sec-a" name="Kanesumi">
+                <projects>
+                  <project path="$PROJECT_DIR$/../Kanesumi-sec-a" />
+                  <project path="$PROJECT_DIR$/../Kanesumi-sec-a/kanesumi-anim" />
+                  <project path="$PROJECT_DIR$/../Kanesumi-sec-a/kanesumi-controls" />
+                  <project path="$PROJECT_DIR$/../Kanesumi-sec-a/kanesumi-core" />
+                  <project path="$PROJECT_DIR$/../Kanesumi-sec-a/kanesumi-structure" />
+                  <project path="$PROJECT_DIR$/../Kanesumi-sec-a/sample" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
         <option name="testRunner" value="CHOOSE_PER_TEST" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
+            <option value="$PROJECT_DIR$/../Kanesumi-sec-a" />
+            <option value="$PROJECT_DIR$/../Kanesumi-sec-a/kanesumi-anim" />
+            <option value="$PROJECT_DIR$/../Kanesumi-sec-a/kanesumi-controls" />
+            <option value="$PROJECT_DIR$/../Kanesumi-sec-a/kanesumi-core" />
+            <option value="$PROJECT_DIR$/../Kanesumi-sec-a/kanesumi-structure" />
+            <option value="$PROJECT_DIR$/../Kanesumi-sec-a/sample" />
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/benchmark" />
           </set>
         </option>
       </GradleProjectSettings>
