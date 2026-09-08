@@ -38,6 +38,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import io.github.takahashirinta.kanesumi.controls.MetroDivider
@@ -300,12 +301,15 @@ fun PlayerCard(
                 ) {
                     // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
                     // 彻底消除与列表面板的命中测试重叠（combinedClickable 忽略 isConsumed 标志）
+                    // alpha 用阶梯而非交叉淡化: 切换时源面板瞬时隐藏、目标面板单层全宽滑入,
+                    // 每帧只合成一个面板——原先 260ms 内两个全屏面板同时 alpha 混合是
+                    // 低端机上左右切换动作的主要 GPU 成本。
                     Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
                                     val q = queueSlideProgress.value
-                                    alpha = lyricAnimProgress.value * (1f - q)
+                                    alpha = lyricAnimProgress.value * if (q < 0.01f) 1f else 0f
                                     translationX = -q * screenWidthPx
                                 }
                         ) {
@@ -323,12 +327,13 @@ fun PlayerCard(
                         }
 
                         // 列表面板：translationX 从 +screenWidthPx 滑至 0，稳定态时完全在屏幕外
+                        // alpha 阶梯同上: q < 0.01 时完全透明, 切换只合成单个面板
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
                                     val q = queueSlideProgress.value
-                                    alpha = lyricAnimProgress.value * q
+                                    alpha = lyricAnimProgress.value * if (q > 0.01f) 1f else 0f
                                     translationX = (1f - q) * screenWidthPx
                                 }
                         ) {
@@ -549,7 +554,7 @@ fun PlayerCard(
         if (hasSong) {
             val s = song!!
             AsyncImage(
-                model = s.album?.picUrl,
+                model = CoverUrls.large(s.album?.picUrl),
                 contentDescription = null,
                 // 纯色占位:切歌瞬间封面解码完成前不闪黑块
                 placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
