@@ -90,7 +90,7 @@ The player is split into focused files under `ui/player/`:
 - **`PlayerCardOverlay`** — Positions the card on screen via `graphicsLayer { translationY }` based on `progress`. Thin wrapper, no animation logic.
 - **`PlayerCard`** — Gesture handling (vertical drag, snap threshold at 25%), cover art animation, mini bar overlay, lyrics/queue toggle. All animation values read in `graphicsLayer` (draw phase only).
 - **`FullPlayerControls`** — Play/pause/skip buttons, progress bar, quality badge, lyrics/queue/library toggles. No animation logic.
-- **`LyricsView`** — Auto-scrolling with golden-section positioning (current line at 36% from top), 5-second manual-scroll pause, and tap-to-seek on any lyric line.
+- **`LyricsView`** — Auto-scrolling with golden-section positioning (current line at 36% from top), 5-second manual-scroll pause, and tap-to-seek on any lyric line. Spotify-style bilingual: when the settings switch 「歌词翻译」 (`lyrics_translation`, default on) is enabled, NetEase `tlyric` translations are merged by timestamp and rendered dimmed under each line via `MetroLyricLine.translation` (Kanesumi).
 - **`QueueView`** — Lazy queue list with gradient fade edges.
 - **`SlimProgressBar`** — Seekable thin progress bar.
 

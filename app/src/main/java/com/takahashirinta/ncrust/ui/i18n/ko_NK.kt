@@ -25,6 +25,7 @@ val koNK = Strings(
     qualityOptions = listOf("압축", "보통", "더 좋음", "비파괴", "고해상도", "서라운드", "돌비 애트모스"),
     gaplessSectionTitle = "틈 없이 이어 재생",
     gaplessDescription = "다음곡 미리불러와 틈 없애기",
+    lyricsTranslationLabel = "가사 번역",
     themeSectionTitle = "주제 색상",
     themeColorNames = listOf("가문비", "코발트", "진홍", "호박", "제비꽃", "하양"),
     languageSectionTitle = "표시 언어",

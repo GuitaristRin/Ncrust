@@ -25,6 +25,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val duration = MutableStateFlow(0L)
     val progress = MutableStateFlow(0f)
     val lyrics = MutableStateFlow<List<LrcLine>>(emptyList())
+    // 外文歌词的译文(tlyric),Spotify 式渲染在原句下方。
+    val translatedLyrics = MutableStateFlow<List<LrcLine>>(emptyList())
+    // 设置页开关:是否显示歌词翻译。默认开——外文歌直接看到双语,中文歌 tlyric 为空不受影响。
+    val showLyricsTranslation = MutableStateFlow(true)
 
     val isBuffering = MutableStateFlow(false)
     // Emits true when the current song enters the preload window (last 20 s).
@@ -90,6 +94,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         refreshGaplessSetting()
+        // 从设置读歌词翻译开关(默认开);设置页切换时经 setLyricsTranslation 实时生效。
+        showLyricsTranslation.value = getApplication<Application>()
+            .getSharedPreferences("ncrust_settings", 0)
+            .getBoolean("lyrics_translation", true)
 
         PlaybackService.onProgressUpdate = { pos, dur ->
             currentPosition.value = pos
@@ -190,6 +198,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun refreshGaplessSetting() {
         val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
         gaplessEnabled = prefs.getBoolean("gapless_playback", false)
+    }
+
+    /** 设置页开关:歌词翻译开/关。写 SharedPreferences + 更新 StateFlow,播放器立即可见。 */
+    fun setLyricsTranslation(enabled: Boolean) {
+        showLyricsTranslation.value = enabled
+        getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
+            .edit().putBoolean("lyrics_translation", enabled).apply()
     }
 
     private fun isOnWifi(): Boolean {
@@ -420,9 +435,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             if (lrcText.isNotEmpty()) {
                 lyrics.value = LrcParser.parse(lrcText)
             }
+            // tlyric = 外文歌词译文;空则清空旧译文,避免切歌后残留上一首。
+            val tlyricText = lyricResponse.tlyric?.lyric ?: ""
+            translatedLyrics.value = if (tlyricText.isNotEmpty()) LrcParser.parse(tlyricText) else emptyList()
         } catch (e: Exception) {
             Log.e("PlayerViewModel", "fetchLyrics failed", e)
             lyrics.value = emptyList()
+            translatedLyrics.value = emptyList()
         }
     }
 

@@ -29,6 +29,7 @@ data class Strings(
     val qualityOptions: List<String>,
     val gaplessSectionTitle: String,
     val gaplessDescription: String,
+    val lyricsTranslationLabel: String,
     val themeSectionTitle: String,
     val themeColorNames: List<String>,
     val languageSectionTitle: String,

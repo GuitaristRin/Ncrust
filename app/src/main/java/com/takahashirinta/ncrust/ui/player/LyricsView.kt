@@ -42,6 +42,8 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun LyricsView(
     lyrics: List<LrcLine>,
+    translatedLyrics: List<LrcLine> = emptyList(),
+    showTranslation: Boolean = true,
     positionFlow: StateFlow<Long>,
     isPlaying: Boolean,
     isVisible: Boolean,
@@ -58,7 +60,11 @@ fun LyricsView(
     }
 
     // list 引用保持稳定,让面板的测量缓存以它为 key 不被误清。
-    val metroLines = remember(lyrics) { lyrics.map { MetroLyricLine(it.timeMs, it.text) } }
+    // 翻译按时间戳精确对齐原句(网易 tlyric 与原 lrc 时间戳一致),缺失的行不显示译文。
+    val metroLines = remember(lyrics, translatedLyrics, showTranslation) {
+        val tMap = if (showTranslation) translatedLyrics.associateBy { it.timeMs } else emptyMap()
+        lyrics.map { MetroLyricLine(it.timeMs, it.text, translation = tMap[it.timeMs]?.text ?: "") }
+    }
 
     // 订阅位置流:collectAsState 建 State;displayPosition 只在面板 draw/derived
     // 阶段被读,帧循环每帧写一次也只 invalidateDraw,不触发本 Composable 重组。

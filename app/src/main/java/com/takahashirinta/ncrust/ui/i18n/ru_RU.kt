@@ -25,6 +25,7 @@ val ruRU = Strings(
     qualityOptions = listOf("Сжатое", "Среднее", "Лучшее", "Без потерь", "Hi-Res", "Объёмный звук", "Dolby Atmos"),
     gaplessSectionTitle = "Бесшовное воспроизведение",
     gaplessDescription = "Предзагрузка следующего трека для устранения пауз",
+    lyricsTranslationLabel = "Перевод текста",
     themeSectionTitle = "Цветовая тема",
     themeColorNames = listOf("Ель", "Кобальт", "Багровый", "Янтарный", "Фиолетовый", "Белый"),
     languageSectionTitle = "Язык",

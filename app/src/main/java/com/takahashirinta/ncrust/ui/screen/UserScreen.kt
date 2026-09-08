@@ -29,6 +29,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import coil.compose.AsyncImage
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.cache.ContentCache
 import android.content.Context
@@ -42,6 +43,7 @@ import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
 import com.takahashirinta.ncrust.ui.i18n.languagePresets
 import com.takahashirinta.ncrust.ui.theme.ThemeColorSelector
 import com.takahashirinta.ncrust.ui.theme.themeColorPresets
+import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -63,9 +65,11 @@ fun UserScreen(
     var isLoadingProfile by remember { mutableStateOf(false) }
 
     val prefs = remember { context.getSharedPreferences("ncrust_settings", 0) }
+    val playerViewModel: PlayerViewModel = viewModel()
     var wifiQuality by remember { mutableIntStateOf(prefs.getInt("wifi_quality", 3)) }
     var mobileQuality by remember { mutableIntStateOf(prefs.getInt("mobile_quality", 1)) }
     var gaplessEnabled by remember { mutableStateOf(prefs.getBoolean("gapless_playback", false)) }
+    var lyricsTranslation by remember { mutableStateOf(prefs.getBoolean("lyrics_translation", true)) }
 
     var selectedLanguageCode by remember { mutableStateOf(getSavedLanguageCode(context)) }
 
@@ -204,6 +208,30 @@ fun UserScreen(
                     onCheckedChange = {
                         gaplessEnabled = it
                         prefs.edit().putBoolean("gapless_playback", it).apply()
+                    }
+                )
+            }
+            // 歌词翻译开关(Spotify 式双语:原句下方小号译文)。切了立即生效,播放器常挂载无需重进。
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    MetroText(
+                        strings.lyricsTranslationLabel,
+                        color = Color.White,
+                        style = LocalMetroTypography.current.bodyMedium,
+                    )
+                }
+                Spacer(Modifier.width(16.dp))
+                MetroSwitch(
+                    checked = lyricsTranslation,
+                    onCheckedChange = {
+                        lyricsTranslation = it
+                        prefs.edit().putBoolean("lyrics_translation", it).apply()
+                        playerViewModel.setLyricsTranslation(it)
                     }
                 )
             }

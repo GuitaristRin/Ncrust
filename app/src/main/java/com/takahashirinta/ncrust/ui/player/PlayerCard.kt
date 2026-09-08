@@ -76,6 +76,8 @@ fun PlayerCard(
     val strings = LocalStrings.current
     val playerViewModel: PlayerViewModel = viewModel()
     val lyrics by playerViewModel.lyrics.collectAsState()
+    val translatedLyrics by playerViewModel.translatedLyrics.collectAsState()
+    val showLyricsTranslation by playerViewModel.showLyricsTranslation.collectAsState()
     // currentPosition / progress 是 4Hz 更新的 StateFlow，直接传引用给需要的子组件，
     // 让它们在最小作用域（graphicsLayer / Canvas draw / derivedStateOf / 叶子 Text）内订阅，
     // 避免 PlayerCard 本身随位置更新 4Hz 重组
@@ -305,6 +307,8 @@ fun PlayerCard(
                         ) {
                             LyricsView(
                                 lyrics = lyrics,
+                                translatedLyrics = translatedLyrics,
+                                showTranslation = showLyricsTranslation,
                                 positionFlow = playerViewModel.currentPosition,
                                 isPlaying = isPlaying,
                                 isVisible = showLyrics,

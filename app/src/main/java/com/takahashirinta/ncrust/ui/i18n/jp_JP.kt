@@ -25,6 +25,7 @@ val jpJP = Strings(
     qualityOptions = listOf("圧縮", "標準", "高品質", "ロスレス", "ハイレゾ", "サラウンド", "Dolby Atmos"),
     gaplessSectionTitle = "ギャップレス再生",
     gaplessDescription = "次の曲を先読みして途切れをなくす",
+    lyricsTranslationLabel = "歌詞翻訳",
     themeSectionTitle = "テーマカラー",
     themeColorNames = listOf("スプルース", "コバルト", "クリムゾン", "アンバー", "バイオレット", "ホワイト"),
     languageSectionTitle = "表示言語",

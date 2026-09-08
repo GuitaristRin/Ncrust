@@ -25,6 +25,7 @@ val zhCN = Strings(
     qualityOptions = listOf("压缩", "较好", "更好", "无损", "高解析", "高清环绕声", "杜比全景声"),
     gaplessSectionTitle = "无缝播放",
     gaplessDescription = "提前加载下一首，消除曲间空白",
+    lyricsTranslationLabel = "歌词翻译",
     themeSectionTitle = "主题色",
     themeColorNames = listOf("云杉", "钴蓝", "绯红", "琥珀", "堇紫", "素白"),
     languageSectionTitle = "显示语言",

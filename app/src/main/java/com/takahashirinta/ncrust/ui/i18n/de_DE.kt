@@ -25,6 +25,7 @@ val deDE = Strings(
     qualityOptions = listOf("Komprimiert", "Normal", "Besser", "Verlustfrei", "Hi-Res", "Surround", "Dolby Atmos"),
     gaplessSectionTitle = "Nahtlose Wiedergabe",
     gaplessDescription = "Nächsten Titel vorladen, um Lücken zu vermeiden",
+    lyricsTranslationLabel = "Liedtext-Übersetzung",
     themeSectionTitle = "Farbschema",
     themeColorNames = listOf("Fichte", "Kobalt", "Karmesinrot", "Bernstein", "Violett", "Weiß"),
     languageSectionTitle = "Sprache",

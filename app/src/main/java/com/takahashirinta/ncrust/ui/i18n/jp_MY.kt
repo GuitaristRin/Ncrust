@@ -25,6 +25,7 @@ val jpMY = Strings(
     qualityOptions = listOf("圧縮", "通常", "良", "非破壊", "高解像度", "サラウンド", "Dolby Atmos"),
     gaplessSectionTitle = "無間 再世",
     gaplessDescription = "次 予読 隙 無",
+    lyricsTranslationLabel = "歌詞 翻訳",
     themeSectionTitle = "主題色",
     themeColorNames = listOf("樅", "藍", "紅", "琥珀", "菫", "白"),
     languageSectionTitle = "表示 言語",

@@ -44,8 +44,8 @@ interface NcmApi {
     suspend fun getLyric(
         @Field("id") id: Long,
         @Field("cp") cp: String = "false",
-        @Field("tv") tv: String = "0",
-        @Field("lv") lv: String = "0",
+        @Field("tv") tv: String = "-1",
+        @Field("lv") lv: String = "-1",
         @Field("rv") rv: String = "0",
         @Field("kv") kv: String = "0",
         @Field("yv") yv: String = "0",

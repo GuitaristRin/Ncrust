@@ -25,6 +25,7 @@ val en = Strings(
     qualityOptions = listOf("Low", "Fair", "Better", "Lossless", "Hi-Res", "Surround", "Dolby Atmos"),
     gaplessSectionTitle = "Gapless Playback",
     gaplessDescription = "Preload next track to eliminate gaps",
+    lyricsTranslationLabel = "Lyrics Translation",
     themeSectionTitle = "Theme Color",
     themeColorNames = listOf("Spruce", "Cobalt", "Crimson", "Amber", "Violet", "White"),
     languageSectionTitle = "Language",

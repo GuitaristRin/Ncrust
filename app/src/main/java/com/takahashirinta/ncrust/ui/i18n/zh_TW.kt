@@ -25,6 +25,7 @@ val zhTW = Strings(
     qualityOptions = listOf("廉質", "中平", "上佳", "無損", "高清", "高清環繞聲", "杜比全景聲"),
     gaplessSectionTitle = "無縫而歌",
     gaplessDescription = "預載下曲，去其隙縫",
+    lyricsTranslationLabel = "歌詞翻譯",
     themeSectionTitle = "裳色",
     themeColorNames = listOf("雲杉青", "鈷藍", "緋紅", "琥珀黃", "堇紫", "素白"),
     languageSectionTitle = "言語",
