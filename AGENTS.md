@@ -33,7 +33,13 @@ Commit messages follow **Conventional Commits** with a lowercase type prefix:
 
 Subject line: prefix + one-sentence Chinese summary. Body (blank line, then paragraphs) explains *why* — Ncrust commits are meant to be readable a year later without opening a PR. Reference issues with `Fixes #N` or `#N` when relevant.
 
-Multi-purpose commits are allowed but pick the dominant type by user impact (a mix of fixes + a new feature → `feat:`).
+### 提交规范（必须遵守）
+
+- Conventional Commits 前缀：`feat:` / `fix:` / `docs:` / `chore:` / `refactor:` / `test:` 等
+- 提交正文使用**中文**
+- **一个 section（逻辑单元）一个 commit，主动提交，不等待用户要求**
+- 禁止一个 commit 塞多个不相关功能（如「提取 txt + 修颜色 + 改文档」），难看且难回滚
+- 一个 commit 只做一件事：改一个工具 / 解一个格式 / 写一份文档 / 更新一类标注
 
 ## Versioning
 
