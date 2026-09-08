@@ -5,11 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.ColorPainter
@@ -20,6 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.network.CoverUrls
 import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouPresets
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
@@ -52,11 +55,6 @@ fun SongCard(
     val albumName = song.album?.name ?: ""
     val durationStr = song.duration?.let { formatDuration(it) } ?: ""
 
-    // 按压缩放动画：Animatable + graphicsLayer，动画帧仅在 draw 阶段消费。
-    // 旧实现 animateFloatAsState + isPressed 会在按下/释放时触发列表项 recomposition。
-    val scaleAnim = remember { Animatable(1f) }
-    val scaleScope = rememberCoroutineScope()
-
     when (style) {
         SongCardStyle.LIST, SongCardStyle.COMPACT -> {
             val actualCoverSize = when {
@@ -78,7 +76,7 @@ fun SongCard(
             ) {
                 if (showCover) {
                     AsyncImage(
-                        model = song.album?.picUrl,
+                        model = CoverUrls.small(song.album?.picUrl),
                         contentDescription = strings.coverDesc,
                         // 纯色占位:避免低端机解码完成前出现"空方块"闪变(Metro 不做 crossfade,直接落图)
                         placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
@@ -121,6 +119,10 @@ fun SongCard(
         }
 
         SongCardStyle.GRID -> {
+            // 按压缩放动画：Animatable + graphicsLayer，动画帧仅在 draw 阶段消费。
+            // 只给 GRID 创建——LIST 是首页高频路径，每项省一个 Animatable + 协程作用域分配。
+            val scaleAnim = remember { Animatable(1f) }
+            val scaleScope = rememberCoroutineScope()
             Column(
                 modifier = modifier
                     .pointerInput(Unit) {
@@ -141,7 +143,7 @@ fun SongCard(
                     }
             ) {
                 AsyncImage(
-                    model = song.album?.picUrl,
+                    model = CoverUrls.small(song.album?.picUrl),
                     contentDescription = strings.coverDesc,
                     placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
                     modifier = Modifier
@@ -176,9 +178,12 @@ fun PlayAllButton(
     size: Dp = 36.dp,
     onClick: () -> Unit
 ) {
+    // 圆形外框(用户决策): 直径 = 原边长。clip 先于 background, 裁切不产生
+    // 额外合成层, 与方形按钮同价。
     Box(
         modifier = modifier
             .size(size)
+            .clip(CircleShape)
             .background(LocalMetroColors.current.primary)
             .combinedClickable(onClick = onClick),
         contentAlignment = Alignment.Center
