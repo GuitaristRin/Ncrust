@@ -5,7 +5,10 @@ import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -18,6 +21,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -152,17 +156,32 @@ fun PlayerCard(
         }
     }
 
+    // 歌词/队列面板可交互(展开 + 面板在前台)时,面板区域内的纵向手势归内部列表滚动。
+    // 根节点的整卡拖拽与兜底消费器都不得抢手势——否则在面板上一滑,整卡被拖走、
+    // 列表几乎滚不动(issue #23)。面板外的封面/顶栏/大封面模式仍驱动整卡。
+    val topBarBottomPx = statusBarPx + with(density) { 56.dp.toPx() }
+    val isPanelInteractive by remember {
+        derivedStateOf {
+            (lyricsEnabled || queueSlideProgress.value > 0.5f) && progress.value > 0.7f
+        }
+    }
+    fun isOverPanel(y: Float) = isPanelInteractive && y > topBarBottomPx
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             // Outer modifier → runs last within this node in Main pass (after drag detector below).
             // Consumes remaining events when fully expanded so Scaffold siblings never receive them.
+            // 面板区域不吞事件:内部列表需要先拿到未消费的 MOVE 才能滚动。
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Main)
                         if (progress.value > 0.99f) {
-                            event.changes.forEach { it.consume() }
+                            val pos = event.changes.firstOrNull()?.position
+                            if (pos == null || !isOverPanel(pos.y)) {
+                                event.changes.forEach { it.consume() }
+                            }
                         }
                     }
                 }
@@ -172,34 +191,43 @@ fun PlayerCard(
             // 仅在有歌（!hasSong = 暂无播放）时可拖拽；用 hasSong 作 key，来了歌后手势重新激活。
             .pointerInput(hasSong) {
                 if (!hasSong) return@pointerInput
-                var dragStartProgress = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { dragStartProgress = progress.value },
-                    onDragEnd = {
-                        coroutineScope.launch {
-                            val target = if (dragStartProgress < 0.5f) {
-                                if (progress.value >= 0.5f) 1f else 0f
-                            } else {
-                                if (progress.value >= 0.75f) 1f else 0f
-                            }
-                            progress.animateTo(
-                                target,
-                                if (target == 1f)
-                                    tween(durationMillis = 400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
-                                else
-                                    tween(durationMillis = 260, easing = FastOutSlowInEasing)
-                            )
-                        }
-                    },
-                    onVerticalDrag = { change, dragAmount ->
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    // 面板内纵向手势完全交给内部 LazyColumn/进度条,根节点不消费任何事件。
+                    if (isOverPanel(down.position.y)) return@awaitEachGesture
+                    var dragStartProgress = progress.value
+                    val dragChange = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
+                        dragStartProgress = progress.value
                         change.consume()
-                        coroutineScope.launch {
-                            progress.snapTo(
-                                (progress.value - dragAmount / totalDragDistancePx).coerceIn(0f, 1f)
-                            )
+                    }
+                    if (dragChange != null) {
+                        val settled = drag(dragChange.id) { change ->
+                            change.consume()
+                            val dragAmount = change.positionChange().y
+                            coroutineScope.launch {
+                                progress.snapTo(
+                                    (progress.value - dragAmount / totalDragDistancePx).coerceIn(0f, 1f)
+                                )
+                            }
+                        }
+                        if (settled) {
+                            coroutineScope.launch {
+                                val target = if (dragStartProgress < 0.5f) {
+                                    if (progress.value >= 0.5f) 1f else 0f
+                                } else {
+                                    if (progress.value >= 0.75f) 1f else 0f
+                                }
+                                progress.animateTo(
+                                    target,
+                                    if (target == 1f)
+                                        tween(durationMillis = 400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+                                    else
+                                        tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                                )
+                            }
                         }
                     }
-                )
+                }
             }
     ) {
         // 全屏纯黑背景
