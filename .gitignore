@@ -19,5 +19,10 @@ keystore.properties
 *.jks
 *.keystore
 
+# Benchmark 构建产物、登录态与 pull 下来的性能 trace(个人账号凭证, 禁止入库)
+benchmark/build/
+benchmark/cookie.secret
+benchmark/output/
+
 .sh
 CLAUDE.md

@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.takahashirinta.ncrust"
         android:label="Ncrust Macrobenchmark" />
+
+    <!--
+        benchmark-macro-junit4 的 manifest 会注入 READ/WRITE_EXTERNAL_STORAGE，
+        而 AndroidJUnitRunner 会自动尝试 pm grant 被测应用的 READ_EXTERNAL_STORAGE——
+        该权限在 Android 13+ 上不可再授予，直接导致 "Failed to grant permissions"。
+        报告写入走 scoped storage（API 29+ 无需外部存储权限），这里显式移除。
+    -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:node="remove" />
 </manifest>
