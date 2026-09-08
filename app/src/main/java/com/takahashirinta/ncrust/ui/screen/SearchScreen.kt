@@ -39,6 +39,7 @@ import com.takahashirinta.ncrust.library.SearchHistoryManager
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
+import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.components.AlbumSearchItem
 import com.takahashirinta.ncrust.ui.components.ArtistSearchItem
@@ -570,7 +571,7 @@ private fun SearchHistoryItemCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = item.coverUrl,
+                model = CoverUrls.small(item.coverUrl),
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 contentScale = ContentScale.Crop

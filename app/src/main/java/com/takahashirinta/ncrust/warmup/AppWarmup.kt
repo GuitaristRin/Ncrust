@@ -6,6 +6,7 @@ import coil.request.ImageRequest
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.library.LibraryManager
+import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.network.PlaylistApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -87,14 +88,10 @@ object AppWarmup {
                     topDeferred.await()?.let { ContentCache.homeNewSongs = it }
                 }
 
-                // 阶段一·五：已登录则后台拉一次收藏库（单曲+专辑）写入缓存，
-                // 让重新安装/冷启动后进收藏页直接有数据，无需二次等待。
-                if (CookieManager.hasCookie(app)) {
-                    runCatching { LibraryManager.refreshFromCloud(app) }
-                }
-
-                // 阶段二：封面预取到 Coil 全局 ImageLoader 的内存+磁盘缓存
-                // AsyncImage 后续读同一 loader，直接命中
+                // 阶段一·五：封面预取到 Coil 全局 ImageLoader 的内存+磁盘缓存。
+                // 必须紧跟在 Home 数据之后、其他网络任务之前——首页首帧的 AsyncImage
+                // 依赖这批封面。原先收藏库刷新插在这里, 慢网络下它吃掉的预算会让
+                // 封面一张都来不及预取, 首帧退化成现场加载(抖动 + 掉帧)。
                 val loader = Coil.imageLoader(app)
                 val urls = buildList {
                     ContentCache.homeDailySongs?.take(PREFETCH_PER_SECTION)?.forEach {
@@ -106,7 +103,7 @@ object AppWarmup {
                     ContentCache.homeNewSongs?.take(PREFETCH_PER_SECTION)?.forEach {
                         it.album?.picUrl?.takeIf(String::isNotBlank)?.let(::add)
                     }
-                }.distinct()
+                }.distinct().mapNotNull { CoverUrls.small(it) }
 
                 coroutineScope {
                     urls.map { url ->
@@ -122,6 +119,12 @@ object AppWarmup {
                         }
                     }.awaitAll()
                 }
+            }
+
+            // 阶段二：收藏库刷新(已登录时)。只喂收藏页缓存, 不进 ready 关键路径——
+            // 它要 3 次额外网络往返, 挂在关键路径上会拖长启动。
+            if (CookieManager.hasCookie(app)) {
+                scope.launch { runCatching { LibraryManager.refreshFromCloud(app) } }
             }
             _ready.value = true
         }

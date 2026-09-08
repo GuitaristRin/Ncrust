@@ -30,6 +30,7 @@ import com.takahashirinta.ncrust.library.AlbumInfo
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
@@ -347,7 +348,7 @@ fun PlaylistGridItem(
     Column(modifier = modifier.clickable { onClick() }) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
-                model = playlist.coverImgUrl,
+                model = CoverUrls.small(playlist.coverImgUrl),
                 contentDescription = strings.playlistCoverDesc,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -375,7 +376,7 @@ fun LibraryAlbumGridItem(
     Column(modifier = modifier.clickable { onClick() }) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
-                model = album.picUrl,
+                model = CoverUrls.small(album.picUrl),
                 contentDescription = strings.albumCoverDesc,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop

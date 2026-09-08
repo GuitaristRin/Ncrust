@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.components
 
+import com.takahashirinta.ncrust.network.CoverUrls
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.MutableTransitionState
@@ -181,7 +182,7 @@ fun DetailHeader(
     val strings = LocalStrings.current
     Column(modifier = Modifier.fillMaxWidth()) {
         AsyncImage(
-            model = coverUrl,
+            model = CoverUrls.large(coverUrl),
             contentDescription = strings.coverDesc,
             // 纯色占位:详情首开封面解码完成前不闪空块(Metro 直接落图,不做 crossfade)
             placeholder = androidx.compose.ui.graphics.painter.ColorPainter(LocalMetroColors.current.surfaceVariant),

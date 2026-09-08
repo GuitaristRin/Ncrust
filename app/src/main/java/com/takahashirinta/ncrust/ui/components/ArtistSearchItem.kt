@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.ArtistSearchItem
+import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenu
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
@@ -48,7 +49,7 @@ fun ArtistSearchItem(
     ) {
         Box(modifier = Modifier.size(72.dp)) {
             AsyncImage(
-                model = artist.picUrl,
+                model = CoverUrls.small(artist.picUrl),
                 contentDescription = strings.artistAvatarDesc,
                 modifier = Modifier
                     .fillMaxSize()

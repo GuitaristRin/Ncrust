@@ -21,6 +21,7 @@ import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
 import com.takahashirinta.ncrust.library.LibraryManager
@@ -290,7 +291,7 @@ private fun DailySongTile(song: SongItem, onClick: () -> Unit, onLongClick: () -
             .combinedClickableFallback(onClick, onLongClick)
     ) {
         AsyncImage(
-            model = song.album?.picUrl,
+            model = CoverUrls.small(song.album?.picUrl),
             contentDescription = strings.coverDesc,
             modifier = Modifier.fillMaxWidth().aspectRatio(1f),
             contentScale = ContentScale.Crop
@@ -322,7 +323,7 @@ private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit
     Column(modifier = Modifier.width(160.dp).clickable { onClick() }) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
-                model = playlist.coverUrl,
+                model = CoverUrls.small(playlist.coverUrl),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop

@@ -13,6 +13,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.network.CoverUrls
 import io.github.takahashirinta.kanesumi.controls.MetroBottomSheet
 import io.github.takahashirinta.kanesumi.controls.MetroDivider
 import io.github.takahashirinta.kanesumi.core.insets.metroNavigationBarsPadding
@@ -46,7 +47,7 @@ fun SongMenuSheet(
             ) {
                 // 直角封面，贴屏左边缘，112dp = 2x 迷你播放栏封面高
                 AsyncImage(
-                    model = song.album?.picUrl,
+                    model = CoverUrls.small(song.album?.picUrl),
                     contentDescription = null,
                     modifier = Modifier.size(112.dp),
                     contentScale = ContentScale.Crop

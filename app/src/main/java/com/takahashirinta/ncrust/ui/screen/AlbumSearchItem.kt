@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.AlbumSearchItem
+import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenu
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
@@ -48,7 +49,7 @@ fun AlbumSearchItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            model = album.picUrl,
+            model = CoverUrls.small(album.picUrl),
             contentDescription = strings.albumCoverDesc,
             modifier = Modifier.size(72.dp),
             contentScale = ContentScale.Crop
