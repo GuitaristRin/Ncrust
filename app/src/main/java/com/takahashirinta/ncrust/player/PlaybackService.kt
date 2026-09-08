@@ -16,6 +16,7 @@ import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -45,6 +46,10 @@ class PlaybackService : MediaSessionService() {
         var onPlaybackEnded: (() -> Unit)? = null
         var onPlaybackPrevious: (() -> Unit)? = null
         var onIsPlayingChanged: ((Boolean) -> Unit)? = null
+        // Fired on the main thread when ExoPlayer reports a playback error (decode/source
+        // failure). Carries the song id ExoPlayer was on; the ViewModel downgrades quality
+        // and retries, so a device that can't decode e.g. 24-bit FLAC still gets sound.
+        var onPlaybackError: ((Long) -> Unit)? = null
         // Fired on the main thread when ExoPlayer auto-transitions to a preloaded next item.
         var onSongTransitioned: (() -> Unit)? = null
         var onBufferingChanged: ((Boolean) -> Unit)? = null
@@ -104,6 +109,17 @@ class PlaybackService : MediaSessionService() {
                 PlaybackStateManager.updatePlayingState(this@PlaybackService, isPlaying)
                 updatePlaybackState()
                 updateNotify()
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                // 之前完全没有错误处理:解码/取流失败后播放器静默停在 IDLE,
+                // UI 还显示"在播",实际既没声音也不跳歌。现在上报给 ViewModel
+                // 降档重试,最低档仍失败则由 ViewModel 跳歌。
+                Log.e(
+                    "PlaybackService",
+                    "Playback error for songId=$mediaSongId code=${error.errorCodeName}: ${error.message}",
+                    error
+                )
+                onPlaybackError?.invoke(mediaSongId ?: -1L)
             }
             override fun onMediaItemTransition(
                 mediaItem: androidx.media3.common.MediaItem?,

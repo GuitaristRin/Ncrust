@@ -115,6 +115,11 @@ eapi encryption (`crypto/EapiCrypto.kt`): URL path → AES-128-ECB with MD5 sign
 
 Song URL resolution (`SongUrlFetcher`) starts at the user's chosen quality and falls back down the ladder (e.g. `dolby → hires → lossless → exhigh → higher → standard`, or `lossless → exhigh → higher → standard`) based on a SharedPreferences setting. The payload carries `encodeType` (`mp4` for Dolby, `flac` otherwise) and an official-client `header` (os/appver/osver/deviceId + random requestId). A song that yields no playable URL at any tier is skipped, never given a broken fallback link.
 
+Playback is error-resilient on both sides of the ladder:
+- **Device FLAC gate**: `SongUrlFetcher` skips `lossless/hires/jyeffect` tiers when the device has no MediaCodec FLAC decoder (API < 27 or stripped ROMs), so ExoPlayer never gets a FLAC stream it can only "play" as silence.
+- **Auto quality downgrade on playback errors**: `PlaybackService` reports `onPlayerError` (song id); `PlayerViewModel.handlePlaybackError` retries the same song one rung lower on `qualityRetryLadder` (deduped 3 s per `songId@level`), skipping to the next song only when even `standard` fails. This turns 24-bit FLAC / high-sample-rate decode failures — the classic "progress runs but no sound" — into an audible lower-tier fallback.
+- **Level-aware preload cache**: `preloadCache` entries record the requested level, so a downgrade retry never replays the already-failed higher-tier URL.
+
 `PlayerViewModel` tracks two independent quality preferences — `wifiQuality` and `mobileQuality` — as indices into a 7-level ladder:
 
 | Index | Display | API level |

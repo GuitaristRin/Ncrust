@@ -51,6 +51,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val currentQualityIndex = MutableStateFlow(3)
     private val qualityApiLevels = listOf("standard", "higher", "exhigh", "lossless", "hires", "jyeffect", "dolby")
 
+    // 播放出错(如设备解码不了 24-bit FLAC / 高采样率)时自动降档重试的阶梯。
+    // 每出错一次降一档,到 standard 仍失败才跳歌:保证「有声音,或跳歌」,绝不静默卡住。
+    private val qualityRetryLadder = listOf("dolby", "jyeffect", "hires", "lossless", "exhigh", "higher", "standard")
+    // 上一次交给 PlaybackService 的 URL 的实际档位(fetch 内部可能已降级)。
+    private var lastPlayedLevel = ""
+    // 已处理过的出错点 (songId@level),配合时间窗防止同一错误反复触发重试。
+    private var lastErrorKey = ""
+    private var lastErrorHandledAt = 0L
+
     private var gaplessEnabled = false
     private val PRELOAD_THRESHOLD_MS = 20_000L
 
@@ -66,7 +75,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Song ID most recently requested by playSong; lets a concurrent preload detect a same-song race.
     private var latestPlaySongId = -1L
 
-    private data class PreloadCacheEntry(val url: String, val actualLevel: String, val timestamp: Long = System.currentTimeMillis())
+    private data class PreloadCacheEntry(
+        val url: String,
+        val actualLevel: String,
+        // 取链时用的请求档位:播放失败降档重试时,只有档位一致才允许命中缓存,
+        // 避免把上一档(可能播不出声)的 URL 原样放回播放器。
+        val requestedLevel: String,
+        val timestamp: Long = System.currentTimeMillis()
+    )
     private val preloadCache = mutableMapOf<Long, PreloadCacheEntry>()
     private val CACHE_TTL_MS = 5 * 60 * 1_000L
     // Prevents duplicate preload launches for the same song while one is in flight.
@@ -107,6 +123,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         PlaybackService.onPlaybackPrevious = { onSongPreviousCallback?.invoke() }
         PlaybackService.onIsPlayingChanged = { playing -> isPlaying.value = playing }
         PlaybackService.onBufferingChanged = { buffering -> isBuffering.value = buffering }
+        // ExoPlayer 主线程回调。播放失败 → 降档重试,而不是无声地停在 IDLE。
+        PlaybackService.onPlaybackError = { sid -> handlePlaybackError(sid) }
 
         // Called on the main thread by ExoPlayer's onMediaItemTransition (AUTO reason).
         PlaybackService.onSongTransitioned = {
@@ -186,11 +204,22 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         needsPreload.value = false
         refreshGaplessSetting()
 
-        // Fast path: URL was preloaded and cached — skip network round-trip entirely.
-        val cachedEntry = preloadCache[songId]?.takeIf { System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS }
+        val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
+        val selectedQuality = if (quality.isNotEmpty()) quality
+        else if (isOnWifi()) qualityApiLevels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
+        else qualityApiLevels.getOrElse(prefs.getInt("mobile_quality", 1)) { "higher" }
+        val qIdx = qualityApiLevels.indexOf(selectedQuality).coerceAtLeast(0)
+        currentQualityIndex.value = qIdx
+
+        // Fast path: URL was preloaded and cached for THIS requested level — skip network round-trip.
+        // 缓存条目带档位:播放失败降档重试时,绝不会把上一档(可能已证明播不出声)的 URL 原样喂回。
+        val cachedEntry = preloadCache[songId]?.takeIf {
+            it.requestedLevel == selectedQuality && System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS
+        }
         if (cachedEntry != null) {
             preloadedSongId = -1L; preloadedTitle = ""; preloadedArtist = ""
             preloadedArtwork = ""; preloadedActualLevel = ""; preloadedUrl = ""
+            lastPlayedLevel = cachedEntry.actualLevel
             val actualIdx = qualityApiLevels.indexOf(cachedEntry.actualLevel).coerceAtLeast(0)
             currentQualityIndex.value = actualIdx
             currentSongId.value = songId
@@ -214,13 +243,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
 
-        val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
-        val selectedQuality = if (quality.isNotEmpty()) quality
-        else if (isOnWifi()) qualityApiLevels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
-        else qualityApiLevels.getOrElse(prefs.getInt("mobile_quality", 1)) { "higher" }
-        val qIdx = qualityApiLevels.indexOf(selectedQuality).coerceAtLeast(0)
-        currentQualityIndex.value = qIdx
-
         playJob?.cancel()
         playJob = viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -236,6 +258,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val actualIdx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                 fetchLyrics(songId)
                 withContext(Dispatchers.Main) {
+                    lastPlayedLevel = result.actualLevel
                     currentQualityIndex.value = actualIdx
                     currentSongId.value = songId
                     currentSongName.value = title
@@ -259,6 +282,45 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 Log.e("PlayerViewModel", "fetchUrl failed", e)
             }
         }
+    }
+
+    /**
+     * 播放出错(如设备解码器不认 24-bit FLAC / 高采样率,或拿到坏链接)时的降档重试。
+     * ExoPlayer 主线程回调;每出错一次沿 qualityRetryLadder 降一档重新取链播放,
+     * 到 standard 仍失败才交由 MainScreen 跳歌。同一 (songId@level) 3 秒内只处理一次,
+     * 防止解码器反复报错触发重试风暴。
+     */
+    private fun handlePlaybackError(songId: Long) {
+        if (songId <= 0 || songId != currentSongId.value) return
+        val level = lastPlayedLevel.ifEmpty {
+            qualityApiLevels.getOrElse(currentQualityIndex.value) { "lossless" }
+        }
+        val key = "${songId}@$level"
+        val now = System.currentTimeMillis()
+        if (key == lastErrorKey && now - lastErrorHandledAt < 3_000L) return
+        lastErrorKey = key
+        lastErrorHandledAt = now
+
+        val idx = qualityRetryLadder.indexOf(level)
+        val nextLevel = when {
+            idx in 0 until qualityRetryLadder.size - 1 -> qualityRetryLadder[idx + 1]
+            // 服务端可能返回阶梯之外的档位(如 sky/jymaster),从无损起往下试,不能直接跳歌。
+            idx < 0 -> "lossless"
+            else -> null // 已是 standard,无档可降
+        }
+        if (nextLevel == null) {
+            Log.w("PlayerViewModel", "lowest tier also failed for songId=$songId, skipping")
+            onUnplayableCallback?.invoke()
+            return
+        }
+        Log.w("PlayerViewModel", "playback error at level=$level for songId=$songId, retrying at $nextLevel")
+        playSong(
+            songId,
+            title = currentSongName.value ?: "",
+            artist = currentSongArtist.value ?: "",
+            artworkUrl = currentSongArtwork.value ?: "",
+            quality = nextLevel
+        )
     }
 
     fun preloadNextSong(songId: Long, title: String, artist: String, artworkUrl: String) {
@@ -289,7 +351,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 withContext(Dispatchers.Main) {
                     currentlyPreloadingSongId = -1L
                     // Store in cache regardless of staleness — URL is valid even if a new song started.
-                    preloadCache[songId] = PreloadCacheEntry(result.url, result.actualLevel)
+                    preloadCache[songId] = PreloadCacheEntry(result.url, result.actualLevel, quality)
                     if (capturedVersion != songPlayVersion) {
                         // playSong was called while this fetch was in flight.
                         // If it was for THIS same song and hasn't completed its own fetch, take over.
@@ -297,6 +359,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                             playJob?.cancel()
                             val idx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                             currentQualityIndex.value = idx
+                            lastPlayedLevel = result.actualLevel
                             currentSongId.value = songId
                             currentSongName.value = title
                             currentSongArtist.value = artist
@@ -412,6 +475,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         PlaybackService.onIsPlayingChanged = null
         PlaybackService.onSongTransitioned = null
         PlaybackService.onBufferingChanged = null
+        PlaybackService.onPlaybackError = null
         super.onCleared()
     }
 }
