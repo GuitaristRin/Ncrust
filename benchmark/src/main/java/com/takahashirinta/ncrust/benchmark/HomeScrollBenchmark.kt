@@ -6,7 +6,10 @@ import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.StaleObjectException
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import android.os.SystemClock
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,7 +19,9 @@ private const val PACKAGE = "com.takahashirinta.ncrust"
 /**
  * 首页滚动帧率基线：冷启进首页后上下滚动主列表,统计每帧耗时分布。
  * 指标：FrameTimingMetric(50/90/95/99 分位帧耗时 + jank 帧数)。
- * 滚动目标是"最高的纵向可滚动容器"——首页主 LazyColumn(每日推荐的横滑 LazyRow 会被过滤掉)。
+ *
+ * 前置条件：`:benchmark:injectDeviceCookie` 已注入登录态(connectedCheck 会先跑)。
+ * Ncrust 默认落在「库」tab——必须切到首页再抓纵向主列表。
  */
 @RunWith(AndroidJUnit4::class)
 class HomeScrollBenchmark {
@@ -32,25 +37,46 @@ class HomeScrollBenchmark {
         startupMode = StartupMode.COLD,
     ) {
         startActivityAndWait()
+        device.waitForIdle()
 
-        // 首页内容由 AppWarmup 在冷启期间预取,等待可滚动容器出现即可。
-        val verticalList = device.wait(
-            Until.findObject(By.scrollable(true)),
-            5_000,
-        ).let { first ->
-            if (first.visibleBounds.height() > first.visibleBounds.width()) {
-                first
-            } else {
-                // 第一个匹配到的是横滑的每日推荐 LazyRow,再找纵向主列表
-                device.findObjects(By.scrollable(true))
-                    .firstOrNull { it.visibleBounds.height() > it.visibleBounds.width() }
-                    ?: first
+        fun swipeList(direction: Direction) {
+            // 每次滑动前重新查找纵向容器: LazyColumn 节点滚动中会回收重建,
+            // 偶发失效重试一次, 避免整轮迭代因 a11y 树抖动失败
+            repeat(2) { attempt ->
+                try {
+                    findHomeVerticalList(device, timeoutMs = 5_000).swipe(direction, 1.0f)
+                    return
+                } catch (stale: StaleObjectException) {
+                    if (attempt == 1) throw AssertionError("列表节点持续失效，滚动失败", stale)
+                }
             }
         }
 
-        repeat(6) { verticalList.swipe(Direction.UP, 1.0f) }
-        device.waitForIdle()
-        repeat(3) { verticalList.swipe(Direction.DOWN, 1.0f) }
-        device.waitForIdle()
+        repeat(6) { swipeList(Direction.UP); device.waitForIdle() }
+        repeat(3) { swipeList(Direction.DOWN); device.waitForIdle() }
+    }
+
+    /** 切到首页 tab 并轮询直至出现纵向主列表。 */
+    private fun findHomeVerticalList(
+        device: androidx.test.uiautomator.UiDevice,
+        timeoutMs: Long
+    ): UiObject2 {
+        val homeTab = device.wait(Until.findObject(By.text("首页")), timeoutMs)
+            ?: device.wait(Until.findObject(By.textContains("Home")), 3_000)
+            ?: error("未见底部导航(可能 splash 未结束或登录页拦截)")
+        homeTab.click()
+
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            val vertical = try {
+                device.findObjects(By.scrollable(true))
+                    .firstOrNull { it.visibleBounds.height() > it.visibleBounds.width() }
+            } catch (_: StaleObjectException) {
+                null
+            }
+            if (vertical != null) return vertical
+            SystemClock.sleep(250)
+        }
+        error("${timeoutMs}ms 内未找到首页纵向列表(登录态无效或首页数据为空?)")
     }
 }

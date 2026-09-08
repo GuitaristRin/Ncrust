@@ -12,9 +12,11 @@ import org.junit.runner.RunWith
 private const val PACKAGE = "com.takahashirinta.ncrust"
 
 /**
- * 冷启动基线：从进程冷起(COLD)到首帧可交互的时间。
- * 指标：StartupTimingMetric(冷启时间) + 每迭代的帧统计由 Macrobenchmark 自动附带。
- * 数值受 AppWarmup(3s 上限)+ Splash + baseline profile 影响,这正是要盯的部分。
+ * 冷启动基线：从进程冷起(COLD)到首帧的时间。
+ * 指标：StartupTimingMetric(首帧时间)。
+ *
+ * 前置条件：`:benchmark:injectDeviceCookie` 已把登录态注入被测应用
+ * (connectedCheck 会先跑它)。未登录时首页无数据, 启动路径失真。
  */
 @RunWith(AndroidJUnit4::class)
 class StartupBenchmark {
