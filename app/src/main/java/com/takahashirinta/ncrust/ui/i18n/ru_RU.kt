@@ -38,6 +38,8 @@ val ruRU = Strings(
     dailySongsTitle = "Ежедневные рекомендации",
     recommendPlaylistTitle = "Рекомендуемые плейлисты",
     newSongsTitle = "Новые релизы",
+
+    refreshLabel = "Обновить",
     noMoreContent = "— Больше ничего нет —",
     trackCountSongs = { "$it треков" },
 

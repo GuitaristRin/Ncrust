@@ -38,6 +38,8 @@ val zhCN = Strings(
     dailySongsTitle = "每日推荐",
     recommendPlaylistTitle = "推荐歌单",
     newSongsTitle = "新歌速递",
+
+    refreshLabel = "刷新",
     noMoreContent = "— 没有更多了 —",
     trackCountSongs = { "${it}首歌曲" },
 

@@ -43,6 +43,7 @@ data class Strings(
     val dailySongsTitle: String,
     val recommendPlaylistTitle: String,
     val newSongsTitle: String,
+    val refreshLabel: String,
     val noMoreContent: String,
     val trackCountSongs: (Int) -> String,
 

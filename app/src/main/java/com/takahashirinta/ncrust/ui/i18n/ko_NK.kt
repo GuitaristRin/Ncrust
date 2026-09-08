@@ -38,6 +38,8 @@ val koNK = Strings(
     dailySongsTitle = "날마다 추천곡",
     recommendPlaylistTitle = "추천 목록",
     newSongsTitle = "새노래 소식",
+
+    refreshLabel = "새로고침",
     noMoreContent = "— 더이상 없음 —",
     trackCountSongs = { "모두 ${it}곡" },
 

@@ -183,6 +183,8 @@ fun DetailHeader(
         AsyncImage(
             model = coverUrl,
             contentDescription = strings.coverDesc,
+            // 纯色占位:详情首开封面解码完成前不闪空块(Metro 直接落图,不做 crossfade)
+            placeholder = androidx.compose.ui.graphics.painter.ColorPainter(LocalMetroColors.current.surfaceVariant),
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f),

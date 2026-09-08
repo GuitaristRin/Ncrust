@@ -1,8 +1,13 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.Ncrust" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    <!-- 纯 Compose 应用：XML 主题只负责首帧前的窗口底与系统栏外观。
+         用平台 Material.NoActionBar + 深色 windowBackground，去掉 M3/material 依赖，
+         同时消除冷启动白闪（之前 M3 DayNight 默认亮底）。 -->
+    <style name="Base.Theme.Ncrust" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
     <style name="Theme.Ncrust" parent="Base.Theme.Ncrust" />

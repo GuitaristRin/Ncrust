@@ -38,6 +38,8 @@ val jpMY = Strings(
     dailySongsTitle = "毎日 推奨",
     recommendPlaylistTitle = "推奨 曲目",
     newSongsTitle = "新曲 速報",
+
+    refreshLabel = "更 新",
     noMoreContent = "— 無 —",
     trackCountSongs = { "全 ${it} 首" },
 

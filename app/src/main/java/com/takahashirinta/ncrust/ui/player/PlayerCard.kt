@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -26,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +65,7 @@ fun PlayerCard(
     onPlayNext: () -> Unit = {},
     onRemoveFromQueue: (Int) -> Unit = {},
     onPlayFromQueue: (Int) -> Unit = {},
+    onMoveInQueue: (Int, Int) -> Unit = { _, _ -> },
     onTogglePlayMode: () -> Unit = {},
     onSavePlaylist: () -> Unit = {},
     onNavigateToUser: () -> Unit = {}
@@ -88,8 +92,8 @@ fun PlayerCard(
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
     val dp24px = with(density) { 24.dp.toPx() }
-    // 横滑时内容偏移量 = 1/3 屏宽，保持视觉层次感
-    val contentSlideWidthPx = screenWidthPx / 3f
+    // 迷你条与顶栏按钮的触觉反馈
+    val haptic = LocalHapticFeedback.current
 
     val miniCoverHalfPx = with(density) { 28.dp.toPx() }
     val miniScale = miniCoverHalfPx * 2f / screenWidthPx
@@ -367,7 +371,8 @@ fun PlayerCard(
                                 queue = playbackQueue,
                                 currentIndex = currentQueueIndex,
                                 onPlayIndex = onPlayFromQueue,
-                                onRemoveIndex = onRemoveFromQueue
+                                onRemoveIndex = onRemoveFromQueue,
+                                onMove = onMoveInQueue
                             )
                         }
 
@@ -496,14 +501,20 @@ fun PlayerCard(
                         )
                     }
                     if (miniBarEnabled) {
-                        MetroIconButton(onClick = onPlayPause) {
+                        MetroIconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayPause()
+                        }) {
                             MetroIcon(
                                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = null,
                                 tint = Color.White
                             )
                         }
-                        MetroIconButton(onClick = onPlayNext) {
+                        MetroIconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayNext()
+                        }) {
                             MetroIcon(Icons.Default.SkipNext, null, tint = Color.White)
                         }
                     } else {
@@ -540,6 +551,8 @@ fun PlayerCard(
             AsyncImage(
                 model = s.album?.picUrl,
                 contentDescription = null,
+                // 纯色占位:切歌瞬间封面解码完成前不闪黑块
+                placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)

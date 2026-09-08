@@ -177,7 +177,18 @@ fun HomeScreen(
                         item {
                             SectionHeader(
                                 title = strings.dailySongsTitle,
-                                onPlayAll = { onPlayDailyAll?.invoke(dailySongs) }
+                                onPlayAll = { onPlayDailyAll?.invoke(dailySongs) },
+                                actions = {
+                                    // 手动刷新每日推荐(#26):重新拉取并 diff 平滑替换
+                                    MetroIconButton(onClick = { loadDailySongs() }) {
+                                        MetroIcon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = strings.refreshLabel,
+                                            tint = Color.Gray,
+                                            sizeDp = 22.dp
+                                        )
+                                    }
+                                }
                             )
                         }
                         item {
@@ -237,9 +248,13 @@ fun HomeScreen(
     }
 }
 
-/** 分区标题：中字号 Regular，左对齐 16dp；右侧可选"播放全部"按钮。 */
+/** 分区标题：中字号 Regular，左对齐 16dp；右侧可选"播放全部"按钮 + 自定义动作。 */
 @Composable
-private fun SectionHeader(title: String, onPlayAll: (() -> Unit)? = null) {
+private fun SectionHeader(
+    title: String,
+    onPlayAll: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -250,6 +265,7 @@ private fun SectionHeader(title: String, onPlayAll: (() -> Unit)? = null) {
             style = LocalMetroTypography.current.title,
             modifier = Modifier.weight(1f)
         )
+        actions()
         if (onPlayAll != null) {
             MetroIconButton(onClick = onPlayAll) {
                 MetroIcon(

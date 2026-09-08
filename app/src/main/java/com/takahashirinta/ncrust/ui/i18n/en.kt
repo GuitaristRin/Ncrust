@@ -38,6 +38,8 @@ val en = Strings(
     dailySongsTitle = "Daily Recommendations",
     recommendPlaylistTitle = "Recommended Playlists",
     newSongsTitle = "New Releases",
+
+    refreshLabel = "Refresh",
     noMoreContent = "— No more content —",
     trackCountSongs = { "$it songs" },
 

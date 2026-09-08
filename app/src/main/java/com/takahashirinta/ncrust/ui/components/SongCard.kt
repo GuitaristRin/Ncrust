@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,6 +80,8 @@ fun SongCard(
                     AsyncImage(
                         model = song.album?.picUrl,
                         contentDescription = strings.coverDesc,
+                        // 纯色占位:避免低端机解码完成前出现"空方块"闪变(Metro 不做 crossfade,直接落图)
+                        placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
                         modifier = Modifier.size(actualCoverSize),
                         contentScale = ContentScale.Crop
                     )
@@ -140,6 +143,7 @@ fun SongCard(
                 AsyncImage(
                     model = song.album?.picUrl,
                     contentDescription = strings.coverDesc,
+                    placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f),

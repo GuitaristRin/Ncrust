@@ -38,6 +38,8 @@ val deDE = Strings(
     dailySongsTitle = "Tägliche Empfehlungen",
     recommendPlaylistTitle = "Empfohlene Playlists",
     newSongsTitle = "Neue Veröffentlichungen",
+
+    refreshLabel = "Aktualisieren",
     noMoreContent = "— Keine weiteren Inhalte —",
     trackCountSongs = { "$it Songs" },
 

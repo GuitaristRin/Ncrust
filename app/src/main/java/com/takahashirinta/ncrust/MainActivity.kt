@@ -277,6 +277,23 @@ fun MainScreen(
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
+    // 队列拖拽排序：移动后修正 currentQueueIndex（当前播放项跟随其歌曲移动）。
+    fun moveInQueue(from: Int, to: Int) {
+        if (from !in playbackQueue.indices || to !in playbackQueue.indices || from == to) return
+        val item = playbackQueue[from]
+        val newQueue = playbackQueue.toMutableList().apply { removeAt(from); add(to, item) }
+        // 当前播放项的索引修正：歌曲本身移动了，索引跟随歌曲。
+        currentQueueIndex = when {
+            from == currentQueueIndex -> to
+            from < currentQueueIndex && to >= currentQueueIndex -> currentQueueIndex - 1
+            from > currentQueueIndex && to <= currentQueueIndex -> currentQueueIndex + 1
+            else -> currentQueueIndex
+        }
+        playbackQueue = newQueue
+        if (playMode == 2) generateShuffledIndices()
+        PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+    }
+
     fun playFromQueue(index: Int) {
         if (index in playbackQueue.indices) {
             currentQueueIndex = index
@@ -628,6 +645,7 @@ fun MainScreen(
             onPlayNext = { playNext() },
             onRemoveFromQueue = { removeFromQueue(it) },
             onPlayFromQueue = { playFromQueue(it) },
+            onMoveInQueue = ::moveInQueue,
             onTogglePlayMode = onTogglePlayMode,
             onSavePlaylist = { /* TODO: 保存歌单 */ },
             onNavigateToUser = {

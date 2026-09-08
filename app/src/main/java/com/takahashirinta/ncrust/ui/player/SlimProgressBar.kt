@@ -28,9 +28,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.takahashirinta.ncrust.formatDuration
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +57,7 @@ import kotlin.math.sin
 @Composable
 fun SlimProgressBar(
     progressFlow: StateFlow<Float>,
+    durationFlow: StateFlow<Long>,
     isBufferingFlow: StateFlow<Boolean>,
     onSeek: (Float) -> Unit
 ) {
@@ -57,6 +66,9 @@ fun SlimProgressBar(
     val isBuffering by isBufferingFlow.collectAsState()
     // collectAsState 创建 State 引用，只有 .value 被读的作用域才订阅
     val progressState = progressFlow.collectAsState()
+    val durationState = durationFlow.collectAsState()
+    val haptic = LocalHapticFeedback.current
+    val textMeasurer = rememberTextMeasurer()
     var barWidth by remember { mutableFloatStateOf(1f) }
     var isDragging by remember { mutableStateOf(false) }
     var dragProgress by remember { mutableFloatStateOf(0f) }
@@ -110,6 +122,7 @@ fun SlimProgressBar(
                     // 手指抬起：进入 seeking 悬挂态，等待缓冲动画接管
                     isDragging = false
                     seekTargetProgress = dragProgress
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onSeek(dragProgress)
                 }
             },
@@ -164,6 +177,22 @@ fun SlimProgressBar(
                     topLeft = Offset(thumbX, thumbY),
                     size = Size(thumbW, thumbH)
                 )
+
+                // 拖动时在滑块上方显示当前时间气泡(直觉反馈,Apple Music 同款)。
+                // 纯 Canvas 绘制,拖动期间只 invalidate,不重组。
+                val durMs = durationState.value
+                if (durMs > 0) {
+                    val layout = textMeasurer.measure(
+                        AnnotatedString(formatDuration((dragProgress * durMs).toLong())),
+                        style = TextStyle(fontSize = 11.sp, color = Color.Gray)
+                    )
+                    val textX = (thumbX + thumbW / 2f - layout.size.width / 2f)
+                        .coerceIn(0f, size.width - layout.size.width)
+                    val textY = thumbY - layout.size.height - 6.dp.toPx()
+                    if (textY > 0f) {
+                        drawText(layout, topLeft = Offset(textX, textY))
+                    }
+                }
             }
         }
     }

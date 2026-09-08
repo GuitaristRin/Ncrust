@@ -14,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +49,10 @@ fun FullPlayerControls(
     onNavigateToUser: () -> Unit = {}
 ) {
     val strings = LocalStrings.current
+    // 触觉反馈:播放/暂停/切歌/开关面板给一个轻振,补足无 ripple 时代的确认感
+    val haptic = LocalHapticFeedback.current
+    fun tick() = haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
         Box(
             modifier = Modifier
@@ -77,7 +83,12 @@ fun FullPlayerControls(
             )
         }
         Spacer(Modifier.height(8.dp))
-        SlimProgressBar(progressFlow = progressFlow, isBufferingFlow = isBufferingFlow, onSeek = onSeek)
+        SlimProgressBar(
+            progressFlow = progressFlow,
+            durationFlow = durationFlow,
+            isBufferingFlow = isBufferingFlow,
+            onSeek = onSeek
+        )
         Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier
@@ -89,7 +100,10 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .size(60.dp)
-                    .clickable { onPlayPrevious() },
+                    .clickable {
+                        tick()
+                        onPlayPrevious()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 MetroIcon(
@@ -103,7 +117,10 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .size(84.dp)
-                    .clickable { onPlayPause() },
+                    .clickable {
+                        tick()
+                        onPlayPause()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 MetroIcon(
@@ -117,7 +134,10 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .size(60.dp)
-                    .clickable { onPlayNext() },
+                    .clickable {
+                        tick()
+                        onPlayNext()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 MetroIcon(
@@ -135,7 +155,10 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clickable { onToggleLyrics() },
+                    .clickable {
+                        tick()
+                        onToggleLyrics()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 MetroIcon(
@@ -148,7 +171,10 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clickable { onToggleQueue() },
+                    .clickable {
+                        tick()
+                        onToggleQueue()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 MetroIcon(

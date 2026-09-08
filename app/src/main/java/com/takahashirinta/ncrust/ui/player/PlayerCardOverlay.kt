@@ -26,6 +26,7 @@ fun PlayerCardOverlay(
     onPlayNext: () -> Unit = {},
     onRemoveFromQueue: (Int) -> Unit = {},
     onPlayFromQueue: (Int) -> Unit = {},
+    onMoveInQueue: (Int, Int) -> Unit = { _, _ -> },
     onTogglePlayMode: () -> Unit = {},
     onSavePlaylist: () -> Unit = {},
     onNavigateToUser: () -> Unit = {}
@@ -52,6 +53,7 @@ fun PlayerCardOverlay(
             onPlayNext = onPlayNext,
             onRemoveFromQueue = onRemoveFromQueue,
             onPlayFromQueue = onPlayFromQueue,
+            onMoveInQueue = onMoveInQueue,
             onTogglePlayMode = onTogglePlayMode,
             onSavePlaylist = onSavePlaylist,
             onNavigateToUser = onNavigateToUser
