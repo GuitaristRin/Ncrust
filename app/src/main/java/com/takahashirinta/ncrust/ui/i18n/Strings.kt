@@ -85,19 +85,6 @@ data class Strings(
     val actionGoToAlbum: String,
     val clearQueue: String,
     // Login (native)
-    val loginTabPassword: String,
-    val loginTabSms: String,
-    val loginTabQr: String,
-    val loginPhone: String,
-    val loginPassword: String,
-    val loginSubmit: String,
-    val loginSendCode: String,
-    val loginSmsCode: String,
-    val loginWrongCreds: String,
-    val loginCaptchaBlocked: String,
-    val loginQrTip: String,
-    val loginFailed: (String) -> String,
-    // Login (native)
 
     // Native QR login
     val qrScanHint: String,

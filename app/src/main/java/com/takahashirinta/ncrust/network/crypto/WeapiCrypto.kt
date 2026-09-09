@@ -22,13 +22,6 @@ import javax.crypto.spec.SecretKeySpec
 object WeapiCrypto {
     private const val AES_IV = "0102030405060708"
 
-    /** 登录等场景要的 MD5 hex(如密码/验证码口令)。平台无关, 小写 hex。 */
-    fun md5Hex(input: String): String {
-        val digest = java.security.MessageDigest.getInstance("MD5")
-        return digest.digest(input.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
-    }
-
     // 官方 weapi 公钥（modulus + exponent 0x10001）。
     private const val PUBLIC_KEY_MODULUS_HEX =
         "00e0b509f6259df8642dbc35662901477df22677ec152b5ff68ace615bb7b7251" +

@@ -3,7 +3,6 @@ package com.takahashirinta.ncrust.network
 import android.util.Log
 import androidx.compose.runtime.Immutable
 import com.takahashirinta.ncrust.network.crypto.EapiCrypto
-import com.takahashirinta.ncrust.network.crypto.WeapiCrypto
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import kotlinx.coroutines.Dispatchers
@@ -368,7 +367,7 @@ object PlaylistApi {
         }
     }
 
-    // ==================== 原生登录（扫码 + 手机号验证码，替代 WebView） ====================
+    // ==================== 原生扫码登录（替代 WebView 登录） ====================
 
     data class LoginQrKey(val unikey: String, val qrimg: String?)
 
@@ -386,7 +385,11 @@ object PlaylistApi {
 
     data class LoginQrStatus(val code: Int, val cookie: String?)
 
-    /** 轮询二维码状态。code: 800=过期, 801=待扫码, 802=已扫码待确认, 803=成功。 */
+    /**
+     * 轮询二维码状态。code: 800=过期, 801=待扫码, 802=已扫码待确认, 803=成功。
+     * 成功时 cookie 在响应的 Set-Cookie 头里(eapi 客户端接口不含在 body), 拼出完整
+     * cookie 串交上层走 CookieManager/RetrofitClient 的既有保存路径。
+     */
     suspend fun checkLoginQr(key: String): LoginQrStatus = withContext(Dispatchers.IO) {
         val response = RetrofitClient.eapiPost(
             "/eapi/login/qrcode/client/unikey",
@@ -394,86 +397,14 @@ object PlaylistApi {
         )
         val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
         val code = JSONObject(body).optInt("code", -1)
-        val cookie = if (code == 803) extractSessionCookie(response) else null
+        var cookie: String? = null
+        if (code == 803) {
+            cookie = response.headers("Set-Cookie")
+                .mapNotNull { it.substringBefore(";").takeIf { p -> p.contains("=") } }
+                .joinToString("; ")
+                .takeIf { it.contains("MUSIC_U=") }
+        }
         LoginQrStatus(code, cookie)
-    }
-
-    /**
-     * 发送手机号短信验证码(登录用)。同机即可收码——不需要第二台设备。
-     * eapi 客户端端点; ctcode=86 中国大陆。
-     * 注意: 网易对短信发送有反机器人(网页端 geetest / 客户端风控), 本实现不具
-     * reCAPTCHA 能力——发送被风控拦下时如实返回失败, 由 UI 提示改用密码登录。
-     */
-    suspend fun sendSmsCaptcha(cellphone: String, ctcode: String = "86"): Boolean =
-        withContext(Dispatchers.IO) {
-            val response = RetrofitClient.eapiPost(
-                "/eapi/sms/captcha/send",
-                mapOf(
-                    "cellphone" to cellphone,
-                    "ctcode" to ctcode,
-                    "type" to "1",
-                    "e_r" to "TRUE"
-                )
-            )
-            val body = response.body?.string() ?: return@withContext false
-            val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
-            if (code != 200) {
-                android.util.Log.w("PlaylistApi", "sendSmsCaptcha blocked code=$code (风控?)")
-            }
-            code == 200
-        }
-
-    /**
-     * 手机号 + 密码登录。与官方一致: 密码 MD5 后作为 password 提交。
-     * 这是无验证码环节的主通道——短信验证码发送可能被反机器人拦截,
-     * 密码登录不依赖验证码系统, 是第三方客户端的主流做法。
-     */
-    suspend fun loginByPassword(
-        cellphone: String, password: String, ctcode: String = "86"
-    ): LoginQrStatus = withContext(Dispatchers.IO) {
-        val payload = mapOf(
-            "cellphone" to cellphone,
-            "password" to WeapiCrypto.md5Hex(password),
-            "ctcode" to ctcode,
-            "rememberLogin" to "true",
-            "e_r" to "TRUE"
-        )
-        val response = RetrofitClient.eapiPost("/eapi/login/cellphone", payload)
-        val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
-        val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
-        LoginQrStatus(code, if (code == 200) extractSessionCookie(response) else null)
-    }
-
-    /**
-     * 手机号 + 验证码登录。
-     * 与官方一致: 验证码 MD5 后作为 password 提交(短信码即一次性口令)。
-     * 成功时会话 cookie 在响应 Set-Cookie 头里, 提取路径与扫码登录相同。
-     */
-    suspend fun loginBySms(cellphone: String, code: String, ctcode: String = "86"): LoginQrStatus =
-        withContext(Dispatchers.IO) {
-            val password = WeapiCrypto.md5Hex(code)
-            val response = RetrofitClient.eapiPost(
-                "/eapi/login/cellphone",
-                mapOf(
-                    "cellphone" to cellphone,
-                    "password" to password,
-                    "ctcode" to ctcode,
-                    "rememberLogin" to "true",
-                    "e_r" to "TRUE"
-                )
-            )
-            val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
-            val json = JSONObject(body)
-            val codeResp = json.optInt("code", -1)
-            LoginQrStatus(codeResp, if (codeResp == 200) extractSessionCookie(response) else null)
-        }
-
-    /** 从 eapi 登录响应提取会话 cookie(MUSIC_U 起头的完整串)。 */
-    private fun extractSessionCookie(response: okhttp3.Response): String? {
-        val cookies = response.headers("Set-Cookie")
-            .mapNotNull { it.substringBefore(";").takeIf { p -> p.contains("=") } }
-        // 需要至少 MUSIC_U; 其余(如 __csrf)可后续从用户页补齐
-        return cookies.joinToString("; ").takeIf { it.contains("MUSIC_U=") }
     }
 
     // ==================== 云端收藏（收藏单曲 / 收藏专辑） ====================
