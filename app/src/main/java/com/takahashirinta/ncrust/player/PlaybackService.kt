@@ -27,6 +27,7 @@ import coil.Coil
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.takahashirinta.ncrust.MainActivity
+import com.takahashirinta.ncrust.network.CoverUrls
 import kotlinx.coroutines.*
 
 @OptIn(UnstableApi::class)
@@ -237,8 +238,10 @@ class PlaybackService : MediaSessionService() {
             try {
                 val imageLoader = Coil.imageLoader(this@PlaybackService)
                 val request = ImageRequest.Builder(this@PlaybackService)
-                    .data(url)
-                    .size(512, 512)
+                    .data(CoverUrls.large(url))
+                    // 锁屏/任务栏的媒体卡片是大尺寸位图(通常 1000px+), 512px 源会被
+                    // 放大糊掉; 走图床 1080 缩略 + 1024 目标一起
+                    .size(1024, 1024)
                     .build()
                 val result = imageLoader.execute(request)
                 if (result is SuccessResult) {
