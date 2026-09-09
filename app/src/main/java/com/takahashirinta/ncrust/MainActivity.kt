@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -49,7 +48,6 @@ import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNav
 import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNavItem
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
-import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
 import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
 import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
@@ -748,46 +746,16 @@ fun MainScreen(
         }
     }
     if (showWebLogin) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
-            AndroidView(
-                factory = { ctx ->
-                    android.webkit.WebView(ctx).apply {
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.useWideViewPort = true
-                        settings.loadWithOverviewMode = true
-                        android.webkit.CookieManager.getInstance()
-                            .setAcceptThirdPartyCookies(this, true)
-                        webViewClient = object : android.webkit.WebViewClient() {
-                            override fun onPageFinished(
-                                view: android.webkit.WebView, url: String
-                            ) {
-                                val cookie = android.webkit.CookieManager.getInstance()
-                                    .getCookie(url)
-                                if (cookie != null && cookie.contains("MUSIC_U=")) {
-                                    com.takahashirinta.ncrust.auth.CookieManager
-                                        .saveCookie(ctx, cookie)
-                                    RetrofitClient.updateCookie(cookie)
-                                    showWebLogin = false
-                                    cookieRefreshTrigger++
-                                }
-                            }
-                        }
-                        android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                        loadUrl("https://music.163.com/#/login")
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-            // 顶部渐隐 scrim + 裸叉号：与二级页面返回箭头共用 TopScrimIconButton，
-            // scrim 覆盖白色登录页顶部区域相当于"浏览器 chrome"，图标不再是孤立的黑方块。
-            TopScrimIconButton(
-                icon = Icons.Default.Close,
-                contentDescription = LocalStrings.current.close,
-                onClick = { showWebLogin = false },
-                alignment = Alignment.TopEnd
-            )
-        }
+        // 原生扫码登录: eapi unikey 二维码 + 轮询, 替代 WebView 官方登录页
+        QrLoginScreen(
+            onSuccess = { cookie ->
+                com.takahashirinta.ncrust.auth.CookieManager.saveCookie(context, cookie)
+                RetrofitClient.updateCookie(cookie)
+                showWebLogin = false
+                cookieRefreshTrigger++
+            },
+            onDismiss = { showWebLogin = false }
+        )
         return
     }
 

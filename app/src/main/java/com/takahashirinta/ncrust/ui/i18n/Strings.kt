@@ -83,6 +83,11 @@ data class Strings(
     val actionAppendToQueue: String,
     val actionGoToArtist: String,
     val actionGoToAlbum: String,
+
+    // Native QR login
+    val qrScanHint: String,
+    val qrScannedHint: String,
+    val qrExpiredHint: String,
     val actionAddToPlaylist: String,
     val actionRemoveFromLibrary: String,
     val actionSaveAlbum: String,

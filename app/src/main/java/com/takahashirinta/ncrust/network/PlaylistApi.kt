@@ -367,6 +367,46 @@ object PlaylistApi {
         }
     }
 
+    // ==================== 原生扫码登录（替代 WebView 登录） ====================
+
+    data class LoginQrKey(val unikey: String, val qrimg: String?)
+
+    /** 申请二维码登录 key。qrimg 是官方返回的 data:image/png;base64 图, 直接渲染即可。 */
+    suspend fun getLoginQrKey(): LoginQrKey? = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost("/eapi/login/qrcode/unikey", mapOf("type" to "1"))
+        val body = response.body?.string() ?: return@withContext null
+        val json = JSONObject(body)
+        if (json.optInt("code", -1) != 200) return@withContext null
+        LoginQrKey(
+            unikey = json.optString("unikey"),
+            qrimg = json.optString("qrimg", "").takeIf { it.isNotEmpty() }
+        )
+    }
+
+    data class LoginQrStatus(val code: Int, val cookie: String?)
+
+    /**
+     * 轮询二维码状态。code: 800=过期, 801=待扫码, 802=已扫码待确认, 803=成功。
+     * 成功时 cookie 在响应的 Set-Cookie 头里(eapi 客户端接口不含在 body), 拼出完整
+     * cookie 串交上层走 CookieManager/RetrofitClient 的既有保存路径。
+     */
+    suspend fun checkLoginQr(key: String): LoginQrStatus = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost(
+            "/eapi/login/qrcode/client/unikey",
+            mapOf("key" to key, "type" to "1")
+        )
+        val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
+        val code = JSONObject(body).optInt("code", -1)
+        var cookie: String? = null
+        if (code == 803) {
+            cookie = response.headers("Set-Cookie")
+                .mapNotNull { it.substringBefore(";").takeIf { p -> p.contains("=") } }
+                .joinToString("; ")
+                .takeIf { it.contains("MUSIC_U=") }
+        }
+        LoginQrStatus(code, cookie)
+    }
+
     // ==================== 云端收藏（收藏单曲 / 收藏专辑） ====================
 
     /**
