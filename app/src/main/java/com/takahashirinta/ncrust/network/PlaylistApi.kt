@@ -372,14 +372,11 @@ object PlaylistApi {
 
     data class LoginQrKey(val unikey: String, val qrimg: String?)
 
-    /**
-     * 申请二维码登录 key。注意: eapi 客户端版通常不返回 qrimg 图(官方客户端
-     * 拿 unikey 自己画二维码), UI 侧用 zxing 本地生成, 不依赖服务端给图。
-     */
+    /** 申请二维码登录 key。qrimg 是官方返回的 data:image/png;base64 图, 直接渲染即可。 */
     suspend fun getLoginQrKey(): LoginQrKey? = withContext(Dispatchers.IO) {
         val response = RetrofitClient.eapiPost("/eapi/login/qrcode/unikey", mapOf("type" to "1"))
-        val body = decodeEapiBody(response.body?.string()) ?: return@withContext null
-        val json = runCatching { JSONObject(body) }.getOrNull() ?: return@withContext null
+        val body = response.body?.string() ?: return@withContext null
+        val json = JSONObject(body)
         if (json.optInt("code", -1) != 200) return@withContext null
         LoginQrKey(
             unikey = json.optString("unikey"),
@@ -395,8 +392,8 @@ object PlaylistApi {
             "/eapi/login/qrcode/client/unikey",
             mapOf("key" to key, "type" to "1")
         )
-        val body = decodeEapiBody(response.body?.string()) ?: return@withContext LoginQrStatus(-1, null)
-        val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
+        val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
+        val code = JSONObject(body).optInt("code", -1)
         val cookie = if (code == 803) extractSessionCookie(response) else null
         LoginQrStatus(code, cookie)
     }
@@ -418,10 +415,10 @@ object PlaylistApi {
                     "e_r" to "TRUE"
                 )
             )
-            val body = decodeEapiBody(response.body?.string()) ?: return@withContext false
+            val body = response.body?.string() ?: return@withContext false
             val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
             if (code != 200) {
-                android.util.Log.w("PlaylistApi", "sendSmsCaptcha blocked code=$code body=${body.take(120)}")
+                android.util.Log.w("PlaylistApi", "sendSmsCaptcha blocked code=$code (风控?)")
             }
             code == 200
         }
@@ -442,7 +439,7 @@ object PlaylistApi {
             "e_r" to "TRUE"
         )
         val response = RetrofitClient.eapiPost("/eapi/login/cellphone", payload)
-        val body = decodeEapiBody(response.body?.string()) ?: return@withContext LoginQrStatus(-1, null)
+        val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
         val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
         LoginQrStatus(code, if (code == 200) extractSessionCookie(response) else null)
     }
@@ -465,9 +462,9 @@ object PlaylistApi {
                     "e_r" to "TRUE"
                 )
             )
-            val body = decodeEapiBody(response.body?.string()) ?: return@withContext LoginQrStatus(-1, null)
-            val json = runCatching { JSONObject(body) }.getOrNull()
-            val codeResp = json?.optInt("code", -1) ?: -1
+            val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
+            val json = JSONObject(body)
+            val codeResp = json.optInt("code", -1)
             LoginQrStatus(codeResp, if (codeResp == 200) extractSessionCookie(response) else null)
         }
 
@@ -477,16 +474,6 @@ object PlaylistApi {
             .mapNotNull { it.substringBefore(";").takeIf { p -> p.contains("=") } }
         // 需要至少 MUSIC_U; 其余(如 __csrf)可后续从用户页补齐
         return cookies.joinToString("; ").takeIf { it.contains("MUSIC_U=") }
-    }
-
-    /**
-     * eapi 写接口(发送验证码/登录)响应可能是 AES 加密 body——与 likeSong 相同
-     * 的机制。明文 JSON 原样返回, 密文 body 解密后返回; null 表示拿不到正文。
-     */
-    private fun decodeEapiBody(body: String?): String? {
-        if (body == null) return null
-        if (body.trimStart().startsWith("{")) return body
-        return EapiCrypto.decryptResponse(body).ifEmpty { null }
     }
 
     // ==================== 云端收藏（收藏单曲 / 收藏专辑） ====================
