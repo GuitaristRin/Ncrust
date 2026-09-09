@@ -22,8 +22,14 @@ object RetrofitClient {
     private const val IOS_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
 
     private var currentCookie: String? = null
+    private var appContext: Context? = null
+
+    /** Cronet 引擎(登录请求绕 TLS 指纹风控)等基础组件需要的全局 context。 */
+    fun appContext(): Context = appContext
+        ?: throw IllegalStateException("RetrofitClient.init not called")
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         currentCookie = CookieManager.getCookie(context)
     }
 

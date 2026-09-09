@@ -374,22 +374,26 @@ object PlaylistApi {
 
     /**
      * 发送手机号短信验证码(登录用)。同机即可收码——不需要第二台设备。
-     * legacy 网页登录协议: /api/sms/captcha/sent (weapi), 参数名是 mobile。
-     * 网易风控要求图形验证时会在响应里体现, 此时如实失败由 UI 提示。
+     * legacy 网页登录协议: /weapi/sms/captcha/sent (双重 AES + RSA 的 weapi 表单)。
+     * OkHttp 的 TLS 指纹会被边缘 WAF 静默吞成 200 空 body, 主通道走 Cronet
+     * (Chromium 指纹), Cronet 不可用时才回落 OkHttp。
      */
     suspend fun sendSmsCaptcha(cellphone: String, ctcode: String = "86"): Pair<Boolean, String> =
         withContext(Dispatchers.IO) {
-            val response = RetrofitClient.weapiPost(
-                "/api/sms/captcha/sent",
-                JSONObject().put("cellphone", cellphone).put("ctcode", ctcode).toString()
-            )
-            val body = response.body?.string() ?: return@withContext false to "empty response"
+            val payload = JSONObject().put("cellphone", cellphone).put("ctcode", ctcode)
+            val body = weapiViaCronet("sms/captcha/sent", payload)?.body
+                ?: RetrofitClient.weapiPost("/api/sms/captcha/sent", payload.toString()).body?.string()
+                ?: return@withContext false to "empty response"
             val json = runCatching { JSONObject(body) }.getOrNull()
             val code = json?.optInt("code", -1) ?: -1
             val msg = json?.optString("message", "").takeIf { !it.isNullOrEmpty() }
                 ?: json?.optString("msg", "").takeIf { !it.isNullOrEmpty() }
             if (code != 200) {
-                android.util.Log.w("PlaylistApi", "sendSmsCaptcha code=$code msg=$msg")
+                Log.w(
+                    "PlaylistApi",
+                    "sendSmsCaptcha bodyLen=${body.length} bodyHead=${body.take(120)} " +
+                        "parsedCode=$code msg=$msg"
+                )
             }
             (code == 200) to (msg ?: "")
         }
@@ -402,17 +406,32 @@ object PlaylistApi {
     suspend fun loginByPassword(
         cellphone: String, password: String, ctcode: String = "86"
     ): LoginQrStatus = withContext(Dispatchers.IO) {
-        val payload = mapOf(
-            "cellphone" to cellphone,
-            "password" to WeapiCrypto.md5Hex(password),
-            "ctcode" to ctcode,
-            "rememberLogin" to "true",
-            "e_r" to "TRUE"
-        )
-        val response = RetrofitClient.eapiPost("/eapi/login/cellphone", payload)
-        val body = decodeEapiBody(response.body?.string()) ?: return@withContext LoginQrStatus(-1, null)
+        // 网页协议 weapi /weapi/login/cellphone: 密码必须先 MD5(与官方一致)。
+        val loginPayload = JSONObject()
+            .put("cellphone", cellphone)
+            .put("password", WeapiCrypto.md5Hex(password))
+            .put("ctcode", ctcode)
+            .put("rememberLogin", "true")
+        // 主通道 Cronet(Chromium TLS 指纹); 不可用时回落 eapi 客户端通道。
+        val cronetResp = weapiViaCronet("login/cellphone", loginPayload)
+        var cookie: String? = null
+        val body = if (cronetResp != null) {
+            cookie = extractSessionCookie(cronetResp)
+            cronetResp.body
+        } else {
+            val fallback = mapOf(
+                "cellphone" to cellphone,
+                "password" to WeapiCrypto.md5Hex(password),
+                "ctcode" to ctcode,
+                "rememberLogin" to "true",
+                "e_r" to "TRUE"
+            )
+            val resp = RetrofitClient.eapiPost("/eapi/login/cellphone", fallback)
+            cookie = extractSessionCookie(resp)
+            decodeEapiBody(resp.body?.string())
+        } ?: return@withContext LoginQrStatus(-1, null)
         val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
-        LoginQrStatus(code, if (code == 200) extractSessionCookie(response) else null)
+        LoginQrStatus(code, if (code == 200) cookie else null)
     }
 
     /**
@@ -423,11 +442,21 @@ object PlaylistApi {
      */
     suspend fun loginBySms(cellphone: String, code: String, ctcode: String = "86"): LoginQrStatus =
         withContext(Dispatchers.IO) {
-            val response = RetrofitClient.weapiPost(
-                "/api/sms/captcha/verify",
-                JSONObject().put("cellphone", cellphone).put("captcha", code).put("ctcode", ctcode).toString()
-            )
-            val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
+            val payload = JSONObject()
+                .put("cellphone", cellphone)
+                .put("captcha", code)
+                .put("ctcode", ctcode)
+            // 主通道 Cronet; 回落 OkHttp weapi(指纹被吞时同样会失败, 但保留双保险)
+            val cronetResp = weapiViaCronet("sms/captcha/verify", payload)
+            var cookie: String? = null
+            val body = if (cronetResp != null) {
+                cookie = extractSessionCookie(cronetResp)
+                cronetResp.body
+            } else {
+                val resp = RetrofitClient.weapiPost("/api/sms/captcha/verify", payload.toString())
+                cookie = extractSessionCookie(resp)
+                resp.body?.string()
+            } ?: return@withContext LoginQrStatus(-1, null)
             val json = runCatching { JSONObject(body) }.getOrNull()
             val codeResp = json?.optInt("code", -1) ?: -1
             val msg = json?.optString("message", "").takeIf { !it.isNullOrEmpty() }
@@ -435,18 +464,62 @@ object PlaylistApi {
                 ?: ""
             LoginQrStatus(
                 codeResp,
-                if (codeResp == 200) extractSessionCookie(response) else null,
+                if (codeResp == 200) cookie else null,
                 msg
             )
         }
 
-    /** 从 eapi 登录响应提取会话 cookie(MUSIC_U 起头的完整串)。 */
+    /**
+     * weapi 双重加密后经 Cronet(Chromium TLS 指纹)POST 到 /weapi/[path]。
+     * 与 [RetrofitClient.weapiPost] 逐环对齐: 注入 csrf_token、params+encSecKey 表单,
+     * 唯一区别是传输栈——OkHttp 指纹会被 WAF 吞成空 body。引擎不可用/空 body 返回 null。
+     */
+    private fun weapiViaCronet(weapiPath: String, payload: JSONObject): WeapiCronet.CronetResponse? {
+        RetrofitClient.getCsrfToken()?.let {
+            if (it.isNotEmpty() && !payload.has("csrf_token")) payload.put("csrf_token", it)
+        }
+        val (params, encSecKey) = WeapiCrypto.encryptParams(payload.toString())
+        val form = formEncode(
+            JSONObject().put("params", params).put("encSecKey", encSecKey)
+        )
+        return WeapiCronet.postForm(
+            "https://music.163.com/weapi/" + weapiPath.trimStart('/'),
+            form
+        )
+    }
+
+    /** 表单 url-encode(与 python requests urlencode 一致)。 */
+    private fun formEncode(json: JSONObject): String {
+        val sb = StringBuilder()
+        json.keys().forEach { key ->
+            if (sb.isNotEmpty()) sb.append("&")
+            sb.append(key).append("=")
+            for (ch in json.optString(key)) {
+                if (ch.isLetterOrDigit() || ch == '*' || ch == '-' || ch == '.' || ch == '_') sb.append(ch)
+                else sb.append("%%%02X".format(ch.code))
+            }
+        }
+        return sb.toString()
+    }
+
+    /** 从 eapi/OkHttp 登录响应提取会话 cookie(MUSIC_U 起头的完整串)。 */
     private fun extractSessionCookie(response: okhttp3.Response): String? {
         val cookies = response.headers("Set-Cookie")
             .mapNotNull { it.substringBefore(";").takeIf { p -> p.contains("=") } }
-        // 需要至少 MUSIC_U; 其余(如 __csrf)可后续从用户页补齐
-        return cookies.joinToString("; ").takeIf { it.contains("MUSIC_U=") }
+        return joinSessionCookie(cookies)
     }
+
+    /** 从 Cronet 登录响应(含重定向链)提取会话 cookie。 */
+    private fun extractSessionCookie(response: WeapiCronet.CronetResponse): String? {
+        val cookies = response.headers
+            .filter { it.first.equals("Set-Cookie", ignoreCase = true) }
+            .mapNotNull { it.second.substringBefore(";").takeIf { p -> p.contains("=") } }
+        return joinSessionCookie(cookies)
+    }
+
+    // 需要至少 MUSIC_U; 其余(如 __csrf)一并拼上, 供后续接口的 csrf_token 使用。
+    private fun joinSessionCookie(cookies: List<String>): String? =
+        cookies.joinToString("; ").takeIf { it.contains("MUSIC_U=") }
 
     /**
      * eapi 写接口(发送验证码/登录)响应可能是 AES 加密 body——与 likeSong 相同
