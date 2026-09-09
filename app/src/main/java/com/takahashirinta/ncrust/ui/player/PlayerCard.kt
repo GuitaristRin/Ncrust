@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,6 +48,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import android.widget.Toast
 
@@ -72,6 +74,7 @@ fun PlayerCard(
     onToggleInfinity: () -> Unit = {},
     onPlayNothing: () -> Unit = {},
     onSongInfoClick: () -> Unit = {},
+    onClearQueue: () -> Unit = {},
     onSavePlaylist: () -> Unit = {},
     onNavigateToUser: () -> Unit = {}
 ) {
@@ -166,6 +169,7 @@ fun PlayerCard(
             }
         }
     }
+
 
     // 歌词/队列面板可交互(展开 + 面板在前台)时,面板区域内的纵向手势归内部列表滚动。
     // 根节点的整卡拖拽与兜底消费器都不得抢手势——否则在面板上一滑,整卡被拖走、
@@ -381,6 +385,15 @@ fun PlayerCard(
                                     MetroIcon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = strings.saveAsPlaylist,
+                                        tint = Color.White,
+                                        sizeDp = 24.dp
+                                    )
+                                }
+                                // 清空队列: 停播并回到暂无播放态
+                                MetroIconButton(onClick = onClearQueue) {
+                                    MetroIcon(
+                                        imageVector = Icons.Default.DeleteSweep,
+                                        contentDescription = strings.clearQueue,
                                         tint = Color.White,
                                         sizeDp = 24.dp
                                     )

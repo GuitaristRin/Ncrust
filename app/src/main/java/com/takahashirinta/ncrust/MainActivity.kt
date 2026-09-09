@@ -795,6 +795,18 @@ fun MainScreen(
                     }
                 }
             },
+            onClearQueue = {
+                // 显式清空: 停播 + 回到暂无播放态。进程重建保留队列是特性(接着听),
+                // 想清空时用户有明确入口, 不做隐式自动清空(打断连续收听习惯)。
+                playbackQueue = emptyList()
+                currentQueueIndex = -1
+                currentSong = null
+                shuffledIndices = emptyList()
+                shuffledPosition = 0
+                playerViewModel.stopService()
+                PlaybackStateManager.clearQueue(context)
+                collapseCard()
+            },
             onSongInfoClick = {
                 // 全屏播放器点歌名: 上拉"转到歌手/转到专辑"菜单(复用长按菜单 sheet)
                 currentSong?.let { menuSong = it; menuSongActions = emptyList() }
