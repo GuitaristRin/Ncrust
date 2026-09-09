@@ -8,6 +8,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -92,6 +95,18 @@ fun SearchScreen(
     val currentThemeColor = themeColorForIndex(themeIndex)
     val desaturatedFill = desaturateColor(currentThemeColor)
 
+    // 键盘治理: 点结果进详情/切 tab 后键盘不该还浮着
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    fun dismissKeyboard() {
+        keyboard?.hide()
+        focusManager.clearFocus()
+    }
+    // 切 tab(离开组合)强制收键盘
+    DisposableEffect(Unit) {
+        onDispose { keyboard?.hide() }
+    }
+
     // Search history state — loaded from SharedPreferences, refreshed whenever query clears
     var songHistory by remember { mutableStateOf(SearchHistoryManager.getSongs(context)) }
     var albumHistory by remember { mutableStateOf(SearchHistoryManager.getAlbums(context)) }
@@ -129,7 +144,7 @@ fun SearchScreen(
                     onValueChange = { viewModel.onQueryChanged(it) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardActions = KeyboardActions(onDone = {}),
+                    keyboardActions = KeyboardActions(onDone = { dismissKeyboard() }),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     textStyle = TextStyle(color = Color.White, fontSize = 18.sp),
                     cursorBrush = SolidColor(Color.White),
@@ -290,12 +305,12 @@ fun SearchScreen(
                         items(artistHistory, key = { "r_${it.id}" }) { item ->
                             SearchHistoryItemCard(
                                 item = item,
-                                onClick = { onArtistClick(item.id) },
+                                onClick = { dismissKeyboard(); onArtistClick(item.id) },
                                 menuContent = { onDismiss ->
                                     MetroDropdownMenuItem(
                                         text = strings.artistDetailTitle,
                                         textColor = Color.White,
-                                        onClick = { onDismiss(); onArtistClick(item.id) },
+                                        onClick = { dismissKeyboard(); onDismiss(); onArtistClick(item.id) },
                                     )
                                     MetroDropdownMenuItem(
                                         text = strings.searchHistoryDelete,
@@ -369,7 +384,7 @@ fun SearchScreen(
                                         coverSize = 72.dp,
                                         onClick = {
                                             SearchHistoryManager.addSong(context, item)
-                                            onSongClick(item)
+                                            dismissKeyboard(); onSongClick(item)
                                         },
                                         onShowMenu = {
                                             onShowSongMenu(item, listOf(
@@ -417,7 +432,7 @@ fun SearchScreen(
                                         album = album,
                                         onClick = {
                                             SearchHistoryManager.addAlbum(context, album)
-                                            onAlbumClick(album.id)
+                                            dismissKeyboard(); onAlbumClick(album.id)
                                         },
                                         menuContent = { onDismiss ->
                                             MetroDropdownMenuItem(
@@ -474,7 +489,7 @@ fun SearchScreen(
                                         artist = artist,
                                         onClick = {
                                             SearchHistoryManager.addArtist(context, artist)
-                                            onArtistClick(artist.id)
+                                            dismissKeyboard(); onArtistClick(artist.id)
                                         },
                                         menuContent = { onDismiss ->
                                             MetroDropdownMenuItem(
