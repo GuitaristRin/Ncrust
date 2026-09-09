@@ -1,13 +1,5 @@
 pluginManagement {
     repositories {
-        // dl.google.com 在本机网络时断时续, 阿里云镜像兜底(同 content 过滤范围)
-        maven("https://maven.aliyun.com/repository/google") {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -15,7 +7,6 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
-        maven("https://maven.aliyun.com/repository/central")
         mavenCentral()
         gradlePluginPortal()
     }
@@ -26,9 +17,6 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        // dl.google.com 不稳时走阿里云镜像(google 仓 + central 的完整代理)
-        maven("https://maven.aliyun.com/repository/google")
-        maven("https://maven.aliyun.com/repository/central")
         google()
         mavenCentral()
     }
