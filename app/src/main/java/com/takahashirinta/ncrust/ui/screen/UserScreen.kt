@@ -68,7 +68,7 @@ fun UserScreen(
     val playerViewModel: PlayerViewModel = viewModel()
     var wifiQuality by remember { mutableIntStateOf(prefs.getInt("wifi_quality", 3)) }
     var mobileQuality by remember { mutableIntStateOf(prefs.getInt("mobile_quality", 1)) }
-    var gaplessEnabled by remember { mutableStateOf(prefs.getBoolean("gapless_playback", false)) }
+    var gaplessEnabled by remember { mutableStateOf(prefs.getBoolean("gapless_playback", true)) }
     var lyricsTranslation by remember { mutableStateOf(prefs.getBoolean("lyrics_translation", true)) }
 
     var selectedLanguageCode by remember { mutableStateOf(getSavedLanguageCode(context)) }
@@ -208,6 +208,9 @@ fun UserScreen(
                     onCheckedChange = {
                         gaplessEnabled = it
                         prefs.edit().putBoolean("gapless_playback", it).apply()
+                        // 即时生效: VM 缓存的 gaplessEnabled 不刷新的话,
+                        // 本首歌的预载状态与开关不一致, 要等下一首歌才对上
+                        playerViewModel.refreshGaplessSetting()
                     }
                 )
             }

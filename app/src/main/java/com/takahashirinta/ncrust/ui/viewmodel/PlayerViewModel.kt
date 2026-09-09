@@ -197,7 +197,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun refreshGaplessSetting() {
         val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
-        gaplessEnabled = prefs.getBoolean("gapless_playback", false)
+        // 默认开启: 无缝预载是播放体验的一部分, 不该让大多数用户默默用着硬切换
+        gaplessEnabled = prefs.getBoolean("gapless_playback", true)
     }
 
     /** 设置页开关:歌词翻译开/关。写 SharedPreferences + 更新 StateFlow,播放器立即可见。 */
@@ -349,7 +350,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         preloadJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val prefs = getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
-                if (!prefs.getBoolean("gapless_playback", false)) {
+                if (!prefs.getBoolean("gapless_playback", true)) {
                     currentlyPreloadingSongId = -1L
                     return@launch
                 }
