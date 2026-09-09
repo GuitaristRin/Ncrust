@@ -662,6 +662,76 @@ fun MainScreen(
         }
     }
 
+    // ---------- 剪贴板分享链接识别 ----------
+    // 别人发来的 music.163.com 链接(或 163cn.tv 短链)在回到 app 时自动打开;
+    // 单曲则载入播放器但不播放, 由用户按播放键才开始。
+    val lastHandledClip = remember { mutableStateOf("") }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event != androidx.lifecycle.Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
+            val clip = try {
+                context.getSystemService(android.content.ClipboardManager::class.java)
+                    ?.primaryClip?.getItemAt(0)?.text?.toString()
+            } catch (_: Exception) { null } ?: return@LifecycleEventObserver
+            if (clip == lastHandledClip.value || !clip.contains("163")) return@LifecycleEventObserver
+            lastHandledClip.value = clip
+
+            coroutineScope.launch(Dispatchers.IO) {
+                var target = clip
+                // 163cn.tv 短链: HEAD 跟随 302 拿真实地址
+                if (target.contains("163cn.tv")) {
+                    target = runCatching {
+                        val client = okhttp3.OkHttpClient.Builder()
+                            .followRedirects(false).build()
+                        val resp = client.newCall(
+                            okhttp3.Request.Builder().url(target).head().build()
+                        ).execute()
+                        resp.header("Location") ?: ""
+                    }.getOrDefault("")
+                }
+                fun idOf(pattern: Regex): Long? =
+                    pattern.find(target)?.groupValues?.get(1)?.toLongOrNull()
+
+                val songId = idOf(Regex("music\\.163\\.com/song\\?id=(\\d+)"))
+                val albumId = idOf(Regex("music\\.163\\.com/album\\?id=(\\d+)"))
+                val playlistId = idOf(Regex("music\\.163\\.com/playlist\\?id=(\\d+)"))
+                val artistId = idOf(Regex("music\\.163\\.com/artist\\?id=(\\d+)"))
+
+                when {
+                    albumId != null -> withContext(Dispatchers.Main) {
+                        navController.navigate(NavRoutes.album(albumId))
+                    }
+                    playlistId != null -> withContext(Dispatchers.Main) {
+                        navController.navigate(NavRoutes.playlist(playlistId))
+                    }
+                    artistId != null -> withContext(Dispatchers.Main) {
+                        navController.navigate(NavRoutes.artist(artistId))
+                    }
+                    songId != null -> {
+                        // 单曲: 载入播放器但不自动播放, 等用户按下播放键
+                        val detail = runCatching {
+                            PlaylistApi.getSongsByIds(listOf(songId))
+                        }.getOrDefault(emptyList()).firstOrNull()
+                            ?: return@launch
+                        withContext(Dispatchers.Main) {
+                            currentSong = detail
+                            playbackQueue = listOf(detail)
+                            currentQueueIndex = 0
+                            shuffledIndices = emptyList()
+                            PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+                            val (t, a, w) = songParams(detail)
+                            playerViewModel.prepareSongWithoutPlay(detail.id, t, a, w)
+                        }
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var showAbout by remember { mutableStateOf(false) }
     if (showAbout) {
         AboutScreen(onBack = { showAbout = false })

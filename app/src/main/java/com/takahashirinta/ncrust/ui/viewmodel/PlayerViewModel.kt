@@ -446,6 +446,29 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * 只载入歌曲元数据, 不取链不播放(剪贴板分享的单曲场景)。
+     * 之后用户按下播放键 → togglePlayPause 检测到 duration==0 且 songId>0,
+     * 自动走全量 playSong 路径开播。
+     */
+    fun prepareSongWithoutPlay(songId: Long, title: String, artist: String, artworkUrl: String) {
+        latestPlaySongId = songId
+        currentSongId.value = songId
+        currentSongName.value = title
+        currentSongArtist.value = artist
+        currentSongArtwork.value = artworkUrl
+        currentPosition.value = 0L
+        duration.value = 0L
+        progress.value = 0f
+        isPlaying.value = false
+        lyrics.value = emptyList()
+        translatedLyrics.value = emptyList()
+        viewModelScope.launch { fetchLyrics(songId) }
+        PlaybackStateManager.saveState(
+            getApplication(), songId, title, artist, artworkUrl, false
+        )
+    }
+
     fun togglePlayPause() {
         val songId = currentSongId.value
         if (duration.value == 0L && songId != null && songId > 0) {
