@@ -47,6 +47,7 @@ fun LyricsView(
     positionFlow: StateFlow<Long>,
     isPlaying: Boolean,
     isVisible: Boolean,
+    forcedLocateTrigger: Int = 0,
     onSeekToMs: (Long) -> Unit,
     enabled: Boolean = true,
     onUserScrolled: () -> Unit = {},
@@ -99,6 +100,7 @@ fun LyricsView(
             lines = metroLines,
             currentPositionMillis = { displayPosition.longValue },
             isVisible = isVisible,
+            forcedScrollTrigger = forcedLocateTrigger,
             enabled = enabled,
             onLineClick = if (enabled) { ms ->
                 // 点击行:本地立即定位,不等 2Hz 采样回传,seek 手感即时。

@@ -170,6 +170,16 @@ fun PlayerCard(
         }
     }
 
+    // 展开动作触发一次歌词定位: 面板常挂载, isVisible 不会翻转, 若不做强制定位,
+    // 从 mini bar 拉起后歌词停在旧位置(或用户上次手动滚动的位置)
+    var lyricLocateTrigger by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { progress.value }
+            .distinctUntilChanged { a, b -> (a > 0.9f) == (b > 0.9f) }
+            .collect { p ->
+                if (p > 0.9f) lyricLocateTrigger++
+            }
+    }
 
     // 歌词/队列面板可交互(展开 + 面板在前台)时,面板区域内的纵向手势归内部列表滚动。
     // 根节点的整卡拖拽与兜底消费器都不得抢手势——否则在面板上一滑,整卡被拖走、
@@ -330,6 +340,7 @@ fun PlayerCard(
                                 positionFlow = playerViewModel.currentPosition,
                                 isPlaying = isPlaying,
                                 isVisible = showLyrics,
+                                forcedLocateTrigger = lyricLocateTrigger,
                                 onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
                                 enabled = lyricsEnabled,
                                 onUserScrolled = {},
