@@ -37,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.takahashirinta.ncrust.library.LibraryManager
+import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
@@ -67,8 +68,11 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroTheme
 import com.takahashirinta.ncrust.warmup.AppWarmup
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -318,6 +322,53 @@ fun MainScreen(
         }
     }
 
+    // ---------- Infinity 无限播放 ----------
+    var infinityEnabled by remember {
+        mutableStateOf(
+            context.getSharedPreferences("ncrust_settings", 0).getBoolean("infinity_playback", true)
+        )
+    }
+    val infinityJob = remember { mutableStateOf<Job?>(null) }
+
+    val onToggleInfinity: () -> Unit = {
+        infinityEnabled = !infinityEnabled
+        context.getSharedPreferences("ncrust_settings", 0)
+            .edit().putBoolean("infinity_playback", infinityEnabled).apply()
+    }
+
+    /**
+     * 以当前歌为种子拉相似歌曲追加到队尾并续播。已入队的歌会被过滤,
+     * 防止 infinity 环绕重复;相似接口失败时兜底每日推荐。
+     * in-flight 防重入:预载心跳与播完路径可能几乎同时触发。
+     */
+    fun launchInfinity() {
+        if (infinityJob.value?.isActive == true) return
+        val seed = playbackQueue.getOrNull(currentQueueIndex) ?: return
+        val existingIds = playbackQueue.map { it.id }.toSet()
+        infinityJob.value = coroutineScope.launch(Dispatchers.IO) {
+            val similar = runCatching {
+                PlaylistApi.getSimilarSongs(seed.id).filter { it.id !in existingIds }
+            }.getOrDefault(emptyList())
+            val continuation = if (similar.isNotEmpty()) similar else
+                runCatching {
+                    PlaylistApi.getDailyRecommendSongs().filter { it.id !in existingIds }
+                }.getOrDefault(emptyList())
+            if (continuation.isEmpty()) return@launch
+            withContext(Dispatchers.Main) {
+                playbackQueue = playbackQueue + continuation
+                val startIdx = playbackQueue.size - continuation.size
+                if (playMode == 2) generateShuffledIndices()
+                playFromQueue(startIdx)
+                PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+                // 为无缝衔接立即预载 infinity 首曲之后的一首
+                playbackQueue.getOrNull(startIdx + 1)?.let { next ->
+                    val (t, a, w) = songParams(next)
+                    playerViewModel.preloadNextSong(next.id, t, a, w)
+                }
+            }
+        }
+    }
+
     fun playNext() {
         if (playbackQueue.isEmpty()) return
         when (playMode) {
@@ -332,9 +383,17 @@ fun MainScreen(
                     playFromQueue(shuffledIndices[shuffledPosition])
                 }
             }
-            else -> playFromQueue(
-                if (currentQueueIndex < playbackQueue.size - 1) currentQueueIndex + 1 else 0
-            )
+            else -> {
+                if (currentQueueIndex < playbackQueue.size - 1) {
+                    playFromQueue(currentQueueIndex + 1)
+                } else if (infinityEnabled) {
+                    // 类 Apple Music Infinity：队列自然播完不再循环整轮，
+                    // 以当前歌为种子续播相似歌曲
+                    launchInfinity()
+                } else {
+                    playFromQueue(0)
+                }
+            }
         }
     }
 
@@ -387,6 +446,12 @@ fun MainScreen(
             if (nextSong != null) {
                 val (title, artist, artwork) = songParams(nextSong)
                 playerViewModel.preloadNextSong(nextSong.id, title, artist, artwork)
+            } else if (playMode == 0 && infinityEnabled &&
+                currentQueueIndex >= playbackQueue.size - 1 && playbackQueue.isNotEmpty()
+            ) {
+                // 队列尾 + Infinity: 提前拉相似歌追加, 追加完成时才来得及无缝预载——
+                // 等到自然播完才发起, 相似接口的网络往返会让衔接出现空档
+                launchInfinity()
             }
         }
     }
@@ -647,6 +712,18 @@ fun MainScreen(
             onPlayFromQueue = { playFromQueue(it) },
             onMoveInQueue = ::moveInQueue,
             onTogglePlayMode = onTogglePlayMode,
+            infinityEnabled = infinityEnabled,
+            onToggleInfinity = onToggleInfinity,
+            onPlayNothing = {
+                // 暂无播放 → 一键开始: 优先缓存里的每日推荐, 否则现拉
+                coroutineScope.launch(Dispatchers.IO) {
+                    val songs = ContentCache.homeDailySongs?.takeIf { it.isNotEmpty() }
+                        ?: runCatching { PlaylistApi.getDailyRecommendSongs() }.getOrDefault(emptyList())
+                    if (songs.isNotEmpty()) {
+                        withContext(Dispatchers.Main) { replaceQueueAndPlay(songs) }
+                    }
+                }
+            },
             onSavePlaylist = { /* TODO: 保存歌单 */ },
             onNavigateToUser = {
                 selectedTab = 3

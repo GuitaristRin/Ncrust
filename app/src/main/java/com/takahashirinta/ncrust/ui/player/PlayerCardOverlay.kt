@@ -28,6 +28,9 @@ fun PlayerCardOverlay(
     onPlayFromQueue: (Int) -> Unit = {},
     onMoveInQueue: (Int, Int) -> Unit = { _, _ -> },
     onTogglePlayMode: () -> Unit = {},
+    infinityEnabled: Boolean = true,
+    onToggleInfinity: () -> Unit = {},
+    onPlayNothing: () -> Unit = {},
     onSavePlaylist: () -> Unit = {},
     onNavigateToUser: () -> Unit = {}
 ) {
@@ -55,6 +58,9 @@ fun PlayerCardOverlay(
             onPlayFromQueue = onPlayFromQueue,
             onMoveInQueue = onMoveInQueue,
             onTogglePlayMode = onTogglePlayMode,
+            infinityEnabled = infinityEnabled,
+            onToggleInfinity = onToggleInfinity,
+            onPlayNothing = onPlayNothing,
             onSavePlaylist = onSavePlaylist,
             onNavigateToUser = onNavigateToUser
         )

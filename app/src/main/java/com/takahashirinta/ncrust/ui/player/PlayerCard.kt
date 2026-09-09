@@ -68,6 +68,9 @@ fun PlayerCard(
     onPlayFromQueue: (Int) -> Unit = {},
     onMoveInQueue: (Int, Int) -> Unit = { _, _ -> },
     onTogglePlayMode: () -> Unit = {},
+    infinityEnabled: Boolean = true,
+    onToggleInfinity: () -> Unit = {},
+    onPlayNothing: () -> Unit = {},
     onSavePlaylist: () -> Unit = {},
     onNavigateToUser: () -> Unit = {}
 ) {
@@ -362,6 +365,15 @@ fun PlayerCard(
                                         sizeDp = 24.dp
                                     )
                                 }
+                                // Infinity 无限播放: 队列播完以相似歌曲续播, 类 Apple Music
+                                MetroIconButton(onClick = onToggleInfinity) {
+                                    MetroIcon(
+                                        imageVector = Icons.Default.AllInclusive,
+                                        contentDescription = "Infinity",
+                                        tint = if (infinityEnabled) LocalMetroColors.current.primary else Color.White,
+                                        sizeDp = 24.dp
+                                    )
+                                }
                                 MetroIconButton(onClick = onSavePlaylist) {
                                     MetroIcon(
                                         imageVector = Icons.Default.Add,
@@ -526,26 +538,29 @@ fun PlayerCard(
                         Spacer(modifier = Modifier.width(96.dp))
                     }
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(1f)
-                            .background(Color(0xFF404040)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        MetroIcon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = Color(0xFF808080),
-                            sizeDp = 24.dp
-                        )
-                    }
+                    // 暂无播放: 卡片仍不可拉起(保持既有约束), 但给一个播放键
+                    // 直接开始 Infinity——取每日推荐开播, 无需先有队列
                     MetroText(
                         strings.noSongPlaying,
                         color = Color(0xFF808080),
                         style = LocalMetroTypography.current.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
                     )
+                    if (miniBarEnabled) {
+                        MetroIconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayNothing()
+                        }) {
+                            MetroIcon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = LocalStrings.current.playButton,
+                                tint = Color.White
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                    }
                 }
             }
         }

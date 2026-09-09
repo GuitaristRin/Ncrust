@@ -333,6 +333,38 @@ object PlaylistApi {
         JSONObject(body).optInt("code", -1) == 200
     }
 
+    /**
+     * 相似歌曲（Infinity 无限播放的数据源）。
+     * 客户端端点 /eapi/v1/discovery/similarSong, payload 用 songid(小写, 与官方一致)。
+     * 返回歌曲是老格式(artists/album/duration), 解析时新旧字段都兜底;
+     * artists[].id 带出来, 供后续"转到歌手/专辑"回调直接使用。
+     */
+    suspend fun getSimilarSongs(songId: Long, limit: Int = 20): List<SongItem> = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost(
+            "/eapi/v1/discovery/similarSong",
+            mapOf("songid" to songId.toString(), "limit" to limit.toString(), "offset" to "0")
+        )
+        val body = response.body?.string() ?: return@withContext emptyList()
+        val arr = JSONObject(body).optJSONArray("songs") ?: return@withContext emptyList()
+        (0 until arr.length()).map { i ->
+            val s = arr.getJSONObject(i)
+            SongItem(
+                id = s.optLong("id"),
+                name = s.optString("name"),
+                artists = (s.optJSONArray("artists") ?: s.optJSONArray("ar"))?.let { ar ->
+                    (0 until ar.length()).map { j ->
+                        val a = ar.getJSONObject(j)
+                        ArtistItem(id = a.optLong("id").takeIf { it != 0L }, name = a.optString("name"))
+                    }
+                },
+                album = (s.optJSONObject("album") ?: s.optJSONObject("al"))?.let {
+                    AlbumItem(id = it.optLong("id").takeIf { v -> v != 0L }, name = it.optString("name"), picUrl = it.optString("picUrl"))
+                },
+                duration = (s.optLong("duration").takeIf { it != 0L } ?: s.optLong("dt")).takeIf { it != 0L }
+            )
+        }
+    }
+
     // ==================== 云端收藏（收藏单曲 / 收藏专辑） ====================
 
     /**
