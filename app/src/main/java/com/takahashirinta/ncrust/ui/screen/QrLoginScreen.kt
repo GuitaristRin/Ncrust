@@ -110,14 +110,13 @@ fun QrLoginScreen(
                                 .clickable(enabled = countdown == 0 && smsPhone.length >= 6 && !busy) {
                                     busy = true; error = null; info = null
                                     scope.launch {
-                                        val (ok, serverMsg) = PlaylistApi.sendSmsCaptcha(smsPhone)
+                                        val ok = PlaylistApi.sendSmsCaptcha(smsPhone)
                                         busy = false
                                         if (ok) {
                                             countdown = 60
                                             info = strings.loginCodeSent
                                         } else {
-                                            // 服务端原文(如"发送验证码间隔过短")优先于静态文案
-                                            error = serverMsg.ifEmpty { strings.loginSendFailed }
+                                            error = strings.loginSendFailed
                                         }
                                     }
                                 }
@@ -135,10 +134,8 @@ fun QrLoginScreen(
                             busy = false
                             when {
                                 st.cookie != null -> st.cookie?.let(onSuccess)
-                                else -> error = st.message.ifEmpty {
-                                    if (st.code == 400) strings.loginWrongCreds
-                                    else strings.loginFailed(st.code.toString())
-                                }
+                                st.code == 400 -> error = strings.loginWrongCreds
+                                else -> error = strings.loginFailed(st.code.toString())
                             }
                         }
                     }
