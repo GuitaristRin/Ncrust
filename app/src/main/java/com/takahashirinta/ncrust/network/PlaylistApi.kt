@@ -370,25 +370,28 @@ object PlaylistApi {
 
     // ==================== 原生登录（手机号密码/验证码，替代 WebView） ====================
 
-    data class LoginQrStatus(val code: Int, val cookie: String?)
+    data class LoginQrStatus(val code: Int, val cookie: String?, val message: String = "")
 
     /**
      * 发送手机号短信验证码(登录用)。同机即可收码——不需要第二台设备。
      * legacy 网页登录协议: /api/sms/captcha/sent (weapi), 参数名是 mobile。
      * 网易风控要求图形验证时会在响应里体现, 此时如实失败由 UI 提示。
      */
-    suspend fun sendSmsCaptcha(cellphone: String, ctcode: String = "86"): Boolean =
+    suspend fun sendSmsCaptcha(cellphone: String, ctcode: String = "86"): Pair<Boolean, String> =
         withContext(Dispatchers.IO) {
             val response = RetrofitClient.weapiPost(
                 "/api/sms/captcha/sent",
-                JSONObject().put("mobile", cellphone).put("ctcode", ctcode).toString()
+                JSONObject().put("cellphone", cellphone).put("ctcode", ctcode).toString()
             )
-            val body = response.body?.string() ?: return@withContext false
-            val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
+            val body = response.body?.string() ?: return@withContext false to "empty response"
+            val json = runCatching { JSONObject(body) }.getOrNull()
+            val code = json?.optInt("code", -1) ?: -1
+            val msg = json?.optString("message", "").takeIf { !it.isNullOrEmpty() }
+                ?: json?.optString("msg", "").takeIf { !it.isNullOrEmpty() }
             if (code != 200) {
-                android.util.Log.w("PlaylistApi", "sendSmsCaptcha code=$code body=${body.take(160)}")
+                android.util.Log.w("PlaylistApi", "sendSmsCaptcha code=$code msg=$msg")
             }
-            code == 200
+            (code == 200) to (msg ?: "")
         }
 
     /**
@@ -422,12 +425,19 @@ object PlaylistApi {
         withContext(Dispatchers.IO) {
             val response = RetrofitClient.weapiPost(
                 "/api/sms/captcha/verify",
-                JSONObject().put("mobile", cellphone).put("captcha", code).put("ctcode", ctcode).toString()
+                JSONObject().put("cellphone", cellphone).put("captcha", code).put("ctcode", ctcode).toString()
             )
             val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
             val json = runCatching { JSONObject(body) }.getOrNull()
             val codeResp = json?.optInt("code", -1) ?: -1
-            LoginQrStatus(codeResp, if (codeResp == 200) extractSessionCookie(response) else null)
+            val msg = json?.optString("message", "").takeIf { !it.isNullOrEmpty() }
+                ?: json?.optString("msg", "").takeIf { !it.isNullOrEmpty() }
+                ?: ""
+            LoginQrStatus(
+                codeResp,
+                if (codeResp == 200) extractSessionCookie(response) else null,
+                msg
+            )
         }
 
     /** 从 eapi 登录响应提取会话 cookie(MUSIC_U 起头的完整串)。 */
