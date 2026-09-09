@@ -80,6 +80,10 @@ dependencies {
     implementation("io.github.takahashirinta:kanesumi-structure:0.1.0-SNAPSHOT")
 
     implementation("androidx.core:core-ktx:1.13.0")
+    // 登录请求绕 music.163.com 的 TLS 指纹风控: Cronet = Chromium 网络栈,
+    // TLS ClientHello 与 Chrome 一致(引擎由 Play Services 提供, 无包体成本)。
+    // play-services-cronet 最新即 18.1.0(与 Chromium 自身版本号无关, 不存在 19+)。
+    implementation("com.google.android.gms:play-services-cronet:18.1.0")
     implementation("androidx.activity:activity:1.9.0")
 
     // Compose
