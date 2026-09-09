@@ -368,25 +368,60 @@ object PlaylistApi {
         }
     }
 
-    // ==================== 原生登录（手机号密码/验证码，替代 WebView） ====================
+    // ==================== 原生登录（扫码 + 手机号验证码，替代 WebView） ====================
+
+    data class LoginQrKey(val unikey: String, val qrimg: String?)
+
+    /**
+     * 申请二维码登录 key。注意: eapi 客户端版通常不返回 qrimg 图(官方客户端
+     * 拿 unikey 自己画二维码), UI 侧用 zxing 本地生成, 不依赖服务端给图。
+     */
+    suspend fun getLoginQrKey(): LoginQrKey? = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost("/eapi/login/qrcode/unikey", mapOf("type" to "1"))
+        val body = decodeEapiBody(response.body?.string()) ?: return@withContext null
+        val json = runCatching { JSONObject(body) }.getOrNull() ?: return@withContext null
+        if (json.optInt("code", -1) != 200) return@withContext null
+        LoginQrKey(
+            unikey = json.optString("unikey"),
+            qrimg = json.optString("qrimg", "").takeIf { it.isNotEmpty() }
+        )
+    }
 
     data class LoginQrStatus(val code: Int, val cookie: String?)
 
+    /** 轮询二维码状态。code: 800=过期, 801=待扫码, 802=已扫码待确认, 803=成功。 */
+    suspend fun checkLoginQr(key: String): LoginQrStatus = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost(
+            "/eapi/login/qrcode/client/unikey",
+            mapOf("key" to key, "type" to "1")
+        )
+        val body = decodeEapiBody(response.body?.string()) ?: return@withContext LoginQrStatus(-1, null)
+        val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
+        val cookie = if (code == 803) extractSessionCookie(response) else null
+        LoginQrStatus(code, cookie)
+    }
+
     /**
      * 发送手机号短信验证码(登录用)。同机即可收码——不需要第二台设备。
-     * legacy 网页登录协议: /api/sms/captcha/sent (weapi), 参数名是 mobile。
-     * 网易风控要求图形验证时会在响应里体现, 此时如实失败由 UI 提示。
+     * eapi 客户端端点; ctcode=86 中国大陆。
+     * 注意: 网易对短信发送有反机器人(网页端 geetest / 客户端风控), 本实现不具
+     * reCAPTCHA 能力——发送被风控拦下时如实返回失败, 由 UI 提示改用密码登录。
      */
     suspend fun sendSmsCaptcha(cellphone: String, ctcode: String = "86"): Boolean =
         withContext(Dispatchers.IO) {
-            val response = RetrofitClient.weapiPost(
-                "/api/sms/captcha/sent",
-                JSONObject().put("mobile", cellphone).put("ctcode", ctcode).toString()
+            val response = RetrofitClient.eapiPost(
+                "/eapi/sms/captcha/send",
+                mapOf(
+                    "cellphone" to cellphone,
+                    "ctcode" to ctcode,
+                    "type" to "1",
+                    "e_r" to "TRUE"
+                )
             )
-            val body = response.body?.string() ?: return@withContext false
+            val body = decodeEapiBody(response.body?.string()) ?: return@withContext false
             val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
             if (code != 200) {
-                android.util.Log.w("PlaylistApi", "sendSmsCaptcha code=$code body=${body.take(160)}")
+                android.util.Log.w("PlaylistApi", "sendSmsCaptcha blocked code=$code body=${body.take(120)}")
             }
             code == 200
         }
@@ -414,17 +449,23 @@ object PlaylistApi {
 
     /**
      * 手机号 + 验证码登录。
-     * legacy 网页登录协议两段式的第二段: /api/sms/captcha/verify (weapi)——
-     * 短信码验证通过即完成登录, cookie 在响应 Set-Cookie 头里。
-     * (不是把验证码 MD5 塞进 login/cellphone——那是旧印象里的错误路径。)
+     * 与官方一致: 验证码 MD5 后作为 password 提交(短信码即一次性口令)。
+     * 成功时会话 cookie 在响应 Set-Cookie 头里, 提取路径与扫码登录相同。
      */
     suspend fun loginBySms(cellphone: String, code: String, ctcode: String = "86"): LoginQrStatus =
         withContext(Dispatchers.IO) {
-            val response = RetrofitClient.weapiPost(
-                "/api/sms/captcha/verify",
-                JSONObject().put("mobile", cellphone).put("captcha", code).put("ctcode", ctcode).toString()
+            val password = WeapiCrypto.md5Hex(code)
+            val response = RetrofitClient.eapiPost(
+                "/eapi/login/cellphone",
+                mapOf(
+                    "cellphone" to cellphone,
+                    "password" to password,
+                    "ctcode" to ctcode,
+                    "rememberLogin" to "true",
+                    "e_r" to "TRUE"
+                )
             )
-            val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
+            val body = decodeEapiBody(response.body?.string()) ?: return@withContext LoginQrStatus(-1, null)
             val json = runCatching { JSONObject(body) }.getOrNull()
             val codeResp = json?.optInt("code", -1) ?: -1
             LoginQrStatus(codeResp, if (codeResp == 200) extractSessionCookie(response) else null)
