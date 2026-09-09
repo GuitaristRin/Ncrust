@@ -71,6 +71,7 @@ fun PlayerCard(
     infinityEnabled: Boolean = true,
     onToggleInfinity: () -> Unit = {},
     onPlayNothing: () -> Unit = {},
+    onSongInfoClick: () -> Unit = {},
     onSavePlaylist: () -> Unit = {},
     onNavigateToUser: () -> Unit = {}
 ) {
@@ -269,6 +270,8 @@ fun PlayerCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .graphicsLayer { alpha = lyricAnimProgress.value }
+                            // 歌名区域可点: 上拉"转到歌手/转到专辑"菜单(类 Apple Music)
+                            .clickable { onSongInfoClick() }
                     ) {
                         MetroText(
                             s.name,
@@ -404,6 +407,8 @@ fun PlayerCard(
                                     alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) *
                                             (1f - lyricAnimProgress.value)
                                 }
+                                // 歌名区域可点: 上拉"转到歌手/转到专辑"菜单(类 Apple Music)
+                                .clickable { onSongInfoClick() }
                         ) {
                             MetroText(
                                 s.name,

@@ -81,6 +81,8 @@ data class Strings(
     val actionAddToLibrary: String,
     val actionInsertNext: String,
     val actionAppendToQueue: String,
+    val actionGoToArtist: String,
+    val actionGoToAlbum: String,
     val actionAddToPlaylist: String,
     val actionRemoveFromLibrary: String,
     val actionSaveAlbum: String,

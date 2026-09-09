@@ -31,6 +31,7 @@ fun PlayerCardOverlay(
     infinityEnabled: Boolean = true,
     onToggleInfinity: () -> Unit = {},
     onPlayNothing: () -> Unit = {},
+    onSongInfoClick: () -> Unit = {},
     onSavePlaylist: () -> Unit = {},
     onNavigateToUser: () -> Unit = {}
 ) {
@@ -61,6 +62,7 @@ fun PlayerCardOverlay(
             infinityEnabled = infinityEnabled,
             onToggleInfinity = onToggleInfinity,
             onPlayNothing = onPlayNothing,
+            onSongInfoClick = onSongInfoClick,
             onSavePlaylist = onSavePlaylist,
             onNavigateToUser = onNavigateToUser
         )

@@ -629,6 +629,39 @@ fun MainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val isInMain = navBackStackEntry?.destination?.route == NavRoutes.HOME
 
+    /**
+     * 从歌曲跳到歌手/专辑页(需求: 类 Apple Music 的来源回溯)。
+     * 列表接口的解析点大多不带 artist/album id——缺失时先用 song/detail
+     * 现拉全量再跳; 拉取失败静默放弃, 不给出死链接。
+     */
+    fun resolveAndNavigate(song: SongItem, toArtist: Boolean) {
+        coroutineScope.launch(Dispatchers.IO) {
+            var target = song
+            val idMissing = if (toArtist)
+                target.artists?.firstOrNull()?.id == null
+            else
+                target.album?.id == null
+            if (idMissing) {
+                target = runCatching { PlaylistApi.getSongsByIds(listOf(song.id)) }
+                    .getOrDefault(emptyList()).firstOrNull() ?: song
+            }
+            val artistId = target.artists?.firstOrNull()?.id
+            val albumId = target.album?.id
+            withContext(Dispatchers.Main) {
+                when {
+                    toArtist && artistId != null -> {
+                        if (progress.value > 0.01f) collapseCard()
+                        navController.navigate(NavRoutes.artist(artistId))
+                    }
+                    !toArtist && albumId != null -> {
+                        if (progress.value > 0.01f) collapseCard()
+                        navController.navigate(NavRoutes.album(albumId))
+                    }
+                }
+            }
+        }
+    }
+
     var showAbout by remember { mutableStateOf(false) }
     if (showAbout) {
         AboutScreen(onBack = { showAbout = false })
@@ -723,6 +756,10 @@ fun MainScreen(
                         withContext(Dispatchers.Main) { replaceQueueAndPlay(songs) }
                     }
                 }
+            },
+            onSongInfoClick = {
+                // 全屏播放器点歌名: 上拉"转到歌手/转到专辑"菜单(复用长按菜单 sheet)
+                currentSong?.let { menuSong = it; menuSongActions = emptyList() }
             },
             onSavePlaylist = { /* TODO: 保存歌单 */ },
             onNavigateToUser = {
@@ -933,7 +970,16 @@ fun MainScreen(
             Box(Modifier.fillMaxSize().zIndex(2f)) {
                 SongMenuSheet(
                     song = song,
-                    actions = menuSongActions,
+                    // 统一在这里追加"转到歌手/转到专辑": 所有长按菜单(首页/歌单/专辑/
+                    // 歌手/收藏/搜索)自动获得回调入口, 各 Screen 无需感知导航
+                    actions = menuSongActions + listOf(
+                        SongMenuAction(Icons.Default.Person, LocalStrings.current.actionGoToArtist) {
+                            resolveAndNavigate(song, toArtist = true)
+                        },
+                        SongMenuAction(Icons.Default.LibraryMusic, LocalStrings.current.actionGoToAlbum) {
+                            resolveAndNavigate(song, toArtist = false)
+                        },
+                    ),
                     onDismiss = { menuSong = null }
                 )
             }

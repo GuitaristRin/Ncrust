@@ -171,7 +171,9 @@ object PlaylistApi {
         val artistArray = track.optJSONArray("ar")
         val artists: List<ArtistItem>? = artistArray?.let {
             (0 until it.length()).map { j ->
-                ArtistItem(name = it.getJSONObject(j).optString("name"))
+                val a = it.getJSONObject(j)
+                // id 带出来供"转到歌手"回调直接跳转, 免二次 detail 查询
+                ArtistItem(id = a.optLong("id").takeIf { v -> v != 0L }, name = a.optString("name"))
             }
         }
         val albumJson = track.optJSONObject("al")
