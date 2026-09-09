@@ -268,6 +268,7 @@ class PlaybackService : MediaSessionService() {
     private var lastMetadataTitle: String? = null
     private var lastMetadataArtist: String? = null
     private var lastMetadataDuration: Long = -1L
+    private var lastMetadataArtwork: String? = null
 
     // setPlaybackState 去重：state 未变且距上次刷新 < STATE_MIN_INTERVAL_MS 时跳过
     // 位置精度对锁屏/通知条完全足够，跨进程 Binder 每次 1~3 ms，低端机 4Hz IPC 就吃满
@@ -306,19 +307,25 @@ class PlaybackService : MediaSessionService() {
             lastPlaybackStateSentAt = now
         }
 
-        // Metadata 只在 title/artist/duration 变化时重发——旧实现每 250ms 都要走一遍
+        // Metadata 只在 title/artist/duration/封面变化时重发——旧实现每 250ms 都要走一遍
         // MediaMetadataCompat.Builder + 跨进程 IPC 到系统 MediaSession，纯浪费。
-        if (mediaTitle != lastMetadataTitle || mediaArtist != lastMetadataArtist || dur != lastMetadataDuration) {
-            mediaSessionCompat?.setMetadata(
-                android.support.v4.media.MediaMetadataCompat.Builder()
-                    .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE, mediaTitle)
-                    .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST, mediaArtist)
-                    .putLong(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION, dur)
-                    .build()
-            )
+        if (mediaTitle != lastMetadataTitle || mediaArtist != lastMetadataArtist ||
+            dur != lastMetadataDuration || currentArtworkUrl != lastMetadataArtwork
+        ) {
+            val builder = android.support.v4.media.MediaMetadataCompat.Builder()
+                .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE, mediaTitle)
+                .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST, mediaArtist)
+                .putLong(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION, dur)
+            // 系统任务栏/锁屏的媒体卡优先读 MediaSession 的 ART 位图——不放进来的话
+            // 系统退化用低清来源, 封面在任务栏上就是模糊的
+            currentArtworkBitmap?.let {
+                builder.putBitmap(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ART, it)
+            }
+            mediaSessionCompat?.setMetadata(builder.build())
             lastMetadataTitle = mediaTitle
             lastMetadataArtist = mediaArtist
             lastMetadataDuration = dur
+            lastMetadataArtwork = currentArtworkUrl
         }
     }
 
