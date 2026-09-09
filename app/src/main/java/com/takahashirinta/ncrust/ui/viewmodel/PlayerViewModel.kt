@@ -430,19 +430,31 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun fetchLyrics(songId: Long) {
-        try {
-            val lyricResponse = RetrofitClient.api.getLyric(id = songId)
-            val lrcText = lyricResponse.lrc?.lyric ?: ""
-            if (lrcText.isNotEmpty()) {
-                lyrics.value = LrcParser.parse(lrcText)
+        // 失败重试(最多 2 次, 错开 600ms): 冷启动时 AppWarmup 与恢复请求同时在
+        // 打网络, 歌词请求的瞬时超时/限流不该让歌词永久消失。
+        repeat(3) { attempt ->
+            try {
+                val lyricResponse = RetrofitClient.api.getLyric(id = songId)
+                val lrcText = lyricResponse.lrc?.lyric ?: ""
+                val tlyricText = lyricResponse.tlyric?.lyric ?: ""
+                // 只在本请求仍是"当前歌"时写入——恢复路径与 playSong 的并发请求
+                // 返回乱序时, 旧请求不得覆盖新歌的歌词/译文
+                if (currentSongId.value == songId) {
+                    if (lrcText.isNotEmpty()) {
+                        lyrics.value = LrcParser.parse(lrcText)
+                    }
+                    translatedLyrics.value =
+                        if (tlyricText.isNotEmpty()) LrcParser.parse(tlyricText) else emptyList()
+                }
+                return
+            } catch (e: Exception) {
+                // 失败不清空已有歌词(网络抖动不该把 UI 变空白), 重试后仍失败才退出
+                if (attempt == 2) {
+                    Log.e("PlayerViewModel", "fetchLyrics failed for songId=$songId", e)
+                    return
+                }
+                delay(600L)
             }
-            // tlyric = 外文歌词译文;空则清空旧译文,避免切歌后残留上一首。
-            val tlyricText = lyricResponse.tlyric?.lyric ?: ""
-            translatedLyrics.value = if (tlyricText.isNotEmpty()) LrcParser.parse(tlyricText) else emptyList()
-        } catch (e: Exception) {
-            Log.e("PlayerViewModel", "fetchLyrics failed", e)
-            lyrics.value = emptyList()
-            translatedLyrics.value = emptyList()
         }
     }
 
