@@ -75,6 +75,7 @@ val deDE = Strings(
     actionAppendToQueue = "Zur Warteschlange hinzufügen",
     actionGoToArtist = "Zum Künstler",
     actionGoToAlbum = "Zum Album",
+    clearQueue = "Warteschlange leeren",
     qrScanHint = "Mit der NetEase Cloud Music App scannen",
     qrScannedHint = "Gescannt, auf dem Telefon bestätigen",
     qrExpiredHint = "QR-Code abgelaufen, zum Aktualisieren tippen",

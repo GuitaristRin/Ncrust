@@ -75,6 +75,7 @@ val zhCN = Strings(
     actionAppendToQueue = "最后播放",
     actionGoToArtist = "转到歌手",
     actionGoToAlbum = "转到专辑",
+    clearQueue = "清空队列",
     qrScanHint = "使用网易云 App 扫码登录",
     qrScannedHint = "已扫码, 请在手机上确认",
     qrExpiredHint = "二维码已过期, 点击刷新",

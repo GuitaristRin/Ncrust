@@ -75,6 +75,7 @@ val en = Strings(
     actionAppendToQueue = "Add to Queue",
     actionGoToArtist = "Go to artist",
     actionGoToAlbum = "Go to album",
+    clearQueue = "Clear queue",
     qrScanHint = "Scan with the NetEase Cloud Music app",
     qrScannedHint = "Scanned, confirm on your phone",
     qrExpiredHint = "QR code expired, tap to refresh",

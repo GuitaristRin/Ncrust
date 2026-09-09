@@ -75,6 +75,7 @@ val jpMY = Strings(
     actionAppendToQueue = "最後 加",
     actionGoToArtist = "アーティストへ",
     actionGoToAlbum = "アルバムへ",
+    clearQueue = "キューを空にする",
     qrScanHint = "NetEase Cloud Music アプリでスキャン",
     qrScannedHint = "スキャン済み、スマホで確認してください",
     qrExpiredHint = "QRコードの期限切れ、タップで更新",

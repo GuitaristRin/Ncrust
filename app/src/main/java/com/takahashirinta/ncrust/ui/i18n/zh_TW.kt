@@ -75,6 +75,7 @@ val zhTW = Strings(
     actionAppendToQueue = "殿後",
     actionGoToArtist = "前往歌手",
     actionGoToAlbum = "前往專輯",
+    clearQueue = "清空佇列",
     qrScanHint = "使用網易雲 App 掃碼登入",
     qrScannedHint = "已掃碼, 請在手機上確認",
     qrExpiredHint = "二維碼已過期, 點擊刷新",

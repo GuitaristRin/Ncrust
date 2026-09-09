@@ -75,6 +75,7 @@ val ruRU = Strings(
     actionAppendToQueue = "В конец очереди",
     actionGoToArtist = "К исполнителю",
     actionGoToAlbum = "К альбому",
+    clearQueue = "Очистить очередь",
     qrScanHint = "Отсканируйте в приложении NetEase Cloud Music",
     qrScannedHint = "Отсканировано, подтвердите на телефоне",
     qrExpiredHint = "Код истёк, нажмите для обновления",

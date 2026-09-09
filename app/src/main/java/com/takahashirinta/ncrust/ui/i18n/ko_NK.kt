@@ -75,6 +75,7 @@ val koNK = Strings(
     actionAppendToQueue = "맨뒤에 추가",
     actionGoToArtist = "가수 페이지로",
     actionGoToAlbum = "앨범 페이지로",
+    clearQueue = "대기열 비우기",
     qrScanHint = "네이스 클라우드 앱으로 스캔",
     qrScannedHint = "스캔 완료, 휴대폰에서 확인하세요",
     qrExpiredHint = "QR 코드 만료, 탭하여 새로고침",
