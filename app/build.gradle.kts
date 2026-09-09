@@ -80,8 +80,6 @@ dependencies {
     implementation("io.github.takahashirinta:kanesumi-structure:0.1.0-SNAPSHOT")
 
     implementation("androidx.core:core-ktx:1.13.0")
-    // 登录二维码: eapi unikey 接口不返回图片, 客户端本地生成(官方客户端同款做法)
-    implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.activity:activity:1.9.0")
 
     // Compose
