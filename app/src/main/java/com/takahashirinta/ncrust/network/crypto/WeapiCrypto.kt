@@ -21,8 +21,6 @@ import javax.crypto.spec.SecretKeySpec
  */
 object WeapiCrypto {
     private const val AES_IV = "0102030405060708"
-    // 标准 weapi 第一重加密的固定密钥(crypto.js: const e = "0CoJUm6Qyw8W8jud")
-    private const val FIXED_SECRET_KEY = "0CoJUm6Qyw8W8jud"
 
     /** 登录等场景要的 MD5 hex(如密码/验证码口令)。平台无关, 小写 hex。 */
     fun md5Hex(input: String): String {
@@ -43,18 +41,10 @@ object WeapiCrypto {
 
     private val rng = Random()
 
-    /**
-     * 对 JSON 明文生成 weapi 的 params + encSecKey 表单字段。
-     * 标准 weapi 是双重加密(crypto.js): 先用固定密钥 0CoJUm6Qyw8W8jud 加密一次,
-     * 再用随机 secKey 加密一次——只加密一次服务器解出来的就不是 JSON。
-     */
+    /** 对 JSON 明文生成 weapi 的 params + encSecKey 表单字段。 */
     fun encryptParams(json: String): Pair<String, String> {
         val secKey = randomSecKey()
-        val pass1 = aesCbcEncryptToBytes(json, FIXED_SECRET_KEY.toByteArray(Charsets.UTF_8))
-        val params = Base64.encodeToString(
-            aesCbcEncryptBytes(pass1, secKey.toByteArray(Charsets.UTF_8)),
-            Base64.NO_WRAP
-        )
+        val params = aesCbcEncrypt(json, secKey)
         val encSecKey = rsaEncrypt(secKey.reversed().toByteArray(Charsets.UTF_8))
         return params to encSecKey
     }
@@ -65,27 +55,17 @@ object WeapiCrypto {
         return sb.toString()
     }
 
-    private fun aesCbcEncryptToBytes(data: String, key: ByteArray): ByteArray {
+    private fun aesCbcEncrypt(data: String, key: String): String {
         val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
         cipher.init(
             Cipher.ENCRYPT_MODE,
-            SecretKeySpec(key, "AES"),
+            SecretKeySpec(key.toByteArray(Charsets.UTF_8), "AES"),
             IvParameterSpec(AES_IV.toByteArray(Charsets.UTF_8))
         )
-        return cipher.doFinal(data.toByteArray(Charsets.UTF_8))
+        val encrypted = cipher.doFinal(data.toByteArray(Charsets.UTF_8))
+        return Base64.encodeToString(encrypted, Base64.NO_WRAP)
     }
 
-    private fun aesCbcEncryptBytes(data: ByteArray, key: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-        cipher.init(
-            Cipher.ENCRYPT_MODE,
-            SecretKeySpec(key, "AES"),
-            IvParameterSpec(AES_IV.toByteArray(Charsets.UTF_8))
-        )
-        return cipher.doFinal(data)
-    }
-
-    /** 官方要求 encSecKey 为 hex 编码(256 字符), 不是 base64。 */
     private fun rsaEncrypt(data: ByteArray): String {
         val modulus = BigInteger(1, hexToBytes(PUBLIC_KEY_MODULUS_HEX))
         val exponent = BigInteger(1, hexToBytes(PUBLIC_KEY_EXP_HEX))
@@ -93,7 +73,7 @@ object WeapiCrypto {
             KeyFactory.getInstance("RSA").generatePublic(RSAPublicKeySpec(modulus, exponent)) as RSAPublicKey
         val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
         cipher.init(Cipher.ENCRYPT_MODE, pubKey)
-        return cipher.doFinal(data).joinToString("") { "%02x".format(it) }
+        return Base64.encodeToString(cipher.doFinal(data), Base64.NO_WRAP)
     }
 
     private fun hexToBytes(hex: String): ByteArray {
