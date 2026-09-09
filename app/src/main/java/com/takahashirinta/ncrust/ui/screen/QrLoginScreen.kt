@@ -86,12 +86,19 @@ fun QrLoginScreen(
                 return@launch
             }
             unikey = key.unikey
-            key.qrimg?.let { dataUrl ->
+            // 二维码图: 服务端给了 qrimg 直接用, 否则本地生成
+            // (eapi 客户端版通常不带图, 官方客户端就是拿 unikey 自己画的)
+            qrBitmap = key.qrimg?.let { dataUrl ->
                 runCatching {
                     val b64 = dataUrl.substringAfter("base64,")
                     val bytes = Base64.decode(b64, Base64.DEFAULT)
-                    qrBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }.getOrNull()
+            } ?: generateQrBitmap(key.unikey)
+            if (qrBitmap == null) {
+                qrHint = strings.qrExpiredHint
+                qrPolling = false
+                return@launch
             }
             val myKey = key.unikey
             var ticks = 0
@@ -326,4 +333,19 @@ private fun LoginButton(
             style = TextStyle(fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
         )
     }
+}
+
+/** zxing 本地生成二维码位图(纯黑白, 白底)。失败返回 null。 */
+private fun generateQrBitmap(content: String, sizePx: Int = 512): android.graphics.Bitmap? {
+    return runCatching {
+        val matrix = com.google.zxing.qrcode.QRCodeWriter()
+            .encode(content, com.google.zxing.BarcodeFormat.QR_CODE, sizePx, sizePx)
+        val bmp = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.RGB_565)
+        for (x in 0 until sizePx) {
+            for (y in 0 until sizePx) {
+                bmp.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bmp
+    }.getOrNull()
 }
