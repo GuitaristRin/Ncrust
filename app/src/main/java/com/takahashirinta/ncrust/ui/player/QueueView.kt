@@ -290,9 +290,10 @@ fun QueueView(
                 }
             } else if (from >= 0 && to >= 0) {
                 // 落位: 悬浮行从手指位置**快速滑进目标槽位**(≤半行), 滑动与
-                // 让位弹簧同窗口落稳后, 先提交重排(列表项本体现身 + 让位归零),
-                // 悬浮层多留一帧盖住交接处, 下一帧再撤 —— 交接跨帧重叠、像素
-                // 一致, 重排那一帧与上一帧视觉完全相同, 不可能闪
+                // 让位弹簧同窗口落稳后提交重排。关键: 重排后列表项本体先
+                // **保持不可见**随布局移到新槽位(悬浮层继续盖住目标位置),
+                // 等布局完全落地后才现形——若现形帧早于布局落定, 列表项会
+                // 在旧槽位闪一下(= "A 的残影在 B 的位置闪了一下")。
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 val startTop = overlayTop
                 val targetTop = (slotOffset0 + (to - from) * draggedRowHeight - scrollDelta)
@@ -306,10 +307,14 @@ fun QueueView(
                     // 让位弹簧落稳缓冲(残差降到亚像素再提交)
                     delay(150)
                     onMove(from, dropTo)
-                    draggingQueueIndex = -1
                     dragTargetQueueIndex = -1
-                    // 悬浮层多留一帧, 覆盖列表重排帧; 下一帧撤掉
+                    // 重排布局落地: 列表项移到新槽位(仍不可见), 悬浮层盖住目标
                     withFrameNanos { }
+                    withFrameNanos { }
+                    // 列表项在新槽位现形(悬浮层同一位置盖住, 无残影)
+                    draggingQueueIndex = -1
+                    withFrameNanos { }
+                    // 撤悬浮层, 交接完成
                     overlayVisible = false
                     draggedSongId = null
                     overlayTop = 0f

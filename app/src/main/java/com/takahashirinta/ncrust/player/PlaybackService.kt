@@ -148,6 +148,9 @@ class PlaybackService : MediaSessionService() {
                         // 未就绪回退异步加载
                         val preloaded = pendingNextArtworkBitmap
                         pendingNextArtworkBitmap = null
+                        // 使任何在途预载作废: 迟到的预载结果不能回填 pending,
+                        // 否则会污染下一次切换
+                        artworkPreloadGeneration++
                         if (preloaded != null) {
                             currentArtworkBitmap = preloaded
                             scope.launch(Dispatchers.Main) {
