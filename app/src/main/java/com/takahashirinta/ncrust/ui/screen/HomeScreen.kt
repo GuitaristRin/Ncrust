@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
 
+import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,7 +19,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.palette.graphics.Palette
+import coil.Coil
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.SongItem
@@ -75,10 +80,32 @@ fun HomeScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // 当前登录用户 id：电台卡标题用。未登录时 uid 为 null，不渲染电台卡。
-    var userId by remember { mutableStateOf<Long?>(null) }
+    // 私人 FM 电台卡需要登录用户资料: 昵称(卡标题"xx的电台") + 头像(取强调色做封面)。
+    // 未登录时 profile 拿不到, 不渲染电台卡。
+    var fmProfile by remember { mutableStateOf<PlaylistApi.UserProfile?>(null) }
+    // 头像主色调(Palette dominant), 取不到就回退主题强调色
+    var fmAccent by remember { mutableStateOf<Color?>(null) }
+    val fmContext = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
-        userId = runCatching { PlaylistApi.getCurrentUserId() }.getOrNull()
+        val profile = runCatching { PlaylistApi.getUserProfile() }.getOrNull()
+        if (profile != null && profile.userId > 0) {
+            fmProfile = profile
+            val accent = runCatching {
+                val loader = Coil.imageLoader(fmContext)
+                val result = loader.execute(
+                    ImageRequest.Builder(fmContext)
+                        .data(CoverUrls.large(profile.avatarUrl))
+                        .size(256, 256)
+                        .build()
+                )
+                val bitmap = (result as? SuccessResult)?.drawable
+                    ?.let { (it as BitmapDrawable).bitmap }
+                    ?: return@runCatching null
+                val palette = Palette.from(bitmap).generate()
+                Color(palette.getDominantColor(0xFF1DB954.toInt()))
+            }.getOrNull()
+            if (accent != null) fmAccent = accent
+        }
     }
 
     fun loadDailySongs() {
@@ -228,12 +255,12 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                                 flingBehavior = rememberMetroFlingBehavior()
                             ) {
-                                // 电台：形制同普通歌单 tile，标题"{uid}的电台"，副标题"无限播放"
-                                if (userId != null && onPlayFm != null) {
+                                // 电台：形制同普通歌单 tile，标题"{昵称}的电台"，副标题"无限播放"
+                                if (fmProfile != null && onPlayFm != null) {
                                     item(key = "fm") {
                                         FmRadioTile(
-                                            uid = userId!!,
-                                            title = strings.fmRadioTitle(userId!!),
+                                            nickname = fmProfile!!.nickname,
+                                            accent = fmAccent ?: LocalMetroColors.current.primary,
                                             subtitle = strings.fmRadioSubtitle,
                                             onClick = { onPlayFm() }
                                         )
@@ -249,7 +276,7 @@ fun HomeScreen(
                             }
                         }
                         item { Spacer(Modifier.height(28.dp)) }
-                    } else if (userId != null && onPlayFm != null) {
+                    } else if (fmProfile != null && onPlayFm != null) {
                         // 推荐歌单接口失败/未登录返回空时, 电台入口不能跟着消失——
                         // 这是用户唯一能进 FM 的通道, 单独给一行。
                         item { SectionHeader(title = strings.recommendPlaylistTitle) }
@@ -261,8 +288,8 @@ fun HomeScreen(
                             ) {
                                 item(key = "fm") {
                                     FmRadioTile(
-                                        uid = userId!!,
-                                        title = strings.fmRadioTitle(userId!!),
+                                        nickname = fmProfile!!.nickname,
+                                        accent = fmAccent ?: LocalMetroColors.current.primary,
                                         subtitle = strings.fmRadioSubtitle,
                                         onClick = { onPlayFm() }
                                     )
@@ -392,27 +419,40 @@ private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit
     }
 }
 
-/** 私人 FM 电台大 tile：形制同 PlaylistTile，封面用大幅图标占位。 */
+/**
+ * 私人 FM 电台大 tile：形制同 PlaylistTile，但封面是 Metro 风格——
+ * 整块用用户头像提取的强调色铺底，左上黑直角切片压白色 FM 字标，无圆角。
+ */
 @Composable
 private fun FmRadioTile(
-    uid: Long,
-    title: String,
+    nickname: String,
+    accent: Color,
     subtitle: String,
     onClick: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(modifier = Modifier.width(160.dp).clickable { onClick() }) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .background(LocalMetroColors.current.surfaceVariant),
-            contentAlignment = Alignment.Center
+                .background(accent)
         ) {
-            MetroText(
-                uid.toString(),
-                color = LocalMetroColors.current.primary,
-                style = LocalMetroTypography.current.headlineMedium
-            )
+            // Metro 直角切片: 黑方块 + 白色 FM 字标, 任何强调色底上都有对比
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+                    .background(Color.Black)
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            ) {
+                MetroText(
+                    "FM",
+                    color = Color.White,
+                    style = LocalMetroTypography.current.titleLarge,
+                    maxLines = 1
+                )
+            }
             PlayAllButton(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
                 size = 34.dp,
@@ -421,7 +461,7 @@ private fun FmRadioTile(
         }
         Spacer(Modifier.height(6.dp))
         MetroText(
-            title,
+            strings.fmRadioTitle(nickname),
             color = Color.White,
             style = LocalMetroTypography.current.caption,
             maxLines = 1,

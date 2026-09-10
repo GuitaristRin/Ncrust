@@ -1,7 +1,10 @@
 package com.takahashirinta.ncrust.ui.player
 
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -17,15 +20,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.takahashirinta.ncrust.QueueModes
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.ui.components.SongCard
@@ -43,8 +47,11 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroText
  *
  * 语义约定：
  *  - 过去 = index < current, 现在 = current, 将要 = index > current。
- *  - 拖拽排序仅限「将要播放」区（长按右侧三条横线），原因是过去区是播放历史，
- *    动它会破坏「现在播放的下一首」语义；infinity(FM) 模式下整个队列只读。
+ *  - 拖拽排序仅限「将要播放」区（手指碰到右侧三条横线即开始拖动，无需长按），
+ *    原因是过去区是播放历史，动它会破坏「现在播放的下一首」语义；
+ *    infinity(FM) 模式下整个队列只读。
+ *  - 拖动过程是纯视觉联动：被拖行跟随手指、中间行让位动画，真正的队列
+ *    (stack) 只在手指抬起、状态稳定后才更新一次。
  *  - infinity(FM) 且将要播放为空 → 显示「相似歌曲续播」占位符。
  *  - 面板每次可见时把「现在播放」自动定位到视觉中心。
  */
@@ -63,16 +70,17 @@ fun QueueView(
     val infinityActive = playMode == QueueModes.INFINITY
 
     val listState = rememberLazyListState()
-    val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
 
     // 拖拽状态：draggingQueueIndex / dragTargetQueueIndex 都是队列索引（0..queue.size-1）
     var draggingQueueIndex by remember { mutableIntStateOf(-1) }
     var dragTargetQueueIndex by remember { mutableIntStateOf(-1) }
+    // 被拖行的垂直位移(跟随手指)与把手按下时的起始 y —— 联动视觉只用这两个
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var dragStartY by remember { mutableFloatStateOf(0f) }
     var listTopInRoot by remember { mutableFloatStateOf(0f) }
     var draggedRowTopInRoot by remember { mutableFloatStateOf(0f) }
     var draggedRowHeight by remember { mutableFloatStateOf(0f) }
-    val handleHalfPx = with(density) { 16.dp.toPx() }
 
     // ---- 行模型 ----
     // RowInfo(kind=PAST_HEAD/NOW_HEAD/UPCOMING_HEAD/INFINITY/SONG, queueIndex)
@@ -158,15 +166,37 @@ fun QueueView(
                         val qi = row.queueIndex
                         val song = queue.getOrNull(qi) ?: return@itemsIndexed
                         val isWillPlay = qi > currentIndex
-                        // 仅将要播放且非 infinity 可长按拖动
+                        // 将要播放且非 infinity 可拖: 手指碰到把手即拖动, 无需长按
                         val canDrag = isWillPlay && !infinityActive
                         val highlighted = qi == dragTargetQueueIndex && qi != draggingQueueIndex
+                        // 拖动时的让位目标: 向下拖 → 中间行上移一行; 向上拖 → 中间行下移一行
+                        val shiftTarget = when {
+                            qi == draggingQueueIndex -> 0f
+                            draggingQueueIndex >= 0 && dragTargetQueueIndex >= 0 &&
+                                qi > draggingQueueIndex && qi <= dragTargetQueueIndex -> -draggedRowHeight
+                            draggingQueueIndex >= 0 && dragTargetQueueIndex >= 0 &&
+                                qi < draggingQueueIndex && qi >= dragTargetQueueIndex -> draggedRowHeight
+                            else -> 0f
+                        }
+                        val animatedShift = animateFloatAsState(
+                            targetValue = shiftTarget,
+                            animationSpec = tween(140, easing = LinearOutSlowInEasing),
+                            label = "queueRowShift"
+                        ).value
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .animateItem()
+                                .graphicsLayer {
+                                    // 被拖行直接跟随手指(graphicsLayer 帧内读取, 不触发重组);
+                                    // 其余行用动画让位, 形成"挖出空位"的联动感
+                                    translationY = if (qi == draggingQueueIndex) dragOffsetY else animatedShift
+                                    alpha = if (qi == draggingQueueIndex) 0.92f else 1f
+                                }
+                                .zIndex(if (qi == draggingQueueIndex) 1f else 0f)
                                 .background(
-                                    if (highlighted) LocalMetroColors.current.surfaceVariant
+                                    if (highlighted || qi == draggingQueueIndex)
+                                        LocalMetroColors.current.surfaceVariant
                                     else Color.Transparent
                                 )
                                 // 记录被拖行在 root 中的位置（拖拽把手坐标换算基座）
@@ -190,28 +220,34 @@ fun QueueView(
                                             modifier = Modifier
                                                 .size(32.dp)
                                                 .pointerInput(qi) {
-                                                    detectDragGesturesAfterLongPress(
-                                                        onDragStart = {
+                                                    detectDragGestures(
+                                                        onDragStart = { startOffset ->
                                                             draggingQueueIndex = qi
                                                             dragTargetQueueIndex = qi
+                                                            dragStartY = startOffset.y
+                                                            dragOffsetY = 0f
                                                         },
                                                         onDrag = { change, _ ->
                                                             change.consume()
-                                                            val viewportY =
+                                                            // 被拖行跟随手指: 位移 = 当前指针 y - 按下时的 y
+                                                            dragOffsetY = change.position.y - dragStartY
+                                                            val rowCenterViewportY =
                                                                 (draggedRowTopInRoot - listTopInRoot) +
-                                                                    change.position.y + draggedRowHeight / 2f - handleHalfPx
+                                                                    draggedRowHeight / 2f + dragOffsetY
                                                             val targetVisual =
-                                                                itemIndexAt(listState, viewportY) ?: visualRow
+                                                                itemIndexAt(listState, rowCenterViewportY) ?: visualRow
                                                             // 视觉行 → 队列索引：只许落在「将要播放」区内
                                                             val next = rows.getOrNull(targetVisual)
                                                             dragTargetQueueIndex = next?.queueIndex
                                                                 ?.takeIf { it > currentIndex } ?: qi
                                                         },
                                                         onDragEnd = {
+                                                            // 手指抬起 = 状态稳定, 才真正更新队列(stack)
                                                             val from = draggingQueueIndex
                                                             val to = dragTargetQueueIndex
                                                             draggingQueueIndex = -1
                                                             dragTargetQueueIndex = -1
+                                                            dragOffsetY = 0f
                                                             if (from >= 0 && to >= 0 && from != to) {
                                                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                                 onMove(from, to)
@@ -220,6 +256,7 @@ fun QueueView(
                                                         onDragCancel = {
                                                             draggingQueueIndex = -1
                                                             dragTargetQueueIndex = -1
+                                                            dragOffsetY = 0f
                                                         }
                                                     )
                                                 },

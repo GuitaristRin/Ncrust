@@ -46,8 +46,8 @@ data class Strings(
     val refreshLabel: String,
     val noMoreContent: String,
     val trackCountSongs: (Int) -> String,
-    // 主页推荐歌单里首位的私人 FM 电台卡
-    val fmRadioTitle: (Long) -> String,
+    // 主页推荐歌单里首位的私人 FM 电台卡（标题用用户昵称, 不是 uid）
+    val fmRadioTitle: (String) -> String,
     val fmRadioSubtitle: String,
 
     // Library screen
