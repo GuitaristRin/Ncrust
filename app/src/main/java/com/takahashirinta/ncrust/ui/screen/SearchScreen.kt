@@ -192,10 +192,15 @@ fun SearchScreen(
                     query.isNotEmpty() -> SearchContentState.Results
                     else -> SearchContentState.Empty
                 }
+                // 宽屏搜索内容居中限宽(上限 760dp)，避免整行列表/历史横跨平板。
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
                 Crossfade(
                     targetState = searchContentState,
                     animationSpec = SokuouTweens.CoverFade,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    modifier = Modifier.widthIn(max = 760.dp).fillMaxHeight(),
                     label = "SearchContentCrossfade"
                 ) { state -> when (state) {
                     SearchContentState.History -> {
@@ -530,6 +535,7 @@ fun SearchScreen(
                         Spacer(Modifier.fillMaxSize())
                     }
                 } }
+                }
         }
     }
 }
