@@ -49,6 +49,8 @@ import com.takahashirinta.ncrust.player.PlaybackStateManager
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNav
 import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNavItem
+import io.github.takahashirinta.kanesumi.structure.sidebar.MetroSidebar
+import io.github.takahashirinta.kanesumi.structure.sidebar.MetroSidebarItem
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
 import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
@@ -208,8 +210,15 @@ fun MainScreen(
     val systemNavBarHeightDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val systemNavBarHeightPx = with(density) { systemNavBarHeightDp.toPx() }
 
-    // 卡片相关尺寸
-    val navBarHeightPx = with(density) { 56.dp.toPx() }
+    // 宽屏（平板/折叠展开/车机）：左侧常驻 sidebar 取代底部导航，内容右移。
+    // 与方向无关地按当前窗口宽度判定；窄屏(<600dp)完全走原底部导航路径。
+    val windowWidthDp = LocalConfiguration.current.screenWidthDp
+    val isWideLayout = windowWidthDp >= 600
+    val sidebarWidthDp = 240.dp
+    val sidebarWidthPx = with(density) { sidebarWidthDp.toPx() }
+
+    // 卡片相关尺寸。宽屏无底部导航, navBar 高度记 0, miniBar 直接贴到系统栏之上。
+    val navBarHeightPx = if (isWideLayout) 0f else with(density) { 56.dp.toPx() }
     val miniBarHeightPx = with(density) { 56.dp.toPx() }
     val statusBarHeightPx = with(density) {
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
@@ -224,7 +233,7 @@ fun MainScreen(
 
     val totalDragDistancePx = screenHeightPx * 0.85f
 
-    val navBarHideOffset = with(density) { 132.dp.toPx() }
+    val navBarHideOffset = if (isWideLayout) 0f else with(density) { 132.dp.toPx() }
     // ------------------------------------
 
     // 自 ViewModel 恢复 currentSong 之状态。
@@ -928,6 +937,18 @@ fun MainScreen(
         return
     }
 
+    val navStrings = LocalStrings.current
+    // 导航项在底部导航(窄屏)与左侧 sidebar(宽屏)之间共用。
+    val navTabs = listOf(
+        Icons.Default.Home to navStrings.tabHome,
+        Icons.Default.LibraryMusic to navStrings.tabLibrary,
+        Icons.Default.Search to navStrings.tabSearch,
+        Icons.Default.Person to navStrings.tabUser,
+    )
+    val onNavSelected: (Int) -> Unit = { tab ->
+        selectedTab = tab
+        if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
+    }
     Box(modifier = Modifier.fillMaxSize().background(LocalMetroColors.current.background)) {
         // PlayerCardOverlay is FIRST child: processes first in Compose Main pass (siblings are
         // dispatched in composition order). Its inner consumer modifier in PlayerCard prevents
@@ -989,12 +1010,39 @@ fun MainScreen(
         )
         } // end PlayerCardOverlay wrapper
 
+        // 宽屏左侧常驻导航（Apple Music 式）：背景铺满整高(含状态栏后)，内容自行
+        // 避让系统栏；底部 miniBar 仍整宽叠加，自然盖住侧栏空余的底部。
+        if (isWideLayout) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .zIndex(0.5f)
+                    .width(sidebarWidthDp)
+                    .fillMaxHeight()
+                    .background(LocalMetroColors.current.surface)
+            ) {
+                MetroSidebar(
+                    items = navTabs.map { MetroSidebarItem(it.first, it.second) },
+                    selectedIndex = selectedTab,
+                    onSelected = onNavSelected,
+                    width = sidebarWidthDp,
+                    backgroundColor = Color.Transparent,
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
+                )
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(WindowInsets.systemBars.asPaddingValues())
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // 宽屏内容栏右移，给左侧 sidebar 让位（详情页与 tab 屏一起移）。
+                    .padding(start = if (isWideLayout) sidebarWidthDp else 0.dp)
+            ) {
                 // 主 tab 屏一直挂载（下层）：以前用 if(isInMain) 条件挂载，导航返回时
                 // tab 屏瞬间 mount + LaunchedEffect 立即触发，撞在 nav slide 动画的第一帧
                 // → 主线程 gg，返回感觉卡。现在 tab 屏永远存在，nav 详情页通过 opaque bg
@@ -1153,36 +1201,30 @@ fun MainScreen(
         // so it appears on top of the mini player bar when the player is collapsed.
         // background 放在 navigationBarsPadding 之外：surface 覆盖 56dp 视觉栏 + 系统栏预留
         // 一整段，一直涂到物理屏幕底；如果反过来，栏下方就是透明，露出后景空隙。
-        val navStrings = LocalStrings.current
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .zIndex(1.5f)
-                .graphicsLayer {
-                    translationY = navBarHideOffset * progress.value
-                }
-                .fillMaxWidth()
-                .background(LocalMetroColors.current.surface)
-                .navigationBarsPadding()
-                .height(56.dp)
-        ) {
-            // autoReserveBottomStack=false: Ncrust 用自己的 BottomOverlayInsetDp 常量管
-            // 底部预留,不接 MetroShell 的 MetroBottomStackScope,否则 rememberBottomStackReservation
-            // 会因缺 CompositionLocal 而 crash。
-            MetroBottomNav(
-                selectedIndex = selectedTab,
-                onSelected = { tab ->
-                    selectedTab = tab
-                    if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
-                },
-                items = listOf(
-                    MetroBottomNavItem(Icons.Default.Home, navStrings.tabHome),
-                    MetroBottomNavItem(Icons.Default.LibraryMusic, navStrings.tabLibrary),
-                    MetroBottomNavItem(Icons.Default.Search, navStrings.tabSearch),
-                    MetroBottomNavItem(Icons.Default.Person, navStrings.tabUser),
-                ),
-                autoReserveBottomStack = false,
-            )
+        // 宽屏改用左侧 sidebar，这里不再渲染底部导航。
+        if (!isWideLayout) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .zIndex(1.5f)
+                    .graphicsLayer {
+                        translationY = navBarHideOffset * progress.value
+                    }
+                    .fillMaxWidth()
+                    .background(LocalMetroColors.current.surface)
+                    .navigationBarsPadding()
+                    .height(56.dp)
+            ) {
+                // autoReserveBottomStack=false: Ncrust 用自己的 BottomOverlayInsetDp 常量管
+                // 底部预留,不接 MetroShell 的 MetroBottomStackScope,否则 rememberBottomStackReservation
+                // 会因缺 CompositionLocal 而 crash。
+                MetroBottomNav(
+                    selectedIndex = selectedTab,
+                    onSelected = onNavSelected,
+                    items = navTabs.map { MetroBottomNavItem(it.first, it.second) },
+                    autoReserveBottomStack = false,
+                )
+            }
         }
 
         menuSong?.let { song ->
