@@ -10,6 +10,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -230,38 +233,26 @@ fun LibraryScreen(
                             MetroText(strings.noSavedAlbums, color = Color.Gray, style = LocalMetroTypography.current.bodyLarge)
                         }
                     } else {
-                        // rows 用 remember(savedAlbums) 缓存：仅在数据实际变化时重新分组，
-                        // 避免每次重组都 chunked() 一次
-                        val rows = remember(savedAlbums) { savedAlbums.chunked(2) }
-                        LazyColumn(
+                        // 自适应栅格：列数随内容栏宽度变化（宽屏多列），取代写死的 2 列。
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 160.dp),
                             modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                             contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
                             flingBehavior = rememberMetroFlingBehavior()
                         ) {
-                            items(rows, key = { row -> row.first().albumId }) { row ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateItem(
-                                            fadeInSpec = tween(150, easing = MetroDefault),
-                                            placementSpec = tween(220, easing = MetroDefault),
-                                            fadeOutSpec = tween(120, easing = MetroDefault)
-                                        ),
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                ) {
-                                    for (album in row) {
-                                        LibraryAlbumGridItem(
-                                            album = album,
-                                            modifier = Modifier.weight(1f),
-                                            onClick = { onAlbumClick(album.albumId) },
-                                            onPlayAll = { onPlayAlbum(album.albumId) }
-                                        )
-                                    }
-                                    if (row.size == 1) {
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
-                                }
+                            items(savedAlbums, key = { it.albumId }) { album ->
+                                LibraryAlbumGridItem(
+                                    album = album,
+                                    modifier = Modifier.fillMaxWidth().animateItem(
+                                        fadeInSpec = tween(150, easing = MetroDefault),
+                                        placementSpec = tween(220, easing = MetroDefault),
+                                        fadeOutSpec = tween(120, easing = MetroDefault)
+                                    ),
+                                    onClick = { onAlbumClick(album.albumId) },
+                                    onPlayAll = { onPlayAlbum(album.albumId) }
+                                )
                             }
                         }
                     }
@@ -295,36 +286,25 @@ fun LibraryScreen(
                             }
                         }
                         else -> {
-                            val rows = remember(playlists) { playlists.chunked(2) }
-                            LazyColumn(
+                            LazyVerticalGrid(
+                                columns = GridCells.Adaptive(minSize = 160.dp),
                                 modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                                 contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
                                 flingBehavior = rememberMetroFlingBehavior()
                             ) {
-                                items(rows, key = { row -> row.first().id }) { row ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .animateItem(
-                                                fadeInSpec = tween(150, easing = MetroDefault),
-                                                placementSpec = tween(220, easing = MetroDefault),
-                                                fadeOutSpec = tween(120, easing = MetroDefault)
-                                            ),
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                    ) {
-                                        for (pl in row) {
-                                            PlaylistGridItem(
-                                                playlist = pl,
-                                                modifier = Modifier.weight(1f),
-                                                onClick = { onPlaylistClick(pl) },
-                                                onPlayAll = { onPlayPlaylist(pl.id) }
-                                            )
-                                        }
-                                        if (row.size == 1) {
-                                            Spacer(modifier = Modifier.weight(1f))
-                                        }
-                                    }
+                                items(playlists, key = { it.id }) { pl ->
+                                    PlaylistGridItem(
+                                        playlist = pl,
+                                        modifier = Modifier.fillMaxWidth().animateItem(
+                                            fadeInSpec = tween(150, easing = MetroDefault),
+                                            placementSpec = tween(220, easing = MetroDefault),
+                                            fadeOutSpec = tween(120, easing = MetroDefault)
+                                        ),
+                                        onClick = { onPlaylistClick(pl) },
+                                        onPlayAll = { onPlayPlaylist(pl.id) }
+                                    )
                                 }
                             }
                         }
