@@ -19,6 +19,7 @@ import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.MediaSession as M3MediaSession
@@ -88,6 +89,19 @@ class PlaybackService : MediaSessionService() {
                 true
             )
             .setHandleAudioBecomingNoisy(true)
+            // 弱网缓冲策略：默认 LoadControl 重缓冲后仅攒 5s 就续播，网络略慢于码率时
+            // 会"播一点断一点"（拖带感）。这里拉高重缓冲续播阈值到 15s、并把目标缓冲
+            // 扩到 30~60s，弱网下宁可多缓冲一小会儿，也不持续卡顿。
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        /* minBufferMs = */ 30_000,
+                        /* maxBufferMs = */ 60_000,
+                        /* bufferForPlaybackMs = */ 2_500,
+                        /* bufferForPlaybackAfterRebufferMs = */ 15_000
+                    )
+                    .build()
+            )
             .build()
 
         mediaSessionCompat = MediaSessionCompat(this, "NcrustSession").apply {
