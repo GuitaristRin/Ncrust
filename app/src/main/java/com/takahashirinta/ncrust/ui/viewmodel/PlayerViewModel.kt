@@ -206,13 +206,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun setOnUnplayableCallback(callback: () -> Unit) { onUnplayableCallback = callback }
 
     /**
-     * 切歌时置加载态, 但**不清空旧歌词内容**。
+     * 切歌时立即清空旧歌词并置加载态。
      *
-     * 保留旧歌词是为了让 Crossfade(以 songId 为 key)能对"上一首歌词→新歌词"做平滑渐隐:
-     * 如果这里立即清空, 切歌瞬间歌词面板就空了, 渐隐无从谈起。新歌词由 fetchLyrics
-     * 成功覆盖; 若确无歌词, 由 PlayerCard 的 3s 阈值状态机落回大封面盖住面板。
+     * 上一版为了 Crossfade 渐隐而保留旧歌词, 切歌后最多 3 秒还挂着上一首的歌词,
+     * 用户观感是"还停在旧歌"或"无歌词状态前闪一下旧歌词"——prog 长专整张连播时
+     * 非常明显。这里直接清空: 旧歌词不再显示, 新歌词由 fetchLyrics 就绪后
+     * PlayerCard 自动切回歌词视图; 确无歌词则由大封面盖住。
      */
     private fun resetLyricsForNewSong() {
+        lyrics.value = emptyList()
+        translatedLyrics.value = emptyList()
         lyricsLoading.value = true
         // 旧歌词是渐隐过渡素材, 不属于新歌; 在"当前歌歌词就绪"判定里立即失效
         lyricsSongId.value = -1L
@@ -304,7 +307,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 if (fetchVersion != songPlayVersion) return@launch
                 val actualIdx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                 resetLyricsForNewSong()
-                fetchLyrics(songId)
+                // 歌词请求异步化: 旧实现在这里顺序等待(失败退避最坏 3s+),
+                // 开播被歌词请求拖住, 慢网络/风控下"点了没反应"。切到 launch 后
+                // 播放立即开始, 歌词就绪了再自动切回歌词视图。
+                viewModelScope.launch { fetchLyrics(songId) }
                 withContext(Dispatchers.Main) {
                     lastPlayedLevel = result.actualLevel
                     currentQualityIndex.value = actualIdx
@@ -488,6 +494,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // 失败也要重试** —— 服务端风控(-460/-462)或需登录(301)返回的 code!=200
         // 响应里 lrc 为空, 旧实现当成"这首歌没歌词"直接结束, 用户必须切歌才能
         // 重新触发加载; 这些失败码是瞬时的, 退避重试大概率能拿到真歌词。
+        // code==200 是服务端的权威答复(有歌词或无歌词), 不再重试。
         lyricsLoading.value = true
         try {
             repeat(4) { attempt ->
@@ -496,10 +503,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     val code = lyricResponse.code
                     val lrcText = lyricResponse.lrc?.lyric ?: ""
                     val tlyricText = lyricResponse.tlyric?.lyric ?: ""
-                    // code==200 且 lrc 字段存在(即使内容为空) → 服务端已确认, 结束。
-                    // 其余形态(code!=200 / lrc 缺失)按瞬时故障重试。
-                    val settled = code == 200 && (lyricResponse.lrc != null || tlyricText.isNotEmpty())
-                    if (!settled && attempt < 3) {
+                    if (code != 200 && attempt < 3) {
                         Log.w("PlayerViewModel", "fetchLyrics unsettled songId=$songId code=$code, retry ${attempt + 1}")
                         delay(700L + attempt * 400L)
                         return@repeat
@@ -515,8 +519,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         if (tlyricText.isNotEmpty()) {
                             translatedLyrics.value = LrcParser.parse(tlyricText)
                         }
-                        // lrc 为空（确无歌词）: 不清空 lyrics(旧歌词供 Crossfade 渐隐),
-                        // 也不设置 lyricsSongId → lyricsReady 保持 false, 由 3s 阈值落封面。
+                        // lrc 为空（确无歌词）: 歌词已在 resetLyricsForNewSong 清空,
+                        // lyricsSongId 保持 -1 → lyricsReady 保持 false, 由大封面盖住。
                     }
                     return
                 } catch (e: Exception) {

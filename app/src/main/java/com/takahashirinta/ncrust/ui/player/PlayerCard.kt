@@ -51,7 +51,6 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import android.widget.Toast
@@ -147,11 +146,10 @@ fun PlayerCard(
     val cardExpandedForInput by remember { derivedStateOf { progress.value > 0.9f } }
 
     // ---- 歌词可达性驱动的「大封面 ↔ 歌词视图」自动切换 ----
-    // - 歌词就绪(lyricsReady)：用户若停在大封面则自动切回歌词视图（Apple Music 语义）。
-    // - 歌词未就绪(切歌/仍在加载)：不立刻落大封面——歌词视图里给新歌词 3s 加载窗口，
-    //   窗口内保持当前视图、只渐隐旧歌词；3s 后仍无歌词才落大封面 + 灰按钮。
+    // - 切歌瞬间: 旧歌词已被 ViewModel 清空, 直接落大封面, 绝不残留上一首歌词。
+    // - 歌词就绪(lyricsReady): 自动切回歌词视图（Apple Music 语义）。
+    // - 歌词未就绪(仍在加载/确无): 保持大封面 + 灰按钮。
     // - 用户在队列视图时不打扰。
-    var awaitingLyrics by remember { mutableStateOf(false) }
     // lyricsReady：歌词**属于当前歌**且非加载中。旧歌词残留(切歌过渡)不算就绪——
     // 由 lyricsSongId == song?.id 保证, 否则无歌词的新歌会被误判就绪显示旧歌词。
     val lyricsReady = lyricsSongId == song?.id && !lyricsLoading && lyrics.isNotEmpty()
@@ -159,30 +157,21 @@ fun PlayerCard(
     LaunchedEffect(song?.id, lyricsReady, showQueue) {
         when {
             !lyricsReady && !showQueue && showLyrics -> {
-                // 曾在歌词视图：等新歌词最多 3 秒, 期间不落大封面（避免封面抖动）
-                awaitingLyrics = true
-                delay(3_000)
-                // 窗口结束仍无"当前歌的歌词就绪"(加载完成但无歌词/加载失败) → 落大封面
-                if (lyricsSongId != song?.id) {
-                    showLyrics = false
-                }
-                awaitingLyrics = false
+                // 切歌后旧歌词已清空: 立即回大封面, 不保留 3s 窗口——
+                // 挂着上一首歌词等加载, 用户看整张专辑连播时会一直觉得"还停在旧歌"。
+                showLyrics = false
             }
             !lyricsReady && !showQueue -> {
                 // 无歌词/加载中且不在歌词视图：大封面 + 灰按钮
                 showLyrics = false
-                awaitingLyrics = false
             }
             lyricsReady && !showQueue && !showLyrics -> {
                 // 歌词就绪 + 用户停在大封面：自动切回歌词视图
-                awaitingLyrics = false
                 showLyrics = true
             }
             showQueue -> {
                 // 用户在队列：不打扰, 放弃自动回切
-                awaitingLyrics = false
             }
-            else -> awaitingLyrics = false
         }
     }
 

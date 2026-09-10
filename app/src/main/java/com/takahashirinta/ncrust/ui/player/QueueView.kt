@@ -85,30 +85,52 @@ fun QueueView(
         return
     }
 
-    // 打开(变为可见)/内容变化时把「现在播放」行定位到视觉中心。
-    // 旧实现只 withFrameNanos 等一帧就查 layoutInfo: LazyColumn 懒布局下目标行
-    // 往往还没被 measure, 二次居中滚动提前 return, 表现就是"不自动定位"。
-    // 现在循环等目标行真正进视口后再补居中滚动。
+    // 打开(变为可见)/切歌时把「现在播放」行定位到视觉中心。
+    // - 面板刚打开: 硬定位 + 等目标行真正 measure 后再补居中(避免从顶部一路滑下来,
+    //   也修复旧实现等一帧就查 layoutInfo 导致居中滚动提前 return 的"不自动定位")。
+    // - 队列已打开时切歌: 用 animateScrollToItem 平滑滑动, 让「现在播放」块滑到中心
+    //   (Apple Music 语义); 旧实现每次 scrollToItem 硬跳, 整张专辑连播时队列跳闪。
     val nowVisualRow = rows.indexOfFirst { it.kind == RowKind.NOW_HEAD }
-    LaunchedEffect(isActive, queue, currentIndex) {
-        if (!isActive) return@LaunchedEffect
+    val wasQueueOpen = remember { mutableStateOf(false) }
+    LaunchedEffect(isActive, currentIndex, nowVisualRow) {
+        if (!isActive) {
+            wasQueueOpen.value = false
+            return@LaunchedEffect
+        }
         val target = nowVisualRow.takeIf { it >= 0 } ?: return@LaunchedEffect
-        listState.scrollToItem(target)
-        var attempts = 0
-        while (attempts < 20) {
-            withFrameNanos { }
+        if (!wasQueueOpen.value) {
+            // 面板首次打开: 先硬定位, 再等布局完成后补居中偏移
+            listState.scrollToItem(target)
+            var attempts = 0
+            while (attempts < 20) {
+                withFrameNanos { }
+                val info = listState.layoutInfo
+                val item = info.visibleItemsInfo.firstOrNull { it.index == target }
+                if (item != null) {
+                    // scrollToItem(index, offset) 让目标行顶部距视口顶部 offset 像素 → 垂直居中
+                    listState.scrollToItem(
+                        target,
+                        scrollOffset = ((info.viewportEndOffset - item.size) / 2).coerceAtLeast(0)
+                    )
+                    break
+                }
+                attempts++
+            }
+        } else {
+            // 队列已打开且切歌: 平滑滑到中心。目标行已在视口内时直接带偏移动画,
+            // 否则先滑到目标行再补居中(跨区切歌时也能连贯)。
             val info = listState.layoutInfo
             val item = info.visibleItemsInfo.firstOrNull { it.index == target }
             if (item != null) {
-                // scrollToItem(index, offset) 让目标行顶部距视口顶部 offset 像素 → 垂直居中
-                listState.scrollToItem(
+                listState.animateScrollToItem(
                     target,
                     scrollOffset = ((info.viewportEndOffset - item.size) / 2).coerceAtLeast(0)
                 )
-                break
+            } else {
+                listState.animateScrollToItem(target)
             }
-            attempts++
         }
+        wasQueueOpen.value = true
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
