@@ -48,6 +48,8 @@ data class Strings(
     val trackCountSongs: (Int) -> String,
     // 主页推荐歌单里首位的私人 FM 电台卡（标题用用户昵称, 不是 uid）
     val fmRadioTitle: (String) -> String,
+    // 拿不到用户资料时电台卡仍常驻的通用标题
+    val fmRadioTitleGeneric: String,
     val fmRadioSubtitle: String,
 
     // Library screen

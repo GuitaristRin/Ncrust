@@ -43,6 +43,7 @@ val koNK = Strings(
     noMoreContent = "— 더이상 없음 —",
     trackCountSongs = { "모두 ${it}곡" },
     fmRadioTitle = { "${it}의 라디오" },
+    fmRadioTitleGeneric = "개인 FM",
     fmRadioSubtitle = "무한 재생",
 
     categoryTracks = "단일곡",

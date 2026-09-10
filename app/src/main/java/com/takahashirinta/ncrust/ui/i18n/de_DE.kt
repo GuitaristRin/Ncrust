@@ -43,6 +43,7 @@ val deDE = Strings(
     noMoreContent = "— Keine weiteren Inhalte —",
     trackCountSongs = { "$it Songs" },
     fmRadioTitle = { "Radio von $it" },
+    fmRadioTitleGeneric = "Persönliches FM",
     fmRadioSubtitle = "Unbegrenzt",
 
     categoryTracks = "Titel",

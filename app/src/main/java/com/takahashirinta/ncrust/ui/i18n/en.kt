@@ -43,6 +43,7 @@ val en = Strings(
     noMoreContent = "— No more content —",
     trackCountSongs = { "$it songs" },
     fmRadioTitle = { "Radio of $it" },
+    fmRadioTitleGeneric = "Personal FM",
     fmRadioSubtitle = "Infinite",
 
     categoryTracks = "Tracks",

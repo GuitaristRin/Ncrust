@@ -1,7 +1,9 @@
 package com.takahashirinta.ncrust.ui.screen
 
 import android.graphics.drawable.BitmapDrawable
+import android.content.Context
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -15,7 +17,10 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -81,29 +86,18 @@ fun HomeScreen(
     val coroutineScope = rememberCoroutineScope()
 
     // 私人 FM 电台卡需要登录用户资料: 昵称(卡标题"xx的电台") + 头像(取强调色做封面)。
-    // 未登录时 profile 拿不到, 不渲染电台卡。
-    var fmProfile by remember { mutableStateOf<PlaylistApi.UserProfile?>(null) }
-    // 头像主色调(Palette dominant), 取不到就回退主题强调色
+    // 电台卡**常驻**——资料拿不到也照常显示(标题回退通用文案), 不再因此整卡消失。
+    var fmProfile by remember { mutableStateOf(ContentCache.userProfile) }
+    // 头像主色调(Palette), 取不到就回退中性底色(不借用 Ncrust 主题色)
     var fmAccent by remember { mutableStateOf<Color?>(null) }
     val fmContext = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
-        val profile = runCatching { PlaylistApi.getUserProfile() }.getOrNull()
+        val profile = ContentCache.userProfile
+            ?: runCatching { PlaylistApi.getUserProfile() }.getOrNull()
         if (profile != null && profile.userId > 0) {
             fmProfile = profile
-            val accent = runCatching {
-                val loader = Coil.imageLoader(fmContext)
-                val result = loader.execute(
-                    ImageRequest.Builder(fmContext)
-                        .data(CoverUrls.large(profile.avatarUrl))
-                        .size(256, 256)
-                        .build()
-                )
-                val bitmap = (result as? SuccessResult)?.drawable
-                    ?.let { (it as BitmapDrawable).bitmap }
-                    ?: return@runCatching null
-                val palette = Palette.from(bitmap).generate()
-                Color(palette.getDominantColor(0xFF1DB954.toInt()))
-            }.getOrNull()
+            ContentCache.userProfile = profile
+            val accent = runCatching { extractAvatarAccent(fmContext, profile.avatarUrl) }.getOrNull()
             if (accent != null) fmAccent = accent
         }
     }
@@ -246,39 +240,9 @@ fun HomeScreen(
                         item { Spacer(Modifier.height(28.dp)) }
                     }
 
-                    // 推荐歌单：横滑大 tile，首位放私人 FM 电台卡
-                    if (playlists.isNotEmpty()) {
-                        item { SectionHeader(title = strings.recommendPlaylistTitle) }
-                        item {
-                            LazyRow(
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                flingBehavior = rememberMetroFlingBehavior()
-                            ) {
-                                // 电台：形制同普通歌单 tile，标题"{昵称}的电台"，副标题"无限播放"
-                                if (fmProfile != null && onPlayFm != null) {
-                                    item(key = "fm") {
-                                        FmRadioTile(
-                                            nickname = fmProfile!!.nickname,
-                                            accent = fmAccent ?: LocalMetroColors.current.primary,
-                                            subtitle = strings.fmRadioSubtitle,
-                                            onClick = { onPlayFm() }
-                                        )
-                                    }
-                                }
-                                items(playlists, key = { it.id }) { pl ->
-                                    PlaylistTile(
-                                        playlist = pl,
-                                        onClick = { onPlaylistClick(pl.id) },
-                                        onPlayAll = { onPlayPlaylist(pl.id) }
-                                    )
-                                }
-                            }
-                        }
-                        item { Spacer(Modifier.height(28.dp)) }
-                    } else if (fmProfile != null && onPlayFm != null) {
-                        // 推荐歌单接口失败/未登录返回空时, 电台入口不能跟着消失——
-                        // 这是用户唯一能进 FM 的通道, 单独给一行。
+                    // 推荐歌单：横滑大 tile。私人 FM 电台卡**常驻首位**——
+                    // 不再依赖推荐歌单是否拉到、也不依赖用户资料是否拿到。
+                    if (onPlayFm != null) {
                         item { SectionHeader(title = strings.recommendPlaylistTitle) }
                         item {
                             LazyRow(
@@ -288,10 +252,19 @@ fun HomeScreen(
                             ) {
                                 item(key = "fm") {
                                     FmRadioTile(
-                                        nickname = fmProfile!!.nickname,
-                                        accent = fmAccent ?: LocalMetroColors.current.primary,
+                                        title = fmProfile?.nickname?.takeIf { it.isNotEmpty() }
+                                            ?.let { strings.fmRadioTitle(it) }
+                                            ?: strings.fmRadioTitleGeneric,
+                                        accent = fmAccent ?: Color(0xFF2D2D30),
                                         subtitle = strings.fmRadioSubtitle,
                                         onClick = { onPlayFm() }
+                                    )
+                                }
+                                items(playlists, key = { it.id }) { pl ->
+                                    PlaylistTile(
+                                        playlist = pl,
+                                        onClick = { onPlaylistClick(pl.id) },
+                                        onPlayAll = { onPlayPlaylist(pl.id) }
                                     )
                                 }
                             }
@@ -420,17 +393,19 @@ private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit
 }
 
 /**
- * 私人 FM 电台大 tile：形制同 PlaylistTile，但封面是 Metro 风格——
- * 整块用用户头像提取的强调色铺底，左上黑直角切片压白色 FM 字标，无圆角。
+ * 私人 FM 电台大 tile：形制同 PlaylistTile，封面为 Metro 风格图形——
+ * 整块用**用户头像提取的强调色**铺底，中央是一枚**对称音频波形**记号
+ * (以中线为轴上下等幅的方端竖条，包络中间高两侧收)，无文字、无圆角；
+ * 记号颜色按底色明度取黑/白以保证对比。
  */
 @Composable
 private fun FmRadioTile(
-    nickname: String,
+    title: String,
     accent: Color,
     subtitle: String,
     onClick: () -> Unit
 ) {
-    val strings = LocalStrings.current
+    val onAccent = if (accent.luminance() > 0.5f) Color.Black else Color.White
     Column(modifier = Modifier.width(160.dp).clickable { onClick() }) {
         Box(
             modifier = Modifier
@@ -438,20 +413,28 @@ private fun FmRadioTile(
                 .aspectRatio(1f)
                 .background(accent)
         ) {
-            // Metro 直角切片: 黑方块 + 白色 FM 字标, 任何强调色底上都有对比
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(10.dp)
-                    .background(Color.Black)
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
-            ) {
-                MetroText(
-                    "FM",
-                    color = Color.White,
-                    style = LocalMetroTypography.current.titleLarge,
-                    maxLines = 1
-                )
+            // 对称音频波形：5 根方端竖条，包络 0.5→1→0.5，中线上下等幅。
+            // 方端(非圆角)贴合 Kanesumi；包络收口让记号有"声音起伏"而不呆板。
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                val cx = w / 2f
+                val cy = h * 0.45f
+                val envelope = floatArrayOf(0.5f, 0.82f, 1f, 0.82f, 0.5f)
+                val barW = w * 0.085f
+                val gap = w * 0.055f
+                val maxHalf = h * 0.22f
+                val totalW = envelope.size * barW + (envelope.size - 1) * gap
+                var x = cx - totalW / 2f
+                envelope.forEach { f ->
+                    val half = maxHalf * f
+                    drawRect(
+                        color = onAccent,
+                        topLeft = Offset(x, cy - half),
+                        size = Size(barW, half * 2f)
+                    )
+                    x += barW + gap
+                }
             }
             PlayAllButton(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
@@ -461,7 +444,7 @@ private fun FmRadioTile(
         }
         Spacer(Modifier.height(6.dp))
         MetroText(
-            strings.fmRadioTitle(nickname),
+            title,
             color = Color.White,
             style = LocalMetroTypography.current.caption,
             maxLines = 1,
@@ -475,6 +458,31 @@ private fun FmRadioTile(
             modifier = Modifier.padding(horizontal = 6.dp)
         )
     }
+}
+
+/**
+ * 从头像位图提取强调色。Coil 在 API 26+ 默认返回硬件位图，Palette 无法读取，
+ * 故显式 allowHardware(false)；取色优先 vibrant，再 dominant，最后 muted。
+ */
+private suspend fun extractAvatarAccent(context: Context, avatarUrl: String): Color? {
+    if (avatarUrl.isBlank()) return null
+    val loader = Coil.imageLoader(context)
+    val result = loader.execute(
+        ImageRequest.Builder(context)
+            .data(CoverUrls.large(avatarUrl))
+            .size(128, 128)
+            .allowHardware(false)
+            .build()
+    )
+    val bitmap = (result as? SuccessResult)?.drawable
+        ?.let { (it as BitmapDrawable).bitmap }
+        ?: return null
+    val palette = Palette.from(bitmap).generate()
+    val argb = palette.getVibrantColor(0).takeIf { it != 0 }
+        ?: palette.getDominantColor(0).takeIf { it != 0 }
+        ?: palette.getMutedColor(0).takeIf { it != 0 }
+        ?: return null
+    return Color(argb)
 }
 
 /** 点击 + 长按合并到一个 modifier，避免每个 tile 内部重复样板。 */

@@ -43,6 +43,7 @@ val ruRU = Strings(
     noMoreContent = "— Больше ничего нет —",
     trackCountSongs = { "$it треков" },
     fmRadioTitle = { "Радио $it" },
+    fmRadioTitleGeneric = "Личное FM",
     fmRadioSubtitle = "Безлимит",
 
     categoryTracks = "Треки",

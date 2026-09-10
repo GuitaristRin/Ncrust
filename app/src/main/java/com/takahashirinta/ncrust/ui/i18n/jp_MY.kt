@@ -43,6 +43,7 @@ val jpMY = Strings(
     noMoreContent = "— 無 —",
     trackCountSongs = { "全 ${it} 首" },
     fmRadioTitle = { "${it}廣播" },
+    fmRadioTitleGeneric = "個人 FM",
     fmRadioSubtitle = "無限續奏",
 
     categoryTracks = "単曲",

@@ -43,6 +43,7 @@ val zhCN = Strings(
     noMoreContent = "— 没有更多了 —",
     trackCountSongs = { "${it}首歌曲" },
     fmRadioTitle = { "${it}的电台" },
+    fmRadioTitleGeneric = "私人 FM",
     fmRadioSubtitle = "无限播放",
 
     categoryTracks = "单曲",
