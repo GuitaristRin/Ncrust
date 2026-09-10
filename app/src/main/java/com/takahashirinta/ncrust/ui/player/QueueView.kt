@@ -269,8 +269,8 @@ fun QueueView(
                     anim.animateTo(slotTop, sokuouSpring(response = 0.18f, dampingRatio = 1f)) {
                         overlayTop = value
                     }
-                    // 等让位弹簧落稳再归零, 避免归零瞬间让位没到位造成一帧跳变
-                    delay(60)
+                    // 等让位弹簧彻底落稳再归零, 否则归零瞬间让位残差造成一帧跳变
+                    delay(100)
                     draggingQueueIndex = -1
                     overlayTop = 0f
                 }
@@ -288,8 +288,9 @@ fun QueueView(
                     anim.animateTo(targetTop, sokuouSpring(response = 0.16f, dampingRatio = 1f)) {
                         overlayTop = value
                     }
-                    // 让位弹簧落稳缓冲
-                    delay(60)
+                    // 让位弹簧落稳缓冲(残差小到亚像素再提交, 槽位跳变与让位归零
+                    // 才能精确相消, 不闪)
+                    delay(100)
                     onMove(from, dropTo)
                     draggingQueueIndex = -1
                     dragTargetQueueIndex = -1

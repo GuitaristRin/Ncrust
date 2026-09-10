@@ -261,6 +261,11 @@ class PlaybackService : MediaSessionService() {
                     val srcBitmap = (result.drawable as BitmapDrawable).bitmap
                     val bitmap = srcBitmap.copy(Bitmap.Config.ARGB_8888, false)
                     currentArtworkBitmap = bitmap
+                    // 立即重发 metadata(不等 500ms 心跳): 新封面尽快上任务栏
+                    scope.launch(Dispatchers.Main) {
+                        updatePlaybackState()
+                        updateNotify()
+                    }
 
                     Palette.from(bitmap).generate { palette ->
                         // palette 回调是异步的, 同样做代数校验
@@ -284,6 +289,11 @@ class PlaybackService : MediaSessionService() {
     private var lastMetadataArtist: String? = null
     private var lastMetadataDuration: Long = -1L
     private var lastMetadataArtwork: String? = null
+    // 上一次 setMetadata 是否带上了 ART 位图。光比 URL 不够: 切歌瞬间
+    // 位图被清空, metadata 以"无图"发出, 之后封面加载完 URL 不变但位图
+    // 出现 —— 不比这个标志位, 新封面永远不会重发, 任务栏一直显示上一首
+    // (系统在无 ART 的新 metadata 上保留旧图)。
+    private var lastMetadataBitmapPresent = false
 
     // setPlaybackState 去重：state 未变且距上次刷新 < STATE_MIN_INTERVAL_MS 时跳过
     // 位置精度对锁屏/通知条完全足够，跨进程 Binder 每次 1~3 ms，低端机 4Hz IPC 就吃满
@@ -324,8 +334,10 @@ class PlaybackService : MediaSessionService() {
 
         // Metadata 只在 title/artist/duration/封面变化时重发——旧实现每 250ms 都要走一遍
         // MediaMetadataCompat.Builder + 跨进程 IPC 到系统 MediaSession，纯浪费。
+        val bitmapPresent = currentArtworkBitmap != null
         if (mediaTitle != lastMetadataTitle || mediaArtist != lastMetadataArtist ||
-            dur != lastMetadataDuration || currentArtworkUrl != lastMetadataArtwork
+            dur != lastMetadataDuration || currentArtworkUrl != lastMetadataArtwork ||
+            bitmapPresent != lastMetadataBitmapPresent
         ) {
             val builder = android.support.v4.media.MediaMetadataCompat.Builder()
                 .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE, mediaTitle)
@@ -341,6 +353,7 @@ class PlaybackService : MediaSessionService() {
             lastMetadataArtist = mediaArtist
             lastMetadataDuration = dur
             lastMetadataArtwork = currentArtworkUrl
+            lastMetadataBitmapPresent = bitmapPresent
         }
     }
 
