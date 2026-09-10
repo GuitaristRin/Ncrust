@@ -89,6 +89,9 @@ class PlaybackService : MediaSessionService() {
                 true
             )
             .setHandleAudioBecomingNoisy(true)
+            // 后台/熄屏播放时持有 partial wake lock，避免 CPU 休眠导致音频欠载
+            // （听感是"炒豆子"爆鸣，严重时 AudioTrack 直接死掉、进度还在跑但没声）。
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             // 弱网缓冲策略：默认 LoadControl 重缓冲后仅攒 5s 就续播，网络略慢于码率时
             // 会"播一点断一点"（拖带感）。这里拉高重缓冲续播阈值到 15s、并把目标缓冲
             // 扩到 30~60s，弱网下宁可多缓冲一小会儿，也不持续卡顿。
