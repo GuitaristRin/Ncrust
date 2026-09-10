@@ -42,9 +42,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.Coil
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
@@ -805,10 +805,8 @@ private fun StableCover(
 ) {
     val context = LocalContext.current
     val painter = rememberAsyncImagePainter(
-        model = ImageRequest.Builder(context)
-            .data(model)
-            .crossfade(false)
-            .build()
+        model = model,
+        imageLoader = Coil.imageLoader(context),
     )
     val state = painter.state
     // 最近一次成功加载的封面位图（跨切歌保留）。
@@ -829,18 +827,26 @@ private fun StableCover(
         if (painter.state !is AsyncImagePainter.State.Success) timedOut = true
     }
 
-    val currentBitmap = (state as? AsyncImagePainter.State.Success)
-        ?.result?.drawable?.let { (it as? BitmapDrawable)?.bitmap }
-    val bitmap = if (timedOut) null else currentBitmap ?: lastBitmap
-
-    if (bitmap != null) {
+    Box(modifier = modifier) {
+        // 底层：切歌后旧图垫底（超阈值退化占位色）。
+        val bg = if (timedOut) null else lastBitmap
+        if (bg != null) {
+            Image(
+                painter = remember(bg) { BitmapPainter(bg.asImageBitmap()) },
+                contentDescription = null,
+                modifier = Modifier.matchParentSize(),
+                contentScale = contentScale,
+            )
+        } else {
+            Box(Modifier.matchParentSize().background(placeholderColor))
+        }
+        // 上层：当前请求的 painter。必须真正绘制它，Coil 才会在 onRemembered 里发起
+        // 请求；loading 时它不画东西，露出底层旧图/占位色。
         Image(
-            painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+            painter = painter,
             contentDescription = contentDescription,
-            modifier = modifier,
+            modifier = Modifier.matchParentSize(),
             contentScale = contentScale,
         )
-    } else {
-        Box(modifier = modifier.background(placeholderColor))
     }
 }
