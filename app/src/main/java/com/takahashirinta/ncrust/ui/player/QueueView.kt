@@ -46,7 +46,6 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -251,14 +250,20 @@ fun QueueView(
                     overlayTop = 0f
                 }
             } else if (from >= 0 && to >= 0) {
-                // 落位: 悬浮行瞬时对齐目标槽位(与当前位置几乎重合), 保持拖拽态
-                // ~120ms 让其余行让位弹簧落稳, 再同帧提交重排 + 归零——精确相消
+                // 落位: 悬浮行从手指位置**快速滑进目标槽位**(≤半行, 不是整段
+                // 重排动画)——若瞬时对齐, 手指停在行间时会有最多半行的跳变 =
+                // "稳定时闪一下"。滑动与其余行让位弹簧同时落稳, 到位后同帧
+                // 提交重排 + 归零, 视觉连续
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                overlayTop = (slotOffset0 + (to - from) * draggedRowHeight - scrollDelta)
+                val targetTop = (slotOffset0 + (to - from) * draggedRowHeight - scrollDelta)
                     .coerceIn(0f, (vh - draggedRowHeight).coerceAtLeast(0f))
+                val startTop = overlayTop
                 val dropTo = to
                 dragSettleScope.launch {
-                    delay(120)
+                    val anim = Animatable(startTop)
+                    anim.animateTo(targetTop, sokuouSpring(response = 0.16f, dampingRatio = 1f)) {
+                        overlayTop = value
+                    }
                     onMove(from, dropTo)
                     draggingQueueIndex = -1
                     dragTargetQueueIndex = -1
