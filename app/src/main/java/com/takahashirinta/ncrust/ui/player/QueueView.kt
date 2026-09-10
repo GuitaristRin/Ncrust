@@ -96,6 +96,11 @@ fun QueueView(
     var overlayVisible by remember { mutableStateOf(false) }
     // 被拖歌曲 id: 悬浮层渲染用(拖拽结束 draggingQueueIndex 清空后仍能渲染)
     var draggedSongId by remember { mutableStateOf<Long?>(null) }
+    // 被拖行本体(列表项)的隐藏状态, 独立于 draggingQueueIndex:
+    // 落位时 draggingQueueIndex 与 dragTargetQueueIndex 必须与重排同帧清空
+    // (让位归零用 tween(0) 与槽位跳变精确相消, B 才不会跳); 本体是否隐藏
+    // 由 hiddenSongId 单独控制 —— 先随布局移到新槽位再现形, 残影不可能出现
+    var hiddenSongId by remember { mutableStateOf<Long?>(null) }
     // 悬浮行的视口顶位置(由手指驱动, 与列表项生命周期完全解耦)
     var overlayTop by remember { mutableFloatStateOf(0f) }
     // 拖拽开始时: 被拖行的视口偏移 + 按下位置(root 坐标) + 累计滚动量
@@ -207,7 +212,9 @@ fun QueueView(
             draggingQueueIndex = qi
             dragTargetQueueIndex = qi
             overlayVisible = true
-            draggedSongId = queueRef.getOrNull(qi)?.id
+            val songId = queueRef.getOrNull(qi)?.id
+            draggedSongId = songId
+            hiddenSongId = songId
             slotOffset0 = listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.index == targetVisual }
                 ?.offset?.toFloat() ?: down.position.y
@@ -279,10 +286,14 @@ fun QueueView(
                     anim.animateTo(slotTop, sokuouSpring(response = 0.18f, dampingRatio = 1f)) {
                         overlayTop = value
                     }
-                    // 等让位弹簧彻底落稳再让列表项本体现身
+                    // 等让位弹簧彻底落稳
                     delay(150)
+                    // dragging 与 target 同帧清空: 让位归零(tween(0))不再受
+                    // spring 影响, 与槽位变化精确相消
                     draggingQueueIndex = -1
-                    // 悬浮层多留一帧盖住交接处, 下一帧再撤: 无空帧无跳变
+                    dragTargetQueueIndex = -1
+                    // 本体在槽位现形(悬浮层同一位置盖住), 下一帧撤悬浮层
+                    hiddenSongId = null
                     withFrameNanos { }
                     overlayVisible = false
                     draggedSongId = null
@@ -290,10 +301,10 @@ fun QueueView(
                 }
             } else if (from >= 0 && to >= 0) {
                 // 落位: 悬浮行从手指位置**快速滑进目标槽位**(≤半行), 滑动与
-                // 让位弹簧同窗口落稳后提交重排。关键: 重排后列表项本体先
-                // **保持不可见**随布局移到新槽位(悬浮层继续盖住目标位置),
-                // 等布局完全落地后才现形——若现形帧早于布局落定, 列表项会
-                // 在旧槽位闪一下(= "A 的残影在 B 的位置闪了一下")。
+                // 让位弹簧同窗口落稳后提交重排。关键: dragging/target 与重排
+                // **同帧**清空(让位归零 tween(0) 与槽位跳变精确相消, B 不跳);
+                // 本体保持隐藏先随布局移到新槽位(悬浮层盖住目标), 布局落地后
+                // 才现形 —— 列表项可见的每一帧都被悬浮层遮挡, 残影不可能发生
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 val startTop = overlayTop
                 val targetTop = (slotOffset0 + (to - from) * draggedRowHeight - scrollDelta)
@@ -307,12 +318,13 @@ fun QueueView(
                     // 让位弹簧落稳缓冲(残差降到亚像素再提交)
                     delay(150)
                     onMove(from, dropTo)
+                    draggingQueueIndex = -1
                     dragTargetQueueIndex = -1
-                    // 重排布局落地: 列表项移到新槽位(仍不可见), 悬浮层盖住目标
+                    // 重排布局落地: 列表项移到新槽位(仍隐藏), 悬浮层盖住目标
                     withFrameNanos { }
                     withFrameNanos { }
                     // 列表项在新槽位现形(悬浮层同一位置盖住, 无残影)
-                    draggingQueueIndex = -1
+                    hiddenSongId = null
                     withFrameNanos { }
                     // 撤悬浮层, 交接完成
                     overlayVisible = false
@@ -324,6 +336,7 @@ fun QueueView(
                 dragTargetQueueIndex = -1
                 overlayVisible = false
                 draggedSongId = null
+                hiddenSongId = null
                 overlayTop = 0f
             }
         }
@@ -396,7 +409,7 @@ fun QueueView(
                                 .graphicsLayer {
                                     // 被拖行的本体隐藏(alpha=0), 视觉由列表外的悬浮层渲染——
                                     // 悬浮层不随 LazyColumn 滚动回收, 行槽位滚出视口也不会"消失"
-                                    alpha = if (qi == draggingQueueIndex) 0f else 1f
+                                    alpha = if (hiddenSongId == song.id) 0f else 1f
                                     // 其余行用弹簧让位, 形成"挖出空位"的联动感
                                     translationY = animatedShift
                                 }

@@ -158,9 +158,8 @@ class PlaybackService : MediaSessionService() {
                                 updateNotify()
                             }
                         } else {
-                            // 回退加载: 先清掉当前(上一首)位图, 避免 loadArtwork
-                            // 的同图去重(url 已换新, 位图还是旧的)误判跳过
-                            currentArtworkBitmap = null
+                            // 回退异步加载; 旧位图保留到新封面加载完(用户决策),
+                            // 加载完成由 metadata 位图引用比较触发换图
                             loadArtwork(artwork)
                         }
                     }
@@ -294,13 +293,10 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun loadArtwork(url: String) {
-        // 同一张封面已在显示(如整张专辑每首歌封面相同): 不重载不重清
-        if (url == currentArtworkUrl && currentArtworkBitmap != null) return
+        // 旧位图**保留**到新封面加载完成再整体换掉(用户决策: 等它加载完再
+        // 更换过去)——切歌瞬间不清图, 任务栏不会出现空图/系统保留旧图的
+        // 不确定窗口; 加载完成后由 metadata 去重的位图引用比较触发重发。
         val gen = ++artworkGeneration
-        // 新歌封面开始加载: 立刻清掉旧位图, 任务栏/锁屏不再挂着上一首的图
-        // (标题已换成新歌, 旧图配新标题 = 封面错位)。新图加载完由
-        // updatePlaybackState 重新带出。
-        currentArtworkBitmap = null
         scope.launch(Dispatchers.IO) {
             try {
                 val imageLoader = Coil.imageLoader(this@PlaybackService)
@@ -345,11 +341,10 @@ class PlaybackService : MediaSessionService() {
     private var lastMetadataArtist: String? = null
     private var lastMetadataDuration: Long = -1L
     private var lastMetadataArtwork: String? = null
-    // 上一次 setMetadata 是否带上了 ART 位图。光比 URL 不够: 切歌瞬间
-    // 位图被清空, metadata 以"无图"发出, 之后封面加载完 URL 不变但位图
-    // 出现 —— 不比这个标志位, 新封面永远不会重发, 任务栏一直显示上一首
-    // (系统在无 ART 的新 metadata 上保留旧图)。
-    private var lastMetadataBitmapPresent = false
+    // 上一次 setMetadata 的 ART 位图引用。光比 URL 不够: 位图是异步换的,
+    // URL 换新但位图还是旧的、或位图换新但 URL 已同步 —— 用引用比较,
+    // 只要位图实例变了就重发, 保证任务栏封面最终切到新歌
+    private var lastMetadataBitmap: Bitmap? = null
 
     // setPlaybackState 去重：state 未变且距上次刷新 < STATE_MIN_INTERVAL_MS 时跳过
     // 位置精度对锁屏/通知条完全足够，跨进程 Binder 每次 1~3 ms，低端机 4Hz IPC 就吃满
@@ -390,10 +385,10 @@ class PlaybackService : MediaSessionService() {
 
         // Metadata 只在 title/artist/duration/封面变化时重发——旧实现每 250ms 都要走一遍
         // MediaMetadataCompat.Builder + 跨进程 IPC 到系统 MediaSession，纯浪费。
-        val bitmapPresent = currentArtworkBitmap != null
+        // 位图用**引用**比较: 实例变了(新封面加载完成)就重发, 同图不重发。
         if (mediaTitle != lastMetadataTitle || mediaArtist != lastMetadataArtist ||
             dur != lastMetadataDuration || currentArtworkUrl != lastMetadataArtwork ||
-            bitmapPresent != lastMetadataBitmapPresent
+            currentArtworkBitmap !== lastMetadataBitmap
         ) {
             val builder = android.support.v4.media.MediaMetadataCompat.Builder()
                 .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE, mediaTitle)
@@ -409,7 +404,7 @@ class PlaybackService : MediaSessionService() {
             lastMetadataArtist = mediaArtist
             lastMetadataDuration = dur
             lastMetadataArtwork = currentArtworkUrl
-            lastMetadataBitmapPresent = bitmapPresent
+            lastMetadataBitmap = currentArtworkBitmap
         }
     }
 
