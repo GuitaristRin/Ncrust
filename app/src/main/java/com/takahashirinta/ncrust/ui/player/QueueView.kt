@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -24,7 +25,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,10 @@ import io.github.takahashirinta.kanesumi.controls.MetroIconButton
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * 队列面板 —— 三区视图（Apple Music 式）：过去播放 / 现在播放 / 将要播放。
@@ -73,6 +78,7 @@ fun QueueView(
 
     val listState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
 
     // 拖拽状态：draggingQueueIndex / dragTargetQueueIndex 都是队列索引（0..queue.size-1）
     var draggingQueueIndex by remember { mutableIntStateOf(-1) }
@@ -80,9 +86,13 @@ fun QueueView(
     // 被拖行的垂直位移(跟随手指)与把手按下时的起始 y —— 联动视觉只用这两个
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var dragStartY by remember { mutableFloatStateOf(0f) }
-    var listTopInRoot by remember { mutableFloatStateOf(0f) }
-    var draggedRowTopInRoot by remember { mutableFloatStateOf(0f) }
     var draggedRowHeight by remember { mutableFloatStateOf(0f) }
+    // 被拖行的视觉行下标(rows 下标, 拖拽期间列表滚动后布局位置会变, 用它查实时 offset)
+    var draggedVisualRow by remember { mutableIntStateOf(-1) }
+    // 拖到视口上/下边缘时的自动滚动: -1=向上, 1=向下, 0=停
+    var autoScrollDir by remember { mutableFloatStateOf(0f) }
+    val dragScrollScope = rememberCoroutineScope()
+    var dragScrollJob by remember { mutableStateOf<Job?>(null) }
 
     // ---- 行模型 ----
     // RowInfo(kind=PAST_HEAD/NOW_HEAD/UPCOMING_HEAD/INFINITY/SONG, queueIndex)
@@ -95,37 +105,34 @@ fun QueueView(
         return
     }
 
-    // 打开(变为可见)/切歌时把「现在播放」行定位到视觉中心。
-    // - 面板刚打开: 硬定位 + 等目标行真正 measure 后再补居中(避免从顶部一路滑下来,
-    //   也修复旧实现等一帧就查 layoutInfo 导致居中滚动提前 return 的"不自动定位")。
-    // - 队列已打开时切歌: 用 animateScrollToItem 平滑滑动, 让「现在播放」块滑到中心
-    //   (Apple Music 语义); 旧实现每次 scrollToItem 硬跳, 整张专辑连播时队列跳闪。
+    // 打开(变为可见)/切歌时把「现在播放」那首歌定位到视觉中心。
+    // - 面板刚打开: 等视口测量出来 → 硬定位到目标行 → 等目标行真正 compose
+    //   进视口(懒布局) → 补居中偏移。用 snapshotFlow 等条件成立, 比数帧稳。
+    // - 队列已打开时切歌: 用 animateScrollToItem 平滑滑动, 让「现在播放」块
+    //   滑到中心(Apple Music 语义); 旧实现每次 scrollToItem 硬跳, 连播时跳闪。
     val nowVisualRow = rows.indexOfFirst { it.kind == RowKind.NOW_HEAD }
+    // 目标 = 「现在播放」标题下面那首歌, 而不是标题本身 —— 定位的是正在播的行
+    val nowSongVisualRow = (nowVisualRow + 1).takeIf { it < rows.size } ?: nowVisualRow
     val wasQueueOpen = remember { mutableStateOf(false) }
     LaunchedEffect(isActive, currentIndex, nowVisualRow) {
         if (!isActive) {
             wasQueueOpen.value = false
             return@LaunchedEffect
         }
-        val target = nowVisualRow.takeIf { it >= 0 } ?: return@LaunchedEffect
+        val target = nowSongVisualRow.takeIf { it >= 0 } ?: return@LaunchedEffect
         if (!wasQueueOpen.value) {
-            // 面板首次打开: 先硬定位, 再等布局完成后补居中偏移
+            // 面板首次打开: 硬定位 + 等目标行 measure 后居中
+            snapshotFlow { listState.layoutInfo.viewportEndOffset }.first { it > 0 }
             listState.scrollToItem(target)
-            var attempts = 0
-            while (attempts < 20) {
-                withFrameNanos { }
-                val info = listState.layoutInfo
-                val item = info.visibleItemsInfo.firstOrNull { it.index == target }
-                if (item != null) {
-                    // scrollToItem(index, offset) 让目标行顶部距视口顶部 offset 像素 → 垂直居中
-                    listState.scrollToItem(
-                        target,
-                        scrollOffset = ((info.viewportEndOffset - item.size) / 2).coerceAtLeast(0)
-                    )
-                    break
-                }
-                attempts++
-            }
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.any { it.index == target } }
+                .first { it }
+            val info = listState.layoutInfo
+            val item = info.visibleItemsInfo.first { it.index == target }
+            // scrollToItem(index, offset) 让目标行顶部距视口顶部 offset 像素 → 垂直居中
+            listState.scrollToItem(
+                target,
+                scrollOffset = ((info.viewportEndOffset - item.size) / 2).coerceAtLeast(0)
+            )
         } else {
             // 队列已打开且切歌: 平滑滑到中心。目标行已在视口内时直接带偏移动画,
             // 否则先滑到目标行再补居中(跨区切歌时也能连贯)。
@@ -148,8 +155,7 @@ fun QueueView(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
-                .onGloballyPositioned { listTopInRoot = it.positionInRoot().y },
+                .padding(horizontal = 16.dp),
             flingBehavior = rememberMetroFlingBehavior()
         ) {
             itemsIndexed(rows, key = { _, r -> r.key }) { visualRow, row ->
@@ -208,10 +214,9 @@ fun QueueView(
                                         LocalMetroColors.current.surfaceVariant
                                     else Color.Transparent
                                 )
-                                // 记录被拖行在 root 中的位置（拖拽把手坐标换算基座）
+                                // 记录被拖行高度（让位距离换算基座）
                                 .onGloballyPositioned {
                                     if (qi == draggingQueueIndex) {
-                                        draggedRowTopInRoot = it.positionInRoot().y
                                         draggedRowHeight = it.size.height.toFloat()
                                     }
                                 }
@@ -235,6 +240,23 @@ fun QueueView(
                                                             dragTargetQueueIndex = qi
                                                             dragStartY = startOffset.y
                                                             dragOffsetY = 0f
+                                                            draggedVisualRow = visualRow
+                                                            autoScrollDir = 0f
+                                                            // 拖到视口上/下边缘时列表自动滚动: 每帧按方向滚一段,
+                                                            // 并补偿 dragOffsetY, 让被拖行始终停在手指下
+                                                            dragScrollJob?.cancel()
+                                                            dragScrollJob = dragScrollScope.launch {
+                                                                while (isActive) {
+                                                                    val dir = autoScrollDir
+                                                                    if (dir != 0f) {
+                                                                        val consumed = listState.scrollBy(dir * 24f)
+                                                                        if (consumed != 0f) {
+                                                                            dragOffsetY += consumed
+                                                                        }
+                                                                    }
+                                                                    withFrameNanos { }
+                                                                }
+                                                            }
                                                         },
                                                         onDrag = { change, _ ->
                                                             change.consume()
@@ -245,9 +267,22 @@ fun QueueView(
                                                             // 累计增量后: 行 1:1 跟随手指, 局部坐标保持按下时的值,
                                                             // 增量收敛到 0, 不再振荡。
                                                             dragOffsetY += change.position.y - dragStartY
+                                                            // 用被拖行的实时视口 offset(列表滚动后布局位置会变)
+                                                            // + 累计位移, 算出被拖行中心当前的视口 y
+                                                            val draggedItem = listState.layoutInfo
+                                                                .visibleItemsInfo
+                                                                .firstOrNull { it.index == draggedVisualRow }
                                                             val rowCenterViewportY =
-                                                                (draggedRowTopInRoot - listTopInRoot) +
-                                                                    draggedRowHeight / 2f + dragOffsetY
+                                                                ((draggedItem?.offset ?: 0)).toFloat() +
+                                                                    dragOffsetY + draggedRowHeight / 2f
+                                                            // 边缘自动滚动: 被拖行贴近上/下边缘时列表跟手滚
+                                                            val viewportH = listState.layoutInfo.viewportEndOffset
+                                                            val edge = with(density) { 72.dp.toPx() }
+                                                            autoScrollDir = when {
+                                                                rowCenterViewportY < edge -> -1f
+                                                                rowCenterViewportY > viewportH - edge -> 1f
+                                                                else -> 0f
+                                                            }
                                                             val targetVisual =
                                                                 itemIndexAt(listState, rowCenterViewportY) ?: visualRow
                                                             // 视觉行 → 队列索引：只许落在「将要播放」区内
@@ -257,20 +292,28 @@ fun QueueView(
                                                         },
                                                         onDragEnd = {
                                                             // 手指抬起 = 状态稳定, 才真正更新队列(stack)
+                                                            dragScrollJob?.cancel()
+                                                            dragScrollJob = null
+                                                            autoScrollDir = 0f
                                                             val from = draggingQueueIndex
                                                             val to = dragTargetQueueIndex
                                                             draggingQueueIndex = -1
                                                             dragTargetQueueIndex = -1
                                                             dragOffsetY = 0f
+                                                            draggedVisualRow = -1
                                                             if (from >= 0 && to >= 0 && from != to) {
                                                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                                 onMove(from, to)
                                                             }
                                                         },
                                                         onDragCancel = {
+                                                            dragScrollJob?.cancel()
+                                                            dragScrollJob = null
+                                                            autoScrollDir = 0f
                                                             draggingQueueIndex = -1
                                                             dragTargetQueueIndex = -1
                                                             dragOffsetY = 0f
+                                                            draggedVisualRow = -1
                                                         }
                                                     )
                                                 },
