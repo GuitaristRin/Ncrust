@@ -8,11 +8,14 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 
 /**
- * 内容最大宽度按窗口宽度自适应（竖屏；Kanesumi 风格不变，只调整内容栏宽度）：
- * - < 600dp（手机）       → 360dp，保持原有窄屏比例
- * - 600..839dp（小平板/折叠屏展开）→ 480dp，多用一点横向空间
- * - >= 840dp（平板）      → 560dp，接近主流平板信息密度
- * 折叠屏展开时 [LocalConfiguration.screenWidthDp] 已是全展开宽度，自动命中宽档。
+ * 内容容器。手机与大屏走两套策略：
+ *
+ * - < 600dp（手机）→ 保持既有窄屏视觉：上限 360dp、居中。
+ * - >= 600dp（平板 / 折叠展开 / 车机）→ **不再居中限宽**，内容铺满内容栏，
+ *   仅留左右 24dp 内边距。配合自适应栅格，专辑/歌单随宽度多列铺开
+ *   （Apple Music iPad 式），而不是把手机栏拉宽。
+ *
+ * 宽屏下 MainScreen 已把内容栏右移给左侧 sidebar 让位，这里只负责栏内布局。
  */
 @Composable
 fun ResponsiveContent(
@@ -20,21 +23,26 @@ fun ResponsiveContent(
     content: @Composable () -> Unit
 ) {
     val windowWidthDp = LocalConfiguration.current.screenWidthDp
-    val maxWidthDp = when {
-        windowWidthDp >= 840 -> 560.dp
-        windowWidthDp >= 600 -> 480.dp
-        else -> 360.dp
-    }
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter
-    ) {
+    if (windowWidthDp >= 600) {
         Box(
-            modifier = Modifier
-                .widthIn(max = maxWidthDp)
-                .fillMaxHeight()
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp)
         ) {
             content()
+        }
+    } else {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 360.dp)
+                    .fillMaxHeight()
+            ) {
+                content()
+            }
         }
     }
 }
