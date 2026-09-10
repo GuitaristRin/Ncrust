@@ -46,6 +46,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -96,7 +97,8 @@ fun QueueView(
     var autoScrollDir by remember { mutableFloatStateOf(0f) }
     val dragScrollScope = rememberCoroutineScope()
     var dragScrollJob by remember { mutableStateOf<Job?>(null) }
-    // 落定动画作用域: 松手后行从当前位置回正 / 让位弹簧落稳后提交
+    // 落定动画作用域: 松手后行回正/滑入 + 让位落稳后提交。与手势协程分离,
+    // 因为 awaitEachGesture 是受限作用域, 不能直接 delay/animateTo
     val dragSettleScope = rememberCoroutineScope()
 
     // ---- 行模型 ----
@@ -158,14 +160,23 @@ fun QueueView(
     // 拖拽手势挂在根节点而不是列表项上: 根节点不随 LazyColumn 回收,
     // 自动滚动把被拖行的槽位滚出视口时手势不会断、卡片不会"飞不见"。
     // 只在手指按下落在把手上时接管(否则不消费任何事件, 列表滚动/点击正常)。
-    val dragGesturesModifier = Modifier.pointerInput(interactive, rows, currentIndex, infinityActive) {
+    // 关键: pointerInput 只以 interactive 为 key —— rows/currentIndex 经
+    // rememberUpdatedState 读取。若把 rows 放进 key, 落位重排队列会重启
+    // pointerInput, 正在执行落位提交的协程被取消 → 拖拽状态泄漏,
+    // 第二次就拖不动了(只能拖动一次)。
+    val rowsRef by rememberUpdatedState(rows)
+    val currentIndexRef by rememberUpdatedState(currentIndex)
+    val infinityActiveRef by rememberUpdatedState(infinityActive)
+    val dragGesturesModifier = Modifier.pointerInput(interactive) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
+            val rowsNow = rowsRef
+            val idxNow = currentIndexRef
             val targetVisual = itemIndexAt(listState, down.position.y)
                 ?: return@awaitEachGesture
-            val row = rows.getOrNull(targetVisual) ?: return@awaitEachGesture
+            val row = rowsNow.getOrNull(targetVisual) ?: return@awaitEachGesture
             val qi = row.queueIndex
-            if (qi <= currentIndex || infinityActive) return@awaitEachGesture
+            if (qi <= idxNow || infinityActiveRef) return@awaitEachGesture
             // 把手命中区: 行右端 16dp 内边距 + 16dp 尾距 + 48dp 移除钮左侧的 32dp 把手
             val pad = with(density) { 16.dp.toPx() }
             val spacer = with(density) { 16.dp.toPx() }
@@ -199,8 +210,8 @@ fun QueueView(
                             val center = overlayTop + draggedRowHeight / 2f
                             val tv = itemIndexAt(listState, center)
                             if (tv != null) {
-                                val next = rows.getOrNull(tv)
-                                if (next != null && next.queueIndex > currentIndex) {
+                                val next = rowsRef.getOrNull(tv)
+                                if (next != null && next.queueIndex > idxNow) {
                                     dragTargetQueueIndex = next.queueIndex
                                 }
                             }
@@ -225,10 +236,13 @@ fun QueueView(
                     else -> 0f
                 }
                 val tv = itemIndexAt(listState, center) ?: targetVisual
-                val next = rows.getOrNull(tv)
-                dragTargetQueueIndex = next?.queueIndex?.takeIf { it > currentIndex } ?: qi
+                val next = rowsRef.getOrNull(tv)
+                dragTargetQueueIndex = next?.queueIndex?.takeIf { it > idxNow } ?: qi
             }
-            // 拖拽结束(手指抬起): 状态稳定后才更新队列
+            // 拖拽结束(手指抬起): 状态稳定后才更新队列。落位动画放到
+            // dragSettleScope(手势作用域是受限的, 不能 delay/animateTo);
+            // pointerInput 不以 rows 为 key, 落位重排不会重启手势,
+            // 归零一定完整执行 → 下一次拖拽正常。
             dragScrollJob?.cancel()
             dragScrollJob = null
             autoScrollDir = 0f
@@ -246,24 +260,27 @@ fun QueueView(
                     anim.animateTo(slotTop, sokuouSpring(response = 0.18f, dampingRatio = 1f)) {
                         overlayTop = value
                     }
+                    // 等让位弹簧落稳再归零, 避免归零瞬间让位没到位造成一帧跳变
+                    delay(60)
                     draggingQueueIndex = -1
                     overlayTop = 0f
                 }
             } else if (from >= 0 && to >= 0) {
                 // 落位: 悬浮行从手指位置**快速滑进目标槽位**(≤半行, 不是整段
-                // 重排动画)——若瞬时对齐, 手指停在行间时会有最多半行的跳变 =
-                // "稳定时闪一下"。滑动与其余行让位弹簧同时落稳, 到位后同帧
-                // 提交重排 + 归零, 视觉连续
+                // 重排动画)——瞬时对齐时手指停在行间会有最多半行跳变 =
+                // "稳定时闪一下"。滑动与让位弹簧同窗口落稳后再同帧提交
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                val startTop = overlayTop
                 val targetTop = (slotOffset0 + (to - from) * draggedRowHeight - scrollDelta)
                     .coerceIn(0f, (vh - draggedRowHeight).coerceAtLeast(0f))
-                val startTop = overlayTop
                 val dropTo = to
                 dragSettleScope.launch {
                     val anim = Animatable(startTop)
                     anim.animateTo(targetTop, sokuouSpring(response = 0.16f, dampingRatio = 1f)) {
                         overlayTop = value
                     }
+                    // 让位弹簧落稳缓冲
+                    delay(60)
                     onMove(from, dropTo)
                     draggingQueueIndex = -1
                     dragTargetQueueIndex = -1
