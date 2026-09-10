@@ -69,6 +69,10 @@ class PlaybackService : MediaSessionService() {
     private var pendingNextArtist: String? = null
     private var pendingNextArtwork: String? = null
     private var pendingNextSongId: Long = -1L
+    // 无缝预载的下一首封面位图: preload_next 时提前加载, 切换瞬间直接应用,
+    // 任务栏不会出现"新歌标题 + 上一首封面"的过渡窗口
+    private var pendingNextArtworkBitmap: Bitmap? = null
+    private var artworkPreloadGeneration = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -140,7 +144,22 @@ class PlaybackService : MediaSessionService() {
                     pendingNextArtwork = null
                     if (!artwork.isNullOrEmpty()) {
                         currentArtworkUrl = artwork
-                        loadArtwork(artwork)
+                        // 预载位图就绪直接应用(切换瞬间任务栏就是新图),
+                        // 未就绪回退异步加载
+                        val preloaded = pendingNextArtworkBitmap
+                        pendingNextArtworkBitmap = null
+                        if (preloaded != null) {
+                            currentArtworkBitmap = preloaded
+                            scope.launch(Dispatchers.Main) {
+                                updatePlaybackState()
+                                updateNotify()
+                            }
+                        } else {
+                            // 回退加载: 先清掉当前(上一首)位图, 避免 loadArtwork
+                            // 的同图去重(url 已换新, 位图还是旧的)误判跳过
+                            currentArtworkBitmap = null
+                            loadArtwork(artwork)
+                        }
                     }
                     // Remove the finished item so the playlist stays compact.
                     if (player.mediaItemCount > 1) {
@@ -168,6 +187,11 @@ class PlaybackService : MediaSessionService() {
                 pendingNextArtist = intent.getStringExtra("artist")
                 pendingNextArtwork = intent.getStringExtra("artwork")
                 pendingNextSongId = nextSongId
+                // 提前加载下一首封面: 无缝切换瞬间任务栏直接是新图,
+                // 不再出现"新歌标题 + 上一首封面"的过渡窗口
+                if (!pendingNextArtwork.isNullOrEmpty()) {
+                    preloadArtwork(pendingNextArtwork!!)
+                }
                 player.addMediaItem(androidx.media3.common.MediaItem.fromUri(nextUrl))
                 Log.d("PlaybackService", "Queued next: $pendingNextTitle url=$nextUrl")
                 return START_NOT_STICKY
@@ -235,6 +259,32 @@ class PlaybackService : MediaSessionService() {
         player.setMediaItem(mediaItem)
         player.prepare()
         player.playWhenReady = true
+    }
+
+    /**
+     * 提前加载下一首封面到 pendingNextArtworkBitmap(不入当前位图)。
+     * 无缝 preload_next 时调用, 切换瞬间直接应用, 消除任务栏封面过渡窗口。
+     * 用独立的 preload 代数做过期校验(不影响当前歌的 loadArtwork 代数)。
+     */
+    private fun preloadArtwork(url: String) {
+        val gen = ++artworkPreloadGeneration
+        scope.launch(Dispatchers.IO) {
+            try {
+                val result = Coil.imageLoader(this@PlaybackService).execute(
+                    ImageRequest.Builder(this@PlaybackService)
+                        .data(CoverUrls.large(url))
+                        .size(1024, 1024)
+                        .build()
+                )
+                if (result is SuccessResult) {
+                    if (gen != artworkPreloadGeneration) return@launch
+                    pendingNextArtworkBitmap =
+                        (result.drawable as BitmapDrawable).bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                }
+            } catch (e: Exception) {
+                Log.e("PlaybackService", "Preload artwork failed", e)
+            }
+        }
     }
 
     private fun loadArtwork(url: String) {

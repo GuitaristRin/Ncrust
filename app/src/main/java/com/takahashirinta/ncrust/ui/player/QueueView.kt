@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.player
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -270,7 +271,7 @@ fun QueueView(
                         overlayTop = value
                     }
                     // 等让位弹簧彻底落稳再归零, 否则归零瞬间让位残差造成一帧跳变
-                    delay(100)
+                    delay(150)
                     draggingQueueIndex = -1
                     overlayTop = 0f
                 }
@@ -290,7 +291,7 @@ fun QueueView(
                     }
                     // 让位弹簧落稳缓冲(残差小到亚像素再提交, 槽位跳变与让位归零
                     // 才能精确相消, 不闪)
-                    delay(100)
+                    delay(150)
                     onMove(from, dropTo)
                     draggingQueueIndex = -1
                     dragTargetQueueIndex = -1
@@ -350,6 +351,14 @@ fun QueueView(
                             else tween(0),
                             label = "queueRowShift"
                         ).value
+                        // 目标行高亮淡入淡出(120ms): 落定瞬间高亮消失不再"pop",
+        // 否则重排那一帧背景色突变 = 闪一下
+                        val highlightColor by animateColorAsState(
+                            targetValue = if (highlighted) LocalMetroColors.current.surfaceVariant
+                            else Color.Transparent,
+                            animationSpec = tween(120),
+                            label = "queueHighlight"
+                        )
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -367,10 +376,7 @@ fun QueueView(
                                     // 其余行用弹簧让位, 形成"挖出空位"的联动感
                                     translationY = animatedShift
                                 }
-                                .background(
-                                    if (highlighted) LocalMetroColors.current.surfaceVariant
-                                    else Color.Transparent
-                                )
+                                .background(highlightColor)
                                 // 记录被拖行高度（让位距离换算基座）
                                 .onGloballyPositioned {
                                     if (qi == draggingQueueIndex) {
@@ -447,9 +453,10 @@ fun QueueView(
                 )
         )
 
-        // 悬浮的被拖行: 拎出 LazyColumn 渲染(列表项本体隐藏)。
+                        // 悬浮的被拖行: 拎出 LazyColumn 渲染(列表项本体隐藏)。
         // 位置 = overlayTop(手指驱动的视口位置), 与列表项生命周期无关,
-        // 自动滚动把槽位滚出视口也不受影响。
+        // 自动滚动把槽位滚出视口也不受影响。alpha=1: 与落定后列表项本体
+        // 的透明度完全一致, 交接瞬间没有 8% 的亮度跳变。
         if (draggingQueueIndex >= 0) {
             val draggedSong = queue.getOrNull(draggingQueueIndex)
             if (draggedSong != null) {
@@ -463,7 +470,6 @@ fun QueueView(
                         .zIndex(1f)
                         .graphicsLayer {
                             translationY = overlayTop
-                            alpha = 0.92f
                         }
                 )
             }
