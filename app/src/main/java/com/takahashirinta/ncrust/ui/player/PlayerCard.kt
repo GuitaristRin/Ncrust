@@ -404,7 +404,7 @@ fun PlayerCard(
                         onNavigateToUser = onNavigateToUser,
                         lyricsUnavailable = !lyricsReady,
                         previousEnabled = playMode != QueueModes.INFINITY,
-                        compact = isWidePlayer
+                        landscape = isWidePlayer
                     )
                 }
 
@@ -541,8 +541,13 @@ fun PlayerCard(
                                     .weight(1f)
                                     .onGloballyPositioned { coords ->
                                         val b = coords.boundsInRoot()
-                                        wideCoverCenter = b.center - cardRootOrigin
-                                        wideCoverSizePx = minOf(b.width, b.height)
+                                        // 贴边（Metro）：落点 = 区域左上角 + 半个边长，而不是居中。
+                                        val size = minOf(b.width, b.height)
+                                        wideCoverSizePx = size
+                                        wideCoverCenter = Offset(
+                                            b.left - cardRootOrigin.x + size / 2f,
+                                            b.top - cardRootOrigin.y + size / 2f,
+                                        )
                                     }
                             )
                             // 歌名 / 歌手

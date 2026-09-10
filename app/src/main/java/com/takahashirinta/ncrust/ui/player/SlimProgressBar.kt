@@ -36,6 +36,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.formatDuration
@@ -59,7 +60,9 @@ fun SlimProgressBar(
     progressFlow: StateFlow<Float>,
     durationFlow: StateFlow<Long>,
     isBufferingFlow: StateFlow<Boolean>,
-    onSeek: (Float) -> Unit
+    onSeek: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 24.dp
 ) {
     // isBufferingFlow 由内部叶子 collect：SlimProgressBar 常驻在 FullPlayerControls，
     // isBuffering 每次抖动都会走到这里，避免让父层因布尔值变化而重组
@@ -100,9 +103,9 @@ fun SlimProgressBar(
     val trackColor = Color(0xFF3A3A3A)
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = horizontalPadding)
             .height(40.dp)                        // 触摸区域保持 40dp
             .onSizeChanged { barWidth = it.width.toFloat().coerceAtLeast(1f) }
             .pointerInput(Unit) {

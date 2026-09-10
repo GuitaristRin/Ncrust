@@ -52,7 +52,9 @@ fun FullPlayerControls(
     lyricsUnavailable: Boolean = false,
     previousEnabled: Boolean = true,
     // 宽屏左栏用紧凑尺寸：缩小按钮/间距，把纵向空间让给封面区。
-    compact: Boolean = false
+    compact: Boolean = false,
+    // 宽屏横向布局：进度行 + 操作行扁平铺开，替代手机的竖向大按钮堆叠。
+    landscape: Boolean = false
 ) {
     val strings = LocalStrings.current
     // 触觉反馈:播放/暂停/切歌/开关面板给一个轻振,补足无 ripple 时代的确认感
@@ -71,6 +73,154 @@ fun FullPlayerControls(
     val sideGap = if (compact) 20.dp else 32.dp
     val toggleBtn = if (compact) 44.dp else 56.dp
     val toggleIcon = if (compact) 26.dp else 32.dp
+
+    if (landscape) {
+        // 宽屏横向控件条：进度行（位置 · 进度 · 时长）+ 操作行（面板开关 · 音质 · 传输），
+        // 扁平铺开，不再照搬手机的竖向大按钮堆叠。
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PositionText(positionFlow = positionFlow, modifier = Modifier)
+                Spacer(Modifier.width(8.dp))
+                SlimProgressBar(
+                    progressFlow = progressFlow,
+                    durationFlow = durationFlow,
+                    isBufferingFlow = isBufferingFlow,
+                    onSeek = onSeek,
+                    modifier = Modifier.weight(1f),
+                    horizontalPadding = 0.dp,
+                )
+                Spacer(Modifier.width(8.dp))
+                DurationText(durationFlow = durationFlow, modifier = Modifier)
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 面板开关：歌词 / 队列 / 收藏
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable(enabled = !lyricsUnavailable) {
+                            tick()
+                            onToggleLyrics()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    MetroIcon(
+                        imageVector = Icons.Default.Lyrics,
+                        contentDescription = strings.lyricsButton,
+                        tint = if (lyricsUnavailable) Color(0xFF505050)
+                        else if (showLyrics) LocalMetroColors.current.primary else Color.White,
+                        sizeDp = 24.dp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable {
+                            tick()
+                            onToggleQueue()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    MetroIcon(
+                        imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                        contentDescription = strings.queueButton,
+                        tint = if (showQueue) LocalMetroColors.current.primary else Color.White,
+                        sizeDp = 24.dp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable {
+                            tick()
+                            onAddToLibrary()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    MetroIcon(
+                        imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
+                        contentDescription = strings.addToLibraryButton,
+                        tint = if (isInLibrary) LocalMetroColors.current.primary else Color.White,
+                        sizeDp = 24.dp
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                // 音质
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFF2A2A2A))
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { onNavigateToUser() }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    QualityLabel(qualityIndexFlow = qualityIndexFlow, options = qualityOptions)
+                }
+                Spacer(Modifier.width(16.dp))
+                // 传输
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable(enabled = previousEnabled) {
+                            tick()
+                            onPlayPrevious()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    MetroIcon(
+                        imageVector = Icons.Default.SkipPrevious,
+                        contentDescription = strings.prevButton,
+                        tint = if (previousEnabled) Color.White else Color(0xFF505050),
+                        sizeDp = 26.dp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clickable {
+                            tick()
+                            onPlayPause()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    MetroIcon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isPlaying) strings.pauseButton else strings.playButton,
+                        tint = Color.White,
+                        sizeDp = 34.dp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable {
+                            tick()
+                            onPlayNext()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    MetroIcon(
+                        imageVector = Icons.Default.SkipNext,
+                        contentDescription = strings.nextButton,
+                        tint = Color.White,
+                        sizeDp = 26.dp
+                    )
+                }
+            }
+        }
+        return
+    }
 
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = bottomPad)) {
         Box(
