@@ -110,9 +110,11 @@ ensure_bench_apk
 case "$TARGET" in
   startup) run com.takahashirinta.ncrust.benchmark.StartupBenchmark ;;
   scroll)  run com.takahashirinta.ncrust.benchmark.HomeScrollBenchmark ;;
+  expand)  run com.takahashirinta.ncrust.benchmark.ExpandPlayerBenchmark ;;
   all)     run com.takahashirinta.ncrust.benchmark.StartupBenchmark
-           run com.takahashirinta.ncrust.benchmark.HomeScrollBenchmark ;;
-  *) echo "用法: $0 [startup|scroll|all]"; exit 2 ;;
+           run com.takahashirinta.ncrust.benchmark.HomeScrollBenchmark
+           run com.takahashirinta.ncrust.benchmark.ExpandPlayerBenchmark ;;
+  *) echo "用法: $0 [startup|scroll|expand|all]"; exit 2 ;;
 esac
 
 echo ""
