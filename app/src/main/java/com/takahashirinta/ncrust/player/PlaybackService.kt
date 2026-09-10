@@ -21,6 +21,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.MediaSession as M3MediaSession
 import androidx.palette.graphics.Palette
@@ -188,6 +189,17 @@ class PlaybackService : MediaSessionService() {
                     updateNotify()
                     onSongTransitioned?.invoke()
                 }
+            }
+        })
+        // 音频输出层故障（听感"哒哒哒"爆鸣，严重时 AudioTrack 死掉、进度照跑但没声）
+        // 不会走 onPlayerError, 这里单独接住并交给 ViewModel 的降档重试处理。
+        player.addAnalyticsListener(object : AnalyticsListener {
+            override fun onAudioSinkError(
+                eventTime: AnalyticsListener.EventTime,
+                audioSinkError: Exception
+            ) {
+                Log.e("PlaybackService", "AudioSink error: ${audioSinkError.message}", audioSinkError)
+                onPlaybackError?.invoke(mediaSongId ?: -1L)
             }
         })
         createNotificationChannel()
