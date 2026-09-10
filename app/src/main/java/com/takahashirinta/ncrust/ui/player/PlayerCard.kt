@@ -128,9 +128,10 @@ fun PlayerCard(
     val dp24px = with(density) { 24.dp.toPx() }
     // 宽屏播放器两栏（Apple Music 式）：左封面 / 右歌词·队列。
     val isWidePlayer = LocalConfiguration.current.screenWidthDp >= 600
-    // 封面固有尺寸：窄屏=整屏宽（现有行为）；宽屏=左栏内受高度约束的方图。
+    // 封面固有尺寸：窄屏=整屏宽（现有行为）；宽屏=左栏内的方图，受左栏宽与高度双重约束，
+    // 留出底部控件/歌名的空间（否则封面 overlay 会盖住控件）。
     val coverSizePx = if (isWidePlayer)
-        minOf(screenWidthPx * 0.42f, screenHeightPx * 0.72f)
+        minOf(screenWidthPx * 0.34f, screenHeightPx * 0.46f)
     else screenWidthPx
     val coverSizeDp = with(density) { coverSizePx.toDp() }
     // 迷你条与顶栏按钮的触觉反馈
@@ -146,7 +147,7 @@ fun PlayerCard(
     val wideLeftWidthPx = if (isWidePlayer) screenWidthPx * (1f - 0.56f * wideSplit) else screenWidthPx
     val wideLeftWidthDp = with(density) { wideLeftWidthPx.toDp() }
     val largeCoverCenterX = if (isWidePlayer) wideLeftWidthPx / 2f else screenWidthPx / 2f
-    val largeCoverCenterY = if (isWidePlayer) screenHeightPx * 0.36f else screenHeightPx * 0.3f + dp24px
+    val largeCoverCenterY = if (isWidePlayer) screenHeightPx * 0.32f else screenHeightPx * 0.3f + dp24px
     val boundsCenter = coverSizePx / 2f
 
     // 完全收起时才激活迷你播放栏；derivedStateOf 将重组限制在阈值穿越处
