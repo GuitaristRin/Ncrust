@@ -42,6 +42,8 @@ val en = Strings(
     refreshLabel = "Refresh",
     noMoreContent = "— No more content —",
     trackCountSongs = { "$it songs" },
+    fmRadioTitle = { "Radio of $it" },
+    fmRadioSubtitle = "Infinite",
 
     categoryTracks = "Tracks",
     categoryAlbums = "Albums",
@@ -142,6 +144,11 @@ val en = Strings(
     playModeButton = "Play Mode",
     saveAsPlaylist = "Save as Playlist",
     noSongPlaying = "Nothing playing",
+    queueSectionPast = "Previously played",
+    queueSectionNow = "Now playing",
+    queueSectionUpcoming = "Up next",
+    queueInfinityPlaceholder = "Similar songs continue",
+    queueClearAll = "Clear content",
 
     userIconDesc = "User",
 

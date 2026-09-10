@@ -42,6 +42,8 @@ val zhTW = Strings(
     refreshLabel = "刷新",
     noMoreContent = "— 無復多矣 —",
     trackCountSongs = { "凡${it}曲" },
+    fmRadioTitle = { "${it}的電台" },
+    fmRadioSubtitle = "無限播放",
 
     categoryTracks = "單曲",
     categoryAlbums = "專輯",
@@ -143,6 +145,11 @@ actionGoToAlbum = "前往專輯",
     playModeButton = "播放模式",
     saveAsPlaylist = "存為歌單",
     noSongPlaying = "暫無播放",
+    queueSectionPast = "過去播放",
+    queueSectionNow = "現在播放",
+    queueSectionUpcoming = "將要播放",
+    queueInfinityPlaceholder = "相似歌曲即將續播",
+    queueClearAll = "清空播放內容",
 
     userIconDesc = "吾人",
 

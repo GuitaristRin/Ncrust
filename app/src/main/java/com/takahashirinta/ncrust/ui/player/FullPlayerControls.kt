@@ -46,7 +46,9 @@ fun FullPlayerControls(
     onAddToLibrary: () -> Unit = {},
     isBufferingFlow: StateFlow<Boolean>,
     onSeek: (Float) -> Unit = {},
-    onNavigateToUser: () -> Unit = {}
+    onNavigateToUser: () -> Unit = {},
+    lyricsUnavailable: Boolean = false,
+    previousEnabled: Boolean = true
 ) {
     val strings = LocalStrings.current
     // 触觉反馈:播放/暂停/切歌/开关面板给一个轻振,补足无 ripple 时代的确认感
@@ -100,7 +102,7 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .size(60.dp)
-                    .clickable {
+                    .clickable(enabled = previousEnabled) {
                         tick()
                         onPlayPrevious()
                     },
@@ -109,7 +111,7 @@ fun FullPlayerControls(
                 MetroIcon(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = strings.prevButton,
-                    tint = Color.White,
+                    tint = if (previousEnabled) Color.White else Color(0xFF505050),
                     sizeDp = 40.dp
                 )
             }
@@ -155,7 +157,7 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clickable {
+                    .clickable(enabled = !lyricsUnavailable) {
                         tick()
                         onToggleLyrics()
                     },
@@ -164,7 +166,9 @@ fun FullPlayerControls(
                 MetroIcon(
                     imageVector = Icons.Default.Lyrics,
                     contentDescription = strings.lyricsButton,
-                    tint = if (showLyrics) LocalMetroColors.current.primary else Color.White,
+                    // 无歌词/未加载时置灰, 语义是该歌不可展开歌词
+                    tint = if (lyricsUnavailable) Color(0xFF505050)
+                    else if (showLyrics) LocalMetroColors.current.primary else Color.White,
                     sizeDp = 32.dp
                 )
             }

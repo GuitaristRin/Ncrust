@@ -42,6 +42,8 @@ val zhCN = Strings(
     refreshLabel = "刷新",
     noMoreContent = "— 没有更多了 —",
     trackCountSongs = { "${it}首歌曲" },
+    fmRadioTitle = { "${it}的电台" },
+    fmRadioSubtitle = "无限播放",
 
     categoryTracks = "单曲",
     categoryAlbums = "专辑",
@@ -143,6 +145,11 @@ val zhCN = Strings(
     playModeButton = "播放模式",
     saveAsPlaylist = "保存为歌单",
     noSongPlaying = "暂无播放",
+    queueSectionPast = "过去播放",
+    queueSectionNow = "现在播放",
+    queueSectionUpcoming = "将要播放",
+    queueInfinityPlaceholder = "相似歌曲即将续播",
+    queueClearAll = "清空播放内容",
 
     userIconDesc = "用户",
 

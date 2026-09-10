@@ -42,6 +42,8 @@ val ruRU = Strings(
     refreshLabel = "Обновить",
     noMoreContent = "— Больше ничего нет —",
     trackCountSongs = { "$it треков" },
+    fmRadioTitle = { "Радио $it" },
+    fmRadioSubtitle = "Безлимит",
 
     categoryTracks = "Треки",
     categoryAlbums = "Альбомы",
@@ -142,6 +144,11 @@ val ruRU = Strings(
     playModeButton = "Режим воспроизведения",
     saveAsPlaylist = "Сохранить как плейлист",
     noSongPlaying = "Ничего не играет",
+    queueSectionPast = "Ранее играло",
+    queueSectionNow = "Сейчас играет",
+    queueSectionUpcoming = "Далее",
+    queueInfinityPlaceholder = "Похожие песни продолжатся",
+    queueClearAll = "Очистить содержимое",
 
     userIconDesc = "Пользователь",
 

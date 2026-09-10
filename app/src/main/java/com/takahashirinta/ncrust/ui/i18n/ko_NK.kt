@@ -42,6 +42,8 @@ val koNK = Strings(
     refreshLabel = "새로고침",
     noMoreContent = "— 더이상 없음 —",
     trackCountSongs = { "모두 ${it}곡" },
+    fmRadioTitle = { "${it}의 라디오" },
+    fmRadioSubtitle = "무한 재생",
 
     categoryTracks = "단일곡",
     categoryAlbums = "음반",
@@ -142,6 +144,11 @@ actionGoToAlbum = "앨범 페이지로",
     playModeButton = "재생 모드",
     saveAsPlaylist = "노래목록으로 저장",
     noSongPlaying = "재생 중 없음",
+    queueSectionPast = "지난 재생",
+    queueSectionNow = "현재 재생",
+    queueSectionUpcoming = "다음 재생",
+    queueInfinityPlaceholder = "비슷한 노래가 이어집니다",
+    queueClearAll = "재생 내용 지우기",
 
     userIconDesc = "리용자",
 

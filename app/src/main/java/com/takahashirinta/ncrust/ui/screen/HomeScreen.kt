@@ -1,6 +1,7 @@
 package com.takahashirinta.ncrust.ui.screen
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -55,7 +56,8 @@ fun HomeScreen(
     onPlayDailyAll: ((List<SongItem>) -> Unit)? = null,
     onSongInsertNext: (SongItem) -> Unit = {},
     onSongAppendToQueue: (SongItem) -> Unit = {},
-    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> }
+    onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
+    onPlayFm: (() -> Unit)? = null
 ) {
     val strings = LocalStrings.current
     // 初始 state 从 ContentCache 读取。有缓存则立即渲染，无需 spinner。
@@ -72,6 +74,12 @@ fun HomeScreen(
     var error by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+
+    // 当前登录用户 id：电台卡标题用。未登录时 uid 为 null，不渲染电台卡。
+    var userId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) {
+        userId = runCatching { PlaylistApi.getCurrentUserId() }.getOrNull()
+    }
 
     fun loadDailySongs() {
         coroutineScope.launch(Dispatchers.IO) {
@@ -211,7 +219,7 @@ fun HomeScreen(
                         item { Spacer(Modifier.height(28.dp)) }
                     }
 
-                    // 推荐歌单：横滑大 tile
+                    // 推荐歌单：横滑大 tile，首位放私人 FM 电台卡
                     if (playlists.isNotEmpty()) {
                         item { SectionHeader(title = strings.recommendPlaylistTitle) }
                         item {
@@ -220,11 +228,43 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                                 flingBehavior = rememberMetroFlingBehavior()
                             ) {
+                                // 电台：形制同普通歌单 tile，标题"{uid}的电台"，副标题"无限播放"
+                                if (userId != null && onPlayFm != null) {
+                                    item(key = "fm") {
+                                        FmRadioTile(
+                                            uid = userId!!,
+                                            title = strings.fmRadioTitle(userId!!),
+                                            subtitle = strings.fmRadioSubtitle,
+                                            onClick = { onPlayFm() }
+                                        )
+                                    }
+                                }
                                 items(playlists, key = { it.id }) { pl ->
                                     PlaylistTile(
                                         playlist = pl,
                                         onClick = { onPlaylistClick(pl.id) },
                                         onPlayAll = { onPlayPlaylist(pl.id) }
+                                    )
+                                }
+                            }
+                        }
+                        item { Spacer(Modifier.height(28.dp)) }
+                    } else if (userId != null && onPlayFm != null) {
+                        // 推荐歌单接口失败/未登录返回空时, 电台入口不能跟着消失——
+                        // 这是用户唯一能进 FM 的通道, 单独给一行。
+                        item { SectionHeader(title = strings.recommendPlaylistTitle) }
+                        item {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                flingBehavior = rememberMetroFlingBehavior()
+                            ) {
+                                item(key = "fm") {
+                                    FmRadioTile(
+                                        uid = userId!!,
+                                        title = strings.fmRadioTitle(userId!!),
+                                        subtitle = strings.fmRadioSubtitle,
+                                        onClick = { onPlayFm() }
                                     )
                                 }
                             }
@@ -345,6 +385,51 @@ private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit
         )
         MetroText(
             strings.trackCountSongs(playlist.trackCount),
+            color = Color.Gray,
+            style = LocalMetroTypography.current.label,
+            modifier = Modifier.padding(horizontal = 6.dp)
+        )
+    }
+}
+
+/** 私人 FM 电台大 tile：形制同 PlaylistTile，封面用大幅图标占位。 */
+@Composable
+private fun FmRadioTile(
+    uid: Long,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Column(modifier = Modifier.width(160.dp).clickable { onClick() }) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .background(LocalMetroColors.current.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            MetroText(
+                uid.toString(),
+                color = LocalMetroColors.current.primary,
+                style = LocalMetroTypography.current.headlineMedium
+            )
+            PlayAllButton(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
+                size = 34.dp,
+                onClick = onClick
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        MetroText(
+            title,
+            color = Color.White,
+            style = LocalMetroTypography.current.caption,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 6.dp)
+        )
+        MetroText(
+            subtitle,
             color = Color.Gray,
             style = LocalMetroTypography.current.label,
             modifier = Modifier.padding(horizontal = 6.dp)

@@ -42,6 +42,8 @@ val deDE = Strings(
     refreshLabel = "Aktualisieren",
     noMoreContent = "— Keine weiteren Inhalte —",
     trackCountSongs = { "$it Songs" },
+    fmRadioTitle = { "Radio von $it" },
+    fmRadioSubtitle = "Unbegrenzt",
 
     categoryTracks = "Titel",
     categoryAlbums = "Alben",
@@ -142,6 +144,11 @@ val deDE = Strings(
     playModeButton = "Wiedergabemodus",
     saveAsPlaylist = "Als Playlist speichern",
     noSongPlaying = "Nichts wird abgespielt",
+    queueSectionPast = "Bereits gespielt",
+    queueSectionNow = "Läuft jetzt",
+    queueSectionUpcoming = "Als Nächstes",
+    queueInfinityPlaceholder = "Ähnliche Songs folgen",
+    queueClearAll = "Inhalt leeren",
 
     userIconDesc = "Benutzer",
 

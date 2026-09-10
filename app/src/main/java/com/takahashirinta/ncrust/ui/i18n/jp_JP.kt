@@ -42,6 +42,8 @@ val jpJP = Strings(
     refreshLabel = "更新",
     noMoreContent = "— これ以上ありません —",
     trackCountSongs = { "${it}曲" },
+    fmRadioTitle = { "${it}のラジオ" },
+    fmRadioSubtitle = "無限再生",
 
     categoryTracks = "楽曲",
     categoryAlbums = "アルバム",
@@ -143,6 +145,11 @@ val jpJP = Strings(
     playModeButton = "再生モード",
     saveAsPlaylist = "プレイリストとして保存",
     noSongPlaying = "再生中の楽曲なし",
+    queueSectionPast = "過去に再生",
+    queueSectionNow = "再生中",
+    queueSectionUpcoming = "次に再生",
+    queueInfinityPlaceholder = "似た曲が続けて再生されます",
+    queueClearAll = "再生内容をクリア",
 
     userIconDesc = "ユーザー",
 

@@ -42,6 +42,8 @@ val jpMY = Strings(
     refreshLabel = "更 新",
     noMoreContent = "— 無 —",
     trackCountSongs = { "全 ${it} 首" },
+    fmRadioTitle = { "${it}廣播" },
+    fmRadioSubtitle = "無限續奏",
 
     categoryTracks = "単曲",
     categoryAlbums = "音盤",
@@ -142,6 +144,11 @@ val jpMY = Strings(
     playModeButton = "奏法",
     saveAsPlaylist = "曲目 保存",
     noSongPlaying = "未奏",
+    queueSectionPast = "過去 奏",
+    queueSectionNow = "現奏",
+    queueSectionUpcoming = "次奏",
+    queueInfinityPlaceholder = "類曲 續奏",
+    queueClearAll = "清奏",
 
     userIconDesc = "利用者",
 

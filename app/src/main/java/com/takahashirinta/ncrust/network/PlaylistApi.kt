@@ -303,24 +303,40 @@ object PlaylistApi {
         }
     }
 
+    /**
+     * 私人 FM 电台歌曲（客户端端点 /eapi/v1/radio/get, 返回 `data[]` 每项
+     * 是 `{ "song": {...} }` 嵌套, 与 recommend 的老平铺结构不同）。
+     *
+     * 这是真正意义上的 FM: 由网易按收听历史/偏好生成, 不是"相似歌曲"或
+     * "每日推荐"——Infinity 无限播放应该用这个作为主数据源。
+     */
     suspend fun getPersonalFm(): List<SongItem> = withContext(Dispatchers.IO) {
         val response = RetrofitClient.eapiPost("/eapi/v1/radio/get", emptyMap())
         val body = response.body?.string() ?: throw Exception("empty response")
         val arr = JSONObject(body).optJSONArray("data") ?: return@withContext emptyList()
         (0 until arr.length()).map { i ->
-            val s = arr.getJSONObject(i)
+            // data[i].song 是完整歌曲对象（含 id/name/ar/al/dt）; 某些响应直接把歌曲摊在 data[i] 顶层
+            val s = arr.getJSONObject(i).optJSONObject("song") ?: arr.getJSONObject(i)
             SongItem(
                 id = s.optLong("id"),
                 name = s.optString("name"),
-                artists = s.optJSONArray("ar")?.let { ar ->
+                artists = (s.optJSONArray("ar") ?: s.optJSONArray("artists"))?.let { ar ->
                     (0 until ar.length()).map { j ->
-                        ArtistItem(name = ar.getJSONObject(j).optString("name"))
+                        ArtistItem(
+                            id = ar.getJSONObject(j).optLong("id").takeIf { it != 0L },
+                            name = ar.getJSONObject(j).optString("name")
+                        )
                     }
                 },
-                album = s.optJSONObject("al")?.let {
-                    AlbumItem(id = it.optLong("id"), name = it.optString("name"), picUrl = it.optString("picUrl"))
+                album = (s.optJSONObject("al") ?: s.optJSONObject("album"))?.let {
+                    AlbumItem(
+                        id = it.optLong("id").takeIf { v -> v != 0L },
+                        name = it.optString("name"),
+                        picUrl = it.optString("picUrl")
+                    )
                 },
-                duration = s.optLong("dt").takeIf { it != 0L }
+                duration = (s.optLong("dt").takeIf { it != 0L }
+                    ?: s.optLong("duration").takeIf { it != 0L })
             )
         }
     }

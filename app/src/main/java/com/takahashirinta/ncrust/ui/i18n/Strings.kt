@@ -46,6 +46,9 @@ data class Strings(
     val refreshLabel: String,
     val noMoreContent: String,
     val trackCountSongs: (Int) -> String,
+    // 主页推荐歌单里首位的私人 FM 电台卡
+    val fmRadioTitle: (Long) -> String,
+    val fmRadioSubtitle: String,
 
     // Library screen
     val categoryTracks: String,
@@ -159,6 +162,11 @@ data class Strings(
     val playModeButton: String,
     val saveAsPlaylist: String,
     val noSongPlaying: String,
+    val queueSectionPast: String,
+    val queueSectionNow: String,
+    val queueSectionUpcoming: String,
+    val queueInfinityPlaceholder: String,
+    val queueClearAll: String,
 
     // User screen
     val userIconDesc: String,
