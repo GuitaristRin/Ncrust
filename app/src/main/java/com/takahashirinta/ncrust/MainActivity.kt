@@ -214,7 +214,7 @@ fun MainScreen(
     // 与方向无关地按当前窗口宽度判定；窄屏(<600dp)完全走原底部导航路径。
     val windowWidthDp = LocalConfiguration.current.screenWidthDp
     val isWideLayout = windowWidthDp >= 600
-    val sidebarWidthDp = 240.dp
+    val sidebarWidthDp = 200.dp
     val sidebarWidthPx = with(density) { sidebarWidthDp.toPx() }
 
     // 卡片相关尺寸。宽屏无底部导航, navBar 高度记 0, miniBar 直接贴到系统栏之上。
