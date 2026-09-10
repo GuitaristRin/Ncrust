@@ -15,8 +15,8 @@ private const val PACKAGE = "com.takahashirinta.ncrust"
  * 冷启动基线：从进程冷起(COLD)到首帧的时间。
  * 指标：StartupTimingMetric(首帧时间)。
  *
- * 前置条件：`:benchmark:injectDeviceCookie` 已把登录态注入被测应用
- * (connectedCheck 会先跑它)。未登录时首页无数据, 启动路径失真。
+ * 前置条件：被测应用已安装并**保持登录态**(见 benchmark/run_benchmark.sh 的生产式
+ * 流程——不重装、不卸载)。未登录时首页无数据, 启动路径失真。
  */
 @RunWith(AndroidJUnit4::class)
 class StartupBenchmark {

@@ -25,7 +25,24 @@ PACKAGE="com.takahashirinta.ncrust"
 BENCH_PKG="$PACKAGE.benchmark"
 TARGET="${1:-all}"
 ADB_BIN="$(command -v "$ADB")"
-SDK_BUILD_TOOLS="$(ls -d /d/Applications/AndroidSDK/build-tools/* 2>/dev/null | tail -1)"
+
+# 定位 SDK build-tools（跨平台）：优先 ANDROID_HOME/SDK_ROOT, 其次 local.properties 的 sdk.dir
+SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+if [ -z "$SDK_DIR" ] && [ -f local.properties ]; then
+  SDK_DIR="$(grep -E '^sdk\.dir=' local.properties | head -1 | cut -d= -f2-)"
+fi
+SDK_BUILD_TOOLS=""
+if [ -n "$SDK_DIR" ] && [ -d "$SDK_DIR/build-tools" ]; then
+  SDK_BUILD_TOOLS="$(ls -d "$SDK_DIR"/build-tools/*/ 2>/dev/null | sort -V | tail -1)"
+fi
+APKSIGNER="apksigner"
+if [ -n "$SDK_BUILD_TOOLS" ]; then
+  if [ -x "${SDK_BUILD_TOOLS}apksigner" ]; then
+    APKSIGNER="${SDK_BUILD_TOOLS}apksigner"
+  elif [ -f "${SDK_BUILD_TOOLS}apksigner.bat" ]; then
+    APKSIGNER="${SDK_BUILD_TOOLS}apksigner.bat"
+  fi
+fi
 
 # ---------- release 构建与安装 ----------
 install_release() {
@@ -42,7 +59,7 @@ install_release() {
     [ -f "$ks" ] || keytool -genkeypair -keystore "$ks" -alias bench -keyalg RSA \
       -keysize 2048 -validity 10000 -storepass bench123 -keypass bench123 \
       -dname "CN=NcrustBenchmark" >/dev/null 2>&1
-    "$SDK_BUILD_TOOLS/apksigner.bat" sign --ks "$ks" --ks-pass pass:bench123 \
+    "$APKSIGNER" sign --ks "$ks" --ks-pass pass:bench123 \
       --key-pass pass:bench123 --out /tmp/app-release-bench.apk "$APP_APK"
     signed_apk=/tmp/app-release-bench.apk
   fi

@@ -20,8 +20,8 @@ private const val PACKAGE = "com.takahashirinta.ncrust"
  * 首页滚动帧率基线：冷启进首页后上下滚动主列表,统计每帧耗时分布。
  * 指标：FrameTimingMetric(50/90/95/99 分位帧耗时 + jank 帧数)。
  *
- * 前置条件：`:benchmark:injectDeviceCookie` 已注入登录态(connectedCheck 会先跑)。
- * Ncrust 默认落在「库」tab——必须切到首页再抓纵向主列表。
+ * 前置条件：被测应用已安装并**保持登录态**(见 benchmark/run_benchmark.sh 的生产式
+ * 流程——不重装、不卸载)。Ncrust 默认落在「库」tab——必须切到首页再抓纵向主列表。
  */
 @RunWith(AndroidJUnit4::class)
 class HomeScrollBenchmark {
