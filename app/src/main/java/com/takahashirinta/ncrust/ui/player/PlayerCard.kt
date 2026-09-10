@@ -27,6 +27,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -398,6 +399,8 @@ fun PlayerCard(
 
                         // 列表面板：translationX 从 +screenWidthPx 滑至 0，稳定态时完全在屏幕外
                         // alpha 阶梯同上: q < 0.01 时完全透明, 切换只合成单个面板
+                        // 面板标题行高度: 队列自动定位要按"整个队列区域"(含标题行)居中
+                        var queueHeaderHeightPx by remember { mutableFloatStateOf(0f) }
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -410,7 +413,10 @@ fun PlayerCard(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .onGloballyPositioned {
+                                        queueHeaderHeightPx = it.size.height.toFloat()
+                                    },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 MetroText(
@@ -458,6 +464,7 @@ fun PlayerCard(
                                 playMode = playMode,
                                 isActive = showQueue,
                                 interactive = cardExpandedForInput,
+                                queueHeaderHeightPx = queueHeaderHeightPx,
                                 onPlayIndex = onPlayFromQueue,
                                 onRemoveIndex = onRemoveFromQueue,
                                 onMove = onMoveInQueue

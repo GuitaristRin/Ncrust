@@ -72,6 +72,9 @@ fun QueueView(
     playMode: Int = QueueModes.CYCLE,
     isActive: Boolean = false,
     interactive: Boolean = true,
+    // 队列面板标题行(含按钮)的高度 px —— 自动定位按「整个队列区域」居中,
+    // 不是只按列表视口居中(标题行占了面板上部, 光按视口中心会偏下)
+    queueHeaderHeightPx: Float = 0f,
     onPlayIndex: (Int) -> Unit,
     onRemoveIndex: (Int) -> Unit,
     onMove: (Int, Int) -> Unit = { _, _ -> }
@@ -112,14 +115,22 @@ fun QueueView(
         return
     }
 
-    // 打开(变为可见)/切歌时把「现在播放」那首歌定位到视觉中心。
+    // 打开(变为可见)/切歌时把「现在播放」那首歌定位到**整个队列区域**的中心
+    // (含面板标题行: 标题行占面板上部, 只按列表视口居中会偏下 headerH/2)。
     // - 面板刚打开: 等视口测量出来 → 硬定位到目标行 → 等目标行真正 compose
     //   进视口(懒布局) → 补居中偏移。用 snapshotFlow 等条件成立, 比数帧稳。
-    // - 队列已打开时切歌: 用 animateScrollToItem 平滑滑动, 让「现在播放」块
-    //   滑到中心(Apple Music 语义); 旧实现每次 scrollToItem 硬跳, 连播时跳闪。
+    // - 队列已打开时切歌: 用 animateScrollToItem 平滑滑动到中心; 目标行在视口
+    //   外时先滑过去, 等它 compose 后再补居中(不能只 scrollToItem 到顶部)。
     val nowVisualRow = rows.indexOfFirst { it.kind == RowKind.NOW_HEAD }
     // 目标 = 「现在播放」标题下面那首歌, 而不是标题本身 —— 定位的是正在播的行
     val nowSongVisualRow = (nowVisualRow + 1).takeIf { it < rows.size } ?: nowVisualRow
+    // 让目标行垂直居中(相对整个队列面板)的滚动偏移
+    fun centerScrollOffset(target: Int): Int {
+        val info = listState.layoutInfo
+        val item = info.visibleItemsInfo.first { it.index == target }
+        return (((info.viewportEndOffset - item.size - queueHeaderHeightPx) / 2f).toInt())
+            .coerceAtLeast(0)
+    }
     val wasQueueOpen = remember { mutableStateOf(false) }
     LaunchedEffect(isActive, currentIndex, nowVisualRow) {
         if (!isActive) {
@@ -133,25 +144,19 @@ fun QueueView(
             listState.scrollToItem(target)
             snapshotFlow { listState.layoutInfo.visibleItemsInfo.any { it.index == target } }
                 .first { it }
-            val info = listState.layoutInfo
-            val item = info.visibleItemsInfo.first { it.index == target }
-            // scrollToItem(index, offset) 让目标行顶部距视口顶部 offset 像素 → 垂直居中
-            listState.scrollToItem(
-                target,
-                scrollOffset = ((info.viewportEndOffset - item.size) / 2).coerceAtLeast(0)
-            )
+            listState.scrollToItem(target, scrollOffset = centerScrollOffset(target))
         } else {
-            // 队列已打开且切歌: 平滑滑到中心。目标行已在视口内时直接带偏移动画,
-            // 否则先滑到目标行再补居中(跨区切歌时也能连贯)。
+            // 队列已打开且切歌: 平滑滑到中心。目标行已在视口内直接带偏移动画,
+            // 否则先滑过去, 再等它 compose 进视口后补居中(避免停在顶部)。
             val info = listState.layoutInfo
             val item = info.visibleItemsInfo.firstOrNull { it.index == target }
             if (item != null) {
-                listState.animateScrollToItem(
-                    target,
-                    scrollOffset = ((info.viewportEndOffset - item.size) / 2).coerceAtLeast(0)
-                )
+                listState.animateScrollToItem(target, scrollOffset = centerScrollOffset(target))
             } else {
                 listState.animateScrollToItem(target)
+                snapshotFlow { listState.layoutInfo.visibleItemsInfo.any { it.index == target } }
+                    .first { it }
+                listState.animateScrollToItem(target, scrollOffset = centerScrollOffset(target))
             }
         }
         wasQueueOpen.value = true
