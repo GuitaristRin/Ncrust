@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -172,8 +173,11 @@ private enum class DetailScaffoldState { Loading, Error, Content }
 /**
  * 无边框详情页头部。
  *
- * 封面全宽通铺（fillMaxWidth + aspectRatio 1:1），下方是"标题 / 副标题 / info / 右侧大圆播放按钮"。
- * 标题与信息区左右各有 16dp 内边距；封面本身没有任何 padding，贴屏幕边缘。
+ * 窄屏：封面全宽通铺（fillMaxWidth + aspectRatio 1:1），下方是标题 / 副标题 / info
+ * / 右侧大圆播放按钮；封面贴屏幕边缘、无 padding。
+ *
+ * 宽屏（>=600dp）：改为 Apple Music 式两栏——左侧固定 220dp 方封面，右侧信息列
+ * 底部对齐。避免封面在平板上铺成一整屏的正方形。
  */
 @Composable
 fun DetailHeader(
@@ -187,6 +191,41 @@ fun DetailHeader(
     headerActions: @Composable ColumnScope.() -> Unit = {}
 ) {
     val strings = LocalStrings.current
+    val isWide = LocalConfiguration.current.screenWidthDp >= 600
+
+    if (isWide) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                // 顶部留出返回按钮触控区的高度（系统栏 inset 已由外层内容容器处理）。
+                .padding(start = 16.dp, end = 16.dp, top = 56.dp, bottom = 20.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            AsyncImage(
+                model = CoverUrls.large(coverUrl),
+                contentDescription = strings.coverDesc,
+                placeholder = androidx.compose.ui.graphics.painter.ColorPainter(LocalMetroColors.current.surfaceVariant),
+                modifier = Modifier.size(220.dp),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(Modifier.width(24.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                DetailHeaderInfoRow(
+                    title = title,
+                    subtitle = subtitle,
+                    infoLines = infoLines,
+                    onPlayAll = onPlayAll,
+                    onSubtitleClick = onSubtitleClick,
+                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    content = headerActions
+                )
+            }
+        }
+        return
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         AsyncImage(
             model = CoverUrls.large(coverUrl),
@@ -199,46 +238,14 @@ fun DetailHeader(
             contentScale = ContentScale.Crop
         )
         Spacer(Modifier.height(20.dp))
-        // 信息区 + 右侧大播放按钮
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                MetroText(
-                    title,
-                    color = Color.White,
-                    style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Normal),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (subtitle != null) {
-                    Spacer(Modifier.height(6.dp))
-                    MetroText(
-                        subtitle,
-                        color = LocalMetroColors.current.primary,
-                        style = TextStyle(fontSize = 14.sp),
-                        modifier = if (onSubtitleClick != null)
-                            Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = onSubtitleClick
-                            )
-                        else Modifier
-                    )
-                }
-                infoLines.forEach { line ->
-                    Spacer(Modifier.height(3.dp))
-                    MetroText(line, color = Color.Gray, style = TextStyle(fontSize = 13.sp))
-                }
-            }
-            if (onPlayAll != null) {
-                Spacer(Modifier.width(12.dp))
-                PlayAllButton(size = 48.dp, onClick = onPlayAll)
-            }
-        }
+        DetailHeaderInfoRow(
+            title = title,
+            subtitle = subtitle,
+            infoLines = infoLines,
+            onPlayAll = onPlayAll,
+            onSubtitleClick = onSubtitleClick,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
         // 右侧附加操作（如"收藏专辑"按钮），左对齐、无 divider。
         Column(
             modifier = Modifier
@@ -247,5 +254,54 @@ fun DetailHeader(
             content = headerActions
         )
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+/** 标题 / 副标题 / info 行 + 右侧大圆播放按钮。宽窄屏共用。 */
+@Composable
+private fun DetailHeaderInfoRow(
+    title: String,
+    subtitle: String?,
+    infoLines: List<String>,
+    onPlayAll: (() -> Unit)?,
+    onSubtitleClick: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            MetroText(
+                title,
+                color = Color.White,
+                style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Normal),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (subtitle != null) {
+                Spacer(Modifier.height(6.dp))
+                MetroText(
+                    subtitle,
+                    color = LocalMetroColors.current.primary,
+                    style = TextStyle(fontSize = 14.sp),
+                    modifier = if (onSubtitleClick != null)
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onSubtitleClick
+                        )
+                    else Modifier
+                )
+            }
+            infoLines.forEach { line ->
+                Spacer(Modifier.height(3.dp))
+                MetroText(line, color = Color.Gray, style = TextStyle(fontSize = 13.sp))
+            }
+        }
+        if (onPlayAll != null) {
+            Spacer(Modifier.width(12.dp))
+            PlayAllButton(size = 48.dp, onClick = onPlayAll)
+        }
     }
 }
