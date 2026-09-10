@@ -36,7 +36,7 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
             .fillMaxSize()
             .background(Color(0xFF121212))
     ) {
-        ResponsiveContent {
+        ResponsiveContent(maxWidth = 720.dp) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
