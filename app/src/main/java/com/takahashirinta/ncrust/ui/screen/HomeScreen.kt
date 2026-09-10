@@ -8,10 +8,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
@@ -22,6 +25,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
@@ -82,7 +86,9 @@ fun HomeScreen(
         mutableStateOf(dailySongs.isEmpty() && playlists.isEmpty() && newSongs.isEmpty())
     }
     var error by remember { mutableStateOf<String?>(null) }
-    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
+    // 宽屏：新歌从"整行列表"切到"自适应栅格单元"（Apple Music 式）；手机保持整行列表。
+    val isWide = LocalConfiguration.current.screenWidthDp >= 600
     val coroutineScope = rememberCoroutineScope()
 
     // 私人 FM 电台卡需要登录用户资料: 昵称(卡标题"xx的电台") + 头像(取强调色做封面)。
@@ -178,15 +184,18 @@ fun HomeScreen(
             }
         } else {
             ResponsiveContent {
-                LazyColumn(
-                    state = listState,
+                LazyVerticalGrid(
+                    state = gridState,
+                    columns = GridCells.Adaptive(minSize = 148.dp),
                     // 背景由 MainScreen 外层 Box 统一填充，子屏不重复画一层（消除 overdraw）
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     flingBehavior = rememberMetroFlingBehavior()
                 ) {
                     // Groove 风页头：statusBar + 大字页面名，代替 TopAppBar。
-                    item {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -204,7 +213,7 @@ fun HomeScreen(
 
                     // 每日推荐：横滑大 tile；点击整块进入播放。
                     if (dailySongs.isNotEmpty()) {
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             SectionHeader(
                                 title = strings.dailySongsTitle,
                                 onPlayAll = { onPlayDailyAll?.invoke(dailySongs) },
@@ -221,7 +230,7 @@ fun HomeScreen(
                                 }
                             )
                         }
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -237,14 +246,16 @@ fun HomeScreen(
                                 }
                             }
                         }
-                        item { Spacer(Modifier.height(28.dp)) }
+                        item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(16.dp)) }
                     }
 
                     // 推荐歌单：横滑大 tile。私人 FM 电台卡**常驻首位**——
                     // 不再依赖推荐歌单是否拉到、也不依赖用户资料是否拿到。
                     if (onPlayFm != null) {
-                        item { SectionHeader(title = strings.recommendPlaylistTitle) }
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            SectionHeader(title = strings.recommendPlaylistTitle)
+                        }
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -269,19 +280,33 @@ fun HomeScreen(
                                 }
                             }
                         }
-                        item { Spacer(Modifier.height(28.dp)) }
+                        item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(16.dp)) }
                     }
 
-                    // 新歌：边到边直列
-                    item { SectionHeader(title = strings.newSongsTitle) }
-                    item { Spacer(Modifier.height(6.dp)) }
-                    items(newSongs, key = { it.id }) { song ->
-                        SongCard(
-                            song = song,
-                            style = SongCardStyle.LIST,
-                            onClick = { onSongClick(song) },
-                            onShowMenu = { onShowSongMenu(song, songMenu(song)) }
-                        )
+                    // 新歌：宽屏自适应栅格（多列方封面），手机保持整行列表。
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        SectionHeader(title = strings.newSongsTitle)
+                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(6.dp)) }
+                    items(
+                        items = newSongs,
+                        key = { it.id },
+                        span = { if (isWide) GridItemSpan(1) else GridItemSpan(maxLineSpan) }
+                    ) { song ->
+                        if (isWide) {
+                            SongGridTile(
+                                song = song,
+                                onClick = { onSongClick(song) },
+                                onLongClick = { onShowSongMenu(song, songMenu(song)) }
+                            )
+                        } else {
+                            SongCard(
+                                song = song,
+                                style = SongCardStyle.LIST,
+                                onClick = { onSongClick(song) },
+                                onShowMenu = { onShowSongMenu(song, songMenu(song)) }
+                            )
+                        }
                     }
                 }
             }
@@ -356,10 +381,48 @@ private fun DailySongTile(song: SongItem, onClick: () -> Unit, onLongClick: () -
     }
 }
 
+/**
+ * 自适应栅格里的歌曲 tile：方封面 + 歌名 + 歌手，宽度随单元格（fillMaxWidth），
+ * 区别于固定 160dp 的横滑 [DailySongTile]。宽屏新歌用它铺多列。
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun SongGridTile(song: SongItem, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val strings = LocalStrings.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickableFallback(onClick, onLongClick)
+    ) {
+        AsyncImage(
+            model = CoverUrls.small(song.album?.picUrl),
+            contentDescription = strings.coverDesc,
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(Modifier.height(6.dp))
+        MetroText(
+            song.name,
+            color = Color.White,
+            style = LocalMetroTypography.current.caption,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 6.dp)
+        )
+        MetroText(
+            song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist,
+            color = Color.Gray,
+            style = LocalMetroTypography.current.label,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 6.dp)
+        )
+    }
+}
+
 /** 推荐歌单大 tile：160dp 方封面 + 圆播放按钮。 */
 @Composable
-private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit, onPlayAll: () -> Unit) {
-    val strings = LocalStrings.current
+private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit, onPlayAll: () -> Unit) {    val strings = LocalStrings.current
     Column(modifier = Modifier.width(160.dp).clickable { onClick() }) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
