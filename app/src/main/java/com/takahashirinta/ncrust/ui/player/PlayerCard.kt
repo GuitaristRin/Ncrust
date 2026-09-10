@@ -11,8 +11,6 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
-import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -21,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -29,8 +28,6 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -60,6 +57,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -297,7 +295,7 @@ fun PlayerCard(
                 }
             }
             // Inner modifier → runs first within this node in Main pass.
-            // Handles drag-to-collapse; runs before the outer consumer so it sees unconsumed MOVE.
+            // Handles drag-to-expand/collapse; runs before the outer consumer so it sees unconsumed MOVE.
             // 仅在有歌（!hasSong = 暂无播放）时可拖拽；用 hasSong 作 key，来了歌后手势重新激活。
             .pointerInput(hasSong) {
                 if (!hasSong) return@pointerInput
@@ -305,37 +303,56 @@ fun PlayerCard(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     // 面板内纵向手势完全交给内部 LazyColumn/进度条,根节点不消费任何事件。
                     if (isOverPanel(down.position.y, down.position.x)) return@awaitEachGesture
-                    var dragStartProgress = progress.value
-                    val dragChange = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
-                        dragStartProgress = progress.value
-                        change.consume()
-                    }
-                    if (dragChange != null) {
-                        val settled = drag(dragChange.id) { change ->
+                    val startProgress = progress.value
+                    val pointer = down.id
+                    val slop = viewConfiguration.touchSlop
+                    // 自定义竖直 slop 检测：**忽略消费标志**累积位移。标准
+                    // awaitVerticalTouchSlopOrCancellation 一旦看到事件被消费就返回 null——
+                    // miniBar 的 clickable 会消费 down/事件, 导致拖拽永远起不来
+                    // ("滑动拉起"失效)。这里越界后再 consume, 之后正常 drag。
+                    var acc = 0f
+                    var dragging = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == pointer } ?: break
+                        if (!change.pressed) break
+                        acc += change.position.y - change.previousPosition.y
+                        if (abs(acc) > slop) {
+                            dragging = true
                             change.consume()
-                            val dragAmount = change.positionChange().y
+                            break
+                        }
+                    }
+                    if (!dragging) return@awaitEachGesture
+                    // 手动拖动循环：同样忽略消费标志读位移, 边拖边 consume
+                    // （压制 miniBar clickable 的按压, 让它不会在抬手时误触发展开）。
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == pointer } ?: break
+                        if (!change.pressed) break
+                        change.consume()
+                        val dragAmount = change.position.y - change.previousPosition.y
+                        if (dragAmount != 0f) {
                             coroutineScope.launch {
                                 progress.snapTo(
                                     (progress.value - dragAmount / totalDragDistancePx).coerceIn(0f, 1f)
                                 )
                             }
                         }
-                        if (settled) {
-                            coroutineScope.launch {
-                                val target = if (dragStartProgress < 0.5f) {
-                                    if (progress.value >= 0.5f) 1f else 0f
-                                } else {
-                                    if (progress.value >= 0.75f) 1f else 0f
-                                }
-                                progress.animateTo(
-                                    target,
-                                    if (target == 1f)
-                                        tween(durationMillis = 400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
-                                    else
-                                        tween(durationMillis = 260, easing = FastOutSlowInEasing)
-                                )
-                            }
+                    }
+                    coroutineScope.launch {
+                        val target = if (startProgress < 0.5f) {
+                            if (progress.value >= 0.5f) 1f else 0f
+                        } else {
+                            if (progress.value >= 0.75f) 1f else 0f
                         }
+                        progress.animateTo(
+                            target,
+                            if (target == 1f)
+                                tween(durationMillis = 400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+                            else
+                                tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                        )
                     }
                 }
             }
