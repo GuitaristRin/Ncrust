@@ -1,4 +1,4 @@
-package com.takahashirinta.ncrust.ui.i18n
+﻿package com.takahashirinta.ncrust.ui.i18n
 
 val ruRU = Strings(
     tabHome = "Главная",
@@ -81,6 +81,7 @@ val ruRU = Strings(
     actionAddToPlaylist = "Добавить в плейлист",
     actionRemoveFromLibrary = "Удалить из библиотеки",
     actionSaveAlbum = "Сохранить альбом",
+    actionUnsaveAlbum = "Отменить сохранение альбома",
     unknownArtist = "Неизвестный исполнитель",
     playAllButton = "Играть всё",
 
@@ -157,4 +158,5 @@ val ruRU = Strings(
     searchHistoryDelete = "Удалить из истории",
 
     addedToLibrary = "Добавлено в медиатеку",
+    removedFromLibrary = "Удалено из медиатеки",
 )

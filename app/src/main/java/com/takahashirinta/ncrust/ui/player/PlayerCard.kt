@@ -96,6 +96,11 @@ fun PlayerCard(
     val lyricsLoading by playerViewModel.lyricsLoading.collectAsState()
     val lyricsSongId by playerViewModel.lyricsSongId.collectAsState()
     val showLyricsTranslation by playerViewModel.showLyricsTranslation.collectAsState()
+    // 收藏库状态: 当前歌是否已收藏(右下角 加号/对号 切换用)。切歌或操作后刷新。
+    var libraryTick by remember { mutableIntStateOf(0) }
+    val isSongSaved = remember(song?.id, libraryTick) {
+        song?.let { LibraryManager.isSongSaved(context, it.id) } ?: false
+    }
     // currentPosition / progress 是 4Hz 更新的 StateFlow，直接传引用给需要的子组件，
     // 让它们在最小作用域（graphicsLayer / Canvas draw / derivedStateOf / 叶子 Text）内订阅，
     // 避免 PlayerCard 本身随位置更新 4Hz 重组
@@ -528,9 +533,20 @@ fun PlayerCard(
                                 showLyrics = false
                             },
                             onAddToLibrary = {
-                                LibraryManager.saveSong(context, song!!)
-                                Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                                val s = song
+                                if (s != null) {
+                                    // 已在库 → 移出; 不在库 → 收藏。本地即时生效, 云端异步同步。
+                                    if (LibraryManager.isSongSaved(context, s.id)) {
+                                        LibraryManager.removeSong(context, s.id)
+                                        Toast.makeText(context, strings.removedFromLibrary, Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        LibraryManager.saveSong(context, s)
+                                        Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                                    }
+                                    libraryTick++
+                                }
                             },
+                            isInLibrary = isSongSaved,
                             isBufferingFlow = playerViewModel.isBuffering,
                             onSeek = { fraction ->
                                 val dur = playerViewModel.duration.value

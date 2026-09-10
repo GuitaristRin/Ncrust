@@ -1,4 +1,4 @@
-package com.takahashirinta.ncrust.ui.i18n
+﻿package com.takahashirinta.ncrust.ui.i18n
 
 val zhTW = Strings(
     tabHome = "首頁",
@@ -81,6 +81,7 @@ actionGoToAlbum = "前往專輯",
     actionAddToPlaylist = "入單",
     actionRemoveFromLibrary = "去藏",
     actionSaveAlbum = "藏全冊",
+    actionUnsaveAlbum = "取消收藏",
     unknownArtist = "不知名伶",
     playAllButton = "盡奏",
 
@@ -158,4 +159,5 @@ actionGoToAlbum = "前往專輯",
     searchHistoryDelete = "刪除紀錄",
 
     addedToLibrary = "已納入庫房",
+    removedFromLibrary = "已從庫中移除",
 )

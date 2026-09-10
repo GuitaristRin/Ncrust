@@ -90,6 +90,8 @@ data class Strings(
     val actionAddToPlaylist: String,
     val actionRemoveFromLibrary: String,
     val actionSaveAlbum: String,
+    // 专辑已收藏时的按钮文案(取消收藏)
+    val actionUnsaveAlbum: String,
     val unknownArtist: String,
     val playAllButton: String,
 
@@ -178,6 +180,7 @@ data class Strings(
 
     // Feedback toasts
     val addedToLibrary: String,
+    val removedFromLibrary: String,
 )
 
 /** 字节数格式化为人类可读的 B/KB/MB/GB，供 cacheSizeLabel 复用。 */

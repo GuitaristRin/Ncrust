@@ -1,4 +1,4 @@
-package com.takahashirinta.ncrust.ui.i18n
+﻿package com.takahashirinta.ncrust.ui.i18n
 
 val jpJP = Strings(
     tabHome = "ホーム",
@@ -81,6 +81,7 @@ val jpJP = Strings(
     actionAddToPlaylist = "プレイリストに追加",
     actionRemoveFromLibrary = "ライブラリから削除",
     actionSaveAlbum = "アルバム全体を保存",
+    actionUnsaveAlbum = "アルバムの保存を解除",
     unknownArtist = "不明なアーティスト",
     playAllButton = "すべて再生",
 
@@ -158,4 +159,5 @@ val jpJP = Strings(
     searchHistoryDelete = "履歴から削除",
 
     addedToLibrary = "ライブラリに追加しました",
+    removedFromLibrary = "ライブラリから削除しました",
 )

@@ -1,4 +1,4 @@
-package com.takahashirinta.ncrust.ui.i18n
+﻿package com.takahashirinta.ncrust.ui.i18n
 
 val koNK = Strings(
     tabHome = "처음",
@@ -81,6 +81,7 @@ actionGoToAlbum = "앨범 페이지로",
     actionAddToPlaylist = "목록에 추가",
     actionRemoveFromLibrary = "저장소에서 삭제",
     actionSaveAlbum = "앨범 전체 저장",
+    actionUnsaveAlbum = "앨범 저장 해제",
     unknownArtist = "알수없는 가수",
     playAllButton = "모두 재생",
 
@@ -157,4 +158,5 @@ actionGoToAlbum = "앨범 페이지로",
     searchHistoryDelete = "기록 삭제",
 
     addedToLibrary = "저장소에 추가됨",
+    removedFromLibrary = "저장소에서 제거됨",
 )

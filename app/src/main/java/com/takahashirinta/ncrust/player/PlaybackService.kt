@@ -41,6 +41,10 @@ class PlaybackService : MediaSessionService() {
     private var currentArtworkUrl: String? = null
     private var currentArtworkBitmap: Bitmap? = null
     private var currentDominantColor: Int = 0xFF1DB954.toInt()
+    // 封面加载代数: 每次 loadArtwork 自增, 完成时若代数已过期(期间又切了歌)
+    // 则丢弃结果 —— 否则慢加载的上一首封面会覆盖新歌封面, 任务栏/锁屏
+    // 显示上一首的图(切歌封面错位)。
+    private var artworkGeneration = 0
 
     companion object {
         var onProgressUpdate: ((Long, Long) -> Unit)? = null
@@ -234,6 +238,13 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun loadArtwork(url: String) {
+        // 同一张封面已在显示(如整张专辑每首歌封面相同): 不重载不重清
+        if (url == currentArtworkUrl && currentArtworkBitmap != null) return
+        val gen = ++artworkGeneration
+        // 新歌封面开始加载: 立刻清掉旧位图, 任务栏/锁屏不再挂着上一首的图
+        // (标题已换成新歌, 旧图配新标题 = 封面错位)。新图加载完由
+        // updatePlaybackState 重新带出。
+        currentArtworkBitmap = null
         scope.launch(Dispatchers.IO) {
             try {
                 val imageLoader = Coil.imageLoader(this@PlaybackService)
@@ -244,12 +255,16 @@ class PlaybackService : MediaSessionService() {
                     .size(1024, 1024)
                     .build()
                 val result = imageLoader.execute(request)
+                // 加载期间又切了歌: 丢弃过期结果, 防止慢网下上一首封面覆盖新歌
+                if (gen != artworkGeneration) return@launch
                 if (result is SuccessResult) {
                     val srcBitmap = (result.drawable as BitmapDrawable).bitmap
                     val bitmap = srcBitmap.copy(Bitmap.Config.ARGB_8888, false)
                     currentArtworkBitmap = bitmap
 
                     Palette.from(bitmap).generate { palette ->
+                        // palette 回调是异步的, 同样做代数校验
+                        if (gen != artworkGeneration) return@generate
                         palette?.getDominantColor(0xFF1DB954.toInt())?.let {
                             currentDominantColor = it
                         }

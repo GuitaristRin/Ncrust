@@ -65,6 +65,7 @@ fun MainNavGraph(
                 albumId = albumId,
                 onBack = { navController.popBackStack() },
                 onSongClick = onSongClick,
+                onArtistClick = { artistId -> navController.navigate(NavRoutes.artist(artistId)) },
                 onReplaceAndPlay = onReplaceAndPlay,
                 onInsertNext = onInsertNext,
                 onSongInsertNext = onSongInsertNext,

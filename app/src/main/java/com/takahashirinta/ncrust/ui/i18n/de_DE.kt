@@ -1,4 +1,4 @@
-package com.takahashirinta.ncrust.ui.i18n
+﻿package com.takahashirinta.ncrust.ui.i18n
 
 val deDE = Strings(
     tabHome = "Startseite",
@@ -81,6 +81,7 @@ val deDE = Strings(
     actionAddToPlaylist = "Zur Playlist hinzufügen",
     actionRemoveFromLibrary = "Aus Bibliothek entfernen",
     actionSaveAlbum = "Album speichern",
+    actionUnsaveAlbum = "Album nicht speichern",
     unknownArtist = "Unbekannter Interpret",
     playAllButton = "Alle abspielen",
 
@@ -157,4 +158,5 @@ val deDE = Strings(
     searchHistoryDelete = "Aus Verlauf entfernen",
 
     addedToLibrary = "Zur Bibliothek hinzugefügt",
+    removedFromLibrary = "Aus der Bibliothek entfernt",
 )

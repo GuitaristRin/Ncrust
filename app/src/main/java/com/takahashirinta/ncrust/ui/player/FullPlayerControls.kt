@@ -44,6 +44,8 @@ fun FullPlayerControls(
     onToggleLyrics: () -> Unit,
     onToggleQueue: () -> Unit,
     onAddToLibrary: () -> Unit = {},
+    // 当前歌是否已在收藏库: true 显示对号, 按下走"移出库"分支
+    isInLibrary: Boolean = false,
     isBufferingFlow: StateFlow<Boolean>,
     onSeek: (Float) -> Unit = {},
     onNavigateToUser: () -> Unit = {},
@@ -191,13 +193,17 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clickable { onAddToLibrary() },
+                    .clickable {
+                        tick()
+                        onAddToLibrary()
+                    },
                 contentAlignment = Alignment.Center
             ) {
+                // 已在库 → 对号(按动移出); 不在库 → 加号(按动收藏)
                 MetroIcon(
-                    imageVector = Icons.Default.Add,
+                    imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
                     contentDescription = strings.addToLibraryButton,
-                    tint = Color.White,
+                    tint = if (isInLibrary) LocalMetroColors.current.primary else Color.White,
                     sizeDp = 32.dp
                 )
             }

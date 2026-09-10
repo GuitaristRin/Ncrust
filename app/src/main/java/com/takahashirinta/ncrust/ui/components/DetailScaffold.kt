@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -94,7 +95,11 @@ fun DetailScaffold(
                                 Box(
                                     modifier = Modifier
                                         .background(LocalMetroColors.current.primary)
-                                        .clickable(onClick = onRetry)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null,
+                                            onClick = onRetry
+                                        )
                                         .padding(horizontal = 24.dp, vertical = 8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -177,6 +182,8 @@ fun DetailHeader(
     subtitle: String? = null,
     infoLines: List<String> = emptyList(),
     onPlayAll: (() -> Unit)? = null,
+    // 副标题可点击(如专辑页的作曲者 → 跳歌手页), 且无按动反馈
+    onSubtitleClick: (() -> Unit)? = null,
     headerActions: @Composable ColumnScope.() -> Unit = {}
 ) {
     val strings = LocalStrings.current
@@ -212,7 +219,14 @@ fun DetailHeader(
                     MetroText(
                         subtitle,
                         color = LocalMetroColors.current.primary,
-                        style = TextStyle(fontSize = 14.sp)
+                        style = TextStyle(fontSize = 14.sp),
+                        modifier = if (onSubtitleClick != null)
+                            Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onSubtitleClick
+                            )
+                        else Modifier
                     )
                 }
                 infoLines.forEach { line ->

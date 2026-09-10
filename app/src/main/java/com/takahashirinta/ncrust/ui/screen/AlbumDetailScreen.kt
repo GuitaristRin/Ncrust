@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -45,6 +46,7 @@ fun AlbumDetailScreen(
     albumId: Long,
     onBack: () -> Unit,
     onSongClick: (SongItem) -> Unit,
+    onArtistClick: (Long) -> Unit = {},
     onReplaceAndPlay: (List<SongItem>) -> Unit = {},
     onInsertNext: (List<SongItem>) -> Unit = {},
     onSongInsertNext: (SongItem) -> Unit = {},
@@ -60,6 +62,11 @@ fun AlbumDetailScreen(
     var showPlayAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val strings = LocalStrings.current
+    // 专辑收藏状态: 本地缓存是即时真源(云端异步同步), 切换后自增 tick 刷新
+    var albumTick by remember { mutableIntStateOf(0) }
+    val isAlbumSaved = remember(albumId, albumTick) {
+        LibraryManager.getSavedAlbums(context).any { it.albumId == albumId }
+    }
 
     LaunchedEffect(albumId) {
         // 有缓存时后台静默刷新；无缓存则前台 loading。
@@ -103,6 +110,10 @@ fun AlbumDetailScreen(
                 coverUrl = album?.picUrl,
                 title = album?.name ?: "",
                 subtitle = album?.artist?.name,
+                // 点击作曲者 → 跳歌手页, 无按动反馈
+                onSubtitleClick = {
+                    album?.artist?.id?.let { onArtistClick(it) }
+                },
                 infoLines = buildList {
                     album?.publishTime?.let { time ->
                         val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
@@ -123,20 +134,29 @@ fun AlbumDetailScreen(
                             Box(
                                 modifier = Modifier
                                     .background(Color(0xFF2A2A2A))
-                                    .clickable {
-                                        LibraryManager.subscribeAlbum(context, AlbumInfo(
-                                            albumId = albumId,
-                                            name = album?.name ?: "",
-                                            picUrl = album?.picUrl ?: "",
-                                            artist = album?.artist?.name ?: "",
-                                            songCount = songItems.size
-                                        ))
-                                        Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        if (isAlbumSaved) {
+                                            LibraryManager.removeAlbum(context, albumId)
+                                            Toast.makeText(context, strings.removedFromLibrary, Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            LibraryManager.subscribeAlbum(context, AlbumInfo(
+                                                albumId = albumId,
+                                                name = album?.name ?: "",
+                                                picUrl = album?.picUrl ?: "",
+                                                artist = album?.artist?.name ?: "",
+                                                songCount = songItems.size
+                                            ))
+                                            Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                                        }
+                                        albumTick++
                                     }
                                     .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 MetroText(
-                                    strings.actionSaveAlbum,
+                                    if (isAlbumSaved) strings.actionUnsaveAlbum else strings.actionSaveAlbum,
                                     color = LocalMetroColors.current.primary,
                                     style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 )

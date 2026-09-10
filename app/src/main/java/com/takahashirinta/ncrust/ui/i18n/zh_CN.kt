@@ -1,4 +1,4 @@
-package com.takahashirinta.ncrust.ui.i18n
+﻿package com.takahashirinta.ncrust.ui.i18n
 
 val zhCN = Strings(
     tabHome = "首页",
@@ -81,6 +81,7 @@ val zhCN = Strings(
     actionAddToPlaylist = "加入播放列表",
     actionRemoveFromLibrary = "移除收藏",
     actionSaveAlbum = "收藏整张专辑",
+    actionUnsaveAlbum = "取消收藏",
     unknownArtist = "未知歌手",
     playAllButton = "播放全部",
 
@@ -158,4 +159,5 @@ val zhCN = Strings(
     searchHistoryDelete = "删除记录",
 
     addedToLibrary = "已加入库",
+    removedFromLibrary = "已从库中移除",
 )
