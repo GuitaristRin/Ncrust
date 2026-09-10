@@ -38,8 +38,12 @@ Subject line: prefix + one-sentence Chinese summary. Body (blank line, then para
 - Conventional Commits 前缀：`feat:` / `fix:` / `docs:` / `chore:` / `refactor:` / `test:` 等
 - 提交正文使用**中文**
 - **一个 section（逻辑单元）一个 commit，主动提交，不等待用户要求**
+- **每完成一个 section 立即提交，绝不攒着**：不要等用户催、不要留一堆未提交改动。
+  本次对话里做完「数据源修复」就先提这一个，再去做「主页卡片」，不要两个一起提。
 - 禁止一个 commit 塞多个不相关功能（如「提取 txt + 修颜色 + 改文档」），难看且难回滚
 - 一个 commit 只做一件事：改一个工具 / 解一个格式 / 写一份文档 / 更新一类标注
+- 拆分依据是**逻辑单元**，不是文件数量：互相依赖、必须一起编译通过的一组改动算一个 section；
+  能独立描述、独立回滚的改动就必须分开提。
 
 ## Versioning
 
