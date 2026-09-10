@@ -30,7 +30,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -133,16 +135,22 @@ fun PlayerCard(
     // 迷你条与顶栏按钮的触觉反馈
     val haptic = LocalHapticFeedback.current
 
-    // 以下尺寸只服务窄屏的封面 overlay（宽屏封面改为左栏内流内布局，不再用绝对定位）。
+    // 唯一封面 overlay：全屏 ↔ miniBar 始终是同一个 cover，只平滑移动/缩放，绝不消失。
+    // 宽屏大图落点由左栏"封面区"实测得到（区域化，分辨率无关）。
+    var cardRootOrigin by remember { mutableStateOf(Offset.Zero) }
+    var wideCoverCenter by remember { mutableStateOf(Offset.Zero) }
+    var wideCoverSizePx by remember { mutableStateOf(0f) }
+    val coverSizePx = if (isWidePlayer) wideCoverSizePx.coerceAtLeast(1f) else screenWidthPx
+    val coverSizeDp = with(density) { coverSizePx.toDp() }
     val miniCoverHalfPx = with(density) { 28.dp.toPx() }
-    val miniScale = miniCoverHalfPx * 2f / screenWidthPx
+    val miniScale = miniCoverHalfPx * 2f / coverSizePx
     val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         .let { with(density) { it.toPx() } }
     val miniCoverCenterX = miniCoverHalfPx
     val miniCoverCenterY = statusBarPx + miniCoverHalfPx
-    val largeCoverCenterX = screenWidthPx / 2f
-    val largeCoverCenterY = screenHeightPx * 0.3f + dp24px
-    val boundsCenter = screenWidthPx / 2f
+    val largeCoverCenterX = if (isWidePlayer) wideCoverCenter.x else screenWidthPx / 2f
+    val largeCoverCenterY = if (isWidePlayer) wideCoverCenter.y else screenHeightPx * 0.3f + dp24px
+    val boundsCenter = coverSizePx / 2f
 
     // 完全收起时才激活迷你播放栏；derivedStateOf 将重组限制在阈值穿越处
     val miniBarEnabled by remember { derivedStateOf { progress.value < 0.01f } }
@@ -263,6 +271,7 @@ fun PlayerCard(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .onGloballyPositioned { cardRootOrigin = it.boundsInRoot().topLeft }
             // Outer modifier → runs last within this node in Main pass (after drag detector below).
             // Consumes remaining events when fully expanded so Scaffold siblings never receive them.
             // 面板区域不吞事件:内部列表需要先拿到未消费的 MOVE 才能滚动。
@@ -523,26 +532,19 @@ fun PlayerCard(
                                 .weight(wideLeftFraction)
                                 .fillMaxHeight()
                         ) {
-                            // 封面区：占左栏剩余纵向空间，封面取区域内较短边为准居中（流内，
-                            // 不越界到下方歌名/控件；分辨率变化也不会溢出）。
+                            // 封面区：只作为"唯一封面 overlay"在宽屏的落点参考——实测其中心与
+                            // 尺寸，交给 overlay 封面定位。这里不再放第二个封面，保证全屏 ↔
+                            // miniBar 始终是同一个 cover。
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(1f)
-                                    .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                BoxWithConstraints(contentAlignment = Alignment.Center) {
-                                    val side = minOf(maxWidth, maxHeight) * 0.94f
-                                    StableCover(
-                                        model = CoverUrls.large(s.album?.picUrl),
-                                        contentDescription = null,
-                                        placeholderColor = LocalMetroColors.current.surfaceVariant,
-                                        modifier = Modifier.size(side),
-                                        contentScale = ContentScale.Crop,
-                                    )
-                                }
-                            }
+                                    .onGloballyPositioned { coords ->
+                                        val b = coords.boundsInRoot()
+                                        wideCoverCenter = b.center - cardRootOrigin
+                                        wideCoverSizePx = minOf(b.width, b.height)
+                                    }
+                            )
                             // 歌名 / 歌手
                             Column(
                                 modifier = Modifier
@@ -576,18 +578,18 @@ fun PlayerCard(
                             }
                             Spacer(Modifier.height(8.dp))
                         }
-                        if (wideSplit > 0.01f) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f - wideLeftFraction)
-                                    .fillMaxHeight()
-                            ) {
-                                playerPanels(
-                                    Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
-                                )
-                            }
+                        // 右栏常挂载（weight 给极小下限，wideSplit=0 时宽度趋 0 但不卸载）：
+                        // 避免开关歌词时面板反复 mount/unmount 导致歌词状态丢失/不再重绘。
+                        Box(
+                            modifier = Modifier
+                                .weight((1f - wideLeftFraction).coerceAtLeast(0.0001f))
+                                .fillMaxHeight()
+                        ) {
+                            playerPanels(
+                                Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                            )
                         }
                     }
                 } else {
@@ -710,20 +712,8 @@ fun PlayerCard(
             ) {
                 if (hasSong) {
                     val s = song!!
-                    if (isWidePlayer) {
-                        // 宽屏：展开态封面在左栏内流内渲染，overlay 不再服务 mini 位，
-                        // 这里给 miniBar 一个自己的小封面。
-                        StableCover(
-                            model = CoverUrls.large(s.album?.picUrl),
-                            contentDescription = null,
-                            placeholderColor = LocalMetroColors.current.surfaceVariant,
-                            modifier = Modifier.fillMaxHeight().aspectRatio(1f),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        // 窄屏：overlay 封面会落到这个方形占位处。
-                        Spacer(modifier = Modifier.fillMaxHeight().aspectRatio(1f))
-                    }
+                    // 唯一封面 overlay 会落到这个方形占位处（窄屏与宽屏一致）。
+                    Spacer(modifier = Modifier.fillMaxHeight().aspectRatio(1f))
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -792,21 +782,25 @@ fun PlayerCard(
             }
         }
 
-        // 封面图叠加层（窄屏专用：从 mini 位生长到全屏大封面）。
-        // 宽屏封面改为左栏封面区里的流内元素，不再用绝对定位。
-        if (hasSong && !isWidePlayer) {
+        // 唯一封面叠加层：全屏 ↔ miniBar 共用这一个 cover，随 progress 平滑位移/缩放。
+        // 窄屏大图=整屏宽居中；宽屏大图=左栏封面区实测中心与尺寸。
+        if (hasSong) {
             val s = song!!
             StableCover(
                 model = CoverUrls.large(s.album?.picUrl),
                 contentDescription = null,
                 placeholderColor = LocalMetroColors.current.surfaceVariant,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
+                    .then(
+                        if (isWidePlayer) Modifier.size(coverSizeDp)
+                        else Modifier.fillMaxWidth().aspectRatio(1f)
+                    )
                     .graphicsLayer {
                         val p = progress.value
                         val normalizedP = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
-                        val lyricAnimValue = lyricAnimProgress.value
+                        // 宽屏封面恒为大图（缩到 mini 是窄屏"大封面↔歌词"切换的语义）；
+                        // 宽屏下它随分栏进度在左栏与居中之间平滑移动。
+                        val lyricAnimValue = if (isWidePlayer) 0f else lyricAnimProgress.value
 
                         val targetCenterX = largeCoverCenterX + lyricAnimValue * (miniCoverCenterX - largeCoverCenterX)
                         val targetCenterY = largeCoverCenterY + lyricAnimValue * (miniCoverCenterY - largeCoverCenterY)
