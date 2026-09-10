@@ -111,18 +111,25 @@ fun PlayerCard(
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
     val dp24px = with(density) { 24.dp.toPx() }
+    // 宽屏播放器两栏（Apple Music 式）：左封面 / 右歌词·队列。
+    val isWidePlayer = LocalConfiguration.current.screenWidthDp >= 600
+    // 封面固有尺寸：窄屏=整屏宽（现有行为）；宽屏=左栏内受高度约束的方图。
+    val coverSizePx = if (isWidePlayer)
+        minOf(screenWidthPx * 0.42f, screenHeightPx * 0.72f)
+    else screenWidthPx
+    val coverSizeDp = with(density) { coverSizePx.toDp() }
     // 迷你条与顶栏按钮的触觉反馈
     val haptic = LocalHapticFeedback.current
 
     val miniCoverHalfPx = with(density) { 28.dp.toPx() }
-    val miniScale = miniCoverHalfPx * 2f / screenWidthPx
+    val miniScale = miniCoverHalfPx * 2f / coverSizePx
     val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         .let { with(density) { it.toPx() } }
     val miniCoverCenterX = miniCoverHalfPx
     val miniCoverCenterY = statusBarPx + miniCoverHalfPx
-    val largeCoverCenterX = screenWidthPx / 2f
-    val largeCoverCenterY = screenHeightPx * 0.3f + dp24px
-    val boundsCenter = screenWidthPx / 2f
+    val largeCoverCenterX = if (isWidePlayer) screenWidthPx * 0.25f else screenWidthPx / 2f
+    val largeCoverCenterY = if (isWidePlayer) screenHeightPx * 0.5f else screenHeightPx * 0.3f + dp24px
+    val boundsCenter = coverSizePx / 2f
 
     // 完全收起时才激活迷你播放栏；derivedStateOf 将重组限制在阈值穿越处
     val miniBarEnabled by remember { derivedStateOf { progress.value < 0.01f } }
@@ -237,7 +244,8 @@ fun PlayerCard(
             (lyricsEnabled || queueSlideProgress.value > 0.5f) && progress.value > 0.7f
         }
     }
-    fun isOverPanel(y: Float) = isPanelInteractive && y > topBarBottomPx
+    fun isOverPanel(y: Float, x: Float) = isPanelInteractive && y > topBarBottomPx &&
+        (!isWidePlayer || x > screenWidthPx / 2f)
 
     Box(
         modifier = Modifier
@@ -251,7 +259,7 @@ fun PlayerCard(
                         val event = awaitPointerEvent(PointerEventPass.Main)
                         if (progress.value > 0.99f) {
                             val pos = event.changes.firstOrNull()?.position
-                            if (pos == null || !isOverPanel(pos.y)) {
+                            if (pos == null || !isOverPanel(pos.y, pos.x)) {
                                 event.changes.forEach { it.consume() }
                             }
                         }
@@ -266,7 +274,7 @@ fun PlayerCard(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     // 面板内纵向手势完全交给内部 LazyColumn/进度条,根节点不消费任何事件。
-                    if (isOverPanel(down.position.y)) return@awaitEachGesture
+                    if (isOverPanel(down.position.y, down.position.x)) return@awaitEachGesture
                     var dragStartProgress = progress.value
                     val dragChange = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
                         dragStartProgress = progress.value
@@ -314,6 +322,8 @@ fun PlayerCard(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
+                // 宽屏：内容列右移半屏，与左侧封面分栏（Apple Music 式）。
+                .padding(start = if (isWidePlayer) screenWidthDp / 2 else 0.dp)
         ) {
             if (hasSong) {
                 val s = song!!
@@ -672,12 +682,16 @@ fun PlayerCard(
                 // 纯色占位:切歌瞬间封面解码完成前不闪黑块
                 placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
+                    .then(
+                        if (isWidePlayer) Modifier.size(coverSizeDp)
+                        else Modifier.fillMaxWidth().aspectRatio(1f)
+                    )
                     .graphicsLayer {
                         val p = progress.value
                         val normalizedP = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
-                        val lyricAnimValue = lyricAnimProgress.value
+                        // 宽屏：封面恒为大图（缩到 mini 是窄屏"大封面↔歌词"切换的语义），
+                        // 歌词/队列改由右栏 alpha 淡入淡出。
+                        val lyricAnimValue = if (isWidePlayer) 0f else lyricAnimProgress.value
 
                         val targetCenterX = largeCoverCenterX + lyricAnimValue * (miniCoverCenterX - largeCoverCenterX)
                         val targetCenterY = largeCoverCenterY + lyricAnimValue * (miniCoverCenterY - largeCoverCenterY)
