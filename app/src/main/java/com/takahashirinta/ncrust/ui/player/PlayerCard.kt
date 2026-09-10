@@ -140,7 +140,11 @@ fun PlayerCard(
     var cardRootOrigin by remember { mutableStateOf(Offset.Zero) }
     var wideCoverCenter by remember { mutableStateOf(Offset.Zero) }
     var wideCoverSizePx by remember { mutableStateOf(0f) }
-    val coverSizePx = if (isWidePlayer) wideCoverSizePx.coerceAtLeast(1f) else screenWidthPx
+    val coverSizePx = if (isWidePlayer) {
+        // 实测前用兜底尺寸，避免首帧 1px 让 Coil 按 1px 解码成纯色（重进时尤为明显）。
+        if (wideCoverSizePx > 0f) wideCoverSizePx
+        else minOf(screenWidthPx * 0.4f, screenHeightPx * 0.5f)
+    } else screenWidthPx
     val coverSizeDp = with(density) { coverSizePx.toDp() }
     val miniCoverHalfPx = with(density) { 28.dp.toPx() }
     val miniScale = miniCoverHalfPx * 2f / coverSizePx
