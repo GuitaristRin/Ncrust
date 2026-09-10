@@ -22,6 +22,12 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="36">
 
+        <!-- 允许 shell (Macrobenchmark/perfetto) 做方法级采样。不加这一行, release
+             包的 trace 只有帧时序/Compose 段, 看不到具体函数热点。不影响运行性能。 -->
+        <profileable
+            android:shell="true"
+            tools:targetApi="29" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
