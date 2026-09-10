@@ -394,7 +394,8 @@ fun PlayerCard(
                         },
                         onNavigateToUser = onNavigateToUser,
                         lyricsUnavailable = !lyricsReady,
-                        previousEnabled = playMode != QueueModes.INFINITY
+                        previousEnabled = playMode != QueueModes.INFINITY,
+                        compact = isWidePlayer
                     )
                 }
 
@@ -532,7 +533,7 @@ fun PlayerCard(
                                 contentAlignment = Alignment.Center
                             ) {
                                 BoxWithConstraints(contentAlignment = Alignment.Center) {
-                                    val side = minOf(maxWidth, maxHeight) * 0.9f
+                                    val side = minOf(maxWidth, maxHeight) * 0.94f
                                     StableCover(
                                         model = CoverUrls.large(s.album?.picUrl),
                                         contentDescription = null,

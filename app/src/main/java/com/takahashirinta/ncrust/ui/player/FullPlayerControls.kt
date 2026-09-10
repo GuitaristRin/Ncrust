@@ -50,18 +50,33 @@ fun FullPlayerControls(
     onSeek: (Float) -> Unit = {},
     onNavigateToUser: () -> Unit = {},
     lyricsUnavailable: Boolean = false,
-    previousEnabled: Boolean = true
+    previousEnabled: Boolean = true,
+    // 宽屏左栏用紧凑尺寸：缩小按钮/间距，把纵向空间让给封面区。
+    compact: Boolean = false
 ) {
     val strings = LocalStrings.current
     // 触觉反馈:播放/暂停/切歌/开关面板给一个轻振,补足无 ripple 时代的确认感
     val haptic = LocalHapticFeedback.current
     fun tick() = haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+    val hPad = if (compact) 16.dp else 24.dp
+    val bottomPad = if (compact) 8.dp else 32.dp
+    val gapTight = if (compact) 4.dp else 8.dp
+    val gapLoose = if (compact) 8.dp else 16.dp
+    val ctrlRowPad = if (compact) 2.dp else 16.dp
+    val sideBtn = if (compact) 44.dp else 60.dp
+    val sideIcon = if (compact) 30.dp else 40.dp
+    val playBtn = if (compact) 58.dp else 84.dp
+    val playIcon = if (compact) 38.dp else 56.dp
+    val sideGap = if (compact) 20.dp else 32.dp
+    val toggleBtn = if (compact) 44.dp else 56.dp
+    val toggleIcon = if (compact) 26.dp else 32.dp
+
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = bottomPad)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = hPad)
         ) {
             // 位置文本抽出为叶子 Composable：仅它随 250ms 位置更新重组，
             // 不牵连按钮/进度条区域
@@ -86,24 +101,24 @@ fun FullPlayerControls(
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(gapTight))
         SlimProgressBar(
             progressFlow = progressFlow,
             durationFlow = durationFlow,
             isBufferingFlow = isBufferingFlow,
             onSeek = onSeek
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(gapLoose))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp),
+                .padding(vertical = ctrlRowPad),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(60.dp)
+                    .size(sideBtn)
                     .clickable(enabled = previousEnabled) {
                         tick()
                         onPlayPrevious()
@@ -114,13 +129,13 @@ fun FullPlayerControls(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = strings.prevButton,
                     tint = if (previousEnabled) Color.White else Color(0xFF505050),
-                    sizeDp = 40.dp
+                    sizeDp = sideIcon
                 )
             }
-            Spacer(Modifier.width(32.dp))
+            Spacer(Modifier.width(sideGap))
             Box(
                 modifier = Modifier
-                    .size(84.dp)
+                    .size(playBtn)
                     .clickable {
                         tick()
                         onPlayPause()
@@ -131,13 +146,13 @@ fun FullPlayerControls(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) strings.pauseButton else strings.playButton,
                     tint = Color.White,
-                    sizeDp = 56.dp
+                    sizeDp = playIcon
                 )
             }
-            Spacer(Modifier.width(32.dp))
+            Spacer(Modifier.width(sideGap))
             Box(
                 modifier = Modifier
-                    .size(60.dp)
+                    .size(sideBtn)
                     .clickable {
                         tick()
                         onPlayNext()
@@ -148,7 +163,7 @@ fun FullPlayerControls(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = strings.nextButton,
                     tint = Color.White,
-                    sizeDp = 40.dp
+                    sizeDp = sideIcon
                 )
             }
         }
@@ -158,7 +173,7 @@ fun FullPlayerControls(
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(toggleBtn)
                     .clickable(enabled = !lyricsUnavailable) {
                         tick()
                         onToggleLyrics()
@@ -171,12 +186,12 @@ fun FullPlayerControls(
                     // 无歌词/未加载时置灰, 语义是该歌不可展开歌词
                     tint = if (lyricsUnavailable) Color(0xFF505050)
                     else if (showLyrics) LocalMetroColors.current.primary else Color.White,
-                    sizeDp = 32.dp
+                    sizeDp = toggleIcon
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(toggleBtn)
                     .clickable {
                         tick()
                         onToggleQueue()
@@ -187,12 +202,12 @@ fun FullPlayerControls(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                     contentDescription = strings.queueButton,
                     tint = if (showQueue) LocalMetroColors.current.primary else Color.White,
-                    sizeDp = 32.dp
+                    sizeDp = toggleIcon
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(toggleBtn)
                     .clickable {
                         tick()
                         onAddToLibrary()
@@ -204,7 +219,7 @@ fun FullPlayerControls(
                     imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
                     contentDescription = strings.addToLibraryButton,
                     tint = if (isInLibrary) LocalMetroColors.current.primary else Color.White,
-                    sizeDp = 32.dp
+                    sizeDp = toggleIcon
                 )
             }
         }
