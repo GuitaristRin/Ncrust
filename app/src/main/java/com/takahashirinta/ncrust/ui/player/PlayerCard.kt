@@ -1,8 +1,11 @@
 package com.takahashirinta.ncrust.ui.player
 
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.MarqueeAnimationMode
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -20,8 +23,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -38,7 +42,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
@@ -52,6 +58,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import android.widget.Toast
@@ -723,11 +730,10 @@ fun PlayerCard(
         // 封面图叠加层
         if (hasSong) {
             val s = song!!
-            AsyncImage(
+            StableCover(
                 model = CoverUrls.large(s.album?.picUrl),
                 contentDescription = null,
-                // 纯色占位:切歌瞬间封面解码完成前不闪黑块
-                placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
+                placeholderColor = LocalMetroColors.current.surfaceVariant,
                 modifier = Modifier
                     .then(
                         if (isWidePlayer) Modifier.size(coverSizeDp)
@@ -776,5 +782,65 @@ fun PlayerCard(
                 }
             }
         }
+    }
+}
+
+// 新封面超过该阈值仍未就绪，才退化为纯色占位（"实在不出来再禁用"）。
+private const val COVER_HOLD_MS = 400L
+
+/**
+ * 切歌不闪的封面。Coil 的 [AsyncImagePainter] 在 model 变化时先进入 loading 态、
+ * 画 placeholder（纯色），新图没秒出就会闪一下占位色。这里改为：
+ *  - 记住最近一次成功加载的封面，切歌换图期间先沿用旧图（视觉无缝）；
+ *  - 新图在 [COVER_HOLD_MS] 内就绪 → 直接换上新图；
+ *  - 超过阈值仍未就绪 → 才退化为占位色。
+ */
+@Composable
+private fun StableCover(
+    model: Any?,
+    contentDescription: String?,
+    placeholderColor: Color,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
+    val context = LocalContext.current
+    val painter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context)
+            .data(model)
+            .crossfade(false)
+            .build()
+    )
+    val state = painter.state
+    // 最近一次成功加载的封面位图（跨切歌保留）。
+    var lastBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    // 新图超过阈值仍未就绪 → 退化占位色。
+    var timedOut by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state) {
+        val s = state
+        if (s is AsyncImagePainter.State.Success) {
+            (s.result.drawable as? BitmapDrawable)?.bitmap?.let { lastBitmap = it }
+            timedOut = false
+        }
+    }
+    LaunchedEffect(model) {
+        timedOut = false
+        delay(COVER_HOLD_MS)
+        if (painter.state !is AsyncImagePainter.State.Success) timedOut = true
+    }
+
+    val currentBitmap = (state as? AsyncImagePainter.State.Success)
+        ?.result?.drawable?.let { (it as? BitmapDrawable)?.bitmap }
+    val bitmap = if (timedOut) null else currentBitmap ?: lastBitmap
+
+    if (bitmap != null) {
+        Image(
+            painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+            contentDescription = contentDescription,
+            modifier = modifier,
+            contentScale = contentScale,
+        )
+    } else {
+        Box(modifier = modifier.background(placeholderColor))
     }
 }
