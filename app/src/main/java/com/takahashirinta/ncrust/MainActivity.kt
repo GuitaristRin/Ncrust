@@ -1032,17 +1032,8 @@ fun MainScreen(
             }
         }
 
-        // 宽屏无底部导航，系统导航栏区域原本露出外层黑色背景（miniBar 下方黑块）。
-        // 用 surface 铺满该区域，与 miniBar 同色，视觉上连成一条。
-        if (isWideLayout) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(systemNavBarHeightDp)
-                    .background(LocalMetroColors.current.surface)
-            )
-        }
+        // 宽屏无底部导航，miniBar 下方的系统导航栏区域由 PlayerCard 折叠态卡背
+        // 用 surface 填充（见 PlayerCard），这里不再重复铺。
 
         Box(
             modifier = Modifier
