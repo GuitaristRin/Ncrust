@@ -2,6 +2,8 @@ package com.takahashirinta.ncrust
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import android.Manifest
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -77,6 +79,8 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 手机锁竖屏、大屏(平板/折叠展开/车机)放开方向。见 applyOrientationPolicy。
+        applyOrientationPolicy()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
@@ -141,6 +145,29 @@ class MainActivity : ComponentActivity() {
                     }  // MetroTheme
                 }
             }
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 折叠展开/合拢会改变 smallestScreenWidthDp，需重新判定手机/大屏。
+        applyOrientationPolicy()
+    }
+
+    /**
+     * 方向策略：以与方向无关的 smallestScreenWidthDp 判定形态。
+     *  - 手机（< 600dp）：锁竖屏，行为与旧版一致；
+     *  - 大屏（平板 / 折叠展开 / 车机，>= 600dp）：不限制方向，避免大屏信箱模式黑边。
+     *
+     * 用 smallestScreenWidthDp 而非当前宽度：手机横屏时当前宽度可能 >= 600dp，
+     * 会误判成大屏。该值随折叠形态变化，故在 onConfigurationChanged 里重跑。
+     */
+    private fun applyOrientationPolicy() {
+        val smallestWidthDp = resources.configuration.smallestScreenWidthDp
+        requestedOrientation = if (smallestWidthDp < 600) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
 }
