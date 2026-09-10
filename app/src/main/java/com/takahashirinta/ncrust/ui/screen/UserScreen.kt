@@ -122,8 +122,10 @@ fun UserScreen(
         }
     )
 
+    // 宽屏设置/资料内容居中限宽（上限 720dp），避免设置行横跨平板。
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.widthIn(max = 720.dp).fillMaxHeight(),
         contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
         flingBehavior = rememberMetroFlingBehavior()
     ) {
@@ -331,6 +333,7 @@ fun UserScreen(
                 )
             }
         }
+    }
     }
 }
 
