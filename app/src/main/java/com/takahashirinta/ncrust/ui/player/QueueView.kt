@@ -90,6 +90,12 @@ fun QueueView(
     // 拖拽状态：draggingQueueIndex / dragTargetQueueIndex 都是队列索引（0..queue.size-1）
     var draggingQueueIndex by remember { mutableIntStateOf(-1) }
     var dragTargetQueueIndex by remember { mutableIntStateOf(-1) }
+    // 悬浮层可见性独立于 draggingQueueIndex: 落位时先撤 draggingQueueIndex
+    // (列表项本体现身、让位归零), 悬浮层多留一帧盖住交接处, 下一帧再撤——
+    // 保证"悬浮层 → 列表项"的交接跨帧重叠、像素一致, 不出现空帧/跳变
+    var overlayVisible by remember { mutableStateOf(false) }
+    // 被拖歌曲 id: 悬浮层渲染用(拖拽结束 draggingQueueIndex 清空后仍能渲染)
+    var draggedSongId by remember { mutableStateOf<Long?>(null) }
     // 悬浮行的视口顶位置(由手指驱动, 与列表项生命周期完全解耦)
     var overlayTop by remember { mutableFloatStateOf(0f) }
     // 拖拽开始时: 被拖行的视口偏移 + 按下位置(root 坐标) + 累计滚动量
@@ -177,6 +183,7 @@ fun QueueView(
     val rowsRef by rememberUpdatedState(rows)
     val currentIndexRef by rememberUpdatedState(currentIndex)
     val infinityActiveRef by rememberUpdatedState(infinityActive)
+    val queueRef by rememberUpdatedState(queue)
     val dragGesturesModifier = Modifier.pointerInput(interactive) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
@@ -199,6 +206,8 @@ fun QueueView(
             // ---- 接管拖拽 ----
             draggingQueueIndex = qi
             dragTargetQueueIndex = qi
+            overlayVisible = true
+            draggedSongId = queueRef.getOrNull(qi)?.id
             slotOffset0 = listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.index == targetVisual }
                 ?.offset?.toFloat() ?: down.position.y
@@ -270,15 +279,20 @@ fun QueueView(
                     anim.animateTo(slotTop, sokuouSpring(response = 0.18f, dampingRatio = 1f)) {
                         overlayTop = value
                     }
-                    // 等让位弹簧彻底落稳再归零, 否则归零瞬间让位残差造成一帧跳变
+                    // 等让位弹簧彻底落稳再让列表项本体现身
                     delay(150)
                     draggingQueueIndex = -1
+                    // 悬浮层多留一帧盖住交接处, 下一帧再撤: 无空帧无跳变
+                    withFrameNanos { }
+                    overlayVisible = false
+                    draggedSongId = null
                     overlayTop = 0f
                 }
             } else if (from >= 0 && to >= 0) {
-                // 落位: 悬浮行从手指位置**快速滑进目标槽位**(≤半行, 不是整段
-                // 重排动画)——瞬时对齐时手指停在行间会有最多半行跳变 =
-                // "稳定时闪一下"。滑动与让位弹簧同窗口落稳后再同帧提交
+                // 落位: 悬浮行从手指位置**快速滑进目标槽位**(≤半行), 滑动与
+                // 让位弹簧同窗口落稳后, 先提交重排(列表项本体现身 + 让位归零),
+                // 悬浮层多留一帧盖住交接处, 下一帧再撤 —— 交接跨帧重叠、像素
+                // 一致, 重排那一帧与上一帧视觉完全相同, 不可能闪
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 val startTop = overlayTop
                 val targetTop = (slotOffset0 + (to - from) * draggedRowHeight - scrollDelta)
@@ -289,17 +303,22 @@ fun QueueView(
                     anim.animateTo(targetTop, sokuouSpring(response = 0.16f, dampingRatio = 1f)) {
                         overlayTop = value
                     }
-                    // 让位弹簧落稳缓冲(残差小到亚像素再提交, 槽位跳变与让位归零
-                    // 才能精确相消, 不闪)
+                    // 让位弹簧落稳缓冲(残差降到亚像素再提交)
                     delay(150)
                     onMove(from, dropTo)
                     draggingQueueIndex = -1
                     dragTargetQueueIndex = -1
+                    // 悬浮层多留一帧, 覆盖列表重排帧; 下一帧撤掉
+                    withFrameNanos { }
+                    overlayVisible = false
+                    draggedSongId = null
                     overlayTop = 0f
                 }
             } else {
                 draggingQueueIndex = -1
                 dragTargetQueueIndex = -1
+                overlayVisible = false
+                draggedSongId = null
                 overlayTop = 0f
             }
         }
@@ -456,9 +475,9 @@ fun QueueView(
                         // 悬浮的被拖行: 拎出 LazyColumn 渲染(列表项本体隐藏)。
         // 位置 = overlayTop(手指驱动的视口位置), 与列表项生命周期无关,
         // 自动滚动把槽位滚出视口也不受影响。alpha=1: 与落定后列表项本体
-        // 的透明度完全一致, 交接瞬间没有 8% 的亮度跳变。
-        if (draggingQueueIndex >= 0) {
-            val draggedSong = queue.getOrNull(draggingQueueIndex)
+        // 的透明度完全一致, 交接瞬间没有亮度跳变。
+        if (overlayVisible) {
+            val draggedSong = draggedSongId?.let { id -> queue.firstOrNull { it.id == id } }
             if (draggedSong != null) {
                 SongCard(
                     song = draggedSong,

@@ -255,6 +255,9 @@ class PlaybackService : MediaSessionService() {
         pendingNextArtist = null
         pendingNextArtwork = null
         pendingNextSongId = -1L
+        // 手动切歌会顶掉无缝队列, 预载的下一首封面作废, 一并清掉
+        pendingNextArtworkBitmap = null
+        artworkPreloadGeneration++
         val mediaItem = androidx.media3.common.MediaItem.fromUri(url)
         player.setMediaItem(mediaItem)
         player.prepare()
