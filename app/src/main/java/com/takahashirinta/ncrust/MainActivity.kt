@@ -328,23 +328,31 @@ fun MainScreen(
 
     // ---------- Infinity 无限播放（FM 电台, 作为播放模式之一 INFINITY） ----------
     val infinityJob = remember { mutableStateOf<Job?>(null) }
+    // FM 电台入口(true) 与 相似无限播放模式(false) 共用 INFINITY 播放模式,
+    // 但续播数据源不同: FM 继续拉私人 FM 流, 相似无限拉相似歌曲。
+    var fmMode by remember { mutableStateOf(false) }
 
     /**
-     * 以当前歌为种子拉相似歌曲追加到队尾并续播。已入队的歌会被过滤,
-     * 防止 infinity 环绕重复;相似接口失败时兜底每日推荐。
+     * 队尾续播。数据源取决于入口:
+     *  - FM 电台(fmMode): 继续调私人 FM 流 getPersonalFm, 保持"电台"体验;
+     *  - 相似无限(Infinity 播放模式): 以当前歌为种子拉相似歌曲。
+     * 已入队的歌会被过滤, 防止环绕重复; 数据源为空时兜底每日推荐, 避免断播。
      * in-flight 防重入:预载心跳与播完路径可能几乎同时触发。
      */
     fun launchInfinity() {
         if (infinityJob.value?.isActive == true) return
         val seed = playbackQueue.getOrNull(currentQueueIndex) ?: return
         val existingIds = playbackQueue.map { it.id }.toSet()
+        val fromFm = fmMode
         infinityJob.value = coroutineScope.launch(Dispatchers.IO) {
-            // 数据源：相似歌曲（以当前歌为种子）。这更接近"听着听着往相似方向延伸"，
-            // 与私人 FM(电台)是不同维度——电台由主页单独入口进入。
-            val similar = runCatching {
-                PlaylistApi.getSimilarSongs(seed.id).filter { it.id !in existingIds }
-            }.getOrDefault(emptyList())
-            val continuation = if (similar.isNotEmpty()) similar else
+            val primary = if (fromFm) {
+                // 私人 FM 流: 一次只返回一小批, 队尾再拉一次即无限续播电台。
+                runCatching { PlaylistApi.getPersonalFm() }.getOrDefault(emptyList())
+            } else {
+                // 相似歌曲（以当前歌为种子），听着听着往相似方向延伸。
+                runCatching { PlaylistApi.getSimilarSongs(seed.id) }.getOrDefault(emptyList())
+            }.filter { it.id !in existingIds }
+            val continuation = if (primary.isNotEmpty()) primary else
                 runCatching {
                     PlaylistApi.getDailyRecommendSongs().filter { it.id !in existingIds }
                 }.getOrDefault(emptyList())
@@ -646,6 +654,7 @@ fun MainScreen(
 
     fun replaceQueueAndPlay(songs: List<SongItem>) {
         if (songs.isEmpty()) return
+        fmMode = false
         playbackQueue = songs
         currentQueueIndex = 0
         if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
@@ -656,7 +665,7 @@ fun MainScreen(
     /**
      * 主页「我的电台」入口: 进入真正的私人 FM(INFINITY 播放模式)。
      * 主数据源是网易私人 FM 流(getPersonalFm), 失败时兜底每日推荐,
-     * 保证入口点下去一定有歌。之后靠 INFINITY 的队尾续播机制无限延伸。
+     * 保证入口点下去一定有歌。之后靠 INFINITY 的队尾续播机制继续拉 FM 流无限延伸。
      */
     fun startFm() {
         playMode = QueueModes.INFINITY
@@ -667,6 +676,8 @@ fun MainScreen(
             if (songs.isNotEmpty()) {
                 withContext(Dispatchers.Main) {
                     replaceQueueAndPlay(songs)
+                    // replaceQueueAndPlay 会清 fmMode, 电台标记须在其后置位。
+                    fmMode = true
                     expandCard()
                 }
             }
@@ -714,6 +725,7 @@ fun MainScreen(
 
     // 切换播放模式：顺序循环 → 单曲 → 乱序 → 顺序线性 → 相似无限(FM)，循环。
     val onTogglePlayMode: () -> Unit = {
+        fmMode = false
         playMode = (playMode + 1) % 5
         if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         else {

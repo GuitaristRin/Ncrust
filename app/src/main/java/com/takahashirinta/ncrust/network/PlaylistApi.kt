@@ -353,18 +353,35 @@ object PlaylistApi {
 
     /**
      * 相似歌曲（Infinity 无限播放的数据源）。
-     * 客户端端点 /eapi/v1/discovery/similarSong, payload 用 songid(小写, 与官方一致)。
+     *
+     * 主端点用客户端 eapi /eapi/v1/discovery/similarSong；该端点若失效/返回空
+     * （实测会退化成每日推荐），回退官方 weapi /api/discovery/simiSong。
      * 返回歌曲是老格式(artists/album/duration), 解析时新旧字段都兜底;
      * artists[].id 带出来, 供后续"转到歌手/专辑"回调直接使用。
      */
     suspend fun getSimilarSongs(songId: Long, limit: Int = 20): List<SongItem> = withContext(Dispatchers.IO) {
-        val response = RetrofitClient.eapiPost(
-            "/eapi/v1/discovery/similarSong",
+        val payloadJson = JSONObject(
             mapOf("songid" to songId.toString(), "limit" to limit.toString(), "offset" to "0")
-        )
-        val body = response.body?.string() ?: return@withContext emptyList()
-        val arr = JSONObject(body).optJSONArray("songs") ?: return@withContext emptyList()
-        (0 until arr.length()).map { i ->
+        ).toString()
+
+        val eapi = runCatching {
+            val response = RetrofitClient.eapiPost(
+                "/eapi/v1/discovery/similarSong",
+                mapOf("songid" to songId.toString(), "limit" to limit.toString(), "offset" to "0")
+            )
+            response.body?.string()?.let { parseSimilarSongs(it) } ?: emptyList()
+        }.getOrDefault(emptyList())
+        if (eapi.isNotEmpty()) return@withContext eapi
+
+        runCatching {
+            val response = RetrofitClient.weapiPost("/api/discovery/simiSong", payloadJson)
+            response.body?.string()?.let { parseSimilarSongs(it) } ?: emptyList()
+        }.getOrDefault(emptyList())
+    }
+
+    private fun parseSimilarSongs(body: String): List<SongItem> {
+        val arr = JSONObject(body).optJSONArray("songs") ?: return emptyList()
+        return (0 until arr.length()).map { i ->
             val s = arr.getJSONObject(i)
             SongItem(
                 id = s.optLong("id"),
