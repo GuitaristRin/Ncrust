@@ -124,12 +124,16 @@ fun QueueView(
     val nowVisualRow = rows.indexOfFirst { it.kind == RowKind.NOW_HEAD }
     // 目标 = 「现在播放」标题下面那首歌, 而不是标题本身 —— 定位的是正在播的行
     val nowSongVisualRow = (nowVisualRow + 1).takeIf { it < rows.size } ?: nowVisualRow
-    // 让目标行垂直居中(相对整个队列面板)的滚动偏移
+    // 让目标行垂直居中(相对整个队列面板)的滚动偏移。
+    // 注意 scrollToItem 的 scrollOffset 语义是"正值把行往上滚出视口"(官方文档:
+    // positive offset ... will scroll the item further upward, taking it partly offscreen),
+    // 要让行落到视口内 (视口高-行高-标题高)/2 处, 必须传**负值**。
     fun centerScrollOffset(target: Int): Int {
         val info = listState.layoutInfo
         val item = info.visibleItemsInfo.first { it.index == target }
-        return (((info.viewportEndOffset - item.size - queueHeaderHeightPx) / 2f).toInt())
-            .coerceAtLeast(0)
+        val desired = ((info.viewportEndOffset - item.size - queueHeaderHeightPx) / 2f)
+            .toInt().coerceAtLeast(0)
+        return -desired
     }
     val wasQueueOpen = remember { mutableStateOf(false) }
     LaunchedEffect(isActive, currentIndex, nowVisualRow) {
