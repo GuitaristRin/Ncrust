@@ -108,6 +108,14 @@ fun PlayerCard(
     // subscribing at this scope would force the whole PlayerCard subtree to recompose on song
     // change / buffer flap, dragging in AsyncImage + Column layout for no reason.
 
+    // 宽屏分栏进度：0 = 单栏（封面居中、控件铺满居中），1 = 两栏（左封面+控件 / 右歌词·队列）。
+    // 由是否显示歌词/队列驱动；窄屏不读取该值（不触发额外重组）。
+    val wideSplit by animateFloatAsState(
+        targetValue = if (showLyrics || showQueue) 1f else 0f,
+        animationSpec = tween(280, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)),
+        label = "widePlayerSplit"
+    )
+
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
     val dp24px = with(density) { 24.dp.toPx() }
@@ -127,8 +135,11 @@ fun PlayerCard(
         .let { with(density) { it.toPx() } }
     val miniCoverCenterX = miniCoverHalfPx
     val miniCoverCenterY = statusBarPx + miniCoverHalfPx
-    val largeCoverCenterX = if (isWidePlayer) screenWidthPx * 0.25f else screenWidthPx / 2f
-    val largeCoverCenterY = if (isWidePlayer) screenHeightPx * 0.5f else screenHeightPx * 0.3f + dp24px
+    // 宽屏左栏宽度：随 wideSplit 在整宽(单栏)与 44%(两栏)之间过渡。窄屏恒为整宽。
+    val wideLeftWidthPx = if (isWidePlayer) screenWidthPx * (1f - 0.56f * wideSplit) else screenWidthPx
+    val wideLeftWidthDp = with(density) { wideLeftWidthPx.toDp() }
+    val largeCoverCenterX = if (isWidePlayer) wideLeftWidthPx / 2f else screenWidthPx / 2f
+    val largeCoverCenterY = if (isWidePlayer) screenHeightPx * 0.36f else screenHeightPx * 0.3f + dp24px
     val boundsCenter = coverSizePx / 2f
 
     // 完全收起时才激活迷你播放栏；derivedStateOf 将重组限制在阈值穿越处
@@ -322,13 +333,13 @@ fun PlayerCard(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                // 宽屏：内容列右移半屏，与左侧封面分栏（Apple Music 式）。
-                .padding(start = if (isWidePlayer) screenWidthDp / 2 else 0.dp)
         ) {
             if (hasSong) {
                 val s = song!!
 
-                // 顶部标题栏：小封面模式下显示曲名（收起按钮在外层 Box 最高 z 序）
+                // 顶部标题栏：小封面模式下显示曲名（收起按钮在外层 Box 最高 z 序）。
+                // 宽屏两栏时歌名移到左栏封面下方，故此处不渲染。
+                if (!isWidePlayer) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -367,6 +378,7 @@ fun PlayerCard(
                         )
                     }
                 }
+                }
 
                 // 内容区外壳。子内容常挂载（无 gate）——见文件头对 expandedEnough 的注释。
                 // alpha=0 时 draw 阶段短路，layout 仍走但 LazyColumn/Canvas 都是懒的，运行时开销可控。
@@ -374,6 +386,8 @@ fun PlayerCard(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        // 宽屏：歌词/队列落在右栏（左栏宽度随分栏进度变化）。
+                        .then(if (isWidePlayer) Modifier.padding(start = wideLeftWidthDp) else Modifier)
                         .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                 ) {
                     // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
@@ -487,7 +501,8 @@ fun PlayerCard(
                         }
 
                         // 大封面模式下的曲名/歌手信息：overlay 在内容区底部，不占 Column 高度。
-                        // alpha 随 lyricAnimProgress 淡入淡出，无需 if 控制 Composition 成员资格。
+                        // 宽屏歌名移到左栏（随封面），此处不渲染。
+                        if (!isWidePlayer) {
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
@@ -515,13 +530,44 @@ fun PlayerCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                        }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
                 // 底部播放控件常挂载（与内容区同理）。FullPlayerControls 内部有 SlimProgressBar
                 // Canvas + PositionText collectAsState + 多个 IconButton，成本一次性付在 MainScreen 首帧。
-                Box(modifier = Modifier.graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }) {
+                Box(modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }) {
+                    Column(
+                        modifier = Modifier
+                            .width(wideLeftWidthDp)
+                            .align(Alignment.CenterStart)
+                    ) {
+                        // 宽屏：歌名/歌手置于左栏封面下方（窄屏由内容区底部 overlay 承担）。
+                        if (isWidePlayer) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .clickable { onSongInfoClick() }
+                            ) {
+                                MetroText(
+                                    s.name,
+                                    color = Color.White,
+                                    style = LocalMetroTypography.current.titleLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                MetroText(
+                                    s.artists?.joinToString("/") { it.name } ?: "",
+                                    color = LocalMetroColors.current.primary,
+                                    style = LocalMetroTypography.current.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(Modifier.height(12.dp))
+                        }
                         FullPlayerControls(
                             isPlaying = isPlaying,
                             showLyrics = showLyrics,
@@ -568,6 +614,7 @@ fun PlayerCard(
                             lyricsUnavailable = !lyricsReady,
                             previousEnabled = playMode != QueueModes.INFINITY
                         )
+                    }
                 }
             }
         }
