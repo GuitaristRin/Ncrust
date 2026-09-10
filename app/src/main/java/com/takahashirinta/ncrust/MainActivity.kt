@@ -152,6 +152,15 @@ fun formatDuration(ms: Long): String {
     return "%d:%02d".format(minutes, seconds)
 }
 
+/** 播放模式：0=顺序循环, 1=单曲循环, 2=乱序, 3=顺序线性(播完停), 4=相似无限(FM 电台)。 */
+object QueueModes {
+    const val CYCLE = 0
+    const val SINGLE = 1
+    const val SHUFFLE = 2
+    const val LINE = 3
+    const val INFINITY = 4
+}
+
 @Composable
 fun MainScreen(
     themeIndex: Int = 0,
@@ -242,7 +251,7 @@ fun MainScreen(
         if (savedQueue != null && savedQueue.first.isNotEmpty()) {
             playbackQueue = savedQueue.first.toMutableList()
             currentQueueIndex = savedQueue.second.coerceIn(0, playbackQueue.size - 1)
-            if (playMode == 2) {
+            if (playMode == QueueModes.SHUFFLE) {
                 generateShuffledIndices()
             }
         }
@@ -257,27 +266,11 @@ fun MainScreen(
         if (found != null) currentSong = found
     }
 
-    fun addToQueue(song: SongItem) {
-        // playSongItem 专用：让 currentQueueIndex 指向即将播放的这首歌本身。
-        // 若歌已在队列中，就地跳过去不重排；否则追加到队尾。
-        // 严禁在循环里调用（会导致 currentQueueIndex 跑到最后而实际播首曲，
-        // 结束后 playNext 回绕到 0 → 永远回放第一首）。批量场景请用 replaceQueueAndPlay。
-        val existing = playbackQueue.indexOfFirst { it.id == song.id }
-        if (existing >= 0) {
-            currentQueueIndex = existing
-        } else {
-            playbackQueue = playbackQueue + song
-            currentQueueIndex = playbackQueue.size - 1
-        }
-        if (playMode == 2) generateShuffledIndices()
-        PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
-    }
-
     fun removeFromQueue(index: Int) {
         playbackQueue = playbackQueue.toMutableList().also { it.removeAt(index) }
         if (currentQueueIndex >= playbackQueue.size) currentQueueIndex = playbackQueue.size - 1
         if (playbackQueue.isEmpty()) currentQueueIndex = -1
-        if (playMode == 2) generateShuffledIndices()
+        if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
@@ -294,7 +287,7 @@ fun MainScreen(
             else -> currentQueueIndex
         }
         playbackQueue = newQueue
-        if (playMode == 2) generateShuffledIndices()
+        if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
@@ -308,33 +301,33 @@ fun MainScreen(
 
             // Immediately preload the next song so ExoPlayer has maximum time to buffer it.
             val nextIdx = when (playMode) {
-                1 -> index
-                2 -> shuffledIndices.getOrNull(
+                QueueModes.SINGLE -> index
+                QueueModes.SHUFFLE -> shuffledIndices.getOrNull(
                     if (shuffledPosition < shuffledIndices.size - 1) shuffledPosition + 1 else 0
                 ) ?: 0
-                else -> if (index < playbackQueue.size - 1) index + 1 else 0
+                QueueModes.LINE ->
+                    if (index < playbackQueue.size - 1) index + 1 else -1
+                QueueModes.INFINITY ->
+                    if (index < playbackQueue.size - 1) index + 1 else -1
+                // CYCLE: 队尾循环到队首, 但单曲队列不预载自身(避免播完自动重播=假单曲循环)
+                else ->
+                    if (playbackQueue.size > 1) {
+                        if (index < playbackQueue.size - 1) index + 1 else 0
+                    } else -1
             }
             val nextSong = playbackQueue.getOrNull(nextIdx)
             if (nextSong != null) {
                 val (nTitle, nArtist, nArtwork) = songParams(nextSong)
-                playerViewModel.preloadNextSong(nextSong.id, nTitle, nArtist, nArtwork)
+                playerViewModel.preloadNextSong(
+                    nextSong.id, nTitle, nArtist, nArtwork,
+                    allowCurrent = playMode == QueueModes.SINGLE
+                )
             }
         }
     }
 
-    // ---------- Infinity 无限播放 ----------
-    var infinityEnabled by remember {
-        mutableStateOf(
-            context.getSharedPreferences("ncrust_settings", 0).getBoolean("infinity_playback", true)
-        )
-    }
+    // ---------- Infinity 无限播放（FM 电台, 作为播放模式之一 INFINITY） ----------
     val infinityJob = remember { mutableStateOf<Job?>(null) }
-
-    val onToggleInfinity: () -> Unit = {
-        infinityEnabled = !infinityEnabled
-        context.getSharedPreferences("ncrust_settings", 0)
-            .edit().putBoolean("infinity_playback", infinityEnabled).apply()
-    }
 
     /**
      * 以当前歌为种子拉相似歌曲追加到队尾并续播。已入队的歌会被过滤,
@@ -346,6 +339,8 @@ fun MainScreen(
         val seed = playbackQueue.getOrNull(currentQueueIndex) ?: return
         val existingIds = playbackQueue.map { it.id }.toSet()
         infinityJob.value = coroutineScope.launch(Dispatchers.IO) {
+            // 数据源：相似歌曲（以当前歌为种子）。这更接近"听着听着往相似方向延伸"，
+            // 与私人 FM(电台)是不同维度——电台由主页单独入口进入。
             val similar = runCatching {
                 PlaylistApi.getSimilarSongs(seed.id).filter { it.id !in existingIds }
             }.getOrDefault(emptyList())
@@ -357,7 +352,7 @@ fun MainScreen(
             withContext(Dispatchers.Main) {
                 playbackQueue = playbackQueue + continuation
                 val startIdx = playbackQueue.size - continuation.size
-                if (playMode == 2) generateShuffledIndices()
+                if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
                 playFromQueue(startIdx)
                 PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
                 // 为无缝衔接立即预载 infinity 首曲之后的一首
@@ -372,24 +367,43 @@ fun MainScreen(
     fun playNext() {
         if (playbackQueue.isEmpty()) return
         when (playMode) {
-            1 -> playerViewModel.seekTo(0)
-            2 -> {
+            QueueModes.SINGLE -> playerViewModel.seekTo(0)
+            QueueModes.SHUFFLE -> {
                 if (shuffledIndices.isEmpty() || shuffledPosition >= shuffledIndices.size - 1) {
-                    generateShuffledIndices()
-                    playFromQueue(shuffledIndices[0])
+                    // 乱序一轮播完后按"下一首": 生成**全新**乱序并播新序列首曲。
+                    // 旧实现把当前曲固定为下一项(shuffledIndices[0]=current),
+                    // 队列尾按下一首=重播当前曲, 观感就是"单曲循环/进度跳回开头"。
+                    val fresh = playbackQueue.indices.shuffled()
+                    shuffledIndices = fresh
                     shuffledPosition = 0
+                    playFromQueue(fresh.getOrElse(0) { 0 })
                 } else {
                     shuffledPosition++
                     playFromQueue(shuffledIndices[shuffledPosition])
                 }
             }
-            else -> {
+            QueueModes.LINE -> {
+                // 顺序线性：队列尾自然结束后不再循环, 定位到首曲(不自动续播)
                 if (currentQueueIndex < playbackQueue.size - 1) {
                     playFromQueue(currentQueueIndex + 1)
-                } else if (infinityEnabled) {
-                    // 类 Apple Music Infinity：队列自然播完不再循环整轮，
-                    // 以当前歌为种子续播相似歌曲
+                } else {
+                    currentQueueIndex = 0
+                    currentSong = playbackQueue.firstOrNull()
+                    PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+                    playerViewModel.pausePlayback()
+                }
+            }
+            QueueModes.INFINITY -> {
+                // 队列尾 → FM 电台式相似歌曲续播
+                if (currentQueueIndex < playbackQueue.size - 1) {
+                    playFromQueue(currentQueueIndex + 1)
+                } else {
                     launchInfinity()
+                }
+            }
+            else -> { // CYCLE
+                if (currentQueueIndex < playbackQueue.size - 1) {
+                    playFromQueue(currentQueueIndex + 1)
                 } else {
                     playFromQueue(0)
                 }
@@ -399,9 +413,11 @@ fun MainScreen(
 
     fun playPrevious() {
         if (playbackQueue.isEmpty()) return
+        // FM 电台(INFINITY)不可回退：上一首禁用
+        if (playMode == QueueModes.INFINITY) return
         when (playMode) {
-            1 -> playerViewModel.seekTo(0)
-            2 -> {
+            QueueModes.SINGLE -> playerViewModel.seekTo(0)
+            QueueModes.SHUFFLE -> {
                 if (shuffledPosition > 0) {
                     shuffledPosition--
                     playFromQueue(shuffledIndices[shuffledPosition])
@@ -431,22 +447,40 @@ fun MainScreen(
             if (!needs) return@collect
             val nextSong: SongItem? = when {
                 playbackQueue.isEmpty() -> null
-                playMode == 1 -> playbackQueue.getOrNull(currentQueueIndex)  // 单曲循环
-                playMode == 2 -> {
+                playMode == QueueModes.SINGLE -> playbackQueue.getOrNull(currentQueueIndex)
+                playMode == QueueModes.SHUFFLE -> {
                     val nextPos = if (shuffledPosition < shuffledIndices.size - 1)
                         shuffledPosition + 1 else 0
                     playbackQueue.getOrNull(shuffledIndices.getOrNull(nextPos) ?: 0)
                 }
+                playMode == QueueModes.LINE ->
+                    // 顺序线性: 队尾之后没有下一首, 不预载(否则队尾歌会 gapless 回绕队首,
+                    // 单曲队列更是会 [A,A] 自动过渡 = 假单曲循环)。
+                    playbackQueue.getOrNull(
+                        if (currentQueueIndex < playbackQueue.size - 1) currentQueueIndex + 1 else -1
+                    )
+                playMode == QueueModes.INFINITY -> {
+                    if (currentQueueIndex < playbackQueue.size - 1)
+                        playbackQueue.getOrNull(currentQueueIndex + 1) else null
+                }
                 else -> {
-                    val nextIdx = if (currentQueueIndex < playbackQueue.size - 1)
-                        currentQueueIndex + 1 else 0
+                    // CYCLE: 队尾循环到队首；单曲队列不预载自身(避免播完自动重播=假单曲循环)
+                    val nextIdx = when {
+                        playbackQueue.size <= 1 -> -1
+                        currentQueueIndex < playbackQueue.size - 1 -> currentQueueIndex + 1
+                        else -> 0
+                    }
                     playbackQueue.getOrNull(nextIdx)
                 }
             }
             if (nextSong != null) {
                 val (title, artist, artwork) = songParams(nextSong)
-                playerViewModel.preloadNextSong(nextSong.id, title, artist, artwork)
-            } else if (playMode == 0 && infinityEnabled &&
+                // 单曲循环模式: 预载自身是实现无缝单曲循环的手段, 显式放行
+                playerViewModel.preloadNextSong(
+                    nextSong.id, title, artist, artwork,
+                    allowCurrent = playMode == QueueModes.SINGLE
+                )
+            } else if (playMode == QueueModes.INFINITY &&
                 currentQueueIndex >= playbackQueue.size - 1 && playbackQueue.isNotEmpty()
             ) {
                 // 队列尾 + Infinity: 提前拉相似歌追加, 追加完成时才来得及无缝预载——
@@ -462,8 +496,8 @@ fun MainScreen(
         songTransitioned = false
         if (playbackQueue.isEmpty()) return@LaunchedEffect
         val nextIndex = when (playMode) {
-            1 -> currentQueueIndex
-            2 -> {
+            QueueModes.SINGLE -> currentQueueIndex
+            QueueModes.SHUFFLE -> {
                 if (shuffledPosition < shuffledIndices.size - 1) {
                     shuffledPosition++
                     shuffledIndices.getOrElse(shuffledPosition) { 0 }
@@ -473,6 +507,14 @@ fun MainScreen(
                     shuffledIndices.getOrElse(0) { 0 }
                 }
             }
+            // 顺序线性: 队尾没有预载(见 needsPreload 分支), 正常不会走到这里;
+            // 万一有竞态残留, 停在队尾而不是回绕队首。
+            QueueModes.LINE ->
+                if (currentQueueIndex < playbackQueue.size - 1) currentQueueIndex + 1
+                else currentQueueIndex.coerceIn(0, playbackQueue.size - 1)
+            QueueModes.INFINITY ->
+                if (currentQueueIndex < playbackQueue.size - 1) currentQueueIndex + 1
+                else if (playbackQueue.isNotEmpty()) 0 else currentQueueIndex
             else -> if (currentQueueIndex < playbackQueue.size - 1) currentQueueIndex + 1 else 0
         }
         currentQueueIndex = nextIndex
@@ -482,16 +524,28 @@ fun MainScreen(
 
         // Immediately start preloading the song after this one.
         val nnIdx = when (playMode) {
-            1 -> nextIndex
-            2 -> shuffledIndices.getOrNull(
+            QueueModes.SINGLE -> nextIndex
+            QueueModes.SHUFFLE -> shuffledIndices.getOrNull(
                 if (shuffledPosition < shuffledIndices.size - 1) shuffledPosition + 1 else 0
             ) ?: 0
-            else -> if (nextIndex < playbackQueue.size - 1) nextIndex + 1 else 0
+            QueueModes.LINE ->
+                if (nextIndex < playbackQueue.size - 1) nextIndex + 1 else -1
+            QueueModes.INFINITY -> {
+                if (nextIndex < playbackQueue.size - 1) nextIndex + 1
+                else { launchInfinity(); -1 }
+            }
+            // CYCLE: 单曲队列不预载自身(避免 ExoPlayer [A,A] 闭环=假单曲循环)
+            else -> if (playbackQueue.size > 1) {
+                if (nextIndex < playbackQueue.size - 1) nextIndex + 1 else 0
+            } else -1
         }
         val songToPreload = playbackQueue.getOrNull(nnIdx)
         if (songToPreload != null) {
             val (pTitle, pArtist, pArtwork) = songParams(songToPreload)
-            playerViewModel.preloadNextSong(songToPreload.id, pTitle, pArtist, pArtwork)
+            playerViewModel.preloadNextSong(
+                songToPreload.id, pTitle, pArtist, pArtwork,
+                allowCurrent = playMode == QueueModes.SINGLE
+            )
         }
     }
 
@@ -529,10 +583,34 @@ fun MainScreen(
     }
 
     fun playSongItem(song: SongItem) {
-        val (title, artist, artwork) = songParams(song)
-        currentSong = song
-        addToQueue(song)
-        playerViewModel.playSong(song.id, title = title, artist = artist, artworkUrl = artwork)
+        // 单曲直接播放 → 插到当前播放的下一首并立即播放（不再是"排到队尾"）。
+        // 队列未在播放（空/无当前曲）时, 该曲作为唯一一首。
+        val isQueued = playbackQueue.isNotEmpty() && currentQueueIndex in playbackQueue.indices
+        if (!isQueued) {
+            playbackQueue = listOf(song)
+            currentQueueIndex = 0
+            if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
+            PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+            playFromQueue(0)
+            expandCard()
+            return
+        }
+        // 内联 insertNext 语义：去重后把该曲插到当前歌的下一首，并让 currentQueueIndex 指向它
+        val currentId = playbackQueue.getOrNull(currentQueueIndex)?.id
+        if (song.id != currentId) {
+            val filtered = playbackQueue.filter { it.id != song.id }.toMutableList()
+            val newCurrentIndex = if (currentId != null)
+                filtered.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+            else -1
+            val insertPos = (newCurrentIndex + 1).coerceIn(0, filtered.size)
+            filtered.add(insertPos, song)
+            playbackQueue = filtered
+            currentQueueIndex = if (newCurrentIndex < 0) 0 else newCurrentIndex
+            if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
+            PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+        }
+        val idx = playbackQueue.indexOfFirst { it.id == song.id }
+        if (idx >= 0) playFromQueue(idx)
         expandCard()
     }
 
@@ -550,7 +628,7 @@ fun MainScreen(
         filtered.add(insertPos, song)
         playbackQueue = filtered
         currentQueueIndex = if (newCurrentIndex < 0) 0 else newCurrentIndex
-        if (playMode == 2) generateShuffledIndices()
+        if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
@@ -562,7 +640,7 @@ fun MainScreen(
         currentQueueIndex = if (currentId != null)
             playbackQueue.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
         else 0
-        if (playMode == 2) generateShuffledIndices()
+        if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
@@ -570,9 +648,29 @@ fun MainScreen(
         if (songs.isEmpty()) return
         playbackQueue = songs
         currentQueueIndex = 0
-        if (playMode == 2) generateShuffledIndices()
+        if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         playFromQueue(0)
         expandCard()
+    }
+
+    /**
+     * 主页「我的电台」入口: 进入真正的私人 FM(INFINITY 播放模式)。
+     * 主数据源是网易私人 FM 流(getPersonalFm), 失败时兜底每日推荐,
+     * 保证入口点下去一定有歌。之后靠 INFINITY 的队尾续播机制无限延伸。
+     */
+    fun startFm() {
+        playMode = QueueModes.INFINITY
+        coroutineScope.launch(Dispatchers.IO) {
+            val fm = runCatching { PlaylistApi.getPersonalFm() }.getOrDefault(emptyList())
+            val songs = if (fm.isNotEmpty()) fm
+                else runCatching { PlaylistApi.getDailyRecommendSongs() }.getOrDefault(emptyList())
+            if (songs.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    replaceQueueAndPlay(songs)
+                    expandCard()
+                }
+            }
+        }
     }
 
     fun insertAllNext(songs: List<SongItem>) {
@@ -595,7 +693,7 @@ fun MainScreen(
         filtered.addAll(insertPos, toInsert)
         playbackQueue = filtered
         currentQueueIndex = newCurrentIndex
-        if (playMode == 2) generateShuffledIndices()
+        if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
@@ -610,14 +708,14 @@ fun MainScreen(
         if (newSongs.isEmpty()) return
         // 尾追加不动 currentQueueIndex 前面的项，无需修正索引。
         playbackQueue = playbackQueue + newSongs
-        if (playMode == 2) generateShuffledIndices()
+        if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
     }
 
-    // 切换播放模式并初始化随机索引。
+    // 切换播放模式：顺序循环 → 单曲 → 乱序 → 顺序线性 → 相似无限(FM)，循环。
     val onTogglePlayMode: () -> Unit = {
-        playMode = (playMode + 1) % 3
-        if (playMode == 2) generateShuffledIndices()
+        playMode = (playMode + 1) % 5
+        if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         else {
             shuffledIndices = emptyList()
             shuffledPosition = 0
@@ -815,8 +913,6 @@ fun MainScreen(
             onPlayFromQueue = { playFromQueue(it) },
             onMoveInQueue = ::moveInQueue,
             onTogglePlayMode = onTogglePlayMode,
-            infinityEnabled = infinityEnabled,
-            onToggleInfinity = onToggleInfinity,
             onPlayNothing = {
                 // 暂无播放 → 一键开始: 优先缓存里的每日推荐, 否则现拉
                 coroutineScope.launch(Dispatchers.IO) {
@@ -888,7 +984,9 @@ fun MainScreen(
                             },
                             onSongInsertNext = { insertNext(it) },
                             onSongAppendToQueue = { appendToQueue(it) },
-                            onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions }
+                            onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
+                            // 主页「我的电台」入口: 之前一直没传, HomeScreen 的 FM 卡因此永不渲染
+                            onPlayFm = { startFm() }
                         )
 
                         1 -> LibraryScreen(

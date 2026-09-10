@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.player
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
@@ -40,14 +41,17 @@ import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
+import com.takahashirinta.ncrust.QueueModes
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
+import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouTweens
 import io.github.takahashirinta.kanesumi.controls.MetroDivider
 import io.github.takahashirinta.kanesumi.controls.MetroIconButton
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import android.widget.Toast
@@ -70,8 +74,6 @@ fun PlayerCard(
     onPlayFromQueue: (Int) -> Unit = {},
     onMoveInQueue: (Int, Int) -> Unit = { _, _ -> },
     onTogglePlayMode: () -> Unit = {},
-    infinityEnabled: Boolean = true,
-    onToggleInfinity: () -> Unit = {},
     onPlayNothing: () -> Unit = {},
     onSongInfoClick: () -> Unit = {},
     onClearQueue: () -> Unit = {},
@@ -79,7 +81,9 @@ fun PlayerCard(
     onNavigateToUser: () -> Unit = {}
 ) {
     val hasSong = song != null
-    var showLyrics by remember { mutableStateOf(true) }
+    // 初始落大封面: 歌词未就绪时(加载中/确无), 全屏默认看封面而非空歌词面板;
+    // lyricsReady 到位后由下方的 LaunchedEffect 自动切回歌词视图。
+    var showLyrics by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val context = LocalContext.current
@@ -89,6 +93,8 @@ fun PlayerCard(
     val playerViewModel: PlayerViewModel = viewModel()
     val lyrics by playerViewModel.lyrics.collectAsState()
     val translatedLyrics by playerViewModel.translatedLyrics.collectAsState()
+    val lyricsLoading by playerViewModel.lyricsLoading.collectAsState()
+    val lyricsSongId by playerViewModel.lyricsSongId.collectAsState()
     val showLyricsTranslation by playerViewModel.showLyricsTranslation.collectAsState()
     // currentPosition / progress 是 4Hz 更新的 StateFlow，直接传引用给需要的子组件，
     // 让它们在最小作用域（graphicsLayer / Canvas draw / derivedStateOf / 叶子 Text）内订阅，
@@ -129,10 +135,56 @@ fun PlayerCard(
     // lyricAnimProgress：0 = 大封面，1 = 小封面；驱动封面缩放 + 内容淡入淡出
     // queueSlideProgress：0 = 歌词位置，1 = 列表位置；仅 b↔c 时动画，其他时 snap
     // 两个 Animatable 均只在 graphicsLayer { } draw 阶段读取，动画帧内零 recompose
-    val lyricAnimProgress = remember { Animatable(1f) }
+    // 初始 0（大封面）：冷启动/splash 后若当前歌无歌词，首帧即大封面，不会"停"在歌词位
+    val lyricAnimProgress = remember { Animatable(0f) }
     val queueSlideProgress = remember { Animatable(0f) }
     // 仅在歌词模式下歌词可交互；阈值穿越处各触发一次重组，其余帧零重组
     val lyricsEnabled by remember { derivedStateOf { lyricAnimProgress.value > 0.5f && queueSlideProgress.value < 0.5f } }
+    // 卡片基本展开(>90%)时播放器内容区才可交互。面板常挂载、graphicsLayer 只调 alpha,
+    // 折叠态下歌词行/队列行在屏幕底部(迷你条与导航栏之间的缝隙)依然命中测试——
+    // 用户"在导航栏底部乱按"会点到不可见的歌词行/队列行, 触发 seek/切歌。
+    // 展开阈值和 alpha 淡入阈值(0.7)错开, 保证交互只在内容真正可见后开启。
+    val cardExpandedForInput by remember { derivedStateOf { progress.value > 0.9f } }
+
+    // ---- 歌词可达性驱动的「大封面 ↔ 歌词视图」自动切换 ----
+    // - 歌词就绪(lyricsReady)：用户若停在大封面则自动切回歌词视图（Apple Music 语义）。
+    // - 歌词未就绪(切歌/仍在加载)：不立刻落大封面——歌词视图里给新歌词 3s 加载窗口，
+    //   窗口内保持当前视图、只渐隐旧歌词；3s 后仍无歌词才落大封面 + 灰按钮。
+    // - 用户在队列视图时不打扰。
+    var awaitingLyrics by remember { mutableStateOf(false) }
+    // lyricsReady：歌词**属于当前歌**且非加载中。旧歌词残留(切歌过渡)不算就绪——
+    // 由 lyricsSongId == song?.id 保证, 否则无歌词的新歌会被误判就绪显示旧歌词。
+    val lyricsReady = lyricsSongId == song?.id && !lyricsLoading && lyrics.isNotEmpty()
+
+    LaunchedEffect(song?.id, lyricsReady, showQueue) {
+        when {
+            !lyricsReady && !showQueue && showLyrics -> {
+                // 曾在歌词视图：等新歌词最多 3 秒, 期间不落大封面（避免封面抖动）
+                awaitingLyrics = true
+                delay(3_000)
+                // 窗口结束仍无"当前歌的歌词就绪"(加载完成但无歌词/加载失败) → 落大封面
+                if (lyricsSongId != song?.id) {
+                    showLyrics = false
+                }
+                awaitingLyrics = false
+            }
+            !lyricsReady && !showQueue -> {
+                // 无歌词/加载中且不在歌词视图：大封面 + 灰按钮
+                showLyrics = false
+                awaitingLyrics = false
+            }
+            lyricsReady && !showQueue && !showLyrics -> {
+                // 歌词就绪 + 用户停在大封面：自动切回歌词视图
+                awaitingLyrics = false
+                showLyrics = true
+            }
+            showQueue -> {
+                // 用户在队列：不打扰, 放弃自动回切
+                awaitingLyrics = false
+            }
+            else -> awaitingLyrics = false
+        }
+    }
 
     LaunchedEffect(showLyrics, showQueue) {
         when {
@@ -333,18 +385,26 @@ fun PlayerCard(
                                     translationX = -q * screenWidthPx
                                 }
                         ) {
-                            LyricsView(
-                                lyrics = lyrics,
-                                translatedLyrics = translatedLyrics,
-                                showTranslation = showLyricsTranslation,
-                                positionFlow = playerViewModel.currentPosition,
-                                isPlaying = isPlaying,
-                                isVisible = showLyrics,
-                                forcedLocateTrigger = lyricLocateTrigger,
-                                onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
-                                enabled = lyricsEnabled,
-                                onUserScrolled = {},
-                            )
+                            // 切歌时旧歌词渐隐、新歌词渐显（Sokuou UWP 缓动）。
+                            // key = song?.id：同一首歌的歌词更新不触发 Crossfade, 只换内容。
+                            Crossfade(
+                                targetState = song?.id,
+                                animationSpec = SokuouTweens.CoverFade,
+                                label = "LyricsCrossfade"
+                            ) { _ ->
+                                LyricsView(
+                                    lyrics = lyrics,
+                                    translatedLyrics = translatedLyrics,
+                                    showTranslation = showLyricsTranslation,
+                                    positionFlow = playerViewModel.currentPosition,
+                                    isPlaying = isPlaying,
+                                    isVisible = showLyrics,
+                                    forcedLocateTrigger = lyricLocateTrigger,
+                                    onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
+                                    enabled = lyricsEnabled && cardExpandedForInput,
+                                    onUserScrolled = {},
+                                )
+                            }
                         }
 
                         // 列表面板：translationX 从 +screenWidthPx 滑至 0，稳定态时完全在屏幕外
@@ -373,22 +433,14 @@ fun PlayerCard(
                                 MetroIconButton(onClick = onTogglePlayMode) {
                                     MetroIcon(
                                         imageVector = when (playMode) {
-                                            0 -> Icons.Default.Repeat
-                                            1 -> Icons.Default.RepeatOne
-                                            2 -> Icons.Default.Shuffle
+                                            QueueModes.SINGLE -> Icons.Default.RepeatOne
+                                            QueueModes.SHUFFLE -> Icons.Default.Shuffle
+                                            QueueModes.LINE -> Icons.Default.PlaylistPlay
+                                            QueueModes.INFINITY -> Icons.Default.AllInclusive
                                             else -> Icons.Default.Repeat
                                         },
                                         contentDescription = strings.playModeButton,
-                                        tint = if (playMode != 0) LocalMetroColors.current.primary else Color.White,
-                                        sizeDp = 24.dp
-                                    )
-                                }
-                                // Infinity 无限播放: 队列播完以相似歌曲续播, 类 Apple Music
-                                MetroIconButton(onClick = onToggleInfinity) {
-                                    MetroIcon(
-                                        imageVector = Icons.Default.AllInclusive,
-                                        contentDescription = "Infinity",
-                                        tint = if (infinityEnabled) LocalMetroColors.current.primary else Color.White,
+                                        tint = if (playMode != QueueModes.CYCLE) LocalMetroColors.current.primary else Color.White,
                                         sizeDp = 24.dp
                                     )
                                 }
@@ -414,6 +466,9 @@ fun PlayerCard(
                             QueueView(
                                 queue = playbackQueue,
                                 currentIndex = currentQueueIndex,
+                                playMode = playMode,
+                                isActive = showQueue,
+                                interactive = cardExpandedForInput,
                                 onPlayIndex = onPlayFromQueue,
                                 onRemoveIndex = onRemoveFromQueue,
                                 onMove = onMoveInQueue
@@ -487,7 +542,9 @@ fun PlayerCard(
                                     playerViewModel.seekTo((fraction * dur).toLong())
                                 }
                             },
-                            onNavigateToUser = onNavigateToUser
+                            onNavigateToUser = onNavigateToUser,
+                            lyricsUnavailable = !lyricsReady,
+                            previousEnabled = playMode != QueueModes.INFINITY
                         )
                 }
             }

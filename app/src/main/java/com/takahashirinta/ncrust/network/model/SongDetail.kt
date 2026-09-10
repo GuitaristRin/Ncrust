@@ -31,6 +31,7 @@ data class SongDetail(
 )
 
 data class LyricResponse(
+    @SerializedName("code") val code: Int = 200,
     @SerializedName("lrc") val lrc: LyricContent?,
     @SerializedName("tlyric") val tlyric: LyricContent?
 )

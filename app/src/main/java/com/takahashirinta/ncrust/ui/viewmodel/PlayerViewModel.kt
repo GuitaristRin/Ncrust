@@ -16,6 +16,7 @@ import com.takahashirinta.ncrust.player.PlaybackService
 import com.takahashirinta.ncrust.player.PlaybackStateManager
 import com.takahashirinta.ncrust.player.PlayReporter
 import com.takahashirinta.ncrust.player.SongUrlFetcher
+import com.takahashirinta.ncrust.player.SongUrlResult
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -25,8 +26,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val duration = MutableStateFlow(0L)
     val progress = MutableStateFlow(0f)
     val lyrics = MutableStateFlow<List<LrcLine>>(emptyList())
+    // 当前 lyrics 内容所属的歌曲 id：-1 = 尚无(切歌后旧歌词只是渐隐过渡, 不算就绪)。
+    // 让 UI 的 "lyricsReady" 判断基于"歌词属于当前歌", 而非"有没有歌词数组"——
+    // 否则切歌后旧歌词残留会被误判为就绪, 把无歌词的新歌切回歌词视图显示旧歌词。
+    val lyricsSongId = MutableStateFlow(-1L)
     // 外文歌词的译文(tlyric),Spotify 式渲染在原句下方。
     val translatedLyrics = MutableStateFlow<List<LrcLine>>(emptyList())
+    // 歌词是否仍在加载中(网络往返未返回)。UI 用它区分「真的没歌词」与「还没加载出来」:
+    // 加载中或成功为空 → 全屏默认大封面、歌词按钮置灰;加载出非空 → 自动切回歌词视图。
+    val lyricsLoading = MutableStateFlow(false)
     // 设置页开关:是否显示歌词翻译。默认开——外文歌直接看到双语,中文歌 tlyric 为空不受影响。
     val showLyricsTranslation = MutableStateFlow(true)
 
@@ -65,7 +73,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var lastErrorHandledAt = 0L
 
     private var gaplessEnabled = false
-    private val PRELOAD_THRESHOLD_MS = 20_000L
+    // 进入当前歌最后 60 秒即触发下一首预载: 取链(网络往返)+ ExoPlayer 准备/buffer
+    // 需要充足时间, 20s 碰到慢网络/冷缓存会来不及, 无缝退化成硬切。
+    private val PRELOAD_THRESHOLD_MS = 60_000L
 
     // Metadata for the in-flight preload; applied when ExoPlayer auto-transitions.
     // All reads/writes happen on the main thread.
@@ -137,6 +147,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // Called on the main thread by ExoPlayer's onMediaItemTransition (AUTO reason).
         PlaybackService.onSongTransitioned = {
             if (preloadedSongId > 0) {
+                resetLyricsForNewSong()
                 currentSongId.value = preloadedSongId
                 currentSongName.value = preloadedTitle
                 currentSongArtist.value = preloadedArtist
@@ -156,6 +167,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         val savedState = PlaybackStateManager.getState(getApplication())
         if (savedState != null) {
+            resetLyricsForNewSong()
             currentSongId.value = savedState.songId
             currentSongName.value = savedState.songName
             currentSongArtist.value = savedState.songArtist
@@ -193,6 +205,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun setOnSongTransitionedCallback(callback: () -> Unit) { onSongTransitionedCallback = callback }
     fun setOnUnplayableCallback(callback: () -> Unit) { onUnplayableCallback = callback }
 
+    /**
+     * 切歌时置加载态, 但**不清空旧歌词内容**。
+     *
+     * 保留旧歌词是为了让 Crossfade(以 songId 为 key)能对"上一首歌词→新歌词"做平滑渐隐:
+     * 如果这里立即清空, 切歌瞬间歌词面板就空了, 渐隐无从谈起。新歌词由 fetchLyrics
+     * 成功覆盖; 若确无歌词, 由 PlayerCard 的 3s 阈值状态机落回大封面盖住面板。
+     */
+    private fun resetLyricsForNewSong() {
+        lyricsLoading.value = true
+        // 旧歌词是渐隐过渡素材, 不属于新歌; 在"当前歌歌词就绪"判定里立即失效
+        lyricsSongId.value = -1L
+    }
+
     fun resetPreloadFlag() { needsPreload.value = false }
 
     fun refreshGaplessSetting() {
@@ -216,6 +241,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun playSong(songId: Long, title: String = "", artist: String = "", artworkUrl: String = "", quality: String = "") {
         songPlayVersion++
+        val fetchVersion = songPlayVersion
         latestPlaySongId = songId
         needsPreload.value = false
         refreshGaplessSetting()
@@ -238,6 +264,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             lastPlayedLevel = cachedEntry.actualLevel
             val actualIdx = qualityApiLevels.indexOf(cachedEntry.actualLevel).coerceAtLeast(0)
             currentQualityIndex.value = actualIdx
+            resetLyricsForNewSong()
             currentSongId.value = songId
             currentSongName.value = title
             currentSongArtist.value = artist
@@ -271,7 +298,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     withContext(Dispatchers.Main) { onUnplayableCallback?.invoke() }
                     return@launch
                 }
+                // 取链期间若有更新的 playSong / 预载接管发生(版本号已前进),
+                // 本次结果作废: 再发一次 "url" intent 会让 ExoPlayer setMediaItem
+                // 把同一首歌重播一遍 —— 就是"听起来像拖带"的卡顿。
+                if (fetchVersion != songPlayVersion) return@launch
                 val actualIdx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
+                resetLyricsForNewSong()
                 fetchLyrics(songId)
                 withContext(Dispatchers.Main) {
                     lastPlayedLevel = result.actualLevel
@@ -339,10 +371,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
-    fun preloadNextSong(songId: Long, title: String, artist: String, artworkUrl: String) {
-        // Dedup: skip if URL already cached (valid TTL) or same song is already being fetched.
-        if (preloadCache[songId]?.let { System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS } == true) return
+    fun preloadNextSong(songId: Long, title: String, artist: String, artworkUrl: String, allowCurrent: Boolean = false) {
+        // Dedup: skip only if the SAME song is already being fetched/in queue.
+        // 不能因 URL 已缓存而整体跳过——缓存意味着"省的再取链", 但下一首仍需
+        // addMediaItem 入 ExoPlayer 队列才能无缝切换; 否则缓存命中时直接 return,
+        // ExoPlayer 队列永远只有当前一首, 播完必然走 songEnded→playNext 硬切(= 无缝失效)。
         if (currentlyPreloadingSongId == songId) return
+        // 把当前正在播的歌再入队(除单曲循环由 MainScreen 显式 allowCurrent 外)——
+        // 队尾回绕/单曲队列等边界会让 [A,A] 自动过渡成"假单曲循环"。
+        if (!allowCurrent && songId == currentSongId.value && songId > 0) return
 
         val capturedVersion = songPlayVersion
         preloadJob?.cancel()
@@ -358,7 +395,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     qualityApiLevels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
                 else
                     qualityApiLevels.getOrElse(prefs.getInt("mobile_quality", 1)) { "higher" }
-                val result = SongUrlFetcher.fetch(songId, quality)
+                // 缓存命中(同档 + TTL 内)则跳过网络, 但仍走下方入队路径。
+                val cacheHit = preloadCache[songId]?.takeIf {
+                    it.requestedLevel == quality &&
+                        System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS
+                }
+                val result = cacheHit?.let { SongUrlResult(it.url, it.actualLevel) }
+                    ?: SongUrlFetcher.fetch(songId, quality)
                 if (result == null) {
                     // 预加载失败：可能无版权/无订阅，忽略即可，等当前歌结束时由 songEnded 跳歌。
                     currentlyPreloadingSongId = -1L
@@ -372,10 +415,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         // playSong was called while this fetch was in flight.
                         // If it was for THIS same song and hasn't completed its own fetch, take over.
                         if (songId == latestPlaySongId && currentSongId.value != songId) {
+                            // 接管 = 一次新的开播动作: 版本号前进, 让并发 playSong 的
+                            // 取链结果在 fetchVersion 检查处作废, 杜绝二次 setMediaItem 重播。
+                            songPlayVersion++
                             playJob?.cancel()
                             val idx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                             currentQualityIndex.value = idx
                             lastPlayedLevel = result.actualLevel
+                            resetLyricsForNewSong()
                             currentSongId.value = songId
                             currentSongName.value = title
                             currentSongArtist.value = artist
@@ -429,32 +476,61 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { fetchLyrics(songId) }
     }
 
+    // 同一首歌的歌词请求只允许一个在途(playSong / onSongTransitioned / 冷启动恢复
+    // 会并发发起, 不打去重会瞬间打 3×n 个请求, 触发服务端限流反而更拉胯)。
+    private var lyricsFetchingSongId = -1L
+
     private suspend fun fetchLyrics(songId: Long) {
-        // 失败重试(最多 2 次, 错开 600ms): 冷启动时 AppWarmup 与恢复请求同时在
-        // 打网络, 歌词请求的瞬时超时/限流不该让歌词永久消失。
-        repeat(3) { attempt ->
-            try {
-                val lyricResponse = RetrofitClient.api.getLyric(id = songId)
-                val lrcText = lyricResponse.lrc?.lyric ?: ""
-                val tlyricText = lyricResponse.tlyric?.lyric ?: ""
-                // 只在本请求仍是"当前歌"时写入——恢复路径与 playSong 的并发请求
-                // 返回乱序时, 旧请求不得覆盖新歌的歌词/译文
-                if (currentSongId.value == songId) {
-                    if (lrcText.isNotEmpty()) {
-                        lyrics.value = LrcParser.parse(lrcText)
+        if (lyricsFetchingSongId == songId) return
+        lyricsFetchingSongId = songId
+        // 失败重试(最多 4 次, 递增退避): 冷启动时 AppWarmup 与恢复请求同时在
+        // 打网络, 歌词请求的瞬时超时/限流不该让歌词永久消失。关键是**响应层面的
+        // 失败也要重试** —— 服务端风控(-460/-462)或需登录(301)返回的 code!=200
+        // 响应里 lrc 为空, 旧实现当成"这首歌没歌词"直接结束, 用户必须切歌才能
+        // 重新触发加载; 这些失败码是瞬时的, 退避重试大概率能拿到真歌词。
+        lyricsLoading.value = true
+        try {
+            repeat(4) { attempt ->
+                try {
+                    val lyricResponse = RetrofitClient.api.getLyric(id = songId)
+                    val code = lyricResponse.code
+                    val lrcText = lyricResponse.lrc?.lyric ?: ""
+                    val tlyricText = lyricResponse.tlyric?.lyric ?: ""
+                    // code==200 且 lrc 字段存在(即使内容为空) → 服务端已确认, 结束。
+                    // 其余形态(code!=200 / lrc 缺失)按瞬时故障重试。
+                    val settled = code == 200 && (lyricResponse.lrc != null || tlyricText.isNotEmpty())
+                    if (!settled && attempt < 3) {
+                        Log.w("PlayerViewModel", "fetchLyrics unsettled songId=$songId code=$code, retry ${attempt + 1}")
+                        delay(700L + attempt * 400L)
+                        return@repeat
                     }
-                    translatedLyrics.value =
-                        if (tlyricText.isNotEmpty()) LrcParser.parse(tlyricText) else emptyList()
-                }
-                return
-            } catch (e: Exception) {
-                // 失败不清空已有歌词(网络抖动不该把 UI 变空白), 重试后仍失败才退出
-                if (attempt == 2) {
-                    Log.e("PlayerViewModel", "fetchLyrics failed for songId=$songId", e)
+                    // 只在本请求仍是"当前歌"时写入——恢复路径与 playSong 的并发请求
+                    // 返回乱序时, 旧请求不得覆盖新歌的歌词/译文
+                    if (currentSongId.value == songId) {
+                        if (lrcText.isNotEmpty()) {
+                            lyrics.value = LrcParser.parse(lrcText)
+                            // 有歌词：标记为"当前歌的歌词就绪"（供 UI 自动回切歌词视图）
+                            lyricsSongId.value = songId
+                        }
+                        if (tlyricText.isNotEmpty()) {
+                            translatedLyrics.value = LrcParser.parse(tlyricText)
+                        }
+                        // lrc 为空（确无歌词）: 不清空 lyrics(旧歌词供 Crossfade 渐隐),
+                        // 也不设置 lyricsSongId → lyricsReady 保持 false, 由 3s 阈值落封面。
+                    }
                     return
+                } catch (e: Exception) {
+                    // 失败不清空已有歌词(网络抖动不该把 UI 变空白), 重试后仍失败才退出
+                    if (attempt == 3) {
+                        Log.e("PlayerViewModel", "fetchLyrics failed for songId=$songId", e)
+                        return
+                    }
+                    delay(700L + attempt * 400L)
                 }
-                delay(600L)
             }
+        } finally {
+            lyricsLoading.value = false
+            if (lyricsFetchingSongId == songId) lyricsFetchingSongId = -1L
         }
     }
 
@@ -465,6 +541,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun prepareSongWithoutPlay(songId: Long, title: String, artist: String, artworkUrl: String) {
         latestPlaySongId = songId
+        resetLyricsForNewSong()
         currentSongId.value = songId
         currentSongName.value = title
         currentSongArtist.value = artist
@@ -473,8 +550,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         duration.value = 0L
         progress.value = 0f
         isPlaying.value = false
-        lyrics.value = emptyList()
-        translatedLyrics.value = emptyList()
         viewModelScope.launch { fetchLyrics(songId) }
         PlaybackStateManager.saveState(
             getApplication(), songId, title, artist, artworkUrl, false
@@ -483,7 +558,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun togglePlayPause() {
         val songId = currentSongId.value
-        if (duration.value == 0L && songId != null && songId > 0) {
+        // 只有"已载入但从未开播"的场景才走全量 playSong(剪贴板单曲/冷启动恢复态)。
+        // duration==0 且当前曲正在播(如无缝过渡后心跳还没把 duration 同步回来)时
+        // 若走 playSong 会重取 URL + setMediaItem, 把正在播的歌从 0 重播一遍=拖带感。
+        if (duration.value == 0L && songId != null && songId > 0 && !isPlaying.value) {
             playSong(
                 songId,
                 title = currentSongName.value ?: "",
@@ -495,6 +573,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         isPlaying.value = !isPlaying.value
         val intent = Intent(getApplication(), PlaybackService::class.java).apply {
             putExtra("action", if (isPlaying.value) "resume" else "pause")
+        }
+        getApplication<Application>().startService(intent)
+    }
+
+    /** 仅暂停播放,保留当前歌曲与队列(LINE 模式队尾停用)。 */
+    fun pausePlayback() {
+        isPlaying.value = false
+        val intent = Intent(getApplication(), PlaybackService::class.java).apply {
+            putExtra("action", "pause")
         }
         getApplication<Application>().startService(intent)
     }
@@ -517,6 +604,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         app.startService(intent)
         isPlaying.value = false
+        resetLyricsForNewSong()
         currentSongId.value = null
         currentSongName.value = null
         currentSongArtist.value = null
