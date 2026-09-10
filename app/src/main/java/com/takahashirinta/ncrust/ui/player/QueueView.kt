@@ -297,12 +297,14 @@ fun QueueView(
                                                         },
                                                         onDrag = { change, _ ->
                                                             change.consume()
-                                                            // 关键: 累计增量, 不能取绝对值。
-                                                            // 悬浮层(以及原行)不跟随手指位移的话, 指针事件的局部
-                                                            // 坐标会被行自身的 graphicsLayer 位移反变换——绝对值会
-                                                            // 形成反馈环: 行只跟手一半距离 + 过冲回摆抖动。累计增量
-                                                            // 后行 1:1 跟随, 局部坐标保持按下值, 增量收敛为 0。
-                                                            dragOffsetY += change.position.y - dragStartY
+                                                            // 悬浮层模型: 被拖行本体(把手所在的行)不再跟随手指平移,
+                                                            // 指针局部坐标只受列表滚动影响——位移直接用"当前局部 y -
+                                                            // 按下时的 y"取**绝对值**即可 1:1 跟手(该差值天然包含
+                                                            // 列表滚动项, 见下)。旧模型里行自身带 translation,
+                                                            // 局部坐标被反变换形成反馈环, 才需要累计增量; 悬浮层
+                                                            // 没有这层反馈, 若仍累计会每帧把总位移再叠一遍 → 卡片
+                                                            // 直接飞出去=失控。
+                                                            dragOffsetY = change.position.y - dragStartY
                                                             val viewportH =
                                                                 listState.layoutInfo.viewportEndOffset.toFloat()
                                                             // 行不能飞出队列可见区: 手指出界时行钉在视口上/下边缘
