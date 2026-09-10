@@ -192,19 +192,25 @@ fun PlayerCard(
     // 由 lyricsSongId == song?.id 保证, 否则无歌词的新歌会被误判就绪显示旧歌词。
     val lyricsReady = lyricsSongId == song?.id && !lyricsLoading && lyrics.isNotEmpty()
 
+    // 每首歌只自动切到歌词视图一次；用户手动关掉歌词后，不再被自动打开
+    // （否则关歌词时 showLyrics 被 effect 立刻改回 true，wideSplit 回不到 0，
+    //  表现为"封面/控件都不动"）。
+    var autoSwitchedForSong by remember(song?.id) { mutableStateOf(false) }
+
     LaunchedEffect(song?.id, lyricsReady, lyricsLoading, showQueue) {
         when {
             showQueue -> {
                 // 用户在队列：不打扰, 放弃自动回切
             }
-            // 歌词就绪 → 自动切到歌词视图（封面缩小/左移）
-            lyricsReady -> if (!showLyrics) showLyrics = true
-            // 歌词加载中 → 先等一个阈值再决定：若期间就绪就完全不动封面；
-            // 迟迟不来才回大封面。避免切歌瞬间因"旧歌词已清空、新歌词未到"而
-            // 让封面来回动一下。
+            // 歌词就绪 → 首次自动切到歌词视图（封面缩小/左移）
+            lyricsReady -> {
+                if (!autoSwitchedForSong) {
+                    autoSwitchedForSong = true
+                    if (!showLyrics) showLyrics = true
+                }
+            }
+            // 加载中：保持当前视图，不清空也不切回大封面 —— 切歌时封面完全不动。
             lyricsLoading -> {
-                delay(LYRICS_COVER_FALLBACK_MS)
-                if (!lyricsReady && !showQueue) showLyrics = false
             }
             // 确无歌词（加载完成且为空）→ 回大封面
             else -> if (showLyrics) showLyrics = false
@@ -847,9 +853,6 @@ fun PlayerCard(
 
 // 新封面超过该阈值仍未就绪，才退化为纯色占位（"实在不出来再禁用"）。
 private const val COVER_HOLD_MS = 400L
-
-// 切歌后歌词加载超过该阈值仍未就绪，才回大封面（避免封面因加载间隙来回动）。
-private const val LYRICS_COVER_FALLBACK_MS = 500L
 
 /**
  * 切歌不闪的封面。Coil 的 [AsyncImagePainter] 在 model 变化时先进入 loading 态、
