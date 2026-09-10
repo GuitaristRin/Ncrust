@@ -1,8 +1,8 @@
 package com.takahashirinta.ncrust.ui.player
 
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -36,6 +36,7 @@ import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
+import io.github.takahashirinta.kanesumi.anim.sokuou.sokuouSpring
 import io.github.takahashirinta.kanesumi.controls.MetroDivider
 import io.github.takahashirinta.kanesumi.controls.MetroIconButton
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
@@ -50,8 +51,9 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroText
  *  - 拖拽排序仅限「将要播放」区（手指碰到右侧三条横线即开始拖动，无需长按），
  *    原因是过去区是播放历史，动它会破坏「现在播放的下一首」语义；
  *    infinity(FM) 模式下整个队列只读。
- *  - 拖动过程是纯视觉联动：被拖行跟随手指、中间行让位动画，真正的队列
- *    (stack) 只在手指抬起、状态稳定后才更新一次。
+ *  - 拖动过程是纯视觉联动：被拖行 1:1 跟随手指（无动画、无滞后，跟手），
+ *    中间行用 Sokuou 阻尼弹簧让位；真正的队列(stack)只在手指抬起、
+ *    状态稳定后才更新一次，落位用弹簧 placement 平滑收尾。
  *  - infinity(FM) 且将要播放为空 → 显示「相似歌曲续播」占位符。
  *  - 面板每次可见时把「现在播放」自动定位到视觉中心。
  */
@@ -178,18 +180,25 @@ fun QueueView(
                                 qi < draggingQueueIndex && qi >= dragTargetQueueIndex -> draggedRowHeight
                             else -> 0f
                         }
+                        // Sokuou 阻尼弹簧: 让位动作有惯性与阻尼, 不硬切不振荡
                         val animatedShift = animateFloatAsState(
                             targetValue = shiftTarget,
-                            animationSpec = tween(140, easing = LinearOutSlowInEasing),
+                            animationSpec = sokuouSpring(response = 0.22f, dampingRatio = 1f),
                             label = "queueRowShift"
                         ).value
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItem()
+                                .animateItem(
+                                    // 松手落位: 阻尼弹簧 placement, 平滑滑进新位置
+                                    placementSpec = spring(
+                                        dampingRatio = 0.9f,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )
                                 .graphicsLayer {
                                     // 被拖行直接跟随手指(graphicsLayer 帧内读取, 不触发重组);
-                                    // 其余行用动画让位, 形成"挖出空位"的联动感
+                                    // 其余行用弹簧让位, 形成"挖出空位"的联动感
                                     translationY = if (qi == draggingQueueIndex) dragOffsetY else animatedShift
                                     alpha = if (qi == draggingQueueIndex) 0.92f else 1f
                                 }
@@ -229,8 +238,13 @@ fun QueueView(
                                                         },
                                                         onDrag = { change, _ ->
                                                             change.consume()
-                                                            // 被拖行跟随手指: 位移 = 当前指针 y - 按下时的 y
-                                                            dragOffsetY = change.position.y - dragStartY
+                                                            // 关键: 累计增量, 不能取绝对值。
+                                                            // 被拖行自身带着 graphicsLayer translation, 指针事件的
+                                                            // 局部坐标会被该位移反变换——用绝对值计算 offset 会形成
+                                                            // 反馈环: 行只跟手一半距离, 每帧都在过冲/回摆 = 抖动。
+                                                            // 累计增量后: 行 1:1 跟随手指, 局部坐标保持按下时的值,
+                                                            // 增量收敛到 0, 不再振荡。
+                                                            dragOffsetY += change.position.y - dragStartY
                                                             val rowCenterViewportY =
                                                                 (draggedRowTopInRoot - listTopInRoot) +
                                                                     draggedRowHeight / 2f + dragOffsetY
