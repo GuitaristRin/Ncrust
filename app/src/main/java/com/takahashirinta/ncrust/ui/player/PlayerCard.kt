@@ -541,13 +541,9 @@ fun PlayerCard(
                                     .weight(1f)
                                     .onGloballyPositioned { coords ->
                                         val b = coords.boundsInRoot()
-                                        // 贴边（Metro）：落点 = 区域左上角 + 半个边长，而不是居中。
-                                        val size = minOf(b.width, b.height)
-                                        wideCoverSizePx = size
-                                        wideCoverCenter = Offset(
-                                            b.left - cardRootOrigin.x + size / 2f,
-                                            b.top - cardRootOrigin.y + size / 2f,
-                                        )
+                                        // 封面在左栏封面区内居中（不贴边，视觉更和谐）。
+                                        wideCoverCenter = b.center - cardRootOrigin
+                                        wideCoverSizePx = minOf(b.width, b.height)
                                     }
                             )
                             // 歌名 / 歌手
