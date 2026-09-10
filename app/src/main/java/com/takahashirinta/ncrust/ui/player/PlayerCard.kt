@@ -128,27 +128,21 @@ fun PlayerCard(
     val dp24px = with(density) { 24.dp.toPx() }
     // 宽屏播放器两栏（Apple Music 式）：左封面 / 右歌词·队列。
     val isWidePlayer = LocalConfiguration.current.screenWidthDp >= 600
-    // 封面固有尺寸：窄屏=整屏宽（现有行为）；宽屏=左栏内的方图，受左栏宽与高度双重约束，
-    // 留出底部控件/歌名的空间（否则封面 overlay 会盖住控件）。
-    val coverSizePx = if (isWidePlayer)
-        minOf(screenWidthPx * 0.34f, screenHeightPx * 0.46f)
-    else screenWidthPx
-    val coverSizeDp = with(density) { coverSizePx.toDp() }
+    // 宽屏左栏占整宽的比例：随 wideSplit 在 100%(单栏) 与 44%(两栏) 间过渡。窄屏恒为 1。
+    val wideLeftFraction = if (isWidePlayer) 1f - 0.56f * wideSplit else 1f
     // 迷你条与顶栏按钮的触觉反馈
     val haptic = LocalHapticFeedback.current
 
+    // 以下尺寸只服务窄屏的封面 overlay（宽屏封面改为左栏内流内布局，不再用绝对定位）。
     val miniCoverHalfPx = with(density) { 28.dp.toPx() }
-    val miniScale = miniCoverHalfPx * 2f / coverSizePx
+    val miniScale = miniCoverHalfPx * 2f / screenWidthPx
     val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         .let { with(density) { it.toPx() } }
     val miniCoverCenterX = miniCoverHalfPx
     val miniCoverCenterY = statusBarPx + miniCoverHalfPx
-    // 宽屏左栏宽度：随 wideSplit 在整宽(单栏)与 44%(两栏)之间过渡。窄屏恒为整宽。
-    val wideLeftWidthPx = if (isWidePlayer) screenWidthPx * (1f - 0.56f * wideSplit) else screenWidthPx
-    val wideLeftWidthDp = with(density) { wideLeftWidthPx.toDp() }
-    val largeCoverCenterX = if (isWidePlayer) wideLeftWidthPx / 2f else screenWidthPx / 2f
-    val largeCoverCenterY = if (isWidePlayer) screenHeightPx * 0.32f else screenHeightPx * 0.3f + dp24px
-    val boundsCenter = coverSizePx / 2f
+    val largeCoverCenterX = screenWidthPx / 2f
+    val largeCoverCenterY = screenHeightPx * 0.3f + dp24px
+    val boundsCenter = screenWidthPx / 2f
 
     // 完全收起时才激活迷你播放栏；derivedStateOf 将重组限制在阈值穿越处
     val miniBarEnabled by remember { derivedStateOf { progress.value < 0.01f } }
@@ -354,65 +348,65 @@ fun PlayerCard(
             if (hasSong) {
                 val s = song!!
 
-                // 顶部标题栏：小封面模式下显示曲名（收起按钮在外层 Box 最高 z 序）。
-                // 宽屏两栏时歌名移到左栏封面下方，故此处不渲染。
-                if (!isWidePlayer) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
-                        .padding(start = 68.dp, end = 56.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer { alpha = lyricAnimProgress.value }
-                            // 歌名区域可点: 上拉"转到歌手/转到专辑"菜单(类 Apple Music)
-                            .clickable { onSongInfoClick() }
-                    ) {
-                        MetroText(
-                            s.name,
-                            color = Color.White,
-                            style = LocalMetroTypography.current.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                            modifier = Modifier.basicMarquee(
-                                iterations = Int.MAX_VALUE,
-                                animationMode = MarqueeAnimationMode.Immediately,
-                                initialDelayMillis = 2000,
-                                repeatDelayMillis = 2500,
-                                velocity = 48.dp
-                            )
-                        )
-                        MetroText(
-                            s.artists?.joinToString("/") { it.name } ?: "",
-                            color = Color.Gray,
-                            style = LocalMetroTypography.current.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
+                // 底部播放控件（窄屏整宽 / 宽屏左栏共用）。常挂载，alpha 只在 draw 阶段调。
+                val playerControls: @Composable () -> Unit = {
+                    FullPlayerControls(
+                        isPlaying = isPlaying,
+                        showLyrics = showLyrics,
+                        showQueue = showQueue,
+                        progressFlow = playerViewModel.progress,
+                        positionFlow = playerViewModel.currentPosition,
+                        durationFlow = playerViewModel.duration,
+                        qualityIndexFlow = playerViewModel.currentQualityIndex,
+                        qualityOptions = strings.qualityOptions,
+                        onPlayPause = onPlayPause,
+                        onPlayPrevious = onPlayPrevious,
+                        onPlayNext = onPlayNext,
+                        onToggleLyrics = {
+                            showLyrics = !showLyrics
+                            showQueue = false
+                        },
+                        onToggleQueue = {
+                            showQueue = !showQueue
+                            showLyrics = false
+                        },
+                        onAddToLibrary = {
+                            val cur = song
+                            if (cur != null) {
+                                // 已在库 → 移出; 不在库 → 收藏。本地即时生效, 云端异步同步。
+                                if (LibraryManager.isSongSaved(context, cur.id)) {
+                                    LibraryManager.removeSong(context, cur.id)
+                                    Toast.makeText(context, strings.removedFromLibrary, Toast.LENGTH_SHORT).show()
+                                } else {
+                                    LibraryManager.saveSong(context, cur)
+                                    Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                                }
+                                libraryTick++
+                            }
+                        },
+                        isInLibrary = isSongSaved,
+                        isBufferingFlow = playerViewModel.isBuffering,
+                        onSeek = { fraction ->
+                            val dur = playerViewModel.duration.value
+                            if (dur > 0) {
+                                playerViewModel.seekTo((fraction * dur).toLong())
+                            }
+                        },
+                        onNavigateToUser = onNavigateToUser,
+                        lyricsUnavailable = !lyricsReady,
+                        previousEnabled = playMode != QueueModes.INFINITY
+                    )
                 }
 
-                // 内容区外壳。子内容常挂载（无 gate）——见文件头对 expandedEnough 的注释。
-                // alpha=0 时 draw 阶段短路，layout 仍走但 LazyColumn/Canvas 都是懒的，运行时开销可控。
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        // 宽屏：歌词/队列落在右栏（左栏宽度随分栏进度变化）。
-                        .then(if (isWidePlayer) Modifier.padding(start = wideLeftWidthDp) else Modifier)
-                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
-                ) {
-                    // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
-                    // 彻底消除与列表面板的命中测试重叠（combinedClickable 忽略 isConsumed 标志）
-                    // alpha 用阶梯而非交叉淡化: 切换时源面板瞬时隐藏、目标面板单层全宽滑入,
-                    // 每帧只合成一个面板——原先 260ms 内两个全屏面板同时 alpha 混合是
-                    // 低端机上左右切换动作的主要 GPU 成本。
-                    Box(
+                // 歌词 / 队列双面板（窄屏整宽 / 宽屏右栏共用）。
+                val playerPanels: @Composable (Modifier) -> Unit = { panelModifier ->
+                    Box(modifier = panelModifier) {
+                        // 歌词面板：translationX 从 0 滑至 -screenWidthPx，确保非歌词模式下完全移出屏幕，
+                        // 彻底消除与列表面板的命中测试重叠（combinedClickable 忽略 isConsumed 标志）
+                        // alpha 用阶梯而非交叉淡化: 切换时源面板瞬时隐藏、目标面板单层全宽滑入,
+                        // 每帧只合成一个面板——原先 260ms 内两个全屏面板同时 alpha 混合是
+                        // 低端机上左右切换动作的主要 GPU 成本。
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
@@ -516,10 +510,133 @@ fun PlayerCard(
                                 onMove = onMoveInQueue
                             )
                         }
+                    }
+                }
 
-                        // 大封面模式下的曲名/歌手信息：overlay 在内容区底部，不占 Column 高度。
-                        // 宽屏歌名移到左栏（随封面），此处不渲染。
-                        if (!isWidePlayer) {
+                if (isWidePlayer) {
+                    // 宽屏：Row 两栏，区域化布局（weight 分区，无绝对定位 / 魔法数字）。
+                    // 左栏 = 封面区(weight 撑满剩余) + 歌名 + 控件；右栏 = 歌词·队列占满整轴。
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier
+                                .weight(wideLeftFraction)
+                                .fillMaxHeight()
+                        ) {
+                            // 封面区：占左栏剩余纵向空间，封面取区域内较短边为准居中（流内，
+                            // 不越界到下方歌名/控件；分辨率变化也不会溢出）。
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BoxWithConstraints(contentAlignment = Alignment.Center) {
+                                    val side = minOf(maxWidth, maxHeight) * 0.9f
+                                    StableCover(
+                                        model = CoverUrls.large(s.album?.picUrl),
+                                        contentDescription = null,
+                                        placeholderColor = LocalMetroColors.current.surfaceVariant,
+                                        modifier = Modifier.size(side),
+                                        contentScale = ContentScale.Crop,
+                                    )
+                                }
+                            }
+                            // 歌名 / 歌手
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                                    .clickable { onSongInfoClick() }
+                            ) {
+                                MetroText(
+                                    s.name,
+                                    color = Color.White,
+                                    style = LocalMetroTypography.current.titleLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                MetroText(
+                                    s.artists?.joinToString("/") { it.name } ?: "",
+                                    color = LocalMetroColors.current.primary,
+                                    style = LocalMetroTypography.current.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                            ) {
+                                playerControls()
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        if (wideSplit > 0.01f) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f - wideLeftFraction)
+                                    .fillMaxHeight()
+                            ) {
+                                playerPanels(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // 窄屏：顶部标题栏 + 整宽面板 + 底部控件（保持原行为）。
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                            .padding(start = 68.dp, end = 56.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer { alpha = lyricAnimProgress.value }
+                                // 歌名区域可点: 上拉"转到歌手/转到专辑"菜单(类 Apple Music)
+                                .clickable { onSongInfoClick() }
+                        ) {
+                            MetroText(
+                                s.name,
+                                color = Color.White,
+                                style = LocalMetroTypography.current.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip,
+                                modifier = Modifier.basicMarquee(
+                                    iterations = Int.MAX_VALUE,
+                                    animationMode = MarqueeAnimationMode.Immediately,
+                                    initialDelayMillis = 2000,
+                                    repeatDelayMillis = 2500,
+                                    velocity = 48.dp
+                                )
+                            )
+                            MetroText(
+                                s.artists?.joinToString("/") { it.name } ?: "",
+                                color = Color.Gray,
+                                style = LocalMetroTypography.current.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                    ) {
+                        playerPanels(Modifier.fillMaxSize())
+                        // 大封面模式下的曲名/歌手信息：overlay 在内容区底部，不占高度。
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
@@ -547,90 +664,14 @@ fun PlayerCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                // 底部播放控件常挂载（与内容区同理）。FullPlayerControls 内部有 SlimProgressBar
-                // Canvas + PositionText collectAsState + 多个 IconButton，成本一次性付在 MainScreen 首帧。
-                Box(modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }) {
-                    Column(
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Box(
                         modifier = Modifier
-                            .width(wideLeftWidthDp)
-                            .align(Alignment.CenterStart)
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                     ) {
-                        // 宽屏：歌名/歌手置于左栏封面下方（窄屏由内容区底部 overlay 承担）。
-                        if (isWidePlayer) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
-                                    .clickable { onSongInfoClick() }
-                            ) {
-                                MetroText(
-                                    s.name,
-                                    color = Color.White,
-                                    style = LocalMetroTypography.current.titleLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                MetroText(
-                                    s.artists?.joinToString("/") { it.name } ?: "",
-                                    color = LocalMetroColors.current.primary,
-                                    style = LocalMetroTypography.current.bodyLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            Spacer(Modifier.height(12.dp))
-                        }
-                        FullPlayerControls(
-                            isPlaying = isPlaying,
-                            showLyrics = showLyrics,
-                            showQueue = showQueue,
-                            progressFlow = playerViewModel.progress,
-                            positionFlow = playerViewModel.currentPosition,
-                            durationFlow = playerViewModel.duration,
-                            qualityIndexFlow = playerViewModel.currentQualityIndex,
-                            qualityOptions = strings.qualityOptions,
-                            onPlayPause = onPlayPause,
-                            onPlayPrevious = onPlayPrevious,
-                            onPlayNext = onPlayNext,
-                            onToggleLyrics = {
-                                showLyrics = !showLyrics
-                                showQueue = false
-                            },
-                            onToggleQueue = {
-                                showQueue = !showQueue
-                                showLyrics = false
-                            },
-                            onAddToLibrary = {
-                                val s = song
-                                if (s != null) {
-                                    // 已在库 → 移出; 不在库 → 收藏。本地即时生效, 云端异步同步。
-                                    if (LibraryManager.isSongSaved(context, s.id)) {
-                                        LibraryManager.removeSong(context, s.id)
-                                        Toast.makeText(context, strings.removedFromLibrary, Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        LibraryManager.saveSong(context, s)
-                                        Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
-                                    }
-                                    libraryTick++
-                                }
-                            },
-                            isInLibrary = isSongSaved,
-                            isBufferingFlow = playerViewModel.isBuffering,
-                            onSeek = { fraction ->
-                                val dur = playerViewModel.duration.value
-                                if (dur > 0) {
-                                    playerViewModel.seekTo((fraction * dur).toLong())
-                                }
-                            },
-                            onNavigateToUser = onNavigateToUser,
-                            lyricsUnavailable = !lyricsReady,
-                            previousEnabled = playMode != QueueModes.INFINITY
-                        )
+                        playerControls()
                     }
                 }
             }
@@ -668,7 +709,20 @@ fun PlayerCard(
             ) {
                 if (hasSong) {
                     val s = song!!
-                    Spacer(modifier = Modifier.fillMaxHeight().aspectRatio(1f))
+                    if (isWidePlayer) {
+                        // 宽屏：展开态封面在左栏内流内渲染，overlay 不再服务 mini 位，
+                        // 这里给 miniBar 一个自己的小封面。
+                        StableCover(
+                            model = CoverUrls.large(s.album?.picUrl),
+                            contentDescription = null,
+                            placeholderColor = LocalMetroColors.current.surfaceVariant,
+                            modifier = Modifier.fillMaxHeight().aspectRatio(1f),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        // 窄屏：overlay 封面会落到这个方形占位处。
+                        Spacer(modifier = Modifier.fillMaxHeight().aspectRatio(1f))
+                    }
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -737,24 +791,21 @@ fun PlayerCard(
             }
         }
 
-        // 封面图叠加层
-        if (hasSong) {
+        // 封面图叠加层（窄屏专用：从 mini 位生长到全屏大封面）。
+        // 宽屏封面改为左栏封面区里的流内元素，不再用绝对定位。
+        if (hasSong && !isWidePlayer) {
             val s = song!!
             StableCover(
                 model = CoverUrls.large(s.album?.picUrl),
                 contentDescription = null,
                 placeholderColor = LocalMetroColors.current.surfaceVariant,
                 modifier = Modifier
-                    .then(
-                        if (isWidePlayer) Modifier.size(coverSizeDp)
-                        else Modifier.fillMaxWidth().aspectRatio(1f)
-                    )
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
                     .graphicsLayer {
                         val p = progress.value
                         val normalizedP = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
-                        // 宽屏：封面恒为大图（缩到 mini 是窄屏"大封面↔歌词"切换的语义），
-                        // 歌词/队列改由右栏 alpha 淡入淡出。
-                        val lyricAnimValue = if (isWidePlayer) 0f else lyricAnimProgress.value
+                        val lyricAnimValue = lyricAnimProgress.value
 
                         val targetCenterX = largeCoverCenterX + lyricAnimValue * (miniCoverCenterX - largeCoverCenterX)
                         val targetCenterY = largeCoverCenterY + lyricAnimValue * (miniCoverCenterY - largeCoverCenterY)
