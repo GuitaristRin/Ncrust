@@ -1,8 +1,10 @@
 package com.takahashirinta.ncrust.ui.player
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.scrollBy
@@ -93,6 +95,8 @@ fun QueueView(
     var autoScrollDir by remember { mutableFloatStateOf(0f) }
     val dragScrollScope = rememberCoroutineScope()
     var dragScrollJob by remember { mutableStateOf<Job?>(null) }
+    // 落定动画作用域: 松手后行从当前位置回正 / 滑到目标槽位, 由阻尼弹簧驱动
+    val dragSettleScope = rememberCoroutineScope()
 
     // ---- 行模型 ----
     // RowInfo(kind=PAST_HEAD/NOW_HEAD/UPCOMING_HEAD/INFINITY/SONG, queueIndex)
@@ -186,21 +190,30 @@ fun QueueView(
                                 qi < draggingQueueIndex && qi >= dragTargetQueueIndex -> draggedRowHeight
                             else -> 0f
                         }
-                        // Sokuou 阻尼弹簧: 让位动作有惯性与阻尼, 不硬切不振荡
+                        // Sokuou 阻尼弹簧: 拖动中让位动作有惯性与阻尼, 不硬切不振荡。
+                        // 落定瞬间(dragging 已清)让位直接归零——与槽位跳变同帧发生、
+                        // 相互抵消, 其余卡片不产生多余移动("落定后还抖一下"的来源)。
                         val animatedShift = animateFloatAsState(
                             targetValue = shiftTarget,
-                            animationSpec = sokuouSpring(response = 0.22f, dampingRatio = 1f),
+                            animationSpec = if (draggingQueueIndex >= 0)
+                                sokuouSpring(response = 0.22f, dampingRatio = 1f)
+                            else tween(0),
                             label = "queueRowShift"
                         ).value
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .animateItem(
-                                    // 松手落位: 阻尼弹簧 placement, 平滑滑进新位置
-                                    placementSpec = spring(
-                                        dampingRatio = 0.9f,
-                                        stiffness = Spring.StiffnessMediumLow
-                                    )
+                                    // 拖动/落定期间 placement 瞬时: 落位动画完全由 settle 弹簧驱动,
+                                    // 避免 animateItem 与让位动画叠加成"落定后抖动";
+                                    // 非拖动态(移除歌曲等)仍用弹簧平滑。
+                                    placementSpec = if (draggingQueueIndex >= 0)
+                                        tween(0)
+                                    else
+                                        spring(
+                                            dampingRatio = 0.9f,
+                                            stiffness = Spring.StiffnessMediumLow
+                                        )
                                 )
                                 .graphicsLayer {
                                     // 被拖行直接跟随手指(graphicsLayer 帧内读取, 不触发重组);
@@ -268,17 +281,29 @@ fun QueueView(
                                                             // 增量收敛到 0, 不再振荡。
                                                             dragOffsetY += change.position.y - dragStartY
                                                             // 用被拖行的实时视口 offset(列表滚动后布局位置会变)
-                                                            // + 累计位移, 算出被拖行中心当前的视口 y
                                                             val draggedItem = listState.layoutInfo
                                                                 .visibleItemsInfo
                                                                 .firstOrNull { it.index == draggedVisualRow }
+                                                            val itemOffset = (draggedItem?.offset ?: 0).toFloat()
+                                                            val viewportH =
+                                                                listState.layoutInfo.viewportEndOffset.toFloat()
+                                                            // 行不能飞出队列可见区: 手指出界时行钉在视口上/下边缘,
+                                                            // 而不是跟着手指飞出可见范围
+                                                            val minOff = -itemOffset
+                                                            val maxOff =
+                                                                (viewportH - draggedRowHeight - itemOffset)
+                                                                    .coerceAtLeast(minOff)
+                                                            val rawOffset = dragOffsetY
+                                                            dragOffsetY = rawOffset.coerceIn(minOff, maxOff)
+                                                            // 行被钉住 = 手指已出界: 停止自动滚动,
+                                                            // 避免"飞出去之后还继续不知所谓的滚"
+                                                            val pinned = dragOffsetY != rawOffset
                                                             val rowCenterViewportY =
-                                                                ((draggedItem?.offset ?: 0)).toFloat() +
-                                                                    dragOffsetY + draggedRowHeight / 2f
-                                                            // 边缘自动滚动: 被拖行贴近上/下边缘时列表跟手滚
-                                                            val viewportH = listState.layoutInfo.viewportEndOffset
+                                                                itemOffset + dragOffsetY + draggedRowHeight / 2f
+                                                            // 边缘自动滚动: 仅手指仍在可见区内且贴近上/下边缘时跟手滚
                                                             val edge = with(density) { 72.dp.toPx() }
                                                             autoScrollDir = when {
+                                                                pinned -> 0f
                                                                 rowCenterViewportY < edge -> -1f
                                                                 rowCenterViewportY > viewportH - edge -> 1f
                                                                 else -> 0f
@@ -297,13 +322,45 @@ fun QueueView(
                                                             autoScrollDir = 0f
                                                             val from = draggingQueueIndex
                                                             val to = dragTargetQueueIndex
-                                                            draggingQueueIndex = -1
-                                                            dragTargetQueueIndex = -1
-                                                            dragOffsetY = 0f
-                                                            draggedVisualRow = -1
-                                                            if (from >= 0 && to >= 0 && from != to) {
+                                                            if (from >= 0 && to >= 0 && from == to) {
+                                                                // 原位松手: 被拖行**从当前位置**阻尼回正,
+                                                                // 其余行让位同时弹簧归位, 不平移跳变
+                                                                dragTargetQueueIndex = -1
+                                                                val startOffset = dragOffsetY
+                                                                dragSettleScope.launch {
+                                                                    val anim = Animatable(startOffset)
+                                                                    anim.animateTo(
+                                                                        0f,
+                                                                        sokuouSpring(response = 0.28f, dampingRatio = 1f)
+                                                                    ) { dragOffsetY = value }
+                                                                    draggingQueueIndex = -1
+                                                                    dragOffsetY = 0f
+                                                                    draggedVisualRow = -1
+                                                                }
+                                                            } else if (from >= 0 && to >= 0) {
+                                                                // 落位: 被拖行从当前位置弹簧滑到目标槽位(其余行保持
+                                                                // 让位状态不动), 滑到位后同一帧内重排队列 + 视觉归零
+                                                                // ——槽位跳变与位移归零相互抵消, 视觉连续不抖动
                                                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                                onMove(from, to)
+                                                                val targetOffset = (to - from) * draggedRowHeight
+                                                                val startOffset = dragOffsetY
+                                                                dragSettleScope.launch {
+                                                                    val anim = Animatable(startOffset)
+                                                                    anim.animateTo(
+                                                                        targetOffset,
+                                                                        sokuouSpring(response = 0.28f, dampingRatio = 1f)
+                                                                    ) { dragOffsetY = value }
+                                                                    onMove(from, to)
+                                                                    draggingQueueIndex = -1
+                                                                    dragTargetQueueIndex = -1
+                                                                    dragOffsetY = 0f
+                                                                    draggedVisualRow = -1
+                                                                }
+                                                            } else {
+                                                                draggingQueueIndex = -1
+                                                                dragTargetQueueIndex = -1
+                                                                dragOffsetY = 0f
+                                                                draggedVisualRow = -1
                                                             }
                                                         },
                                                         onDragCancel = {
