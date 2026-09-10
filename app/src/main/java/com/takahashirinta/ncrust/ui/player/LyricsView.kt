@@ -51,11 +51,15 @@ fun LyricsView(
     onSeekToMs: (Long) -> Unit,
     enabled: Boolean = true,
     onUserScrolled: () -> Unit = {},
+    // 歌词是否仍在加载：加载中且暂无内容时留空，避免切歌瞬间闪一下"暂无歌词"。
+    isLoading: Boolean = false,
 ) {
     val strings = LocalStrings.current
     if (lyrics.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            MetroText(strings.noLyrics, color = Color.Gray, style = TextStyle(fontSize = 18.sp))
+        if (!isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                MetroText(strings.noLyrics, color = Color.Gray, style = TextStyle(fontSize = 18.sp))
+            }
         }
         return
     }
