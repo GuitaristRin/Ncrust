@@ -100,64 +100,118 @@ fun FullPlayerControls(
                 DurationText(durationFlow = durationFlow, modifier = Modifier)
             }
             Spacer(Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 面板开关：歌词 / 队列 / 收藏
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable(enabled = !lyricsUnavailable) {
-                            tick()
-                            onToggleLyrics()
-                        },
-                    contentAlignment = Alignment.Center
+            // 对称三段：左=面板开关，中=传输（主控居中），右=音质。
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.align(Alignment.CenterStart),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    MetroIcon(
-                        imageVector = Icons.Default.Lyrics,
-                        contentDescription = strings.lyricsButton,
-                        tint = if (lyricsUnavailable) Color(0xFF505050)
-                        else if (showLyrics) LocalMetroColors.current.primary else Color.White,
-                        sizeDp = 24.dp
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clickable(enabled = !lyricsUnavailable) {
+                                tick()
+                                onToggleLyrics()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MetroIcon(
+                            imageVector = Icons.Default.Lyrics,
+                            contentDescription = strings.lyricsButton,
+                            tint = if (lyricsUnavailable) Color(0xFF505050)
+                            else if (showLyrics) LocalMetroColors.current.primary else Color.White,
+                            sizeDp = 24.dp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clickable {
+                                tick()
+                                onToggleQueue()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MetroIcon(
+                            imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                            contentDescription = strings.queueButton,
+                            tint = if (showQueue) LocalMetroColors.current.primary else Color.White,
+                            sizeDp = 24.dp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clickable {
+                                tick()
+                                onAddToLibrary()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MetroIcon(
+                            imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
+                            contentDescription = strings.addToLibraryButton,
+                            tint = if (isInLibrary) LocalMetroColors.current.primary else Color.White,
+                            sizeDp = 24.dp
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.align(Alignment.Center),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clickable(enabled = previousEnabled) {
+                                tick()
+                                onPlayPrevious()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MetroIcon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = strings.prevButton,
+                            tint = if (previousEnabled) Color.White else Color(0xFF505050),
+                            sizeDp = 28.dp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clickable {
+                                tick()
+                                onPlayPause()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MetroIcon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) strings.pauseButton else strings.playButton,
+                            tint = Color.White,
+                            sizeDp = 36.dp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clickable {
+                                tick()
+                                onPlayNext()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MetroIcon(
+                            imageVector = Icons.Default.SkipNext,
+                            contentDescription = strings.nextButton,
+                            tint = Color.White,
+                            sizeDp = 28.dp
+                        )
+                    }
                 }
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clickable {
-                            tick()
-                            onToggleQueue()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    MetroIcon(
-                        imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
-                        contentDescription = strings.queueButton,
-                        tint = if (showQueue) LocalMetroColors.current.primary else Color.White,
-                        sizeDp = 24.dp
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable {
-                            tick()
-                            onAddToLibrary()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    MetroIcon(
-                        imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
-                        contentDescription = strings.addToLibraryButton,
-                        tint = if (isInLibrary) LocalMetroColors.current.primary else Color.White,
-                        sizeDp = 24.dp
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                // 音质
-                Box(
-                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
                         .background(Color(0xFF2A2A2A))
                         .clickable(
                             indication = null,
@@ -166,56 +220,6 @@ fun FullPlayerControls(
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     QualityLabel(qualityIndexFlow = qualityIndexFlow, options = qualityOptions)
-                }
-                Spacer(Modifier.width(16.dp))
-                // 传输
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable(enabled = previousEnabled) {
-                            tick()
-                            onPlayPrevious()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    MetroIcon(
-                        imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = strings.prevButton,
-                        tint = if (previousEnabled) Color.White else Color(0xFF505050),
-                        sizeDp = 26.dp
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(50.dp)
-                        .clickable {
-                            tick()
-                            onPlayPause()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    MetroIcon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) strings.pauseButton else strings.playButton,
-                        tint = Color.White,
-                        sizeDp = 34.dp
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable {
-                            tick()
-                            onPlayNext()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    MetroIcon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = strings.nextButton,
-                        tint = Color.White,
-                        sizeDp = 26.dp
-                    )
                 }
             }
         }

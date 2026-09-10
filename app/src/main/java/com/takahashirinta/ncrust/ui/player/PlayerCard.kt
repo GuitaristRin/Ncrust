@@ -555,36 +555,42 @@ fun PlayerCard(
                                         wideCoverSizePx = minOf(b.width, b.height)
                                     }
                             )
-                            // 歌名 / 歌手
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
-                                    .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
-                                    .clickable { onSongInfoClick() }
-                            ) {
-                                MetroText(
-                                    s.name,
-                                    color = Color.White,
-                                    style = LocalMetroTypography.current.titleLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                MetroText(
-                                    s.artists?.joinToString("/") { it.name } ?: "",
-                                    color = LocalMetroColors.current.primary,
-                                    style = LocalMetroTypography.current.bodyLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            // 歌名 / 歌手 + 控件：限宽居中，与封面成组（单栏时不再铺满整宽显得散）。
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Column(
+                                    modifier = Modifier
+                                        .widthIn(max = 560.dp)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp)
+                                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                                        .clickable { onSongInfoClick() }
+                                ) {
+                                    MetroText(
+                                        s.name,
+                                        color = Color.White,
+                                        style = LocalMetroTypography.current.titleLarge,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    MetroText(
+                                        s.artists?.joinToString("/") { it.name } ?: "",
+                                        color = LocalMetroColors.current.primary,
+                                        style = LocalMetroTypography.current.bodyLarge,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                             Spacer(Modifier.height(12.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
-                            ) {
-                                playerControls()
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Box(
+                                    modifier = Modifier
+                                        .widthIn(max = 560.dp)
+                                        .fillMaxWidth()
+                                        .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
+                                ) {
+                                    playerControls()
+                                }
                             }
                             Spacer(Modifier.height(8.dp))
                         }
