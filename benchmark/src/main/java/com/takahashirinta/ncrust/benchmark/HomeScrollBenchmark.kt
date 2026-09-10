@@ -69,8 +69,10 @@ class HomeScrollBenchmark {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < deadline) {
             val vertical = try {
+                // 取可见高度最大的 scrollable 作为主列表。不能再用 height>width 判定:
+                // 平板/横屏下主列表宽度大于高度, 会被误排除(只剩横向 carousel)。
                 device.findObjects(By.scrollable(true))
-                    .firstOrNull { it.visibleBounds.height() > it.visibleBounds.width() }
+                    .maxByOrNull { it.visibleBounds.height() }
             } catch (_: StaleObjectException) {
                 null
             }
