@@ -100,7 +100,7 @@ if $ADB shell dumpsys package "$PACKAGE" | grep -q "debuggable=true"; then
   echo "!! 警告: 设备上是 debuggable 版本, 数字偏慢。建议先跑 install_release 流程。"
 fi
 
-echo "== 关闭系统动画(退出时自动还原) =="
+echo "== 系统动画 =="
 # 保存原始值, 退出时(含 Ctrl-C / 出错)还原, 避免脚本异常结束把设备动画永久关掉。
 ORIG_WINDOW_ANIM="$($ADB shell settings get global window_animation_scale | tr -d '\r')"
 ORIG_TRANSITION_ANIM="$($ADB shell settings get global transition_animation_scale | tr -d '\r')"
@@ -111,17 +111,25 @@ restore_animations() {
   [ "$ORIG_ANIMATOR_ANIM" = "null" ] || $ADB shell settings put global animator_duration_scale "$ORIG_ANIMATOR_ANIM" >/dev/null 2>&1 || true
 }
 trap restore_animations EXIT
-$ADB shell settings put global window_animation_scale 0
-$ADB shell settings put global transition_animation_scale 0
-$ADB shell settings put global animator_duration_scale 0
+
+# 只有 startup 需要关系统动画(避免窗口转场动画混入启动帧)。
+# scroll / expand 必须保持开启: Compose 动画时长受 animator_duration_scale 控制
+# (MotionDurationScale), 关掉会让展开动画瞬间完成、完全测不到真实帧。
+disable_animations() {
+  echo "== 关闭系统动画(仅 startup; 退出时自动还原) =="
+  $ADB shell settings put global window_animation_scale 0
+  $ADB shell settings put global transition_animation_scale 0
+  $ADB shell settings put global animator_duration_scale 0
+}
 
 ensure_bench_apk
 
 case "$TARGET" in
-  startup) run com.takahashirinta.ncrust.benchmark.StartupBenchmark ;;
+  startup) disable_animations; run com.takahashirinta.ncrust.benchmark.StartupBenchmark ;;
   scroll)  run com.takahashirinta.ncrust.benchmark.HomeScrollBenchmark ;;
   expand)  run com.takahashirinta.ncrust.benchmark.ExpandPlayerBenchmark ;;
-  all)     run com.takahashirinta.ncrust.benchmark.StartupBenchmark
+  all)     disable_animations; run com.takahashirinta.ncrust.benchmark.StartupBenchmark
+           restore_animations
            run com.takahashirinta.ncrust.benchmark.HomeScrollBenchmark
            run com.takahashirinta.ncrust.benchmark.ExpandPlayerBenchmark ;;
   *) echo "用法: $0 [startup|scroll|expand|all]"; exit 2 ;;
