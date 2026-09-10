@@ -522,6 +522,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         // lrc 为空（确无歌词）: 歌词已在 resetLyricsForNewSong 清空,
                         // lyricsSongId 保持 -1 → lyricsReady 保持 false, 由大封面盖住。
                     }
+                    Log.d(
+                        "PlayerViewModel",
+                        "fetchLyrics id=$songId code=$code lrc=${lrcText.length} " +
+                            "tlyric=${tlyricText.length} current=${currentSongId.value}"
+                    )
                     return
                 } catch (e: Exception) {
                     // 失败不清空已有歌词(网络抖动不该把 UI 变空白), 重试后仍失败才退出
@@ -533,8 +538,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         } finally {
-            lyricsLoading.value = false
-            if (lyricsFetchingSongId == songId) lyricsFetchingSongId = -1L
+            // 只有本次请求仍是"当前在途"时才清加载态。旧歌请求的 finally 若在
+            // 新歌请求在途时无条件清 lyricsLoading=false, 会让 UI 误判新歌"加载已结束
+            // 且无歌词"→ 关歌词回封面, 表现为"听几首后歌词莫名不见"。
+            if (lyricsFetchingSongId == songId) {
+                lyricsLoading.value = false
+                lyricsFetchingSongId = -1L
+            }
         }
     }
 
