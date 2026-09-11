@@ -27,7 +27,7 @@ Toolchain:
 | Kotlin | 1.9.24 |
 | Compose BOM | 2024.12.01 (compiler ext 1.5.14) |
 | Android Gradle Plugin | 8.5.0 |
-| Gradle | wrapper 8.x |
+| Gradle | wrapper 9.3.1 |
 
 **Composite build:** `settings.gradle.kts` does `includeBuild("../Kanesumi-sec-a")` with explicit `dependencySubstitution`, so the app builds against the sibling `Kanesumi-sec-a` checkout (not a published artifact). Cloning Ncrust alone is not enough — `Kanesumi-sec-a` must sit next to it. Delete the `includeBuild` block once Kanesumi is on Maven Central; the coordinates in `app/build.gradle.kts` then work unchanged.
 

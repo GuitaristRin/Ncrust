@@ -9,7 +9,7 @@
 纯 Kotlin / Jetpack Compose · Media3 播放引擎 · eapi 加密直连 · 无中间服务器
 
 [![Version](https://img.shields.io/badge/version-1.3.1-brightgreen?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
-[![APK](https://img.shields.io/badge/APK-2.9%20MB-blue?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
+[![APK](https://img.shields.io/badge/APK-3.9%20MB-blue?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
 [![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.24-purple?style=flat-square&logo=kotlin)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Compose-BOM%202024.12-blue?style=flat-square&logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
@@ -41,7 +41,7 @@
 | 🎧 **真·无损** | eapi 直连拉取 FLAC / Hi-Res / 杜比全景声，逐级降级兜底，弱机自动跳过无解档位 |
 | 🔀 **5 种播放模式** | 顺序循环 / 单曲循环 / 乱序 / 顺序线性 / 相似无限（私人 FM 电台） |
 | 🚗 **车机就绪** | Android Auto / Automotive 媒体源与浏览树，车机系统栏 inset 专项适配 |
-| 🪶 **2.9 MB** | R8 全量混淆 + 资源 shrink，冷启动预热，进程被杀也能恢复队列 |
+| 🪶 **3.9 MB** | R8 全量混淆 + 资源 shrink，冷启动预热，进程被杀也能恢复队列 |
 | 🌐 **8 语言** | 运行时切换，不依赖系统 locale |
 | 🔐 **登录无忧** | 浏览器登录 + 二维码登录 + 手机扫码授权平板，全程无需手动粘贴 Cookie |
 
@@ -112,7 +112,7 @@
 
 ## 📦 安装
 
-1. 打开 [Releases](https://github.com/GuitaristRin/Ncrust/releases)，下载最新的 `app-release.apk`（约 **2.9 MB**）
+1. 打开 [Releases](https://github.com/GuitaristRin/Ncrust/releases)，下载最新的 `app-release.apk`（约 **3.9 MB**）
 2. 允许「未知来源」安装
 3. 打开 App，在用户页登录（见下）
 
@@ -132,7 +132,7 @@ App 不提供手动粘贴 Cookie，登录方式：
 
 ### 环境要求
 
-Android Studio Hedgehog+ · JDK 11 · Kotlin 1.9.24 · Gradle 8.x · Android SDK 36（minSdk 24）
+Android Studio Hedgehog+ · JDK 11 · Kotlin 1.9.24 · Gradle 9.3.1 · Android SDK 36（minSdk 24）
 
 ### ⚠️ 必须先克隆 Kanesumi
 
@@ -169,7 +169,7 @@ benchmark/run_benchmark.sh all     # Macrobenchmark：冷启动 / 滚动 / 播�
 | **网络直连** | 自有 `EapiCrypto`（AES-128-ECB + MD5 签名）与 `WeapiCrypto`（双 AES-CBC + 原始 RSA），直连网易云，无中间服务器 |
 | **ContentCache** | 内存网络快照 + Crossfade，消除「空屏 → spinner → 跳变」；LRU-32 详情缓存 |
 | **持久化** | 全部 SharedPreferences + Gson，无 Room |
-| **性能** | R8 全量混淆 + 资源 shrink（release 2.9 MB）、`AppWarmup` 冷启动预热、状态订阅下推至叶子组件、播放器折叠态子树 gating |
+| **性能** | R8 全量混淆 + 资源 shrink（release 3.9 MB）、`AppWarmup` 冷启动预热、状态订阅下推至叶子组件、播放器折叠态子树 gating |
 
 ```
 app/src/main/java/com/takahashirinta/ncrust/
