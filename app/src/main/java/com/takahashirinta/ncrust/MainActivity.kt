@@ -267,16 +267,24 @@ fun MainScreen(
     val sidebarWidthDp = 200.dp
     val sidebarWidthPx = with(density) { sidebarWidthDp.toPx() }
 
+    // 是否运行在 Android Automotive(车机)。只有车机的 CarSystemUI 才需要"实测内容区
+    // 高度"这套兜底——手机/平板若也用 rootHeightPx 会改变 miniBar 落点(实测偏高)，
+    // 属于车机改动外溢。这里显式隔离：车机走实测，其余设备沿用 screenHeightDp。
+    val isAutomotive =
+        (context.resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) ==
+            Configuration.UI_MODE_TYPE_CAR
+
     // 卡片相关尺寸。宽屏无底部导航, navBar 高度记 0, miniBar 直接贴到系统栏之上。
     val navBarHeightPx = if (isWideLayout) 0f else with(density) { 56.dp.toPx() }
     val miniBarHeightPx = with(density) { 56.dp.toPx() }
     val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
-    // 内容区高度：优先用根布局实测高度（车机内容区已被系统 inset，screenHeightDp 是整屏
-    // 高度、对不上）；实测前先用整屏过渡。
-    val contentHeightPx = if (rootHeightPx > 0f) rootHeightPx else screenHeightPx
+    // 内容区高度：车机用根布局实测（CarSystemUI 把内容区 inset 到系统栏之间，但
+    // WindowInsets 全为 0、screenHeightDp 又对不上）；手机/平板沿用 screenHeightDp，
+    // 保持车机改动之前的行为。实测前先用整屏过渡。
+    val contentHeightPx = if (isAutomotive && rootHeightPx > 0f) rootHeightPx else screenHeightPx
 
-    // miniBar 底 = navBar 顶。正常设备系统栏由 WindowInsets 给出，车机内容区已被系统
-    // inset（WindowInsets 为 0），两种情况用同一公式。
+    // miniBar 底 = navBar 顶。手机/平板系统栏由 WindowInsets 给出；车机内容区已被系统
+    // inset（WindowInsets 为 0），公式一致，区别只在 contentHeightPx 的取法。
     val collapsedOffsetY =
         contentHeightPx - sysNavPx - navBarHeightPx - miniBarHeightPx - sysStatusPx
 
