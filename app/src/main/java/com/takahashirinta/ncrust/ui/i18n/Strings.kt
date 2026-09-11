@@ -95,6 +95,13 @@ data class Strings(
     val batteryAllow: String,
     val batteryLater: String,
 
+    // Native QR login (tablet / large screen)
+    val qrLoginTitle: String,
+    val qrScanHint: String,
+    val qrScannedHint: String,
+    val qrExpiredHint: String,
+    val qrGenericLogin: String,
+
     val clearQueue: String,
     val actionAddToPlaylist: String,
     val actionRemoveFromLibrary: String,

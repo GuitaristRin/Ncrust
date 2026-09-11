@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +39,7 @@ import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.power.BackgroundActivity
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
+import com.takahashirinta.ncrust.ui.components.QrLoginDialog
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.i18n.LanguagePreset
 import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
@@ -60,7 +62,10 @@ fun UserScreen(
     val strings = LocalStrings.current
     val coroutineScope = rememberCoroutineScope()
     var showAccountDialog by remember { mutableStateOf(false) }
+    var showQrLogin by remember { mutableStateOf(false) }
     var hasCookie by remember { mutableStateOf(CookieManager.hasCookie(context)) }
+    // 扫码登录为平板 / 大屏独占：手机端未登录点头像仍直接进 WebView 官方登录页。
+    val isWideLayout = LocalConfiguration.current.screenWidthDp >= 600
 
     var userProfile by remember { mutableStateOf<PlaylistApi.UserProfile?>(null) }
     var isLoadingProfile by remember { mutableStateOf(false) }
@@ -123,6 +128,21 @@ fun UserScreen(
         }
     )
 
+    if (showQrLogin) QrLoginDialog(
+        onLoginSuccess = { cookie ->
+            CookieManager.saveCookie(context, cookie)
+            RetrofitClient.updateCookie(cookie)
+            hasCookie = true
+            showQrLogin = false
+            loadProfile()
+        },
+        onGenericLogin = {
+            showQrLogin = false
+            onShowWebLogin()
+        },
+        onDismiss = { showQrLogin = false }
+    )
+
     // 宽屏设置/资料内容居中限宽（上限 720dp），避免设置行横跨平板。
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
@@ -156,8 +176,12 @@ fun UserScreen(
                 loginHintText = strings.loginHint,
                 uidLabel = strings.uidLabel(userProfile?.userId?.toString() ?: ""),
                 onClick = {
-                    if (hasCookie) showAccountDialog = true
-                    else onShowWebLogin()
+                    when {
+                        hasCookie -> showAccountDialog = true
+                        // 平板/大屏：原生扫码（官方 App 扫），下面再给「通用登录」退回 WebView
+                        isWideLayout -> showQrLogin = true
+                        else -> onShowWebLogin()
+                    }
                 }
             )
             Spacer(Modifier.height(24.dp))
