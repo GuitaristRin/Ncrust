@@ -1002,13 +1002,13 @@ fun MainScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // 车机 CarSystemUI 栏不下发 WindowInsets，用资源兜底把内容区让出来；
-            // 正常设备 fallback 为 0，走 WindowInsets/内部 padding，不受影响。
+            // 背景先铺满整窗，再让出系统栏（车机 CarSystemUI 不下发 WindowInsets，
+            // 用资源兜底）；正常设备 fallback 为 0，不受影响。
+            .background(LocalMetroColors.current.background)
             .padding(
                 top = with(density) { fallbackStatusPx.toDp() },
                 bottom = with(density) { fallbackNavPx.toDp() }
             )
-            .background(LocalMetroColors.current.background)
     ) {
         // PlayerCardOverlay is FIRST child: processes first in Compose Main pass (siblings are
         // dispatched in composition order). Its inner consumer modifier in PlayerCard prevents
