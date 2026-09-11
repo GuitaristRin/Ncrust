@@ -112,18 +112,23 @@ object AppWarmup {
                 }.distinct().mapNotNull { CoverUrls.small(it) }
 
                 coroutineScope {
-                    urls.map { url ->
-                        async {
-                            runCatching {
-                                loader.execute(
-                                    ImageRequest.Builder(app)
-                                        .data(url)
-                                        .size(COVER_PX, COVER_PX)
-                                        .build()
-                                )
+                    // 并发上限 4: 封面最多 3 段 × 6 张 = 18 个, 一次性全 async 会堆出
+                    // 十几个阻塞在 OkHttp 队列上的协程抢 IO 线程。分块后峰值并发可控,
+                    // 给同一启动阶段的其他工作留出带宽, 又不明显拖长预取。
+                    urls.chunked(4).forEach { chunk ->
+                        chunk.map { url ->
+                            async {
+                                runCatching {
+                                    loader.execute(
+                                        ImageRequest.Builder(app)
+                                            .data(url)
+                                            .size(COVER_PX, COVER_PX)
+                                            .build()
+                                    )
+                                }
                             }
-                        }
-                    }.awaitAll()
+                        }.awaitAll()
+                    }
                 }
             }
 
