@@ -362,11 +362,10 @@ fun PlayerCard(
                 }
             }
     ) {
-        // 全屏纯黑背景
+        // 全屏纯黑背景。不再向下 offset——卡片顶应和封面顶/内容区顶等高。
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = 24.dp)
                 .background(LocalMetroColors.current.background)
         )
         // 折叠态卡背：卡片整体下移后，miniBar 下方露出的是这张黑底（原底部导航/系统栏
@@ -374,7 +373,6 @@ fun PlayerCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = 24.dp)
                 .graphicsLayer { alpha = (1f - progress.value * 5f).coerceIn(0f, 1f) }
                 .background(LocalMetroColors.current.surface)
         )
