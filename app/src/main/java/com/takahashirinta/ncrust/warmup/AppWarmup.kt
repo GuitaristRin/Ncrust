@@ -50,6 +50,7 @@ object AppWarmup {
         "ncrust_settings",        // ThemeManager / LanguageManager / PlayerViewModel
         "ncrust_library",         // LibraryManager
         "ncrust_playback_state",  // PlaybackStateManager
+        "ncrust_lyrics_cache",    // LyricsCache
         "search_history"          // SearchHistoryManager
     )
 

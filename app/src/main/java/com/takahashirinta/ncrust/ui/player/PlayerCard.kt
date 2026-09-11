@@ -102,6 +102,7 @@ fun PlayerCard(
     val translatedLyrics by playerViewModel.translatedLyrics.collectAsState()
     val lyricsLoading by playerViewModel.lyricsLoading.collectAsState()
     val lyricsSongId by playerViewModel.lyricsSongId.collectAsState()
+    val lyricsNoContentSongId by playerViewModel.lyricsNoContentSongId.collectAsState()
     val showLyricsTranslation by playerViewModel.showLyricsTranslation.collectAsState()
     // 收藏库状态: 当前歌是否已收藏(右下角 加号/对号 切换用)。切歌或操作后刷新。
     var libraryTick by remember { mutableIntStateOf(0) }
@@ -189,6 +190,10 @@ fun PlayerCard(
     // lyricsReady：歌词**属于当前歌**且非加载中。旧歌词残留(切歌过渡)不算就绪——
     // 由 lyricsSongId == song?.id 保证, 否则无歌词的新歌会被误判就绪显示旧歌词。
     val lyricsReady = lyricsSongId == song?.id && !lyricsLoading && lyrics.isNotEmpty()
+    // 只有服务端明确答复"确无歌词"时才置灰歌词按钮；加载中/请求失败都保持可点，
+    // 失败时点一下即触发重试，而不是一次网络抖动就把按钮永久禁用（issue: 后台被杀重进后按钮灰掉）。
+    val lyricsNoContent = lyricsNoContentSongId == song?.id && lyrics.isEmpty()
+    val lyricsUnavailable = lyricsNoContent && !lyricsLoading
 
     // 每首歌只自动切到歌词视图一次；用户手动关掉歌词后，不再被自动打开
     // （否则关歌词时 showLyrics 被 effect 立刻改回 true，wideSplit 回不到 0，
@@ -397,8 +402,12 @@ fun PlayerCard(
                         onPlayPrevious = onPlayPrevious,
                         onPlayNext = onPlayNext,
                         onToggleLyrics = {
+                            val nowReady = lyricsReady
                             showLyrics = !showLyrics
                             showQueue = false
+                            // 未就绪(失败/尚未成功)时点击 = 触发一次重新加载，
+                            // 不必切歌才能恢复歌词。
+                            if (!nowReady && !lyricsLoading) playerViewModel.retryLyrics()
                         },
                         onToggleQueue = {
                             showQueue = !showQueue
@@ -427,7 +436,7 @@ fun PlayerCard(
                             }
                         },
                         onNavigateToUser = onNavigateToUser,
-                        lyricsUnavailable = !lyricsReady,
+                        lyricsUnavailable = lyricsUnavailable,
                         previousEnabled = playMode != QueueModes.INFINITY,
                         landscape = isWidePlayer
                     )

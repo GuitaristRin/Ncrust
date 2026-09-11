@@ -11,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.takahashirinta.ncrust.lyric.LrcLine
 import com.takahashirinta.ncrust.lyric.LrcParser
+import com.takahashirinta.ncrust.lyric.LyricsCache
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.player.PlaybackService
 import com.takahashirinta.ncrust.player.PlaybackStateManager
@@ -35,6 +36,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // 歌词是否仍在加载中(网络往返未返回)。UI 用它区分「真的没歌词」与「还没加载出来」:
     // 加载中或成功为空 → 全屏默认大封面、歌词按钮置灰;加载出非空 → 自动切回歌词视图。
     val lyricsLoading = MutableStateFlow(false)
+    // 服务端明确答复"这首歌没有歌词"(code==200 且 lrc 为空)的歌曲 id。
+    // 与「请求失败 / 尚未加载」严格区分：失败时保持 -1，歌词按钮仍可点（触发重试），
+    // 避免一次网络抖动就把按钮永久置灰、必须切歌才能恢复。
+    val lyricsNoContentSongId = MutableStateFlow(-1L)
     // 设置页开关:是否显示歌词翻译。默认开——外文歌直接看到双语,中文歌 tlyric 为空不受影响。
     val showLyricsTranslation = MutableStateFlow(true)
 
@@ -219,6 +224,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         lyricsLoading.value = true
         // 旧歌词是渐隐过渡素材, 不属于新歌; 在"当前歌歌词就绪"判定里立即失效
         lyricsSongId.value = -1L
+        lyricsNoContentSongId.value = -1L
     }
 
     fun resetPreloadFlag() { needsPreload.value = false }
@@ -489,14 +495,32 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun fetchLyrics(songId: Long) {
         if (lyricsFetchingSongId == songId) return
         lyricsFetchingSongId = songId
-        // 失败重试(最多 4 次, 递增退避): 冷启动时 AppWarmup 与恢复请求同时在
-        // 打网络, 歌词请求的瞬时超时/限流不该让歌词永久消失。关键是**响应层面的
-        // 失败也要重试** —— 服务端风控(-460/-462)或需登录(301)返回的 code!=200
-        // 响应里 lrc 为空, 旧实现当成"这首歌没歌词"直接结束, 用户必须切歌才能
-        // 重新触发加载; 这些失败码是瞬时的, 退避重试大概率能拿到真歌词。
-        // code==200 是服务端的权威答复(有歌词或无歌词), 不再重试。
         lyricsLoading.value = true
         try {
+            // 先查本地缓存：命中则直接呈现，不再打网络（歌词几乎不变）。
+            // 这是进程被杀重进时歌词能秒回、且不受冷启动风控/限流影响的关键。
+            val cached = LyricsCache.get(getApplication(), songId)
+            if (cached != null) {
+                if (currentSongId.value == songId) {
+                    if (cached.lrc.isNotEmpty()) {
+                        lyrics.value = LrcParser.parse(cached.lrc)
+                        lyricsSongId.value = songId
+                    } else {
+                        // 缓存里就是"确无歌词"，保持按钮置灰语义
+                        lyricsNoContentSongId.value = songId
+                    }
+                    translatedLyrics.value =
+                        if (cached.tlyric.isNotEmpty()) LrcParser.parse(cached.tlyric) else emptyList()
+                }
+                Log.d("PlayerViewModel", "fetchLyrics cache hit id=$songId lrc=${cached.lrc.length}")
+                return
+            }
+            // 失败重试(最多 4 次, 递增退避): 冷启动时 AppWarmup 与恢复请求同时在
+            // 打网络, 歌词请求的瞬时超时/限流不该让歌词永久消失。关键是**响应层面的
+            // 失败也要重试** —— 服务端风控(-460/-462)或需登录(301)返回的 code!=200
+            // 响应里 lrc 为空, 旧实现当成"这首歌没歌词"直接结束, 用户必须切歌才能
+            // 重新触发加载; 这些失败码是瞬时的, 退避重试大概率能拿到真歌词。
+            // code==200 是服务端的权威答复(有歌词或无歌词), 不再重试。
             repeat(4) { attempt ->
                 try {
                     val lyricResponse = RetrofitClient.api.getLyric(id = songId)
@@ -508,19 +532,25 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         delay(700L + attempt * 400L)
                         return@repeat
                     }
+                    // 只缓存 code==200 的权威结果(有歌词/确无歌词)。code!=200 是瞬时
+                    // 失败(风控/需登录), 不写缓存也不置"确无歌词", 按钮保持可点可重试。
+                    if (code == 200) {
+                        LyricsCache.put(getApplication(), songId, lrcText, tlyricText)
+                    }
                     // 只在本请求仍是"当前歌"时写入——恢复路径与 playSong 的并发请求
                     // 返回乱序时, 旧请求不得覆盖新歌的歌词/译文
-                    if (currentSongId.value == songId) {
+                    if (currentSongId.value == songId && code == 200) {
                         if (lrcText.isNotEmpty()) {
                             lyrics.value = LrcParser.parse(lrcText)
                             // 有歌词：标记为"当前歌的歌词就绪"（供 UI 自动回切歌词视图）
                             lyricsSongId.value = songId
+                            lyricsNoContentSongId.value = -1L
+                        } else {
+                            // lrc 为空（确无歌词）: 标记当前歌，UI 置灰歌词按钮。
+                            lyricsNoContentSongId.value = songId
                         }
-                        if (tlyricText.isNotEmpty()) {
-                            translatedLyrics.value = LrcParser.parse(tlyricText)
-                        }
-                        // lrc 为空（确无歌词）: 歌词已在 resetLyricsForNewSong 清空,
-                        // lyricsSongId 保持 -1 → lyricsReady 保持 false, 由大封面盖住。
+                        translatedLyrics.value =
+                            if (tlyricText.isNotEmpty()) LrcParser.parse(tlyricText) else emptyList()
                     }
                     Log.d(
                         "PlayerViewModel",
@@ -546,6 +576,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 lyricsFetchingSongId = -1L
             }
         }
+    }
+
+    /**
+     * 手动重试当前歌歌词。请求失败后用户点歌词按钮可再次触发加载；
+     * 清掉去重与"确无歌词"标记，强制重新请求（失败结果本就不入缓存）。
+     */
+    fun retryLyrics() {
+        val songId = currentSongId.value ?: return
+        if (songId <= 0) return
+        lyricsNoContentSongId.value = -1L
+        lyricsLoading.value = true
+        lyricsFetchingSongId = -1L
+        viewModelScope.launch { fetchLyrics(songId) }
     }
 
     /**
