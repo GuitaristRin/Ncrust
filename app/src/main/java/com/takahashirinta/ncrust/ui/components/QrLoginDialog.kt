@@ -65,7 +65,15 @@ fun QrLoginDialog(
                 state = QrState.Failed
                 return@launch
             }
-            qrBitmap = key.qrimg?.let { decodeQrImage(it) }
+            // eapi 客户端版通常不返回 qrcode 图, 客户端本地生成(官方客户端同款做法)。
+            // QR 内容必须是官方登录链接, 而不是裸 unikey —— 裸串官方 App 扫不出。
+            val qrContent = if (key.unikey.startsWith("http")) key.unikey
+                else "https://music.163.com/login?codekey=${key.unikey}"
+            qrBitmap = key.qrimg?.let { decodeQrImage(it) } ?: generateQrBitmap(qrContent)
+            if (qrBitmap == null) {
+                state = QrState.Failed
+                return@launch
+            }
             state = QrState.Waiting
             var ticks = 0
             while (ticks < 100) {
@@ -187,4 +195,17 @@ private fun decodeQrImage(dataUrl: String): Bitmap? = runCatching {
     val b64 = dataUrl.substringAfter("base64,", dataUrl)
     val bytes = Base64.decode(b64, Base64.DEFAULT)
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+}.getOrNull()
+
+/** zxing 本地生成二维码位图（纯黑白，白底）。失败返回 null。 */
+private fun generateQrBitmap(content: String, sizePx: Int = 512): Bitmap? = runCatching {
+    val matrix = com.google.zxing.qrcode.QRCodeWriter()
+        .encode(content, com.google.zxing.BarcodeFormat.QR_CODE, sizePx, sizePx)
+    val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.RGB_565)
+    for (x in 0 until sizePx) {
+        for (y in 0 until sizePx) {
+            bmp.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+        }
+    }
+    bmp
 }.getOrNull()
