@@ -12,7 +12,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -26,6 +25,7 @@ import io.github.takahashirinta.kanesumi.controls.MetroLyricLine
 import io.github.takahashirinta.kanesumi.controls.MetroLyricsPanel
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -33,10 +33,11 @@ import kotlinx.coroutines.flow.StateFlow
  * 弹簧单位,静态效果 = 原版 LazyColumn 实现)。这里只做播放器侧对接:
  *
  *  - 位置外推:Service 侧刻意保持 2Hz 广播(见 PlaybackService.startProgressUpdates
- *    注释),若直接喂给面板,跨行检测会滞后最多 500ms。这里用 withFrameNanos
- *    在帧时钟上做线性外推(播放时 position ≈ 墙钟),让当前行切换精确落在
- *    时间戳上;暂停/隐藏时停掉帧循环,不空转。锚点在每次 2Hz 采样到达时
- *    重置,外推永远从最近真实值出发。
+ *    注释),若直接喂给面板,跨行检测会滞后最多 500ms。这里从最近的真实采样
+ *    锚点做线性外推(播放时 position ≈ 墙钟),但不再逐帧轮询:只在"下一行
+ *    时间戳"的时刻唤醒一次并写 displayPosition,跨行判定精确落在时间戳上,
+ *    同时避免 withFrameNanos 每帧把 GPU/CPU 拉起来。暂停/隐藏时停掉循环,不空转。
+ *    锚点在每次 2Hz 采样到达时重置,外推永远从最近真实值出发。
  *  - tap-to-seek:点击行 → 本地立即跳 position + 回调解绑回调,瞬时反馈。
  */
 @Composable
@@ -72,10 +73,13 @@ fun LyricsView(
     }
 
     // 订阅位置流:collectAsState 建 State;displayPosition 只在面板 draw/derived
-    // 阶段被读,帧循环每帧写一次也只 invalidateDraw,不触发本 Composable 重组。
+    // 阶段被读,按需写一次也只重算当前行,不触发本 Composable 重组。
     val positionState = positionFlow.collectAsState()
     val displayPosition = remember { mutableLongStateOf(0L) }
     val anchor = remember { PositionAnchor().apply { anchorNanos = System.nanoTime() } }
+
+    // 行时间戳(升序),把"下一次跨行"算成精确唤醒时刻。
+    val timestamps = remember(lyrics) { LongArray(lyrics.size) { lyrics[it].timeMs } }
 
     // 2Hz 采样到达时重置外推锚点(首帧前锚点已就位,避免一帧闪到末尾)。
     LaunchedEffect(Unit) {
@@ -85,16 +89,32 @@ fun LyricsView(
         }
     }
 
-    // 帧时钟外推:只在播放且可见时跑。暂停/隐藏即停,不空转。
-    LaunchedEffect(isPlaying, isVisible) {
+    // 按需外推:播放且可见时,睡到"下一行时间戳"再写一次 displayPosition,而不是
+    // 每帧轮询。withFrameNanos 会持续请求帧回调,歌词常驻时等于让渲染管线一直
+    // 60fps 空转;改为按需唤醒后,静态时零状态写入、零帧调度,只在跨行瞬间动一下。
+    // 2Hz 采样会把锚点重置回真实值,所以外推误差不会累积。暂停/隐藏即停。
+    LaunchedEffect(isPlaying, isVisible, timestamps) {
         if (!isPlaying || !isVisible) {
             displayPosition.longValue = positionState.value
             return@LaunchedEffect
         }
         while (true) {
-            withFrameNanos { now ->
-                displayPosition.longValue =
-                    anchor.anchorPosMs + (now - anchor.anchorNanos) / 1_000_000L
+            val nowMs =
+                anchor.anchorPosMs + (System.nanoTime() - anchor.anchorNanos) / 1_000_000L
+            val next = nextLineBoundaryAfter(timestamps, nowMs)
+            if (next == null) {
+                // 已越过最后一行:无跨行可等,低频醒来等采样/seek 改变锚点。
+                delay(500)
+                continue
+            }
+            val waitMs = next - nowMs
+            // 上限 1s:seek/tap 改变锚点后,最多 1s 重新对齐。
+            if (waitMs > 0) delay(waitMs.coerceAtMost(1_000L))
+            val extrapolated =
+                anchor.anchorPosMs + (System.nanoTime() - anchor.anchorNanos) / 1_000_000L
+            // 只在真正越过该边界时写,长间隔里不会每秒写一次状态。
+            if (extrapolated >= next && extrapolated > displayPosition.longValue) {
+                displayPosition.longValue = extrapolated
             }
         }
     }
@@ -148,4 +168,16 @@ fun LyricsView(
 private class PositionAnchor {
     var anchorPosMs: Long = 0L
     var anchorNanos: Long = 0L
+}
+
+// 返回严格大于 positionMillis 的最小行时间戳;没有则 null。timestamps 升序。
+private fun nextLineBoundaryAfter(timestamps: LongArray, positionMillis: Long): Long? {
+    if (timestamps.isEmpty() || positionMillis >= timestamps.last()) return null
+    var lo = 0
+    var hi = timestamps.size - 1
+    while (lo < hi) {
+        val mid = (lo + hi) ushr 1
+        if (timestamps[mid] <= positionMillis) lo = mid + 1 else hi = mid
+    }
+    return timestamps[lo]
 }
