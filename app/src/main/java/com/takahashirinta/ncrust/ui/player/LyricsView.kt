@@ -114,6 +114,10 @@ fun LyricsView(
                 onSeekToMs(ms)
             } else { _ -> },
             onUserScrolled = onUserScrolled,
+            // 已播/未播行颜色随主题适配：Kanesumi 面板默认写死 White@0.6 / Gray@0.4，
+            // 浅色底上白色已播行会看不见。这里改用语义色。
+            pastLineColor = LocalMetroColors.current.onBackground.copy(alpha = 0.6f),
+            futureLineColor = LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.4f),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),

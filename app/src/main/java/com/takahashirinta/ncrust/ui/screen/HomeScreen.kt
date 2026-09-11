@@ -468,7 +468,15 @@ private fun FmRadioTile(
     subtitle: String,
     onClick: () -> Unit
 ) {
-    val onAccent = if (accent.luminance() > 0.5f) Color.Black else LocalMetroColors.current.onBackground
+    // 波形记号颜色只看与**底色 accent** 的对比，不能跟随主题明暗：
+    // 浅色主题下 onBackground 是近黑，压在深色头像强调色上会看不见。
+    // 深色主题用白、浅色主题用米色(主题背景色)。
+    val isLightTheme = LocalMetroColors.current.background.luminance() > 0.5f
+    val onAccent = when {
+        accent.luminance() > 0.5f -> Color.Black
+        isLightTheme -> LocalMetroColors.current.background
+        else -> Color.White
+    }
     Column(modifier = Modifier.width(160.dp).clickable { onClick() }) {
         Box(
             modifier = Modifier
