@@ -36,6 +36,7 @@ import android.content.Context
 import android.widget.Toast
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.RetrofitClient
+import com.takahashirinta.ncrust.power.BackgroundActivity
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.i18n.LanguagePreset
@@ -269,6 +270,39 @@ fun UserScreen(
                 )
             }
             Spacer(Modifier.height(32.dp))
+        }
+
+        // 后台运行：跳转系统"允许后台活动 / 忽略电池优化"设置（与首次启动弹窗同一入口）。
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        runCatching {
+                            context.startActivity(BackgroundActivity.requestIntent(context))
+                        }.onFailure {
+                            runCatching {
+                                context.startActivity(BackgroundActivity.appDetailsIntent(context))
+                            }
+                        }
+                    }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MetroText(
+                    strings.batteryTitle,
+                    color = Color.White,
+                    style = TextStyle(fontSize = 15.sp),
+                    modifier = Modifier.weight(1f)
+                )
+                MetroIcon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    sizeDp = 20.dp,
+                )
+            }
+            Spacer(Modifier.height(24.dp))
         }
 
         // 存储与缓存：显示当前占用，点击清除（内存缓存 + 图片磁盘缓存 + WebView 缓存）。

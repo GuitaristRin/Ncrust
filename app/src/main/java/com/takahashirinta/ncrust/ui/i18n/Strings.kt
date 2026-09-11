@@ -88,6 +88,13 @@ data class Strings(
     val actionAppendToQueue: String,
     val actionGoToArtist: String,
     val actionGoToAlbum: String,
+
+    // Background activity permission (battery optimization whitelist)
+    val batteryTitle: String,
+    val batteryMessage: String,
+    val batteryAllow: String,
+    val batteryLater: String,
+
     val clearQueue: String,
     val actionAddToPlaylist: String,
     val actionRemoveFromLibrary: String,

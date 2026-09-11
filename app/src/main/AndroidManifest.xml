@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- 后台持续播放：请求系统把本应用加入电池优化白名单（"允许后台活动"）。
+         不申请该权限时，ColorOS/MIUI 等 ROM 会在熄屏后杀掉前台播放服务。 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:name=".NcrustApplication"

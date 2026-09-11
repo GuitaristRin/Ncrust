@@ -46,6 +46,8 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.player.PlaybackStateManager
+import com.takahashirinta.ncrust.power.BackgroundActivity
+import com.takahashirinta.ncrust.ui.components.BackgroundActivityDialog
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNav
 import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNavItem
@@ -143,6 +145,40 @@ class MainActivity : ComponentActivity() {
                         if (showSplash) {
                             SplashScreen(onFinished = { showSplash = false })
                         }
+                    }
+
+                    // 首次启动（splash 结束后）申请后台活动白名单：ColorOS/MIUI 等
+                    // 会在熄屏后清理后台，导致播放服务被杀、重进又走一遍 splash。
+                    var showBatteryPrompt by remember { mutableStateOf(false) }
+                    val batteryPrefs = remember {
+                        getSharedPreferences("ncrust_settings", 0)
+                    }
+                    LaunchedEffect(showSplash) {
+                        if (!showSplash &&
+                            !batteryPrefs.getBoolean("battery_prompt_done", false) &&
+                            !BackgroundActivity.isUnrestricted(this@MainActivity)
+                        ) {
+                            showBatteryPrompt = true
+                        }
+                    }
+                    if (showBatteryPrompt) {
+                        BackgroundActivityDialog(
+                            onAllow = {
+                                batteryPrefs.edit().putBoolean("battery_prompt_done", true).apply()
+                                showBatteryPrompt = false
+                                runCatching {
+                                    startActivity(BackgroundActivity.requestIntent(this@MainActivity))
+                                }.onFailure {
+                                    runCatching {
+                                        startActivity(BackgroundActivity.appDetailsIntent(this@MainActivity))
+                                    }
+                                }
+                            },
+                            onLater = {
+                                batteryPrefs.edit().putBoolean("battery_prompt_done", true).apply()
+                                showBatteryPrompt = false
+                            }
+                        )
                     }
                     }  // MetroTheme
                 }
