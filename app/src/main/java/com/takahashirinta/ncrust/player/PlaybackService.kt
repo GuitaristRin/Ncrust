@@ -108,6 +108,10 @@ class PlaybackService : MediaSessionService() {
             )
             .build()
 
+        // media3 MediaSession：对外暴露播放控制，车机（Android Auto）与系统媒体控制
+        // 通过它连接。通知栏仍走 MediaSessionCompat，两者独立、互不干扰。
+        mediaSession = M3MediaSession.Builder(this, player).build()
+
         mediaSessionCompat = MediaSessionCompat(this, "NcrustSession").apply {
             setFlags(
                 MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
@@ -276,7 +280,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: androidx.media3.session.MediaSession.ControllerInfo): M3MediaSession? {
-        return null
+        return mediaSession
     }
 
     private fun playUrl(url: String) {
@@ -538,6 +542,7 @@ class PlaybackService : MediaSessionService() {
         // they must survive a service stop/restart cycle (e.g. stopSelf then play again).
         // ViewModel.onCleared() is responsible for clearing them when the ViewModel dies.
         currentArtworkBitmap = null
+        mediaSession?.release()
         mediaSessionCompat?.isActive = false
         mediaSessionCompat?.release()
         player.release()

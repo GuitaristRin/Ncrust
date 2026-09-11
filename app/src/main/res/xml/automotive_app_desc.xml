@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto：声明本应用是一个媒体应用，车机将展示其浏览树与播放控制。 -->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>
