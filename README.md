@@ -1,19 +1,21 @@
-# Ncrust - 网易云音乐 Android 第三方客户端
-
 <div align="center">
 
-![Kotlin](https://img.shields.io/badge/Kotlin-1.9%2B-purple?style=flat-square&logo=kotlin)
-![Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.12-blue?style=flat-square&logo=jetpackcompose)
-![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
-![Version](https://img.shields.io/badge/Version-1.2.1-brightgreen?style=flat-square)
-![APK](https://img.shields.io/badge/Release%20APK-4MB-blue?style=flat-square)
+# Ncrust
 
-**Kanesumi Design / Groove 风 · GPU 零重组动画 · 无缝播放 · 13 语言 · 无损音质**
+### 把网易云的曲库，装进一块直角玻璃
 
-纯 Kotlin/Jetpack Compose 构建 · Media3 播放引擎 · eapi 加密直连
+**Kanesumi Design · GPU 零重组动画 · 无缝播放 · 7 级音质 · 车机适配 · 8 语言**
 
-[后端 CLI 工具](https://github.com/GuitaristRin/163CMAnalyser) (Rust) · [问题反馈](https://github.com/GuitaristRin/Ncrust/issues)
+纯 Kotlin / Jetpack Compose · Media3 播放引擎 · eapi 加密直连 · 无中间服务器
+
+[![Version](https://img.shields.io/badge/version-1.3.0-brightgreen?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
+[![APK](https://img.shields.io/badge/APK-2.9%20MB-blue?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
+[![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.24-purple?style=flat-square&logo=kotlin)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Compose-BOM%202024.12-blue?style=flat-square&logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
+[![License](https://img.shields.io/badge/license-MIT-yellow?style=flat-square)](LICENSE)
+
+[**下载安装**](https://github.com/GuitaristRin/Ncrust/releases) · [**Wiki 文档**](https://github.com/GuitaristRin/Ncrust/wiki) · [**问题反馈**](https://github.com/GuitaristRin/Ncrust/issues) · [**Kanesumi 设计库**](https://github.com/GuitaristRin/Kanesumi-sec-a)
 
 </div>
 
@@ -27,275 +29,211 @@
 
 ---
 
-## ✨ 功能特性
+## 为什么是 Ncrust
 
-### 🎵 核心功能
+> 网易云官方客户端很全，但它不是为「直角、克制、信息优先」设计的。
+> Ncrust 是一次从零开始的重写：**没有圆角，没有弹簧回弹，没有多余装饰。**
 
-- **🏠 首页发现**：新歌速递、推荐歌单、日推歌曲，懒加载分页
-- **🔍 多维度搜索**：单曲 / 专辑 / 艺人搜索，500ms 防抖，三标签 Tab 切换，Crossfade 三态过渡
-- **📚 本地曲库**：单曲封面墙（两列网格）、专辑自动派生（按 albumId 去重），Tab 切换方向感知横向滑入
-- **🎧 无损播放**：eapi 加密获取 FLAC 无损流，完整音质降级链（含杜比全景声/高清环绕声）
-- **🎭 全屏播放器**：三层图层架构，拖拽手势（25% 阈值吸附），迷你栏/全屏流畅切换
-- **🎼 歌词显示**：LRC 逐行解析，上黄金分割点自动定位，手动滚动 5 秒后恢复，上下渐变融入
-- **⏯️ 播放队列**：插播/追加/移除/点击切歌，三种模式（列表循环/单曲循环/随机），持久化存储
-- **🔔 系统媒体控制**：MediaSessionService + MediaStyle 通知，锁屏/控制中心控件，封面主色调提取，实时进度条
-- **🔤 音频焦点管理**：ExoPlayer 自动处理，多 App 互不干扰
-- **🔐 登录系统**：WebView 浏览器登录 + 手动粘贴 Cookie 降级方案，SharedPreferences 持久化
-- **💾 状态持久化**：进程被杀后自动恢复播放进度、歌曲信息、封面、歌词、播放队列
-- **📱 多屏幕适配**：21:9 基线，宽屏设备 360dp 居中限制，保持窄屏视觉比例
-- **🎨 关于页面**：内建 Markdown 渲染器，5 段级联入场
-- **🖼️ 自定义图标**：绿色唱片风格 Adaptive Icon
-- **🎨 主题色系统**：6 种预设（云杉 / 钴蓝 / 绯红 / 琥珀 / 堇紫 / 素白），Groove 风一行色墙选择器，运行时切换 + 持久化
-- **🌐 多语言**：13 种语言运行时切换，不依赖系统 locale——简中 / 繁中 / English / British English / 日本語 / 조선어 / Deutsch / Русский / Советский русский / Ελληνικά / Lingua Latina / Ænglisc / Middle English
-- **⚡ 无缝播放**：gapless 模式下提前预加载下一首 URL，切歌即播；TTL 5 分钟缓存，手动切歌命中缓存时零等待
-- **📶 分网络音质**：Wi-Fi / 移动数据独立偏好，默认无损 / 较好；全屏播放页实时显示当前音质标签
+| | |
+|---|---|
+| 🟩 **直角美学** | 全应用遵循 Kanesumi Design：直角切割、纯色细线、封面贴屏边、浮层返回箭头 |
+| ⚡ **GPU 零重组** | 播放器动画由单个 `progress` 经 `graphicsLayer` 驱动，展开 / 收起时**不重组** |
+| 🎧 **真·无损** | eapi 直连拉取 FLAC / Hi-Res / 杜比全景声，逐级降级兜底，弱机自动跳过无解档位 |
+| 🔀 **5 种播放模式** | 顺序循环 / 单曲循环 / 乱序 / 顺序线性 / 相似无限（私人 FM 电台） |
+| 🚗 **车机就绪** | Android Auto / Automotive 媒体源与浏览树，车机系统栏 inset 专项适配 |
+| 🪶 **2.9 MB** | R8 全量混淆 + 资源 shrink，冷启动预热，进程被杀也能恢复队列 |
+| 🌐 **8 语言** | 运行时切换，不依赖系统 locale |
+| 🔐 **登录无忧** | 浏览器登录 + 二维码登录 + 手机扫码授权平板，全程无需手动粘贴 Cookie |
 
-### 🚀 v1.2.1 新增
+---
 
-- **🎨 Groove 化收官**：UserScreen 全面无边框改造 + 主题色选择器一行色墙 + 关于页 5 段级联入场，全页面 Kanesumi 风格统一
-- **⚡ 冷启动统一预热**：`AppWarmup` 在 Splash 遮挡期并发跑 3 条 Home 请求 + Coil 封面预取 + 5 个 SharedPreferences 文件 IO 线程 parse，进入主页时数据/封面/prefs 全部就位
-- **🧪 深度性能优化**：播放器状态订阅下推（彻底根除 4Hz 全屏重组）、PlayerCard 折叠态子树 gating（展开阈值以下 dispose 重型内容）、每屏冗余 background 去除（消除 Mali 一层 fill overdraw）、@Immutable 数据类稳定化、列表补 key + 去 `.toList()` 拷贝、通知元数据等值跳过、HttpLoggingInterceptor 仅 debug、详情页返回主 tab 屏 always-mount 消卡消残影、低端机返回空 HOME 跳过动画 + popExit 延迟淡出
-- **📉 R8 全量优化**：release APK 从 25 MB 降至 4.1 MB（84% 缩减），Gson 反射 / Retrofit 注解 / Kotlin 元数据完整保护
-- **🎞️ 动画过渡铺开**：Kanesumi 风格页面推入过渡、Tab 切换方向感知横向滑入、搜索页三态 Crossfade + SokuouTweens.CoverFade、详情页内容分支 12dp 微滑上入场
-- **📦 ContentCache 歌手详情页接入**：消除返回时的 spinner 闪现
-- **🌐 网络层网关化**：所有 `music.163.com` 硬编码 URL 收敛到 RetrofitClient，接口切换零改动
-- **🔤 14 语种 emoji 剥离**：首页分区标题统一去掉 emoji 前缀
+## ✨ 功能一览
 
-### 🎼 支持音质
+### 🏠 发现
 
-| 参数 | 说明 | 要求 |
-|------|------|------|
-| `standard` | 标准音质 (128kbps) | 普通账号 |
-| `higher` | 较好音质 | 普通账号 |
-| `exhigh` | 极高音质 (320kbps) | 普通账号 |
-| `lossless` | 无损音质 (FLAC) | 黑胶 VIP |
-| `hires` | Hi-Res 音质 | 黑胶 VIP |
+- **每日推荐**、**推荐歌单**、**新歌速递**，懒加载分页，缓存命中秒开
+- **私人 FM**：首页电台入口，持续拉取私人 FM 流无限续播
+- **剪贴板识别**：复制 `music.163.com` / `163cn.tv` 分享链接回到 App 自动打开（单曲只载入不自动播放）
+
+### 🔍 搜索
+
+- 单曲 / 专辑 / 艺人三标签，500 ms 防抖，三态 Crossfade 过渡
+- 本地搜索历史（每类 10 条、14 天过期）
+- 专辑 / 艺人长按可批量「播放全部 / 下一首 / 添加到队尾」
+
+### 📚 曲库
+
+- **收藏单曲**：云端同步「我喜欢的音乐」，列表懒加载分页
+- **收藏专辑**：云端订阅专辑网格
+- **收藏歌单**：当前账号的用户歌单
+- 单曲可收藏 / 插播 / 加队列，本地乐观更新后异步同步云端
+
+### 🎵 播放
+
+- **7 级音质**：压缩 → 较好 → 更好 → 无损 → 高解析 → 高清环绕声 → 杜比全景声
+- **分网络偏好**：Wi-Fi 与移动数据独立设置，默认无损 / 较好
+- **无缝播放（gapless）**：进入最后 60 秒预加载下一首，切歌即播
+- **自动降档**：解码失败或音频输出故障时同曲降一档重试，避免「进度在走但没声音」
+- **三区队列**：已播 / 当前 / 待播，触摸即拖重排、边缘自动滚动、清空队列
+- **播放上报**：复刻官方 `webLog`，本地收听计入推荐与听歌指数
+
+### 🎨 界面
+
+- **全屏播放器**：三层图层架构，拖拽 25% 阈值吸附，展开 / 收起只做位移缩放
+- **歌词**：LRC 逐行解析、黄金分割定位、手动滚动 5 秒后恢复、双语翻译合并、点击行跳转
+- **主题**：6 种主题色 × 3 种模式（跟随系统 / 深色 / 浅色），运行时切换
+- **响应式**：窄屏限宽居中，宽屏（≥ 600dp）左侧 200dp 常驻 Sidebar
+- **进程恢复**：被杀后恢复进度、歌曲信息、封面、歌词与完整队列
+
+### 🔔 系统集成
+
+- **媒体控制**：MediaLibraryService + MediaStyle 通知，锁屏 / 控制中心 / 蓝牙按键，封面主色调着色
+- **车机**：Android Auto / Android Automotive（AAOS）媒体源与浏览树
+- **后台播放**：`WAKE_LOCK` + 电池优化白名单引导，熄屏不被 ROM 清理
+- **音频焦点**：ExoPlayer 自动处理
+
+---
+
+## 🎼 支持音质
+
+| API 参数 | 说明 | 要求 |
+|---|---|:--:|
+| `standard` | 压缩（128 kbps） | 普通账号 |
+| `higher` | 较好 | 普通账号 |
+| `exhigh` | 更好（320 kbps） | 普通账号 |
+| `lossless` | 无损（FLAC） | 黑胶 VIP |
+| `hires` | 高解析 | 黑胶 VIP |
 | `jyeffect` | 高清环绕声 | 黑胶 VIP |
 | `dolby` | 杜比全景声 | 黑胶 VIP |
 
----
-
-## 📱 使用说明
-
-### 推荐的自动登录
-打开 Ncrust → 用户页面 → 头像 → 浏览器登录
-
-### 获取 Cookie（手动登录）
-
-1. 登录 [网易云音乐网页版](https://music.163.com)
-2. 按 `F12` → `Application` → `Cookies` → `music.163.com`
-3. 找到 `MUSIC_U` 和 `__csrf` 字段，或直接复制完整 Cookie 字符串
-4. 打开 Ncrust → 用户页面 → 粘贴 Cookie → 保存
-
-### 安装 APK
-
-从 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 下载最新 `Ncrust-v1.2.1.apk`（约 4 MB），允许"未知来源"安装。
+> 设备没有 MediaCodec FLAC 解码器（API < 27 或精简 ROM）时会自动跳过无损档位，避免无声。
 
 ---
 
-## 🛠️ 技术架构
+## 📦 安装
+
+1. 打开 [Releases](https://github.com/GuitaristRin/Ncrust/releases)，下载最新的 `app-release.apk`（约 **2.9 MB**）
+2. 允许「未知来源」安装
+3. 打开 App，在用户页登录（见下）
+
+### 🔐 登录
+
+App 不提供手动粘贴 Cookie，登录方式：
+
+- **浏览器登录（手机默认）** — 用户页 → 头像 → 应用内 WebView 打开网易云登录页，登录后自动提取凭证
+- **扫码登录（平板 / 宽屏）** — 生成二维码，用手机网易云 App 扫码
+- **手机扫码授权平板** — 平板显示二维码后，用已登录 Ncrust 的手机扫描，经局域网把凭证加密传给平板
+
+登录成功后自动同步云端收藏。
+
+---
+
+## 🛠️ 从源码构建
+
+### 环境要求
+
+Android Studio Hedgehog+ · JDK 11 · Kotlin 1.9.24 · Gradle 8.x · Android SDK 36（minSdk 24）
+
+### ⚠️ 必须先克隆 Kanesumi
+
+`settings.gradle.kts` 通过 `includeBuild("../Kanesumi-sec-a")` 直接依赖同级的 [Kanesumi](https://github.com/GuitaristRin/Kanesumi-sec-a) 源码仓库。**单独克隆 Ncrust 无法构建**，目录结构必须是：
+
+```
+projects/
+├── Ncrust/
+└── Kanesumi-sec-a/
+```
+
+### 构建命令
+
+```bash
+git clone https://github.com/GuitaristRin/Ncrust.git
+git clone https://github.com/GuitaristRin/Kanesumi-sec-a.git
+
+cd Ncrust
+./gradlew assembleDebug            # Debug APK -> app/build/outputs/apk/debug/
+./gradlew assembleRelease          # Release APK（R8 minify，需 keystore.properties）
+
+benchmark/run_benchmark.sh all     # Macrobenchmark：冷启动 / 滚动 / 播放器展开
+```
+
+---
+
+## 🧭 技术架构
+
+| 主题 | 说明 |
+|---|---|
+| **Kanesumi Design** | 直角、无圆角、无弹簧；共享组件与动画词汇（`Metro*` / `sokuou`）位于外部 Kanesumi 库，App 内**已无 `material3` 依赖** |
+| **GPU 零重组** | 播放器动画由单个 `progress: Animatable<Float>` 驱动，视觉属性只在 `graphicsLayer {}` 内读取 |
+| **三层图层** | 主页面 / 播放卡 / 导航栏为独立 composable 层，手势转场互不干扰 |
+| **网络直连** | 自有 `EapiCrypto`（AES-128-ECB + MD5 签名）与 `WeapiCrypto`（双 AES-CBC + 原始 RSA），直连网易云，无中间服务器 |
+| **ContentCache** | 内存网络快照 + Crossfade，消除「空屏 → spinner → 跳变」；LRU-32 详情缓存 |
+| **持久化** | 全部 SharedPreferences + Gson，无 Room |
+| **性能** | R8 全量混淆 + 资源 shrink（release 2.9 MB）、`AppWarmup` 冷启动预热、状态订阅下推至叶子组件、播放器折叠态子树 gating |
 
 ```
 app/src/main/java/com/takahashirinta/ncrust/
-├── MainActivity.kt              # 精简入口：调用 MainScreen() + 权限/RetrofitClient/AppWarmup 初始化
-├── auth/
-│   └── CookieManager.kt         # Cookie 存储（SharedPreferences）
-├── cache/
-│   └── ContentCache.kt          # 网络响应内存快照（首页 + 详情按 ID）
-├── library/
-│   ├── LibraryManager.kt        # 云同步收藏库（收藏单曲=云端收藏，收藏专辑=云端专辑）
-│   └── SearchHistoryManager.kt  # 搜索历史（10 条上限）
-├── lyric/
-│   └── LrcParser.kt             # LRC → LrcLine.timeMs
-├── network/
-│   ├── NcmApi.kt                # Retrofit API 接口
-│   ├── PlaylistApi.kt           # 歌单/艺人/日推 eapi 端点
-│   ├── RetrofitClient.kt        # OkHttp + 网关统一 URL + Cookie 拦截
-│   ├── SearchResponse.kt        # 搜索响应模型（@Immutable）
-│   ├── crypto/
-│   │   └── EapiCrypto.kt        # eapi 加密（AES-128-ECB + MD5 签名）
-│   └── model/                   # 数据模型（全部 @Immutable）
-├── player/
-│   ├── PlaybackService.kt       # MediaSessionService + MediaStyle 通知
-│   ├── PlaybackStateManager.kt  # 队列 + 当前曲目持久化
-│   ├── SongUrlFetcher.kt        # 音质降级链（dolby/jyeffect→hires→lossless→…）
-│   └── PlayReporter.kt          # webLog 播放行为上报（反馈到推荐/听歌指数）
-├── warmup/
-│   └── AppWarmup.kt             # 冷启动预热单例（Home 请求 + 封面预取 + prefs XML parse）
-└── ui/
-    ├── ResponsiveContent.kt     # 360dp 居中限制
-    ├── BottomOverlayInset.kt    # 底部 overlay（miniBar + NavBar）内边距常量
-    ├── anim/sokuou/             # Sokuou 动画系统（UWP 缓动族 + Apple 弹簧预设）
-    ├── components/              # 复用 Composable：SongCard、DetailScaffold、SongMenuSheet…
-    ├── i18n/                    # 运行时 i18n：Strings 数据类 + 每语言文件 + LanguageManager
-    ├── navigation/              # NavRoutes + MainNavGraph
-    ├── player/                  # PlayerCard 拆分：Overlay、Card、FullControls、Lyrics、Queue、SlimProgressBar
-    ├── screen/                  # 每屏一文件：Home、Search、Library、User、AlbumDetail…
-    ├── theme/                   # 主题色系统 + MarkdownText
-    └── viewmodel/               # PlayerViewModel、SearchViewModel、SongViewModel
+├── MainActivity.kt        # 入口 + MainScreen 编排（导航 / 队列 / 播放模式）
+├── auth/                  # Cookie + 局域网扫码配对
+├── cache/                 # ContentCache（内存，不持久化）
+├── library/               # 云端收藏 + 搜索历史
+├── lyric/                 # LRC 解析 + 歌词缓存
+├── network/               # Retrofit / eapi / weapi / 加密
+├── player/                # PlaybackService / SongUrlFetcher / PlayReporter
+├── warmup/  power/        # 冷启动预热、电池白名单
+└── ui/                    # screen / player / components / theme / i18n / navigation
 ```
 
-### 核心设计决策
-
-| 决策 | 说明 |
-|------|------|
-| 三层图层架构 | 主页面 → 卡片层 → 导航栏，视觉与触摸独立 |
-| GPU 零重组动画 | `graphicsLayer` 替代 `animateFloatAsState`，组件常驻不销毁 |
-| 单 Animatable 驱动 | `progress` 0→1 控制所有播放器动画状态 |
-| Kanesumi Design / Groove 无边框 | 直角切割，纯色细线进度条，封面贴屏边，浮层返回箭头，拒绝装饰 |
-| 主 tab 屏 always-mount | 详情页 opaque 从上层覆盖 tab 屏，返回时不 remount 消除动画卡顿 |
-| 状态订阅下推 | 高频 StateFlow（currentPosition 4Hz）由子组件在 draw scope / derivedStateOf 内订阅，父级零重组 |
-| PlayerCard 折叠态 gating | progress < 0.05 时 LyricsView/QueueView/FullPlayerControls 全部 dispose |
-| Sokuou 动画系统 | UWP 缓动族 + Apple 风格弹簧预设，新代码统一动画词汇 |
-| ContentCache + Crossfade | 网络响应内存快照 + 平滑替换，彻底消除"空屏→spinner→跳变" |
-| AppWarmup 冷启动预热 | Splash 遮挡期并发跑网络 + 图片 + SharedPreferences，进主页时全部就位 |
-| R8 全量优化 | isMinifyEnabled + isShrinkResources，proguard-rules 保护 Gson/Retrofit 反射 |
-| 专辑派生 | 由本地单曲按 `albumId` 去重，非独立实体 |
-| 懒加载分页 | 新歌速递每批 10 首，日推 5 行 × N 列横向滑动 |
-| SharedPreferences + Gson | 本地存储，无数据库依赖 |
+> 更完整的架构说明见 [AGENTS.md](AGENTS.md) 与 [Wiki](https://github.com/GuitaristRin/Ncrust/wiki)。
 
 ---
 
 ## 📋 版本历史
 
-| 版本 | 日期 | 主要内容 |
-|------|------|---------|
-| v0.1.0-beta | 4 月 26 日 | 初始 MVP，核心播放流程跑通 |
-| v1.0.0 | 4 月 29 日 | 首个正式版：多屏幕适配、状态持久化、队列管理 |
-| v1.0.1 | 5 月 4 日 | 性能优化（零重组修复）、主题色系统、多语言框架、导航兼容性修复 |
-| v1.0.2 | 5 月 4 日 | 紧急修复：歌单页闪退（Issue #11）、WebView 小屏登录 |
-| v1.1.4 | 5 月 17 日 | 无缝播放元数据同步修复、URL 缓存去重、多语言扩充至 13 种 |
-| v1.2.0 | 7 月 29 日 | Groove Music 无边框大改、Sokuou 动画系统、ContentCache、Kanesumi 页面推入、AppWarmup 冷启动预热、深度性能优化、R8 minify、网络层网关化 |
-| v1.2.1 | 7 月 29 日 | 正式发布版：Groove 化收官（UserScreen / 主题色选择器 / 关于页级联入场）、冷启动预热、全链路性能优化（播放器重组0%、overdraw 消除、PlayerCard gating、@Immutable、列表补 key）、R8 minify（APK 25 MB → 4.1 MB）、导航/搜索/详情页动画过渡、ContentCache 歌手页接入、14 语种 emoji 剥离 |
-
----
-
-## 📋 版本 1.2.0 功能状态
-
-### ✅ 已完成
-
-| 功能 | 状态 |
-|------|:--:|
-| 首页（新歌速递/推荐歌单/日推） | ✅ |
-| 单曲/专辑/艺人搜索 | ✅ |
-| 本地曲库（单曲+专辑派生） | ✅ |
-| 全屏播放卡片（拖拽手势/迷你栏切换） | ✅ |
-| 播放队列（插播/追加/移除/持久化） | ✅ |
-| 三种播放模式（列表/单曲/随机） | ✅ |
-| 歌词滚动显示（黄金分割点定位） | ✅ |
-| 进度条拖拽跳转 | ✅ |
-| 系统媒体控制（通知栏/锁屏/控制中心） | ✅ |
-| 音频焦点管理 | ✅ |
-| Cookie 管理（WebView 登录 + 手动降级） | ✅ |
-| 进程被杀后状态恢复（含队列） | ✅ |
-| 多屏幕比例适配（16:9～21:9） | ✅ |
-| 关于页面（Markdown + 5 段级联入场） | ✅ |
-| 应用图标（绿色唱片 Adaptive Icon） | ✅ |
-| Splash + AppWarmup 冷启动预热 | ✅ |
-| 库页面单曲操作（插播/加队列） | ✅ |
-| 主题色系统（6 种预设，一行色墙选择器） | ✅ |
-| 多语言系统（13 种，运行时切换） | ✅ |
-| 无缝播放（gapless + URL 缓存去重） | ✅ |
-| 分网络音质设置（Wi-Fi / 移动数据） | ✅ |
-| Groove Music 无边框设计 | ✅ |
-| Sokuou 动画系统（UWP 缓动 + Apple 弹簧） | ✅ |
-| ContentCache 内存缓存 + Crossfade | ✅ |
-| Kanesumi 页面推入过渡 | ✅ |
-| 网络层网关化 | ✅ |
-| Release 签名打包 + R8 minify | ✅ |
-| 深度性能优化（详见「v1.2.0 新增」章节） | ✅ |
-
-### ⏳ 待完成
-
-| 功能 | 优先级 |
-|------|:--:|
-| 艺人热门单曲（真实排行而非搜索过滤） | ⭐⭐⭐ |
-| 专辑/艺人搜索独立页面 | ⭐⭐⭐ |
-| 歌单创建/编辑 | ⭐⭐ |
-| Baseline Profiles（macrobenchmark 生成 + profileinstaller 打包） | ⭐⭐ |
-
-### 🐛 已知问题
-
-| 问题 | 状态 |
-|------|:--:|
-| 艺人热门单曲为搜索过滤结果，非真正热门 | 🔧 |
-| WebView Cookie 提取偶有失败 | ⚠️ |
-| 日推接口使用 eapi 替代 weapi，长期可能失效 | ⚠️ |
-| `attributionTag` 系统日志警告（不影响功能） | ⚠️ |
-| gapless 未及时预加载时（短歌/提前跳歌）等待 URL fetch | ⚠️ |
-
----
-
-## 📦 编译
-
-### 环境要求
-- Android Studio Hedgehog+
-- Kotlin 1.9+
-- Gradle 8.x
-- Android SDK 24+
-
-### 步骤
-
-```bash
-git clone https://github.com/GuitaristRin/Ncrust.git
-cd Ncrust
-./gradlew assembleDebug
-# Debug APK 位于 app/build/outputs/apk/debug/app-debug.apk（约 26 MB）
-
-# Release 需要根目录放 keystore.properties + 签名 .jks，然后：
-./gradlew assembleRelease
-# Release APK 位于 app/build/outputs/apk/release/app-release.apk（约 4 MB，R8 minified）
-```
+| 版本 | 日期 | 亮点 |
+|---|---|---|
+| v0.1.0-beta | 2026-04-26 | 初始 MVP，核心播放流程跑通 |
+| v1.0.0 | 2026-04-30 | 首个正式版：多屏幕适配、状态持久化、队列管理 |
+| v1.0.1 ~ v1.0.3 | 2026-05-04 | 零重组修复、主题色系统、多语言框架、歌单页闪退与 WebView 登录修复 |
+| v1.1.0 | 2026-05-05 | 收藏 / 队列 / 音质完善 |
+| v1.1.4 | 2026-05-17 | 无缝播放元数据同步、URL 缓存去重、多语言扩充 |
+| v1.2.0 | 2026-07-28 | Sokuou 动画系统、ContentCache + Crossfade、专辑收藏、批量入队 |
+| v1.2.1 | 2026-07-29 | Kanesumi 化收官、冷启动预热、播放器重组归零、R8（25 MB → 4.1 MB） |
+| v1.2.2 | 2026-08-04 | 全页面 Kanesumi 统一、底部导航与迷你条衔接、登录统一为浏览器方式 |
+| **v1.3.0** | **2026-09-10** | **平板 / 大屏 Sidebar、车机（Android Auto / AAOS）、AudioSink 降档兜底、歌词竞态与定位修复、队列拖拽重排、私人 FM 续播** |
 
 ---
 
 ## 🔗 相关项目
 
 | 项目 | 说明 |
-|------|------|
-| [163CMAnalyser](https://github.com/GuitaristRin/163CMAnalyser) | Rust CLI 无损下载工具，本项目的 API 参考 |
+|---|---|
+| [Kanesumi-sec-a](https://github.com/GuitaristRin/Kanesumi-sec-a) | Kanesumi Design 组件与动画库（Apache-2.0），本项目 UI 依赖 |
+| [163CMAnalyser](https://github.com/GuitaristRin/163CMAnalyser) | Rust CLI 无损下载工具 |
 | [Netease_url](https://github.com/Suxiaoqinx/Netease_url) | Python 原版网易云解析（MIT） |
 
 ---
 
 ## 📄 许可证
 
-```
-MIT License
-
-Copyright (c) 2026 Takahashi_Rinta
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-```
+本项目以 **MIT** 许可发布，Copyright (c) 2026 Takahashi_Rinta。完整文本见 [LICENSE](LICENSE)。Kanesumi 库为 Apache-2.0。
 
 ---
 
-## ⭐ 支持项目
+<div align="center">
 
-若此工具对你有用，请赐一颗 **Star** ⭐
-
-有问题或建议，欢迎提交 [Issue](https://github.com/GuitaristRin/Ncrust/issues)。
-
-## Star History
-
-## Star History
+## ⭐ Star History
 
 <a href="https://www.star-history.com/?repos=GuitaristRin%2FNcrust&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&theme=dark&legend=top-left&sealed_token=-LRNV-LDu7Vj6bFSSrS8kUQlcdjj0utMO2u3MTcbZRDlMP4VOyWmJAJTQk4piLt-FZ7Mo6oSr-Kj5S5UeoN28q87yNN0v05vMrCYRlf6Htd9mtnCxlwQbEQ_bW5KhFdVzpmhb3_RXC9bBp7D5T9unPUL2TOf-Cd1p4AYAqx6ru63QXFwh_7fAvmlKd3V" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&legend=top-left&sealed_token=-LRNV-LDu7Vj6bFSSrS8kUQlcdjj0utMO2u3MTcbZRDlMP4VOyWmJAJTQk4piLt-FZ7Mo6oSr-Kj5S5UeoN28q87yNN0v05vMrCYRlf6Htd9mtnCxlwQbEQ_bW5KhFdVzpmhb3_RXC9bBp7D5T9unPUL2TOf-Cd1p4AYAqx6ru63QXFwh_7fAvmlKd3V" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&legend=top-left&sealed_token=-LRNV-LDu7Vj6bFSSrS8kUQlcdjj0utMO2u3MTcbZRDlMP4VOyWmJAJTQk4piLt-FZ7Mo6oSr-Kj5S5UeoN28q87yNN0v05vMrCYRlf6Htd9mtnCxlwQbEQ_bW5KhFdVzpmhb3_RXC9bBp7D5T9unPUL2TOf-Cd1p4AYAqx6ru63QXFwh_7fAvmlKd3V" />
- </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&theme=dark&legend=top-left&sealed_token=-LRNV-LDu7Vj6bFSSrS8kUQlcdjj0utMO2u3MTcbZRDlMP4VOyWmJAJTQk4piLt-FZ7Mo6oSr-Kj5S5UeoN28q87yNN0v05vMrCYRlf6Htd9mtnCxlwQbEQ_bW5KhFdVzpmhb3_RXC9bBp7D5T9unPUL2TOf-Cd1p4AYAqx6ru63QXFwh_7fAvmlKd3V" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&theme=light&legend=top-left&sealed_token=-LRNV-LDu7Vj6bFSSrS8kUQlcdjj0utMO2u3MTcbZRDlMP4VOyWmJAJTQk4piLt-FZ7Mo6oSr-Kj5S5UeoN28q87yNN0v05vMrCYRlf6Htd9mtnCxlwQbEQ_bW5KhFdVzpmhb3_RXC9bBp7D5T9unPUL2TOf-Cd1p4AYAqx6ru63QXFwh_7fAvmlKd3V" />
+    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=GuitaristRin/Ncrust&type=date&legend=top-left&sealed_token=-LRNV-LDu7Vj6bFSSrS8kUQlcdjj0utMO2u3MTcbZRDlMP4VOyWmJAJTQk4piLt-FZ7Mo6oSr-Kj5S5UeoN28q87yNN0v05vMrCYRlf6Htd9mtnCxlwQbEQ_bW5KhFdVzpmhb3_RXC9bBp7D5T9unPUL2TOf-Cd1p4AYAqx6ru63QXFwh_7fAvmlKd3V" />
+  </picture>
 </a>
+
+**如果 Ncrust 让你重新爱上听歌，请赐一颗 Star ⭐**
+
+[问题反馈](https://github.com/GuitaristRin/Ncrust/issues) · [Wiki](https://github.com/GuitaristRin/Ncrust/wiki) · [Releases](https://github.com/GuitaristRin/Ncrust/releases)
+
+</div>
