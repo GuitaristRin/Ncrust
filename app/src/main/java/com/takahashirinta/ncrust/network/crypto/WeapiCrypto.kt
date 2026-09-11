@@ -2,9 +2,6 @@ package com.takahashirinta.ncrust.network.crypto
 
 import android.util.Base64
 import java.math.BigInteger
-import java.security.KeyFactory
-import java.security.interfaces.RSAPublicKey
-import java.security.spec.RSAPublicKeySpec
 import java.util.Random
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
@@ -13,14 +10,20 @@ import javax.crypto.spec.SecretKeySpec
 /**
  * weapi 加密方案（与网易官方 WeAPI 一致，参照 NeteaseCloudMusicApi 的 crypto.js）。
  *
- * 网易部分受保护接口（收藏单曲列表、收藏专辑等）走 weapi：
+ * 网易受保护接口（收藏单曲列表、扫码登录等）走 weapi：
  *   1. 随机 16 位 secKey；
- *   2. params = AES-128-CBC(明文 JSON, key=secKey, iv="0102030405060708") → base64；
- *   3. encSecKey = RSA-1024-PKCS1(逆序后的 secKey, 官方公钥) → base64；
- *   4. 表单 POST `params` + `encSecKey` 到对应 /api/ 路径。
+ *   2. params = AES-128-CBC(AES-128-CBC(明文 JSON, presetKey), secKey) → base64；
+ *   3. encSecKey = rawRSA(reverse(secKey)) → 256 hex（**无填充、非 base64**）；
+ *   4. 表单 POST `params` + `encSecKey` 到对应 /weapi/ 路径。
+ *
+ * 注意两个易错点：
+ *  - params 是**两层** AES：先固定 presetKey，再随机 secKey。只做一层服务端解不开。
+ *  - encSecKey 是原始 RSA（secKey 反转后当大整数做 modPow）输出 256 位十六进制，
+ *    不是 PKCS1 填充后 base64。
  */
 object WeapiCrypto {
     private const val AES_IV = "0102030405060708"
+    private const val PRESET_KEY = "0CoJUm6Qyw8W8jud"
 
     // 官方 weapi 公钥（modulus + exponent 0x10001）。
     private const val PUBLIC_KEY_MODULUS_HEX =
@@ -37,9 +40,8 @@ object WeapiCrypto {
     /** 对 JSON 明文生成 weapi 的 params + encSecKey 表单字段。 */
     fun encryptParams(json: String): Pair<String, String> {
         val secKey = randomSecKey()
-        val params = aesCbcEncrypt(json, secKey)
-        val encSecKey = rsaEncrypt(secKey.reversed().toByteArray(Charsets.UTF_8))
-        return params to encSecKey
+        val params = aesCbcEncrypt(aesCbcEncrypt(json, PRESET_KEY), secKey)
+        return params to rsaEncryptHex(secKey)
     }
 
     private fun randomSecKey(): String {
@@ -59,14 +61,12 @@ object WeapiCrypto {
         return Base64.encodeToString(encrypted, Base64.NO_WRAP)
     }
 
-    private fun rsaEncrypt(data: ByteArray): String {
+    /** secKey 字符串反转 → big-endian 字节 → m^e mod n → 256 位小写 hex。 */
+    private fun rsaEncryptHex(secKey: String): String {
         val modulus = BigInteger(1, hexToBytes(PUBLIC_KEY_MODULUS_HEX))
         val exponent = BigInteger(1, hexToBytes(PUBLIC_KEY_EXP_HEX))
-        val pubKey: RSAPublicKey =
-            KeyFactory.getInstance("RSA").generatePublic(RSAPublicKeySpec(modulus, exponent)) as RSAPublicKey
-        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
-        cipher.init(Cipher.ENCRYPT_MODE, pubKey)
-        return Base64.encodeToString(cipher.doFinal(data), Base64.NO_WRAP)
+        val message = BigInteger(1, secKey.reversed().toByteArray(Charsets.UTF_8))
+        return message.modPow(exponent, modulus).toString(16).padStart(256, '0')
     }
 
     private fun hexToBytes(hex: String): ByteArray {
