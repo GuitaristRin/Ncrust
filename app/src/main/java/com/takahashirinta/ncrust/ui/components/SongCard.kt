@@ -91,7 +91,7 @@ fun SongCard(
                 Column(Modifier.weight(1f)) {
                     MetroText(
                         song.name,
-                        color = if (isCurrentPlaying) LocalMetroColors.current.primary else Color.White,
+                        color = if (isCurrentPlaying) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
                         style = LocalMetroTypography.current.bodyLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -102,7 +102,7 @@ fun SongCard(
                             if (albumName.isNotEmpty()) append(" · $albumName")
                             if (durationStr.isNotEmpty()) append("  $durationStr")
                         },
-                        color = Color.Gray,
+                        color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -154,14 +154,14 @@ fun SongCard(
                 Spacer(Modifier.height(8.dp))
                 MetroText(
                     song.name,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = LocalMetroTypography.current.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 MetroText(
                     "$artistStr · $albumName",
-                    color = Color.Gray,
+                    color = LocalMetroColors.current.onSurfaceVariant,
                     style = LocalMetroTypography.current.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

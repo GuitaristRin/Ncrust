@@ -61,7 +61,7 @@ fun SongMenuSheet(
                 ) {
                     MetroText(
                         song.name,
-                        color = Color.White,
+                        color = LocalMetroColors.current.onBackground,
                         style = LocalMetroTypography.current.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -79,7 +79,7 @@ fun SongMenuSheet(
                         Spacer(Modifier.height(2.dp))
                         MetroText(
                             albumName,
-                            color = Color.Gray,
+                            color = LocalMetroColors.current.onSurfaceVariant,
                             style = LocalMetroTypography.current.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -106,13 +106,13 @@ fun SongMenuSheet(
                 MetroIcon(
                     imageVector = action.icon,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = LocalMetroColors.current.onBackground,
                     sizeDp = 24.dp
                 )
                 Spacer(Modifier.width(16.dp))
                 MetroText(
                     action.label,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = LocalMetroTypography.current.bodyLarge
                 )
             }

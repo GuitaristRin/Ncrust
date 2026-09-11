@@ -36,7 +36,7 @@ fun PlayAllDialog(
         ) {
             MetroText(
                 text = strings.songCountFormat(songCount),
-                color = Color.Gray,
+                color = LocalMetroColors.current.onSurfaceVariant,
                 style = TextStyle(fontSize = 13.sp)
             )
         }
@@ -59,12 +59,12 @@ fun PlayAllDialog(
             Column {
                 MetroText(
                     text = strings.playNowTitle,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 )
                 MetroText(
                     text = strings.playNowDesc,
-                    color = Color.Gray,
+                    color = LocalMetroColors.current.onSurfaceVariant,
                     style = TextStyle(fontSize = 12.sp)
                 )
             }
@@ -81,19 +81,19 @@ fun PlayAllDialog(
             MetroIcon(
                 imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                 contentDescription = null,
-                tint = Color.White,
+                tint = LocalMetroColors.current.onBackground,
                 sizeDp = 26.dp
             )
             Spacer(Modifier.width(16.dp))
             Column {
                 MetroText(
                     text = strings.insertNextTitle,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 )
                 MetroText(
                     text = strings.insertNextDesc,
-                    color = Color.Gray,
+                    color = LocalMetroColors.current.onSurfaceVariant,
                     style = TextStyle(fontSize = 12.sp)
                 )
             }
@@ -109,7 +109,7 @@ fun PlayAllDialog(
         ) {
             MetroText(
                 text = strings.cancel,
-                color = Color.Gray,
+                color = LocalMetroColors.current.onSurfaceVariant,
                 style = TextStyle(fontSize = 15.sp)
             )
         }

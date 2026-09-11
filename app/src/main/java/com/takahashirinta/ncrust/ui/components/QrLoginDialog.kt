@@ -131,13 +131,13 @@ fun QrLoginDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF282828))
+                .background(LocalMetroColors.current.surface)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             MetroText(
                 strings.qrLoginTitle,
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = LocalMetroTypography.current.titleLarge.copy(fontWeight = FontWeight.Bold),
             )
             Spacer(Modifier.height(16.dp))
@@ -159,12 +159,12 @@ fun QrLoginDialog(
                     )
                     state == QrState.Loading -> MetroText(
                         strings.loading,
-                        color = Color(0xFF555555),
+                        color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.bodyMedium,
                     )
                     else -> MetroText(
                         if (state == QrState.Failed) strings.qrLoadFailed else strings.qrExpiredHint,
-                        color = Color(0xFF555555),
+                        color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.bodySmall.copy(textAlign = TextAlign.Center),
                         modifier = Modifier.padding(16.dp)
                     )
@@ -179,7 +179,8 @@ fun QrLoginDialog(
                     QrState.Failed -> strings.qrLoadFailed
                     else -> strings.qrScanHint
                 },
-                color = if (state == QrState.Scanned) LocalMetroColors.current.primary else Color.Gray,
+                color = if (state == QrState.Scanned) LocalMetroColors.current.primary
+                else LocalMetroColors.current.onSurfaceVariant,
                 style = LocalMetroTypography.current.bodySmall.copy(textAlign = TextAlign.Center),
             )
 
@@ -203,14 +204,14 @@ fun QrLoginDialog(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, Color.Gray.copy(alpha = 0.4f))
+                    .border(1.dp, LocalMetroColors.current.divider)
                     .clickable(onClick = onDismiss)
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 MetroText(
                     strings.close,
-                    color = Color.Gray,
+                    color = LocalMetroColors.current.onSurfaceVariant,
                     style = TextStyle(fontSize = 14.sp),
                 )
             }

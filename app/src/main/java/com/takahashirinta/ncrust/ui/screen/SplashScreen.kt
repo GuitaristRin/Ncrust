@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.graphicsLayer
 import com.takahashirinta.ncrust.warmup.AppWarmup
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -37,7 +38,7 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212))
+            .background(LocalMetroColors.current.background)
             .graphicsLayer { this.alpha = alpha.value }
     ) {
         Column(
@@ -52,14 +53,14 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             MetroText(
                 "A Re-defined Music Player",
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal)
             )
         }
 
         MetroText(
             "Artwork by Project Arcturius",
-            color = Color.Gray.copy(alpha = 0.5f),
+            color = LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.5f),
             style = TextStyle(fontSize = 12.sp, textAlign = TextAlign.Center),
             modifier = Modifier
                 .align(Alignment.BottomCenter)

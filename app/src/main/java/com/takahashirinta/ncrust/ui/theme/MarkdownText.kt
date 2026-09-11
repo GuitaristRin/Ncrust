@@ -24,6 +24,7 @@ import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import io.github.takahashirinta.kanesumi.controls.MetroDivider
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
 /**
@@ -40,6 +41,8 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroText
  */
 @Composable
 fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
+    val onBg = LocalMetroColors.current.onBackground
+    val codeBg = LocalMetroColors.current.surfaceVariant
     Column(modifier = modifier) {
         markdown.lines().forEach { line ->
             when {
@@ -62,7 +65,7 @@ fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
                 // 水平分割线：--- 或 ***
                 line.trimStart().matches(Regex("^[-*]{3,}$")) -> {
                     Spacer(Modifier.height(8.dp))
-                    MetroDivider(color = Color(0xFF2A2A2A))
+                    MetroDivider(color = codeBg)
                     Spacer(Modifier.height(8.dp))
                 }
                 // 标题
@@ -70,7 +73,7 @@ fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
                     Spacer(Modifier.height(16.dp))
                     MetroText(
                         text = line.trimStart().removePrefix("### "),
-                        color = Color.White,
+                        color = LocalMetroColors.current.onBackground,
                         style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     )
                     Spacer(Modifier.height(8.dp))
@@ -79,7 +82,7 @@ fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
                     Spacer(Modifier.height(20.dp))
                     MetroText(
                         text = line.trimStart().removePrefix("## "),
-                        color = Color.White,
+                        color = LocalMetroColors.current.onBackground,
                         style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     )
                     Spacer(Modifier.height(8.dp))
@@ -99,9 +102,9 @@ fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
                         MetroText("•", color = Color(0xFF1DB954), style = TextStyle(fontSize = 16.sp))
                         Spacer(Modifier.width(8.dp))
                         BasicText(
-                            text = parseInlineMarkdown(line.trimStart().removePrefix("- ")),
+                            text = parseInlineMarkdown(line.trimStart().removePrefix("- "), onBg, codeBg),
                             style = TextStyle(
-                                color = Color.White.copy(alpha = 0.85f),
+                                color = LocalMetroColors.current.onBackground.copy(alpha = 0.85f),
                                 fontSize = 16.sp,
                                 lineHeight = 24.sp
                             )
@@ -116,9 +119,9 @@ fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
                 else -> {
                     Spacer(Modifier.height(4.dp))
                     BasicText(
-                        text = parseInlineMarkdown(line),
+                        text = parseInlineMarkdown(line, onBg, codeBg),
                         style = TextStyle(
-                            color = Color.White.copy(alpha = 0.85f),
+                            color = LocalMetroColors.current.onBackground.copy(alpha = 0.85f),
                             fontSize = 16.sp,
                             lineHeight = 24.sp
                         )
@@ -129,7 +132,7 @@ fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
     }
 }
 
-private fun parseInlineMarkdown(line: String) = buildAnnotatedString {
+private fun parseInlineMarkdown(line: String, onBg: Color, codeBg: Color) = buildAnnotatedString {
     var i = 0
     while (i < line.length) {
         when {
@@ -137,7 +140,7 @@ private fun parseInlineMarkdown(line: String) = buildAnnotatedString {
             line.startsWith("**", i) -> {
                 val end = line.indexOf("**", i + 2)
                 if (end != -1) {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = onBg)) {
                         append(line.substring(i + 2, end))
                     }
                     i = end + 2
@@ -150,7 +153,7 @@ private fun parseInlineMarkdown(line: String) = buildAnnotatedString {
             line.startsWith("*", i) -> {
                 val end = line.indexOf("*", i + 1)
                 if (end != -1) {
-                    withStyle(SpanStyle(fontStyle = FontStyle.Italic, color = Color.White)) {
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic, color = onBg)) {
                         append(line.substring(i + 1, end))
                     }
                     i = end + 1
@@ -163,7 +166,7 @@ private fun parseInlineMarkdown(line: String) = buildAnnotatedString {
             line.startsWith("`", i) -> {
                 val end = line.indexOf("`", i + 1)
                 if (end != -1) {
-                    withStyle(SpanStyle(background = Color(0xFF2A2A2A), color = Color(0xFF1DB954))) {
+                    withStyle(SpanStyle(background = codeBg, color = Color(0xFF1DB954))) {
                         append(line.substring(i + 1, end))
                     }
                     i = end + 1

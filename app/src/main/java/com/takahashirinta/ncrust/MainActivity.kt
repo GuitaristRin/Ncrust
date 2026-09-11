@@ -65,13 +65,16 @@ import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
 import com.takahashirinta.ncrust.ui.i18n.saveLanguageCode
 import com.takahashirinta.ncrust.ui.i18n.stringsForCode
 import com.takahashirinta.ncrust.ui.theme.NcrustTheme
+import com.takahashirinta.ncrust.ui.theme.ThemeMode
 import com.takahashirinta.ncrust.ui.theme.getSavedThemeIndex
+import com.takahashirinta.ncrust.ui.theme.getSavedThemeMode
 import com.takahashirinta.ncrust.ui.theme.saveThemeIndex
+import com.takahashirinta.ncrust.ui.theme.saveThemeMode
 import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
+import com.takahashirinta.ncrust.ui.theme.toMetroColors
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import io.github.takahashirinta.kanesumi.anim.sokuou.metroViewConfiguration
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
-import io.github.takahashirinta.kanesumi.core.theme.MetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroTheme
 import com.takahashirinta.ncrust.warmup.AppWarmup
 import kotlinx.coroutines.Dispatchers
@@ -97,8 +100,16 @@ class MainActivity : ComponentActivity() {
             var themeIndex by remember {
                 mutableIntStateOf(getSavedThemeIndex(this@MainActivity))
             }
+            var themeMode by remember {
+                mutableStateOf(getSavedThemeMode(this@MainActivity))
+            }
             var languageCode by remember {
                 mutableStateOf(getSavedLanguageCode(this@MainActivity))
+            }
+            val isDark = when (themeMode) {
+                ThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+                ThemeMode.DARK -> true
+                ThemeMode.LIGHT -> false
             }
 
             val baseViewConfig = LocalViewConfiguration.current
@@ -109,24 +120,13 @@ class MainActivity : ComponentActivity() {
                 // 消除"神经质"输入印象。配合 MetroFlingBehavior 覆盖 fling 阶段。
                 LocalViewConfiguration provides metroConfig,
             ) {
-                NcrustTheme(primaryColor = themeColorForIndex(themeIndex)) {
+                NcrustTheme(primaryColor = themeColorForIndex(themeIndex), isDark = isDark) {
                     // Kanesumi Metro* 组件读 LocalMetroColors / LocalMetroTypography,
                     // 并通过 MetroTheme 注入的 LocalIndication -> MetroIndication 拿到直角
                     // 闪切反馈。这里从 NcrustColors 派生 MetroColors,让两套主题源共享同一
                     // 组配色 -- Ncrust* 与 Metro* 组件可以并存,视觉一致。
-                    // divider / onPrimary / pressTint 走 MetroColors 默认。
                     val ncrust = LocalNcrustColors.current
-                    val metroColors = remember(ncrust) {
-                        MetroColors(
-                            background = ncrust.background,
-                            surface = ncrust.surface,
-                            surfaceVariant = ncrust.surfaceVariant,
-                            primary = ncrust.primary,
-                            onBackground = ncrust.onBackground,
-                            onSurface = ncrust.onSurface,
-                            onSurfaceVariant = ncrust.onSurfaceVariant,
-                        )
-                    }
+                    val metroColors = remember(ncrust, isDark) { ncrust.toMetroColors(isDark) }
                     MetroTheme(colors = metroColors) {
                     var showSplash by remember { mutableStateOf(true) }
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -135,6 +135,11 @@ class MainActivity : ComponentActivity() {
                             onThemeChange = { newIndex ->
                                 themeIndex = newIndex
                                 saveThemeIndex(this@MainActivity, newIndex)
+                            },
+                            themeMode = themeMode,
+                            onThemeModeChange = { newMode ->
+                                themeMode = newMode
+                                saveThemeMode(this@MainActivity, newMode)
                             },
                             onLanguageChange = { newCode ->
                                 saveLanguageCode(this@MainActivity, newCode)
@@ -230,6 +235,8 @@ object QueueModes {
 fun MainScreen(
     themeIndex: Int = 0,
     onThemeChange: (Int) -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onLanguageChange: (String) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(1) }
@@ -1205,6 +1212,8 @@ fun MainScreen(
                             onOpenAbout = { showAbout = true },
                             themeIndex = themeIndex,
                             onThemeChange = onThemeChange,
+                            themeMode = themeMode,
+                            onThemeModeChange = onThemeModeChange,
                             onShowWebLogin = { showWebLogin = true },
                             refreshTrigger = cookieRefreshTrigger,
                             onLanguageChange = onLanguageChange

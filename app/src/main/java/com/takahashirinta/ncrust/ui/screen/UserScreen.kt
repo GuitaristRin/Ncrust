@@ -46,6 +46,7 @@ import com.takahashirinta.ncrust.ui.i18n.LanguagePreset
 import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
 import com.takahashirinta.ncrust.ui.i18n.languagePresets
 import com.takahashirinta.ncrust.ui.theme.ThemeColorSelector
+import com.takahashirinta.ncrust.ui.theme.ThemeMode
 import com.takahashirinta.ncrust.ui.theme.themeColorPresets
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
@@ -55,6 +56,8 @@ fun UserScreen(
     onOpenAbout: () -> Unit = {},
     themeIndex: Int = 0,
     onThemeChange: (Int) -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onShowWebLogin: () -> Unit = {},
     refreshTrigger: Int = 0,
     onLanguageChange: (String) -> Unit = {}
@@ -194,7 +197,7 @@ fun UserScreen(
             ) {
                 MetroText(
                     strings.tabUser,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = LocalMetroTypography.current.pageHeading,
                 )
             }
@@ -275,8 +278,20 @@ fun UserScreen(
             Spacer(Modifier.height(24.dp))
         }
 
-        // 外观：主题色 + 语言
+        // 外观：主题模式 + 主题色 + 语言
         item {
+            SectionTitle(strings.themeModeSectionTitle)
+            ThemeModeSelector(
+                selected = themeMode,
+                labels = Triple(
+                    strings.themeModeSystem,
+                    strings.themeModeDark,
+                    strings.themeModeLight
+                ),
+                onSelect = onThemeModeChange
+            )
+            Spacer(Modifier.height(24.dp))
+
             SectionTitle(strings.themeSectionTitle)
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                 ThemeColorSelector(
@@ -322,14 +337,14 @@ fun UserScreen(
             ) {
                 MetroText(
                     strings.batteryTitle,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = TextStyle(fontSize = 15.sp),
                     modifier = Modifier.weight(1f)
                 )
                 MetroIcon(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = Color.Gray,
+                    tint = LocalMetroColors.current.onSurfaceVariant,
                     sizeDp = 20.dp,
                 )
             }
@@ -348,7 +363,7 @@ fun UserScreen(
             ) {
                 MetroText(
                     strings.cacheSizeLabel(cacheSize),
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = TextStyle(fontSize = 15.sp),
                     modifier = Modifier.weight(1f)
                 )
@@ -372,14 +387,14 @@ fun UserScreen(
             ) {
                 MetroText(
                     strings.aboutButton,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = TextStyle(fontSize = 15.sp),
                     modifier = Modifier.weight(1f)
                 )
                 MetroIcon(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = Color.Gray,
+                    tint = LocalMetroColors.current.onSurfaceVariant,
                     sizeDp = 20.dp,
                 )
             }
@@ -409,7 +424,7 @@ private fun ProfileBlock(
         Box(
             modifier = Modifier
                 .size(96.dp)
-                .background(Color(0xFF404040)),
+                .background(LocalMetroColors.current.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             if (profile?.avatarUrl?.isNotEmpty() == true) {
@@ -423,7 +438,7 @@ private fun ProfileBlock(
                 MetroIcon(
                     Icons.Default.Person,
                     strings.userIconDesc,
-                    tint = Color.Gray,
+                    tint = LocalMetroColors.current.onSurfaceVariant,
                     sizeDp = 52.dp,
                 )
             }
@@ -434,13 +449,13 @@ private fun ProfileBlock(
             when {
                 isLoading -> MetroText(
                     strings.loading,
-                    color = Color.Gray,
+                    color = LocalMetroColors.current.onSurfaceVariant,
                     style = TextStyle(fontSize = 20.sp),
                 )
                 profile != null -> {
                     MetroText(
                         profile.nickname,
-                        color = Color.White,
+                        color = LocalMetroColors.current.onBackground,
                         style = LocalMetroTypography.current.title,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -448,7 +463,7 @@ private fun ProfileBlock(
                     Spacer(Modifier.height(2.dp))
                     MetroText(
                         uidLabel,
-                        color = Color.Gray,
+                        color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -457,7 +472,7 @@ private fun ProfileBlock(
                 else -> {
                     MetroText(
                         notLoggedInText,
-                        color = Color.Gray,
+                        color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.title,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -465,7 +480,7 @@ private fun ProfileBlock(
                     Spacer(Modifier.height(2.dp))
                     MetroText(
                         loginHintText,
-                        color = Color.Gray.copy(alpha = 0.6f),
+                        color = LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.6f),
                         style = LocalMetroTypography.current.bodySmall,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -481,7 +496,7 @@ private fun ProfileBlock(
 private fun SectionTitle(text: String) {
     MetroText(
         text,
-        color = Color.White,
+        color = LocalMetroColors.current.onBackground,
         style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
         modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
     )
@@ -506,7 +521,7 @@ private fun SettingSwitchRow(
     ) {
         MetroText(
             title,
-            color = Color.White,
+            color = LocalMetroColors.current.onBackground,
             style = LocalMetroTypography.current.bodyMedium,
             modifier = Modifier.weight(1f)
         )
@@ -516,12 +531,61 @@ private fun SettingSwitchRow(
     if (description != null) {
         MetroText(
             description,
-            color = Color.Gray,
+            color = LocalMetroColors.current.onSurfaceVariant,
             style = LocalMetroTypography.current.caption,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, bottom = 4.dp)
         )
+    }
+}
+
+/** 主题模式三选一：跟随系统 / 深色 / 浅色。 */
+@Composable
+private fun ThemeModeSelector(
+    selected: ThemeMode,
+    labels: Triple<String, String, String>,
+    onSelect: (ThemeMode) -> Unit
+) {
+    val options = listOf(
+        ThemeMode.SYSTEM to labels.first,
+        ThemeMode.DARK to labels.second,
+        ThemeMode.LIGHT to labels.third
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { (mode, label) ->
+            val active = mode == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .border(
+                        1.dp,
+                        if (active) LocalMetroColors.current.primary
+                        else LocalMetroColors.current.divider
+                    )
+                    .background(
+                        if (active) LocalMetroColors.current.primary.copy(alpha = 0.14f)
+                        else Color.Transparent
+                    )
+                    .clickable { onSelect(mode) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                MetroText(
+                    label,
+                    color = if (active) LocalMetroColors.current.primary
+                    else LocalMetroColors.current.onSurfaceVariant,
+                    style = TextStyle(fontSize = 14.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
@@ -536,18 +600,18 @@ private fun ClearCacheConfirmDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF282828))
+                .background(LocalMetroColors.current.surface)
                 .padding(24.dp)
         ) {
             MetroText(
                 strings.clearCache,
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = LocalMetroTypography.current.titleLarge.copy(fontWeight = FontWeight.Bold),
             )
             Spacer(Modifier.height(12.dp))
             MetroText(
                 strings.clearCacheConfirm,
-                color = Color.Gray,
+                color = LocalMetroColors.current.onSurfaceVariant,
                 style = LocalMetroTypography.current.bodyMedium,
             )
             Spacer(Modifier.height(24.dp))
@@ -589,7 +653,7 @@ private fun MetroDropdownRow(
         ) {
             MetroText(
                 label,
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = TextStyle(fontSize = 15.sp),
                 modifier = Modifier.weight(1f)
             )
@@ -605,7 +669,7 @@ private fun MetroDropdownRow(
             MetroIcon(
                 Icons.Default.ArrowDropDown,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = LocalMetroColors.current.onSurfaceVariant,
                 sizeDp = 20.dp,
             )
         }
@@ -632,12 +696,12 @@ private fun AccountDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF282828))
+                .background(LocalMetroColors.current.surface)
                 .padding(24.dp)
         ) {
             MetroText(
                 strings.accountDialogTitle,
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = LocalMetroTypography.current.titleLarge.copy(fontWeight = FontWeight.Bold),
             )
             Spacer(Modifier.height(16.dp))
@@ -645,14 +709,14 @@ private fun AccountDialog(
             if (userProfile != null) {
                 MetroText(
                     strings.nicknameLabel(userProfile.nickname),
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
                 MetroText(
                     strings.uidLabel(userProfile.userId.toString()),
-                    color = Color.Gray,
+                    color = LocalMetroColors.current.onSurfaceVariant,
                     style = TextStyle(fontSize = 13.sp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -706,14 +770,14 @@ private fun DialogButton(
         modifier = Modifier
             .then(
                 if (accent) Modifier.background(LocalMetroColors.current.primary)
-                else Modifier.border(1.dp, Color.Gray.copy(alpha = 0.4f))
+                else Modifier.border(1.dp, LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.4f))
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
         MetroText(
             text,
-            color = if (accent) Color.Black else Color.Gray,
+            color = if (accent) Color.Black else LocalMetroColors.current.onSurfaceVariant,
             style = TextStyle(fontSize = 14.sp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -726,8 +790,8 @@ private fun DialogButton(
 private fun FullWidthDialogButton(
     text: String,
     accent: Boolean,
-    borderColor: Color = Color.Gray.copy(alpha = 0.4f),
-    textColor: Color = Color.White,
+    borderColor: Color = LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.4f),
+    textColor: Color = LocalMetroColors.current.onBackground,
     onClick: () -> Unit
 ) {
     Box(
@@ -770,14 +834,14 @@ fun MetroLanguageDropdown(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, Color.Gray.copy(alpha = 0.4f))
+                .border(1.dp, LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.4f))
                 .clickable { expanded = true }
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             MetroText(
                 selected.displayName,
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = TextStyle(fontSize = 14.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -787,7 +851,7 @@ fun MetroLanguageDropdown(
             MetroIcon(
                 Icons.Default.ArrowDropDown,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = LocalMetroColors.current.onSurfaceVariant,
                 sizeDp = 20.dp,
             )
         }

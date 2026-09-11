@@ -61,6 +61,7 @@ import io.github.takahashirinta.kanesumi.controls.MetroIconButton
 import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
 import io.github.takahashirinta.kanesumi.controls.MetroTabItem
 import io.github.takahashirinta.kanesumi.controls.MetroTabRow
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
@@ -146,8 +147,8 @@ fun SearchScreen(
                     singleLine = true,
                     keyboardActions = KeyboardActions(onDone = { dismissKeyboard() }),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    textStyle = TextStyle(color = Color.White, fontSize = 18.sp),
-                    cursorBrush = SolidColor(Color.White),
+                    textStyle = TextStyle(color = LocalMetroColors.current.onBackground, fontSize = 18.sp),
+                    cursorBrush = SolidColor(LocalMetroColors.current.onBackground),
                     decorationBox = { innerTextField ->
                         Box(
                             modifier = Modifier
@@ -159,7 +160,7 @@ fun SearchScreen(
                             if (query.isEmpty()) {
                                 MetroText(
                                     text = strings.searchPlaceholder,
-                                    color = Color.White.copy(alpha = 0.5f),
+                                    color = LocalMetroColors.current.onBackground.copy(alpha = 0.5f),
                                     style = TextStyle(fontSize = 18.sp),
                                 )
                             }
@@ -176,7 +177,7 @@ fun SearchScreen(
                                     MetroIcon(
                                         imageVector = Icons.Default.Clear,
                                         contentDescription = strings.clearSearchButton,
-                                        tint = Color.White.copy(alpha = 0.7f),
+                                        tint = LocalMetroColors.current.onBackground.copy(alpha = 0.7f),
                                     )
                                 }
                             }
@@ -230,17 +231,17 @@ fun SearchScreen(
                                 menuContent = { onDismiss ->
                                     MetroDropdownMenuItem(
                                         text = strings.playButton,
-                                        textColor = Color.White,
+                                        textColor = LocalMetroColors.current.onBackground,
                                         onClick = { onDismiss(); onSongClick(song) },
                                     )
                                     MetroDropdownMenuItem(
                                         text = strings.actionInsertNext,
-                                        textColor = Color.White,
+                                        textColor = LocalMetroColors.current.onBackground,
                                         onClick = { onDismiss(); onInsertNext(song) },
                                     )
                                     MetroDropdownMenuItem(
                                         text = strings.actionAddToLibrary,
-                                        textColor = Color.White,
+                                        textColor = LocalMetroColors.current.onBackground,
                                         onClick = {
                                             onDismiss()
                                             LibraryManager.saveSong(context, song)
@@ -279,7 +280,7 @@ fun SearchScreen(
                                 menuContent = { onDismiss ->
                                     MetroDropdownMenuItem(
                                         text = strings.albumDetailTitle,
-                                        textColor = Color.White,
+                                        textColor = LocalMetroColors.current.onBackground,
                                         onClick = { onDismiss(); onAlbumClick(item.id) },
                                     )
                                     MetroDropdownMenuItem(
@@ -314,7 +315,7 @@ fun SearchScreen(
                                 menuContent = { onDismiss ->
                                     MetroDropdownMenuItem(
                                         text = strings.artistDetailTitle,
-                                        textColor = Color.White,
+                                        textColor = LocalMetroColors.current.onBackground,
                                         onClick = { dismissKeyboard(); onDismiss(); onArtistClick(item.id) },
                                     )
                                     MetroDropdownMenuItem(
@@ -372,7 +373,7 @@ fun SearchScreen(
                             ) {
                                 MetroText(
                                     text = strings.searchSongsEmpty,
-                                    color = Color.Gray,
+                                    color = LocalMetroColors.current.onSurfaceVariant,
                                     style = TextStyle(fontSize = 16.sp),
                                 )
                             }
@@ -422,7 +423,7 @@ fun SearchScreen(
                             ) {
                                 MetroText(
                                     text = strings.searchAlbumsEmpty,
-                                    color = Color.Gray,
+                                    color = LocalMetroColors.current.onSurfaceVariant,
                                     style = TextStyle(fontSize = 16.sp),
                                 )
                             }
@@ -479,7 +480,7 @@ fun SearchScreen(
                             ) {
                                 MetroText(
                                     text = strings.searchArtistsEmpty,
-                                    color = Color.Gray,
+                                    color = LocalMetroColors.current.onSurfaceVariant,
                                     style = TextStyle(fontSize = 16.sp),
                                 )
                             }
@@ -552,7 +553,7 @@ private fun SearchHistorySectionHeader(title: String, clearLabel: String, onClea
     ) {
         MetroText(
             text = title,
-            color = Color.White,
+            color = LocalMetroColors.current.onBackground,
             style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold),
             modifier = Modifier.weight(1f),
         )
@@ -565,7 +566,7 @@ private fun SearchHistorySectionHeader(title: String, clearLabel: String, onClea
         ) {
             MetroText(
                 text = clearLabel,
-                color = Color.Gray,
+                color = LocalMetroColors.current.onSurfaceVariant,
                 style = TextStyle(fontSize = 12.sp),
             )
         }
@@ -601,7 +602,7 @@ private fun SearchHistoryItemCard(
             Column(Modifier.weight(1f)) {
                 MetroText(
                     text = item.title,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = LocalMetroTypography.current.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -609,7 +610,7 @@ private fun SearchHistoryItemCard(
                 if (!item.subtitle.isNullOrEmpty()) {
                     MetroText(
                         text = item.subtitle,
-                        color = Color.Gray,
+                        color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -620,7 +621,7 @@ private fun SearchHistoryItemCard(
         MetroDropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            containerColor = Color(0xFF282828),
+            containerColor = LocalMetroColors.current.surface,
         ) {
             menuContent { showMenu = false }
         }
@@ -654,21 +655,21 @@ fun SongSearchItem(
                 MetroIcon(
                     imageVector = Icons.Default.Add,
                     contentDescription = strings.actionAddToLibrary,
-                    tint = Color.White,
+                    tint = LocalMetroColors.current.onBackground,
                 )
             }
             MetroIconButton(onClick = onInsertNext) {
                 MetroIcon(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                     contentDescription = strings.actionInsertNext,
-                    tint = Color.White,
+                    tint = LocalMetroColors.current.onBackground,
                 )
             }
             MetroIconButton(onClick = onAppendToQueue) {
                 MetroIcon(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                     contentDescription = strings.actionAddToPlaylist,
-                    tint = Color.White,
+                    tint = LocalMetroColors.current.onBackground,
                 )
             }
         }

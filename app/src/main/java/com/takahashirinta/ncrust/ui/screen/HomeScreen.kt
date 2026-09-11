@@ -204,7 +204,7 @@ fun HomeScreen(
                         ) {
                             MetroText(
                                 strings.tabHome,
-                                color = Color.White,
+                                color = LocalMetroColors.current.onBackground,
                                 style = LocalMetroTypography.current.pageHeading,
                             )
                         }
@@ -223,7 +223,7 @@ fun HomeScreen(
                                         MetroIcon(
                                             Icons.Default.Refresh,
                                             contentDescription = strings.refreshLabel,
-                                            tint = Color.Gray,
+                                            tint = LocalMetroColors.current.onSurfaceVariant,
                                             sizeDp = 22.dp
                                         )
                                     }
@@ -266,7 +266,7 @@ fun HomeScreen(
                                         title = fmProfile?.nickname?.takeIf { it.isNotEmpty() }
                                             ?.let { strings.fmRadioTitle(it) }
                                             ?: strings.fmRadioTitleGeneric,
-                                        accent = fmAccent ?: Color(0xFF2D2D30),
+                                        accent = fmAccent ?: LocalMetroColors.current.surfaceVariant,
                                         subtitle = strings.fmRadioSubtitle,
                                         onClick = { onPlayFm() }
                                     )
@@ -327,7 +327,7 @@ private fun SectionHeader(
     ) {
         MetroText(
             title,
-            color = Color.White,
+            color = LocalMetroColors.current.onBackground,
             style = LocalMetroTypography.current.title,
             modifier = Modifier.weight(1f)
         )
@@ -364,7 +364,7 @@ private fun DailySongTile(song: SongItem, onClick: () -> Unit, onLongClick: () -
         Spacer(Modifier.height(6.dp))
         MetroText(
             song.name,
-            color = Color.White,
+            color = LocalMetroColors.current.onBackground,
             style = LocalMetroTypography.current.caption,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -372,7 +372,7 @@ private fun DailySongTile(song: SongItem, onClick: () -> Unit, onLongClick: () -
         )
         MetroText(
             song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist,
-            color = Color.Gray,
+            color = LocalMetroColors.current.onSurfaceVariant,
             style = LocalMetroTypography.current.label,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -403,7 +403,7 @@ private fun SongGridTile(song: SongItem, onClick: () -> Unit, onLongClick: () ->
         Spacer(Modifier.height(6.dp))
         MetroText(
             song.name,
-            color = Color.White,
+            color = LocalMetroColors.current.onBackground,
             style = LocalMetroTypography.current.caption,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -411,7 +411,7 @@ private fun SongGridTile(song: SongItem, onClick: () -> Unit, onLongClick: () ->
         )
         MetroText(
             song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist,
-            color = Color.Gray,
+            color = LocalMetroColors.current.onSurfaceVariant,
             style = LocalMetroTypography.current.label,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -440,7 +440,7 @@ private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit
         Spacer(Modifier.height(6.dp))
         MetroText(
             playlist.name,
-            color = Color.White,
+            color = LocalMetroColors.current.onBackground,
             style = LocalMetroTypography.current.caption,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -448,7 +448,7 @@ private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit
         )
         MetroText(
             strings.trackCountSongs(playlist.trackCount),
-            color = Color.Gray,
+            color = LocalMetroColors.current.onSurfaceVariant,
             style = LocalMetroTypography.current.label,
             modifier = Modifier.padding(horizontal = 6.dp)
         )
@@ -468,7 +468,7 @@ private fun FmRadioTile(
     subtitle: String,
     onClick: () -> Unit
 ) {
-    val onAccent = if (accent.luminance() > 0.5f) Color.Black else Color.White
+    val onAccent = if (accent.luminance() > 0.5f) Color.Black else LocalMetroColors.current.onBackground
     Column(modifier = Modifier.width(160.dp).clickable { onClick() }) {
         Box(
             modifier = Modifier
@@ -508,7 +508,7 @@ private fun FmRadioTile(
         Spacer(Modifier.height(6.dp))
         MetroText(
             title,
-            color = Color.White,
+            color = LocalMetroColors.current.onBackground,
             style = LocalMetroTypography.current.caption,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -516,7 +516,7 @@ private fun FmRadioTile(
         )
         MetroText(
             subtitle,
-            color = Color.Gray,
+            color = LocalMetroColors.current.onSurfaceVariant,
             style = LocalMetroTypography.current.label,
             modifier = Modifier.padding(horizontal = 6.dp)
         )

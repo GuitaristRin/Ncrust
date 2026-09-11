@@ -122,7 +122,7 @@ fun QueueView(
 
     if (rows.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            MetroText(strings.emptyQueue, color = Color.Gray, style = TextStyle(fontSize = 16.sp))
+            MetroText(strings.emptyQueue, color = LocalMetroColors.current.onSurfaceVariant, style = TextStyle(fontSize = 16.sp))
         }
         return
     }
@@ -439,7 +439,7 @@ fun QueueView(
                                             MetroIcon(
                                                 imageVector = Icons.Default.DragHandle,
                                                 contentDescription = null,
-                                                tint = Color.Gray,
+                                                tint = LocalMetroColors.current.onSurfaceVariant,
                                                 sizeDp = 20.dp
                                             )
                                         }
@@ -454,7 +454,7 @@ fun QueueView(
                                         MetroIcon(
                                             imageVector = Icons.Default.Close,
                                             contentDescription = null,
-                                            tint = Color.Gray,
+                                            tint = LocalMetroColors.current.onSurfaceVariant,
                                             sizeDp = 20.dp
                                         )
                                     }
@@ -555,7 +555,7 @@ private fun SectionHeader(title: String) {
             style = TextStyle(fontSize = 13.sp)
         )
         Spacer(Modifier.width(12.dp))
-        MetroDivider(color = Color(0xFF2A2A2A), modifier = Modifier.weight(1f))
+        MetroDivider(color = LocalMetroColors.current.divider, modifier = Modifier.weight(1f))
     }
 }
 
@@ -574,7 +574,7 @@ private fun InfinityPlaceholder(text: String) {
             sizeDp = 20.dp
         )
         Spacer(Modifier.width(8.dp))
-        MetroText(text, color = Color.Gray, style = TextStyle(fontSize = 14.sp))
+        MetroText(text, color = LocalMetroColors.current.onSurfaceVariant, style = TextStyle(fontSize = 14.sp))
     }
 }
 

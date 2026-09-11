@@ -153,7 +153,7 @@ fun LibraryScreen(
             ) {
                 MetroText(
                     strings.tabLibrary,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = LocalMetroTypography.current.pageHeading,
                 )
             }
@@ -188,7 +188,7 @@ fun LibraryScreen(
                 0 -> {
                     if (savedSongs.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            MetroText(strings.noSavedSongs, color = Color.Gray, style = LocalMetroTypography.current.bodyLarge)
+                            MetroText(strings.noSavedSongs, color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodyLarge)
                         }
                     } else {
                         LazyColumn(
@@ -230,7 +230,7 @@ fun LibraryScreen(
                 1 -> {
                     if (savedAlbums.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            MetroText(strings.noSavedAlbums, color = Color.Gray, style = LocalMetroTypography.current.bodyLarge)
+                            MetroText(strings.noSavedAlbums, color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodyLarge)
                         }
                     } else {
                         // 自适应栅格：列数随内容栏宽度变化（宽屏多列），取代写死的 2 列。
@@ -282,7 +282,7 @@ fun LibraryScreen(
                         }
                         playlists.isEmpty() -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                MetroText(strings.noPlaylists, color = Color.Gray, style = LocalMetroTypography.current.bodyLarge)
+                                MetroText(strings.noPlaylists, color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodyLarge)
                             }
                         }
                         else -> {
@@ -339,8 +339,8 @@ fun PlaylistGridItem(
             )
         }
         Spacer(Modifier.height(6.dp))
-        MetroText(playlist.name, color = Color.White, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-        MetroText(strings.trackCount(playlist.trackCount), color = Color.Gray, style = LocalMetroTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(playlist.name, color = LocalMetroColors.current.onBackground, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(strings.trackCount(playlist.trackCount), color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
         Spacer(Modifier.height(6.dp))
     }
 }
@@ -367,8 +367,8 @@ fun LibraryAlbumGridItem(
             )
         }
         Spacer(Modifier.height(6.dp))
-        MetroText(album.name, color = Color.White, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-        MetroText(strings.albumArtistAndCount(album.artist, album.songCount), color = Color.Gray, style = LocalMetroTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(album.name, color = LocalMetroColors.current.onBackground, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(strings.albumArtistAndCount(album.artist, album.songCount), color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         Spacer(Modifier.height(6.dp))
     }
 }

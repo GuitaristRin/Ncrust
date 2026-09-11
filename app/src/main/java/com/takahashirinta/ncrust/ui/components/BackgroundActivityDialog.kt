@@ -32,18 +32,18 @@ fun BackgroundActivityDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF282828))
+                .background(LocalMetroColors.current.surface)
                 .padding(24.dp)
         ) {
             MetroText(
                 strings.batteryTitle,
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = LocalMetroTypography.current.titleLarge.copy(fontWeight = FontWeight.Bold),
             )
             Spacer(Modifier.height(12.dp))
             MetroText(
                 strings.batteryMessage,
-                color = Color.Gray,
+                color = LocalMetroColors.current.onSurfaceVariant,
                 style = LocalMetroTypography.current.bodyMedium,
             )
             Spacer(Modifier.height(24.dp))
@@ -66,14 +66,14 @@ fun BackgroundActivityDialog(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, Color.Gray.copy(alpha = 0.4f))
+                    .border(1.dp, LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.4f))
                     .clickable(onClick = onLater)
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 MetroText(
                     strings.batteryLater,
-                    color = Color.Gray,
+                    color = LocalMetroColors.current.onSurfaceVariant,
                     style = TextStyle(fontSize = 14.sp),
                 )
             }

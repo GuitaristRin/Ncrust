@@ -19,6 +19,7 @@ import com.takahashirinta.ncrust.network.AlbumSearchItem
 import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenu
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
@@ -58,7 +59,7 @@ fun AlbumSearchItem(
         Column(Modifier.weight(1f)) {
             MetroText(
                 album.name,
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = LocalMetroTypography.current.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -67,7 +68,7 @@ fun AlbumSearchItem(
                 "${album.artist?.name ?: strings.unknownArtist}${
                     if (publishYear.isNotEmpty()) " · $publishYear" else ""
                 }${album.company?.let { " · $it" } ?: ""}",
-                color = Color.Gray,
+                color = LocalMetroColors.current.onSurfaceVariant,
                 style = LocalMetroTypography.current.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -76,7 +77,7 @@ fun AlbumSearchItem(
         album.size?.let {
             MetroText(
                 strings.trackCount(it),
-                color = Color.Gray,
+                color = LocalMetroColors.current.onSurfaceVariant,
                 style = LocalMetroTypography.current.bodySmall
             )
         }
@@ -85,7 +86,7 @@ fun AlbumSearchItem(
         MetroDropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            containerColor = Color(0xFF282828)
+            containerColor = LocalMetroColors.current.surface
         ) {
             menuContent { showMenu = false }
         }

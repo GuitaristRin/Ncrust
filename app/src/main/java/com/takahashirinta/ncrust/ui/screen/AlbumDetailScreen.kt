@@ -133,7 +133,7 @@ fun AlbumDetailScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .background(Color(0xFF2A2A2A))
+                                    .background(LocalMetroColors.current.surfaceVariant)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null

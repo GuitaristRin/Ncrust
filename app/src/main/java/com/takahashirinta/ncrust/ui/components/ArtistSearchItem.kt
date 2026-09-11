@@ -20,6 +20,7 @@ import com.takahashirinta.ncrust.network.ArtistSearchItem
 import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import io.github.takahashirinta.kanesumi.controls.MetroDropdownMenu
+import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
@@ -53,7 +54,7 @@ fun ArtistSearchItem(
                 contentDescription = strings.artistAvatarDesc,
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF2A2A2A)),
+                    .background(LocalMetroColors.current.surfaceVariant),
                 contentScale = ContentScale.Crop
             )
         }
@@ -62,7 +63,7 @@ fun ArtistSearchItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MetroText(
                     artist.name,
-                    color = Color.White,
+                    color = LocalMetroColors.current.onBackground,
                     style = LocalMetroTypography.current.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -70,7 +71,7 @@ fun ArtistSearchItem(
                 if (transStr.isNotEmpty()) {
                     MetroText(
                         " · $transStr",
-                        color = Color.Gray,
+                        color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -80,7 +81,7 @@ fun ArtistSearchItem(
             if (aliasStr.isNotEmpty()) {
                 MetroText(
                     aliasStr,
-                    color = Color.Gray,
+                    color = LocalMetroColors.current.onSurfaceVariant,
                     style = LocalMetroTypography.current.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -88,7 +89,7 @@ fun ArtistSearchItem(
             }
             MetroText(
                 strings.artistStats(artist.albumSize ?: 0, artist.musicSize ?: 0),
-                color = Color.Gray,
+                color = LocalMetroColors.current.onSurfaceVariant,
                 style = LocalMetroTypography.current.bodySmall
             )
         }
@@ -97,7 +98,7 @@ fun ArtistSearchItem(
         MetroDropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            containerColor = Color(0xFF282828)
+            containerColor = LocalMetroColors.current.surface
         ) {
             menuContent { showMenu = false }
         }

@@ -274,7 +274,7 @@ private fun DetailHeaderInfoRow(
         Column(modifier = Modifier.weight(1f)) {
             MetroText(
                 title,
-                color = Color.White,
+                color = LocalMetroColors.current.onBackground,
                 style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Normal),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
@@ -296,7 +296,7 @@ private fun DetailHeaderInfoRow(
             }
             infoLines.forEach { line ->
                 Spacer(Modifier.height(3.dp))
-                MetroText(line, color = Color.Gray, style = TextStyle(fontSize = 13.sp))
+                MetroText(line, color = LocalMetroColors.current.onSurfaceVariant, style = TextStyle(fontSize = 13.sp))
             }
         }
         if (onPlayAll != null) {

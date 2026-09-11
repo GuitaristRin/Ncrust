@@ -506,7 +506,7 @@ fun PlayerCard(
                             ) {
                                 MetroText(
                                     strings.queueTitle,
-                                    color = Color.White,
+                                    color = LocalMetroColors.current.onBackground,
                                     style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
                                     modifier = Modifier.weight(1f)
                                 )
@@ -520,7 +520,7 @@ fun PlayerCard(
                                             else -> Icons.Default.Repeat
                                         },
                                         contentDescription = strings.playModeButton,
-                                        tint = if (playMode != QueueModes.CYCLE) LocalMetroColors.current.primary else Color.White,
+                                        tint = if (playMode != QueueModes.CYCLE) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
                                         sizeDp = 24.dp
                                     )
                                 }
@@ -528,7 +528,7 @@ fun PlayerCard(
                                     MetroIcon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = strings.saveAsPlaylist,
-                                        tint = Color.White,
+                                        tint = LocalMetroColors.current.onBackground,
                                         sizeDp = 24.dp
                                     )
                                 }
@@ -537,12 +537,12 @@ fun PlayerCard(
                                     MetroIcon(
                                         imageVector = Icons.Default.DeleteSweep,
                                         contentDescription = strings.clearQueue,
-                                        tint = Color.White,
+                                        tint = LocalMetroColors.current.onBackground,
                                         sizeDp = 24.dp
                                     )
                                 }
                             }
-                            MetroDivider(color = Color(0xFF2A2A2A))
+                            MetroDivider(color = LocalMetroColors.current.divider)
                             QueueView(
                                 queue = playbackQueue,
                                 currentIndex = currentQueueIndex,
@@ -593,7 +593,7 @@ fun PlayerCard(
                                 ) {
                                     MetroText(
                                         s.name,
-                                        color = Color.White,
+                                        color = LocalMetroColors.current.onBackground,
                                         style = LocalMetroTypography.current.titleLarge,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -653,7 +653,7 @@ fun PlayerCard(
                         ) {
                             MetroText(
                                 s.name,
-                                color = Color.White,
+                                color = LocalMetroColors.current.onBackground,
                                 style = LocalMetroTypography.current.titleMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Clip,
@@ -667,7 +667,7 @@ fun PlayerCard(
                             )
                             MetroText(
                                 s.artists?.joinToString("/") { it.name } ?: "",
-                                color = Color.Gray,
+                                color = LocalMetroColors.current.onSurfaceVariant,
                                 style = LocalMetroTypography.current.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -696,7 +696,7 @@ fun PlayerCard(
                         ) {
                             MetroText(
                                 s.name,
-                                color = Color.White,
+                                color = LocalMetroColors.current.onBackground,
                                 style = LocalMetroTypography.current.titleLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -763,14 +763,14 @@ fun PlayerCard(
                     ) {
                         MetroText(
                             s.name,
-                            color = Color.White,
+                            color = LocalMetroColors.current.onBackground,
                             style = LocalMetroTypography.current.bodyMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         MetroText(
                             s.artists?.joinToString("/") { it.name } ?: "",
-                            color = Color.Gray,
+                            color = LocalMetroColors.current.onSurfaceVariant,
                             style = LocalMetroTypography.current.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -784,14 +784,14 @@ fun PlayerCard(
                             MetroIcon(
                                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = null,
-                                tint = Color.White
+                                tint = LocalMetroColors.current.onBackground
                             )
                         }
                         MetroIconButton(onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onPlayNext()
                         }) {
-                            MetroIcon(Icons.Default.SkipNext, null, tint = Color.White)
+                            MetroIcon(Icons.Default.SkipNext, null, tint = LocalMetroColors.current.onBackground)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(96.dp))
@@ -801,7 +801,7 @@ fun PlayerCard(
                     // 直接开始 Infinity——取每日推荐开播, 无需先有队列
                     MetroText(
                         strings.noSongPlaying,
-                        color = Color(0xFF808080),
+                        color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.bodyMedium,
                         modifier = Modifier
                             .weight(1f)
@@ -815,7 +815,7 @@ fun PlayerCard(
                             MetroIcon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = LocalStrings.current.playButton,
-                                tint = Color.White
+                                tint = LocalMetroColors.current.onBackground
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
@@ -875,7 +875,7 @@ fun PlayerCard(
             ) {
                 if (dismissEnabled) {
                     MetroIconButton(onClick = onDismiss) {
-                        MetroIcon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = Color.White)
+                        MetroIcon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = LocalMetroColors.current.onBackground)
                     }
                 }
             }

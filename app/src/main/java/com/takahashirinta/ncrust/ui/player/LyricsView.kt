@@ -58,7 +58,7 @@ fun LyricsView(
     if (lyrics.isEmpty()) {
         if (!isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                MetroText(strings.noLyrics, color = Color.Gray, style = TextStyle(fontSize = 18.sp))
+                MetroText(strings.noLyrics, color = LocalMetroColors.current.onSurfaceVariant, style = TextStyle(fontSize = 18.sp))
             }
         }
         return

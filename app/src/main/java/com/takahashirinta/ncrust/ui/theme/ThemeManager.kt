@@ -31,8 +31,26 @@ val themeColorPresets = listOf(
     ThemeColorPreset("素白",  Color(0xFFFFFFFF)),
 )
 
+/** 主题模式：跟随系统 / 深色 / 浅色。 */
+enum class ThemeMode { SYSTEM, DARK, LIGHT }
+
 private const val PREFS_NAME = "ncrust_settings"
 private const val KEY_THEME_INDEX = "theme_color_index"
+private const val KEY_THEME_MODE = "theme_mode"
+
+/** 读取已保存的主题模式，默认跟随系统。 */
+fun getSavedThemeMode(context: Context): ThemeMode {
+    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(KEY_THEME_MODE, null)
+    return runCatching { ThemeMode.valueOf(raw ?: "") }.getOrDefault(ThemeMode.SYSTEM)
+}
+
+fun saveThemeMode(context: Context, mode: ThemeMode) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(KEY_THEME_MODE, mode.name)
+        .apply()
+}
 
 /**
  * 从 SharedPreferences 读取已保存的主题索引（默认 0 = 云杉）
@@ -59,14 +77,14 @@ fun themeColorForIndex(index: Int): Color {
     return themeColorPresets.getOrElse(index) { themeColorPresets[0] }.color
 }
 
-// 在 ThemeManager.kt 中添加
 @Composable
 fun NcrustTheme(
     primaryColor: Color = Color(0xFF1DB954),
+    isDark: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colors = remember(primaryColor) {
-        DefaultNcrustColors.copy(primary = primaryColor)
+    val colors = remember(primaryColor, isDark) {
+        (if (isDark) DefaultNcrustColors else LightNcrustColors).copy(primary = primaryColor)
     }
     CompositionLocalProvider(
         LocalNcrustColors provides colors,

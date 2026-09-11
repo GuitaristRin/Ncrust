@@ -118,8 +118,8 @@ fun FullPlayerControls(
                         MetroIcon(
                             imageVector = Icons.Default.Lyrics,
                             contentDescription = strings.lyricsButton,
-                            tint = if (lyricsUnavailable) Color(0xFF505050)
-                            else if (showLyrics) LocalMetroColors.current.primary else Color.White,
+                            tint = if (lyricsUnavailable) LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.5f)
+                            else if (showLyrics) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
                             sizeDp = 24.dp
                         )
                     }
@@ -135,7 +135,7 @@ fun FullPlayerControls(
                         MetroIcon(
                             imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                             contentDescription = strings.queueButton,
-                            tint = if (showQueue) LocalMetroColors.current.primary else Color.White,
+                            tint = if (showQueue) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
                             sizeDp = 24.dp
                         )
                     }
@@ -151,7 +151,7 @@ fun FullPlayerControls(
                         MetroIcon(
                             imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
                             contentDescription = strings.addToLibraryButton,
-                            tint = if (isInLibrary) LocalMetroColors.current.primary else Color.White,
+                            tint = if (isInLibrary) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
                             sizeDp = 24.dp
                         )
                     }
@@ -172,7 +172,7 @@ fun FullPlayerControls(
                         MetroIcon(
                             imageVector = Icons.Default.SkipPrevious,
                             contentDescription = strings.prevButton,
-                            tint = if (previousEnabled) Color.White else Color(0xFF505050),
+                            tint = if (previousEnabled) LocalMetroColors.current.onBackground else LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.5f),
                             sizeDp = 28.dp
                         )
                     }
@@ -188,7 +188,7 @@ fun FullPlayerControls(
                         MetroIcon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isPlaying) strings.pauseButton else strings.playButton,
-                            tint = Color.White,
+                            tint = LocalMetroColors.current.onBackground,
                             sizeDp = 36.dp
                         )
                     }
@@ -204,7 +204,7 @@ fun FullPlayerControls(
                         MetroIcon(
                             imageVector = Icons.Default.SkipNext,
                             contentDescription = strings.nextButton,
-                            tint = Color.White,
+                            tint = LocalMetroColors.current.onBackground,
                             sizeDp = 28.dp
                         )
                     }
@@ -212,7 +212,7 @@ fun FullPlayerControls(
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .background(Color(0xFF2A2A2A))
+                        .background(LocalMetroColors.current.surfaceVariant)
                         .clickable(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
@@ -241,7 +241,7 @@ fun FullPlayerControls(
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .background(Color(0xFF2A2A2A))
+                    .background(LocalMetroColors.current.surfaceVariant)
                     .clickable(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() }
@@ -282,7 +282,7 @@ fun FullPlayerControls(
                 MetroIcon(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = strings.prevButton,
-                    tint = if (previousEnabled) Color.White else Color(0xFF505050),
+                    tint = if (previousEnabled) LocalMetroColors.current.onBackground else LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.5f),
                     sizeDp = sideIcon
                 )
             }
@@ -299,7 +299,7 @@ fun FullPlayerControls(
                 MetroIcon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) strings.pauseButton else strings.playButton,
-                    tint = Color.White,
+                    tint = LocalMetroColors.current.onBackground,
                     sizeDp = playIcon
                 )
             }
@@ -316,7 +316,7 @@ fun FullPlayerControls(
                 MetroIcon(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = strings.nextButton,
-                    tint = Color.White,
+                    tint = LocalMetroColors.current.onBackground,
                     sizeDp = sideIcon
                 )
             }
@@ -338,8 +338,8 @@ fun FullPlayerControls(
                     imageVector = Icons.Default.Lyrics,
                     contentDescription = strings.lyricsButton,
                     // 无歌词/未加载时置灰, 语义是该歌不可展开歌词
-                    tint = if (lyricsUnavailable) Color(0xFF505050)
-                    else if (showLyrics) LocalMetroColors.current.primary else Color.White,
+                    tint = if (lyricsUnavailable) LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.5f)
+                    else if (showLyrics) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
                     sizeDp = toggleIcon
                 )
             }
@@ -355,7 +355,7 @@ fun FullPlayerControls(
                 MetroIcon(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                     contentDescription = strings.queueButton,
-                    tint = if (showQueue) LocalMetroColors.current.primary else Color.White,
+                    tint = if (showQueue) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
                     sizeDp = toggleIcon
                 )
             }
@@ -372,7 +372,7 @@ fun FullPlayerControls(
                 MetroIcon(
                     imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
                     contentDescription = strings.addToLibraryButton,
-                    tint = if (isInLibrary) LocalMetroColors.current.primary else Color.White,
+                    tint = if (isInLibrary) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
                     sizeDp = toggleIcon
                 )
             }
@@ -385,7 +385,7 @@ private fun PositionText(positionFlow: StateFlow<Long>, modifier: Modifier) {
     val position by positionFlow.collectAsState()
     MetroText(
         formatDuration(position),
-        color = Color.Gray,
+        color = LocalMetroColors.current.onSurfaceVariant,
         style = TextStyle(fontSize = 12.sp),
         modifier = modifier
     )
@@ -396,7 +396,7 @@ private fun DurationText(durationFlow: StateFlow<Long>, modifier: Modifier) {
     val duration by durationFlow.collectAsState()
     MetroText(
         formatDuration(duration),
-        color = Color.Gray,
+        color = LocalMetroColors.current.onSurfaceVariant,
         style = TextStyle(fontSize = 12.sp),
         modifier = modifier
     )

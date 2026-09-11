@@ -100,7 +100,10 @@ fun SlimProgressBar(
     val bufferingPhases: BufferingPhases? = if (showBuffering) rememberBufferingPhases() else null
 
     val accent = LocalMetroColors.current.primary
-    val trackColor = Color(0xFF3A3A3A)
+    val trackColor = LocalMetroColors.current.divider
+    // Canvas draw scope 内不能读 CompositionLocal，先在此处取好。
+    val thumbColor = LocalMetroColors.current.onBackground
+    val bubbleTextColor = LocalMetroColors.current.onSurfaceVariant
 
     Box(
         modifier = modifier
@@ -176,7 +179,7 @@ fun SlimProgressBar(
                     .coerceIn(0f, size.width - thumbW)
                 val thumbY = (size.height - thumbH) / 2f
                 drawRect(
-                    color = Color.White,
+                    color = thumbColor,
                     topLeft = Offset(thumbX, thumbY),
                     size = Size(thumbW, thumbH)
                 )
@@ -187,7 +190,7 @@ fun SlimProgressBar(
                 if (durMs > 0) {
                     val layout = textMeasurer.measure(
                         AnnotatedString(formatDuration((dragProgress * durMs).toLong())),
-                        style = TextStyle(fontSize = 11.sp, color = Color.Gray)
+                        style = TextStyle(fontSize = 11.sp, color = bubbleTextColor)
                     )
                     val textX = (thumbX + thumbW / 2f - layout.size.width / 2f)
                         .coerceIn(0f, size.width - layout.size.width)

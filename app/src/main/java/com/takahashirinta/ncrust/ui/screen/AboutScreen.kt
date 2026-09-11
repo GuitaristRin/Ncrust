@@ -49,7 +49,7 @@ fun AboutScreen(onBack: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212))
+            .background(LocalMetroColors.current.background)
     ) {
         ResponsiveContent(maxWidth = 720.dp) {
             Column(
@@ -76,9 +76,9 @@ fun AboutScreen(onBack: () -> Unit) {
                         MetroText("Ncrust", color = accent, style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold))
                         MetroText(VERSION, color = accent.copy(alpha = 0.72f), style = TextStyle(fontSize = 14.sp))
                         Spacer(Modifier.height(6.dp))
-                        MetroText(s.aboutAppSubtitle, color = Color(0xFF888888), style = TextStyle(fontSize = 13.sp))
+                        MetroText(s.aboutAppSubtitle, color = LocalMetroColors.current.onSurfaceVariant, style = TextStyle(fontSize = 13.sp))
                         Spacer(Modifier.height(28.dp))
-                        MetroDivider(color = Color(0xFF272727))
+                        MetroDivider(color = LocalMetroColors.current.divider)
                         Spacer(Modifier.height(20.dp))
                     }
                 }
@@ -179,13 +179,13 @@ private fun AboutRow(label: String, value: String) {
     ) {
         MetroText(
             label,
-            color = Color(0xFF888888),
+            color = LocalMetroColors.current.onSurfaceVariant,
             style = TextStyle(fontSize = 13.sp),
             modifier = Modifier.weight(1f)
         )
         MetroText(
             value,
-            color = Color(0xFFDDDDDD),
+            color = LocalMetroColors.current.onBackground,
             style = TextStyle(fontSize = 13.sp, textAlign = TextAlign.End),
             modifier = Modifier.weight(1.5f)
         )
