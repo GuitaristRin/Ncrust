@@ -14,28 +14,43 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
+import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.session.MediaSessionService
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService
+import androidx.media3.session.MediaLibraryService.LibraryParams
+import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession as M3MediaSession
 import androidx.palette.graphics.Palette
 import coil.Coil
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
 import com.takahashirinta.ncrust.MainActivity
+import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.CoverUrls
+import com.takahashirinta.ncrust.network.PlaylistApi
+import com.takahashirinta.ncrust.network.SongItem
+import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
+import com.takahashirinta.ncrust.ui.i18n.stringsForCode
 import kotlinx.coroutines.*
 
 @OptIn(UnstableApi::class)
-class PlaybackService : MediaSessionService() {
+class PlaybackService : MediaLibraryService() {
     lateinit var player: ExoPlayer
-    private var mediaSession: M3MediaSession? = null
+    private var mediaSession: MediaLibrarySession? = null
     private var mediaSessionCompat: MediaSessionCompat? = null
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var progressJob: Job? = null
@@ -49,6 +64,12 @@ class PlaybackService : MediaSessionService() {
     private var artworkGeneration = 0
 
     companion object {
+        // 车机浏览树节点 id。
+        const val ROOT_ID = "ncrust_root"
+        const val DAILY_ID = "ncrust_daily"
+        const val FM_ID = "ncrust_fm"
+        const val LIKED_ID = "ncrust_liked"
+
         var onProgressUpdate: ((Long, Long) -> Unit)? = null
         var onPlaybackEnded: (() -> Unit)? = null
         var onPlaybackPrevious: (() -> Unit)? = null
@@ -108,9 +129,10 @@ class PlaybackService : MediaSessionService() {
             )
             .build()
 
-        // media3 MediaSession：对外暴露播放控制，车机（Android Auto）与系统媒体控制
-        // 通过它连接。通知栏仍走 MediaSessionCompat，两者独立、互不干扰。
-        mediaSession = M3MediaSession.Builder(this, player).build()
+        // media3 MediaLibrarySession：对外暴露播放控制 + 浏览树，车机
+        // （Android Automotive / Android Auto）据此发现应用并选歌。
+        // 通知栏仍走 MediaSessionCompat，两者独立、互不干扰。
+        mediaSession = MediaLibrarySession.Builder(this, player, libraryCallback()).build()
 
         mediaSessionCompat = MediaSessionCompat(this, "NcrustSession").apply {
             setFlags(
@@ -279,8 +301,105 @@ class PlaybackService : MediaSessionService() {
         return START_NOT_STICKY
     }
 
-    override fun onGetSession(controllerInfo: androidx.media3.session.MediaSession.ControllerInfo): M3MediaSession? {
+    override fun onGetSession(controllerInfo: androidx.media3.session.MediaSession.ControllerInfo): MediaLibrarySession? {
         return mediaSession
+    }
+
+    /**
+     * 车机浏览树：根 → 每日推荐 / 私人 FM / 我的收藏；文件夹 → 歌曲列表。
+     * 车机点播时经 [onAddMediaItems] 把 song:<id> 解析成可播放 URL。
+     */
+    private fun libraryCallback() = object : MediaLibrarySession.Callback {
+        override fun onGetLibraryRoot(
+            session: MediaLibrarySession,
+            browser: M3MediaSession.ControllerInfo,
+            params: LibraryParams?
+        ): ListenableFuture<LibraryResult<MediaItem>> =
+            Futures.immediateFuture(LibraryResult.ofItem(rootItem(), params))
+
+        override fun onGetChildren(
+            session: MediaLibrarySession,
+            browser: M3MediaSession.ControllerInfo,
+            parentId: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+            val future = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
+            scope.launch {
+                val children = runCatching { loadChildren(parentId) }.getOrDefault(emptyList())
+                future.set(LibraryResult.ofItemList(ImmutableList.copyOf(children), params))
+            }
+            return future
+        }
+
+        override fun onAddMediaItems(
+            mediaSession: M3MediaSession,
+            controller: M3MediaSession.ControllerInfo,
+            mediaItems: MutableList<MediaItem>
+        ): ListenableFuture<MutableList<MediaItem>> {
+            val future = SettableFuture.create<MutableList<MediaItem>>()
+            scope.launch {
+                future.set(mediaItems.map { runCatching { resolveMediaItem(it) }.getOrDefault(it) }.toMutableList())
+            }
+            return future
+        }
+    }
+
+    private fun rootItem(): MediaItem = folderItem(ROOT_ID, "Ncrust")
+
+    private fun folderItem(id: String, title: String): MediaItem = MediaItem.Builder()
+        .setMediaId(id)
+        .setMediaMetadata(
+            MediaMetadata.Builder()
+                .setTitle(title)
+                .setIsBrowsable(true)
+                .setIsPlayable(false)
+                .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
+                .build()
+        )
+        .build()
+
+    private fun songItem(song: SongItem): MediaItem = MediaItem.Builder()
+        .setMediaId("song:${song.id}")
+        .setMediaMetadata(
+            MediaMetadata.Builder()
+                .setTitle(song.name)
+                .setArtist(song.artists?.joinToString("/") { it.name })
+                .setArtworkUri(song.album?.picUrl?.takeIf { it.isNotEmpty() }?.let { Uri.parse(CoverUrls.large(it)) })
+                .setIsBrowsable(false)
+                .setIsPlayable(true)
+                .build()
+        )
+        .build()
+
+    private suspend fun loadChildren(parentId: String): List<MediaItem> {
+        val s = stringsForCode(getSavedLanguageCode(this))
+        return when (parentId) {
+            ROOT_ID -> listOf(
+                folderItem(DAILY_ID, s.dailySongsTitle),
+                folderItem(FM_ID, s.fmRadioTitleGeneric),
+                folderItem(LIKED_ID, s.tabLibrary)
+            )
+            DAILY_ID -> PlaylistApi.getDailyRecommendSongs().map { songItem(it) }
+            FM_ID -> PlaylistApi.getPersonalFm().map { songItem(it) }
+            LIKED_ID -> LibraryManager.getSavedSongs(this).map { songItem(it) }
+            else -> emptyList()
+        }
+    }
+
+    /** 车机点播：把 song:<id> 解析成当前音质档的可播放 URL。 */
+    private suspend fun resolveMediaItem(item: MediaItem): MediaItem {
+        if (item.localConfiguration != null) return item
+        val songId = item.mediaId.removePrefix("song:").toLongOrNull() ?: return item
+        val result = SongUrlFetcher.fetch(songId, currentQualityLevel()) ?: return item
+        return item.buildUpon().setUri(result.url).build()
+    }
+
+    private fun currentQualityLevel(): String {
+        val prefs = getSharedPreferences("ncrust_settings", 0)
+        val levels = listOf("standard", "higher", "exhigh", "lossless", "hires", "jyeffect", "dolby")
+        return levels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
     }
 
     private fun playUrl(url: String) {

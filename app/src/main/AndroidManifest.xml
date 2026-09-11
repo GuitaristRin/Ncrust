@@ -51,13 +51,24 @@
             </intent-filter>
         </activity>
 
+        <!-- exported=true: 车机 Media Center / 系统媒体控制需要跨进程绑定本服务。 -->
         <service
             android:name=".player.PlaybackService"
-            android:exported="false"
+            android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
+                <!-- 兼容 legacy 媒体浏览器：Android Automotive 的 Media Center 通过
+                     android.media.browse.MediaBrowserService 发现媒体应用。
+                     media3 MediaSessionService.onBind 已处理该 action。 -->
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
+            <!-- Android Automotive 的 media source opt-in：Media Center 的
+                 MediaSource 只收录带此 meta-data 的“media template app”，
+                 否则会以 "non media template app" 跳过。 -->
+            <meta-data
+                android:name="androidx.car.app.launchable"
+                android:value="true" />
         </service>
     </application>
 </manifest>
