@@ -149,7 +149,11 @@ object RetrofitClient {
      * 参考官方 weapi：POST 路径为 `/weapi/<去掉 /api/ 前缀>`（并非 /api/…），payload 需
      * 注入 `csrf_token`（来自 Cookie 的 __csrf）。session Cookie 由上层传入。
      */
-    fun weapiPost(path: String, payloadJson: String): okhttp3.Response {
+    fun weapiPost(
+        path: String,
+        payloadJson: String,
+        extraCookies: String? = null
+    ): okhttp3.Response {
         val rawPayload = try { JSONObject(payloadJson) } catch (_: Exception) { JSONObject() }
         getCsrfToken()?.let {
             if (it.isNotEmpty() && !rawPayload.has("csrf_token")) rawPayload.put("csrf_token", it)
@@ -166,8 +170,14 @@ object RetrofitClient {
             .post(requestBody)
             .header("User-Agent", UA)
             .header("Referer", "https://music.163.com/")
-        // 未登录时不发空 Cookie 头, 与官方网页/参考实现一致。
-        currentCookie?.takeIf { it.isNotBlank() }?.let { builder.header("Cookie", it) }
+            .header("Origin", "https://music.163.com")
+        // 未登录时不发空 Cookie 头, 与官方网页/参考实现一致；extraCookies 用于
+        // 扫码登录等需要携带会话(反风控/sDeviceId)cookie 的场景。
+        val cookieHeader = listOfNotNull(
+            currentCookie?.takeIf { it.isNotBlank() },
+            extraCookies?.takeIf { it.isNotBlank() }
+        ).joinToString("; ")
+        if (cookieHeader.isNotEmpty()) builder.header("Cookie", cookieHeader)
         return plainClient.newCall(builder.build()).execute()
     }
 

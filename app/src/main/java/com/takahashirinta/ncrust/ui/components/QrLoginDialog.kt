@@ -75,11 +75,9 @@ fun QrLoginDialog(
             }
             // 官方 App 扫码走轮询; Ncrust 手机扫码走局域网回传, 两条路谁先到用谁。
             pairServer = QrPairServer(key.unikey) { cookie -> onLoginSuccess(cookie) }.also { it.start() }
-            // 二维码内容优先用服务端给的 qrurl; 否则由 unikey 拼官方登录链接。
+            // 二维码内容用带 chainId 的官方登录链接(官方 App 据此绑定确认会话);
             // 服务端一般不给图, 用 zxing 本地生成(官方客户端同款做法)。
             val qrContent = key.qrurl
-                ?: if (key.unikey.startsWith("http")) key.unikey
-                else "https://music.163.com/login?codekey=${key.unikey}"
             qrBitmap = key.qrimg?.let { decodeQrImage(it) } ?: generateQrBitmap(qrContent)
             if (qrBitmap == null) {
                 state = QrState.Failed
@@ -92,7 +90,7 @@ fun QrLoginDialog(
                 ticks++
                 // 单次轮询失败(网络抖动)不能让整个轮询协程死掉——否则扫码确认后
                 // 永远等不到 803, 表现为"授权了还是没登进去"。
-                val st = runCatching { PlaylistApi.checkLoginQr(key.unikey) }.getOrNull()
+                val st = runCatching { PlaylistApi.checkLoginQr(key.unikey, key.sDeviceId) }.getOrNull()
                 if (st == null) {
                     Log.w(TAG, "poll failed (transient), retry")
                     continue

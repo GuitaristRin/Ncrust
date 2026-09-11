@@ -402,25 +402,37 @@ object PlaylistApi {
 
     // ==================== 原生扫码登录（平板 / 大屏） ====================
 
-    data class LoginQrKey(val unikey: String, val qrurl: String?, val qrimg: String?)
+    data class LoginQrKey(
+        val unikey: String,
+        val qrurl: String,
+        val qrimg: String?,
+        // 本次登录会话的 web 设备 id: chainId 与轮询 Cookie 必须一致, 官方 App
+        // 才能把"确认"绑到我们这条轮询会话上。
+        val sDeviceId: String
+    )
 
     /**
      * 申请二维码登录 key。
      *
-     * 必须走**网页 weapi** 通道: 官方 App 扫码确认的就是网页登录的 unikey。
-     * 之前用 eapi 客户端版 `/eapi/login/qrcode/unikey`, 拿到的 unikey 与官方
-     * App 的扫码确认不是同一条链路——官方扫了也永远停在待确认, 表现为"没反应"。
+     * 必须走**网页 weapi** 通道, 且按新版协议带上 `noCheckToken` 与二维码里的
+     * `chainId`: 官方 App 扫码后会把确认绑到 chainId 对应的会话上, 缺了 chainId
+     * 就会一直停在"已扫码待确认", 永远等不到 803。
      */
     suspend fun getLoginQrKey(): LoginQrKey? = withContext(Dispatchers.IO) {
-        val payload = JSONObject().put("type", 1).toString()
+        val payload = JSONObject().put("type", 1).put("noCheckToken", true).toString()
         val response = RetrofitClient.weapiPost("/api/login/qrcode/unikey", payload)
         val body = response.body?.string() ?: return@withContext null
         val json = runCatching { JSONObject(body) }.getOrNull() ?: return@withContext null
         if (json.optInt("code", -1) != 200) return@withContext null
+        val unikey = json.optString("unikey")
+        if (unikey.isEmpty()) return@withContext null
+        val sDeviceId = randomSDeviceId()
+        val chainId = "v1_${sDeviceId}_web_login_${System.currentTimeMillis()}"
         LoginQrKey(
-            unikey = json.optString("unikey"),
-            qrurl = json.optString("qrurl", "").takeIf { it.isNotEmpty() },
-            qrimg = json.optString("qrimg", "").takeIf { it.isNotEmpty() }
+            unikey = unikey,
+            qrurl = "https://music.163.com/login?codekey=$unikey&chainId=$chainId",
+            qrimg = json.optString("qrimg", "").takeIf { it.isNotEmpty() },
+            sDeviceId = sDeviceId
         )
     }
 
@@ -430,10 +442,18 @@ object PlaylistApi {
      * 轮询二维码状态。code: 800=过期, 801=待扫码, 802=已扫码待确认, 803=成功。
      * 成功时 cookie 在响应的 Set-Cookie 头里, 拼出完整 cookie 串交上层走
      * CookieManager/RetrofitClient 的既有保存路径。
+     *
+     * 轮询需带上与 chainId 一致的 sDeviceId cookie(以及反风控的 os/NMTID),
+     * 否则服务端不认这条会话。
      */
-    suspend fun checkLoginQr(key: String): LoginQrStatus = withContext(Dispatchers.IO) {
-        val payload = JSONObject().put("key", key).put("type", 1).toString()
-        val response = RetrofitClient.weapiPost("/api/login/qrcode/client/login", payload)
+    suspend fun checkLoginQr(key: String, sDeviceId: String): LoginQrStatus = withContext(Dispatchers.IO) {
+        val payload = JSONObject()
+            .put("type", 1)
+            .put("noCheckToken", true)
+            .put("key", key)
+            .toString()
+        val extraCookies = "os=pc; NMTID=${randomHex(16)}; sDeviceId=$sDeviceId"
+        val response = RetrofitClient.weapiPost("/api/login/qrcode/client/login", payload, extraCookies)
         val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
         val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
         if (code == 803) {
@@ -446,6 +466,15 @@ object PlaylistApi {
         }
         LoginQrStatus(code, if (code == 803) extractSessionCookie(response) else null)
     }
+
+    private const val HEX_CHARS = "0123456789ABCDEF"
+
+    /** 52 位十六进制设备 id, 与 go-musicfox 的 sDeviceId 格式一致。 */
+    private fun randomSDeviceId(): String =
+        buildString(52) { repeat(52) { append(HEX_CHARS[kotlin.random.Random.nextInt(HEX_CHARS.length)]) } }
+
+    private fun randomHex(len: Int): String =
+        buildString(len) { repeat(len) { append(HEX_CHARS[kotlin.random.Random.nextInt(16)]) } }
 
     /** 从 Set-Cookie 头拼出会话 cookie 串(仅当含 MUSIC_U 时有效)。 */
     private fun extractSessionCookie(response: okhttp3.Response): String? {
