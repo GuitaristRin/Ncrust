@@ -25,6 +25,18 @@ object ContentCache {
     @Volatile var homeRecommendPlaylists: List<PlaylistApi.PlaylistCard>? = null
     @Volatile var homeNewSongs: List<SongItem>? = null
 
+    // 首页数据最近一次被 AppWarmup 预取的时间戳。HomeScreen 据此判断"刚预热过",
+    // 避免冷启动时 warmup 与 Home 各拉一遍同样的三个接口(重复网络/耗电)。
+    @Volatile private var homeWarmedUpAt: Long = 0L
+
+    fun markHomeWarmed() {
+        homeWarmedUpAt = System.currentTimeMillis()
+    }
+
+    /** 首页数据是否是 [ttlMs] 内被 warmup 预取过的（有则 Home 不必再拉一遍）。 */
+    fun isHomeFresh(ttlMs: Long = 15_000L): Boolean =
+        homeWarmedUpAt > 0L && System.currentTimeMillis() - homeWarmedUpAt < ttlMs
+
     // ── 详情页（按 ID 缓存，LRU 32 项封顶） ──────────────────────────
     private val albumCache = LruCache<Long, AlbumDetailResponse>(32)
     private val playlistCache = LruCache<Long, List<SongItem>>(32)

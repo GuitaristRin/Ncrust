@@ -49,7 +49,9 @@ import com.takahashirinta.ncrust.ui.theme.ThemeColorSelector
 import com.takahashirinta.ncrust.ui.theme.ThemeMode
 import com.takahashirinta.ncrust.ui.theme.themeColorPresets
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun UserScreen(
@@ -69,7 +71,11 @@ fun UserScreen(
     var showQrLogin by remember { mutableStateOf(false) }
     var showScanner by remember { mutableStateOf(false) }
     var showClearCacheConfirm by remember { mutableStateOf(false) }
-    var cacheSize by remember { mutableStateOf(currentCacheSize(context)) }
+    var cacheSize by remember { mutableStateOf(0L) }
+    // 缓存占用要递归遍历 cacheDir，放 IO 线程算，避免组合期主线程卡顿。
+    LaunchedEffect(Unit) {
+        cacheSize = withContext(Dispatchers.IO) { currentCacheSize(context) }
+    }
     var hasCookie by remember { mutableStateOf(CookieManager.hasCookie(context)) }
     // 扫码登录为平板 / 大屏独占：手机端未登录点头像仍直接进 WebView 官方登录页。
     val isWideLayout = LocalConfiguration.current.screenWidthDp >= 600
@@ -163,19 +169,24 @@ fun UserScreen(
 
     if (showClearCacheConfirm) ClearCacheConfirmDialog(
         onConfirm = {
-            ContentCache.clearAll()
-            runCatching { coil.Coil.imageLoader(context).memoryCache?.clear() }
-            runCatching { coil.Coil.imageLoader(context).diskCache?.clear() }
-            runCatching {
-                context.cacheDir?.let { dir ->
-                    dir.listFiles()
-                        ?.filter { it.name == "WebView" || it.name == "http" }
-                        ?.forEach { it.deleteRecursively() }
-                }
-            }
-            cacheSize = currentCacheSize(context)
-            Toast.makeText(context, strings.cacheCleared, Toast.LENGTH_SHORT).show()
             showClearCacheConfirm = false
+            coroutineScope.launch {
+                val size = withContext(Dispatchers.IO) {
+                    ContentCache.clearAll()
+                    runCatching { coil.Coil.imageLoader(context).memoryCache?.clear() }
+                    runCatching { coil.Coil.imageLoader(context).diskCache?.clear() }
+                    runCatching {
+                        context.cacheDir?.let { dir ->
+                            dir.listFiles()
+                                ?.filter { it.name == "WebView" || it.name == "http" }
+                                ?.forEach { it.deleteRecursively() }
+                        }
+                    }
+                    currentCacheSize(context)
+                }
+                cacheSize = size
+                Toast.makeText(context, strings.cacheCleared, Toast.LENGTH_SHORT).show()
+            }
         },
         onDismiss = { showClearCacheConfirm = false }
     )

@@ -156,6 +156,8 @@ fun HomeScreen(
     }
 
     LaunchedEffect(Unit) {
+        // AppWarmup 刚预取过同样三个接口时直接复用缓存，避免冷启动重复网络/耗电。
+        if (ContentCache.isHomeFresh()) return@LaunchedEffect
         loadDailySongs()
         loadPlaylists()
         loadNewSongs()

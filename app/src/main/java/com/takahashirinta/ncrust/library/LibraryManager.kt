@@ -141,6 +141,19 @@ object LibraryManager {
         }
     }
 
+    /**
+     * 预热内存缓存：在 IO 线程把收藏单曲/专辑/红心 id 从 SharedPreferences 解析进内存。
+     * 避免首次在组合期（主线程）调用 [getSavedSongs] / [isSongSaved] 时同步读盘 + Gson 卡顿。
+     */
+    fun preload(context: Context) {
+        val app = context.applicationContext
+        ioScope.launch {
+            ensureSongsLoaded(app)
+            ensureAlbumsLoaded(app)
+            ensureLikedIdsLoaded(app)
+        }
+    }
+
     private fun isLoggedIn(context: Context) = CookieManager.hasCookie(context)
 
     private fun pushLike(songId: Long, like: Boolean) {

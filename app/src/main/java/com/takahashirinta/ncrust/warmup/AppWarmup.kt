@@ -69,6 +69,9 @@ object AppWarmup {
             }
         }
 
+        // 预解析收藏库（IO）：避免首次在组合期主线程 getSavedSongs/isSongSaved 卡顿。
+        LibraryManager.preload(app)
+
         scope.launch {
             withTimeoutOrNull(TIMEOUT_MS) {
                 // 阶段一：三条 Home 请求并发写入 ContentCache
@@ -88,6 +91,8 @@ object AppWarmup {
                     plsDeferred.await()?.let { ContentCache.homeRecommendPlaylists = it }
                     topDeferred.await()?.let { ContentCache.homeNewSongs = it }
                 }
+                // 标记首页数据已预热：HomeScreen 进屏时据此跳过重复请求。
+                ContentCache.markHomeWarmed()
 
                 // 阶段一·五：封面预取到 Coil 全局 ImageLoader 的内存+磁盘缓存。
                 // 必须紧跟在 Home 数据之后、其他网络任务之前——首页首帧的 AsyncImage
