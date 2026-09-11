@@ -86,6 +86,7 @@ val ruRU = Strings(
     qrScanHint = "Отсканируйте в приложении NetEase Cloud Music",
     qrScannedHint = "Отсканировано, подтвердите на телефоне",
     qrExpiredHint = "QR-код истёк, нажмите для обновления",
+    qrLoadFailed = "Не удалось загрузить, нажмите для повтора",
     qrGenericLogin = "Другой способ входа",
     scanEntryTitle = "Авторизовать другое устройство",
     scanPrompt = "Наведите на QR-код входа на планшете",

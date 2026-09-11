@@ -86,6 +86,7 @@ val en = Strings(
     qrScanHint = "Scan with the NetEase Cloud Music app",
     qrScannedHint = "Scanned, confirm on your phone",
     qrExpiredHint = "QR code expired, tap to refresh",
+    qrLoadFailed = "Failed to load, tap to retry",
     qrGenericLogin = "Other login methods",
     scanEntryTitle = "Scan to authorize another device",
     scanPrompt = "Point at the login QR code on the tablet",

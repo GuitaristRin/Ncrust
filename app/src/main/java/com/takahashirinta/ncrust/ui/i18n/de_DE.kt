@@ -86,6 +86,7 @@ val deDE = Strings(
     qrScanHint = "Mit der NetEase Cloud Music App scannen",
     qrScannedHint = "Gescannt, auf dem Handy bestätigen",
     qrExpiredHint = "QR-Code abgelaufen, zum Aktualisieren tippen",
+    qrLoadFailed = "Laden fehlgeschlagen, zum Wiederholen tippen",
     qrGenericLogin = "Andere Anmeldung",
     scanEntryTitle = "Anderes Gerät per Scan autorisieren",
     scanPrompt = "Auf den Anmelde-QR-Code am Tablet richten",

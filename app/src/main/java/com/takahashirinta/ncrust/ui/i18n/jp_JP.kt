@@ -86,6 +86,7 @@ val jpJP = Strings(
     qrScanHint = "NetEase Cloud Music アプリでスキャン",
     qrScannedHint = "スキャン済み。スマホで確認してください",
     qrExpiredHint = "QRコードの有効期限切れ。タップして更新",
+    qrLoadFailed = "読み込み失敗。タップして再試行",
     qrGenericLogin = "その他のログイン",
     scanEntryTitle = "他の端末をQRコードで認証",
     scanPrompt = "タブレットのログインQRコードに向けてください",

@@ -86,6 +86,7 @@ val zhCN = Strings(
     qrScanHint = "使用网易云 App 扫码登录",
     qrScannedHint = "已扫码, 请在手机上确认",
     qrExpiredHint = "二维码已过期, 点击刷新",
+    qrLoadFailed = "加载失败, 点击重试",
     qrGenericLogin = "通用登录",
     scanEntryTitle = "扫码授权其他设备",
     scanPrompt = "对准平板上的登录二维码",

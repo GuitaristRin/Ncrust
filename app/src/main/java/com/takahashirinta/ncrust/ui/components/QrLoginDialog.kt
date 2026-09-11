@@ -3,6 +3,7 @@ package com.takahashirinta.ncrust.ui.components
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +30,8 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val TAG = "QrLogin"
 
 /** 扫码状态机（UI 侧）。 */
 private enum class QrState { Loading, Waiting, Scanned, Expired, Failed }
@@ -84,16 +87,29 @@ fun QrLoginDialog(
             }
             state = QrState.Waiting
             var ticks = 0
-            while (ticks < 100) {
-                delay(3_000)
+            while (ticks < 150) {
+                delay(2_000)
                 ticks++
-                val st = PlaylistApi.checkLoginQr(key.unikey)
+                // 单次轮询失败(网络抖动)不能让整个轮询协程死掉——否则扫码确认后
+                // 永远等不到 803, 表现为"授权了还是没登进去"。
+                val st = runCatching { PlaylistApi.checkLoginQr(key.unikey) }.getOrNull()
+                if (st == null) {
+                    Log.w(TAG, "poll failed (transient), retry")
+                    continue
+                }
+                Log.d(TAG, "poll code=${st.code} hasCookie=${st.cookie != null}")
                 when (st.code) {
                     800 -> { state = QrState.Expired; return@launch }
                     802 -> state = QrState.Scanned
                     803 -> {
                         val cookie = st.cookie
-                        if (cookie != null) onLoginSuccess(cookie) else state = QrState.Failed
+                        if (cookie != null) {
+                            Log.d(TAG, "login success, cookie len=${cookie.length}")
+                            onLoginSuccess(cookie)
+                        } else {
+                            Log.e(TAG, "803 but no MUSIC_U in Set-Cookie")
+                            state = QrState.Failed
+                        }
                         return@launch
                     }
                 }
@@ -149,7 +165,7 @@ fun QrLoginDialog(
                         style = LocalMetroTypography.current.bodyMedium,
                     )
                     else -> MetroText(
-                        strings.qrExpiredHint,
+                        if (state == QrState.Failed) strings.qrLoadFailed else strings.qrExpiredHint,
                         color = Color(0xFF555555),
                         style = LocalMetroTypography.current.bodySmall.copy(textAlign = TextAlign.Center),
                         modifier = Modifier.padding(16.dp)
@@ -161,7 +177,8 @@ fun QrLoginDialog(
             MetroText(
                 when (state) {
                     QrState.Scanned -> strings.qrScannedHint
-                    QrState.Expired, QrState.Failed -> strings.qrExpiredHint
+                    QrState.Expired -> strings.qrExpiredHint
+                    QrState.Failed -> strings.qrLoadFailed
                     else -> strings.qrScanHint
                 },
                 color = if (state == QrState.Scanned) LocalMetroColors.current.primary else Color.Gray,

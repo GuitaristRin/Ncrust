@@ -86,6 +86,7 @@ val jpMY = Strings(
     qrScanHint = "網易雲 App 掃 入",
     qrScannedHint = "掃 了 手機 確認",
     qrExpiredHint = "符牒 期限 切 押 更新",
+    qrLoadFailed = "読込 失敗 押 再試",
     qrGenericLogin = "一般 入",
     scanEntryTitle = "符牒 掃 他 端末 認",
     scanPrompt = "平板 登入符牒 向",

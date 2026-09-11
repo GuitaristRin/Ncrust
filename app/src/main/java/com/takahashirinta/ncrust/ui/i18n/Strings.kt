@@ -100,6 +100,7 @@ data class Strings(
     val qrScanHint: String,
     val qrScannedHint: String,
     val qrExpiredHint: String,
+    val qrLoadFailed: String,
     val qrGenericLogin: String,
 
     // Phone-side QR scan to authorize another device (LAN cookie handoff)

@@ -161,14 +161,14 @@ object RetrofitClient {
             .add("params", params)
             .add("encSecKey", encSecKey)
             .build()
-        val request = Request.Builder()
+        val builder = Request.Builder()
             .url(fullUrl)
             .post(requestBody)
             .header("User-Agent", UA)
             .header("Referer", "https://music.163.com/")
-            .header("Cookie", currentCookie ?: "")
-            .build()
-        return plainClient.newCall(request).execute()
+        // 未登录时不发空 Cookie 头, 与官方网页/参考实现一致。
+        currentCookie?.takeIf { it.isNotBlank() }?.let { builder.header("Cookie", it) }
+        return plainClient.newCall(builder.build()).execute()
     }
 
     fun get(path: String, useInterface: Boolean = false): String {

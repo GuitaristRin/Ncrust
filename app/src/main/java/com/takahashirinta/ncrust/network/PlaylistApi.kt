@@ -436,6 +436,14 @@ object PlaylistApi {
         val response = RetrofitClient.weapiPost("/api/login/qrcode/client/login", payload)
         val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
         val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
+        if (code == 803) {
+            val setCookies = response.headers("Set-Cookie")
+            Log.d(
+                "PlaylistApi",
+                "qr803 setCookie=${setCookies.size} hasMusicU=${setCookies.any { it.contains("MUSIC_U=") }} " +
+                    "body=${body.take(160)}"
+            )
+        }
         LoginQrStatus(code, if (code == 803) extractSessionCookie(response) else null)
     }
 
