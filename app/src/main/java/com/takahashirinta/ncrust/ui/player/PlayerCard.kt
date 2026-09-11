@@ -362,10 +362,17 @@ fun PlayerCard(
                 }
             }
     ) {
-        // 全屏纯黑背景。不再向下 offset——卡片顶应和封面顶/内容区顶等高。
+        // 全屏纯黑背景。展开时 translationY=0，卡片顶与封面顶/内容区顶等高；
+        // 折叠时整体下移一个 statusBar 高，使顶边对齐 miniBar 内容。miniBar 自带
+        // statusBarsPadding（内容被下推 statusBar 高），背景若不跟着下移，miniBar
+        // 上方就会多出一条 statusBar 高的 surface 色块——即"手机 miniBar 变高一片"。
+        // statusBarPx 在车机(WindowInsets=0)为 0，天然不影响车机。
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    translationY = statusBarPx * (1f - progress.value)
+                }
                 .background(LocalMetroColors.current.background)
         )
         // 折叠态卡背：卡片整体下移后，miniBar 下方露出的是这张黑底（原底部导航/系统栏
@@ -373,7 +380,10 @@ fun PlayerCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { alpha = (1f - progress.value * 5f).coerceIn(0f, 1f) }
+                .graphicsLayer {
+                    alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
+                    translationY = statusBarPx * (1f - progress.value)
+                }
                 .background(LocalMetroColors.current.surface)
         )
 
