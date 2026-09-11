@@ -105,6 +105,12 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // CameraX——手机端扫码授权（扫描平板登录二维码后经局域网回传 cookie）
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
+
     // Coil
     implementation("io.coil-kt:coil-compose:2.6.0")
 

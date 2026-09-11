@@ -32,6 +32,8 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import coil.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.takahashirinta.ncrust.auth.CookieManager
+import com.takahashirinta.ncrust.auth.QrPair
+import com.takahashirinta.ncrust.auth.QrPairClient
 import com.takahashirinta.ncrust.cache.ContentCache
 import android.content.Context
 import android.widget.Toast
@@ -40,6 +42,7 @@ import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.power.BackgroundActivity
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.components.QrLoginDialog
+import com.takahashirinta.ncrust.ui.components.QrScannerScreen
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.i18n.LanguagePreset
 import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
@@ -63,6 +66,7 @@ fun UserScreen(
     val coroutineScope = rememberCoroutineScope()
     var showAccountDialog by remember { mutableStateOf(false) }
     var showQrLogin by remember { mutableStateOf(false) }
+    var showScanner by remember { mutableStateOf(false) }
     var hasCookie by remember { mutableStateOf(CookieManager.hasCookie(context)) }
     // 扫码登录为平板 / 大屏独占：手机端未登录点头像仍直接进 WebView 官方登录页。
     val isWideLayout = LocalConfiguration.current.screenWidthDp >= 600
@@ -119,6 +123,10 @@ fun UserScreen(
     if (showAccountDialog) AccountDialog(
         userProfile = userProfile,
         onDismiss = { showAccountDialog = false },
+        onScanAuthorize = {
+            showAccountDialog = false
+            showScanner = true
+        },
         onLogout = {
             CookieManager.clearCookie(context)
             RetrofitClient.updateCookie(null)
@@ -126,6 +134,29 @@ fun UserScreen(
             userProfile = null
             showAccountDialog = false
         }
+    )
+
+    // 手机端扫码授权：扫平板上的登录二维码 → 解析 unikey → 局域网回传本机 cookie。
+    if (showScanner) QrScannerScreen(
+        onScanned = { content ->
+            showScanner = false
+            val unikey = QrPair.unikeyFromQrContent(content)
+            val cookie = CookieManager.getCookie(context)
+            when {
+                unikey == null -> Toast.makeText(context, strings.scanFailed, Toast.LENGTH_SHORT).show()
+                cookie.isNullOrBlank() ->
+                    Toast.makeText(context, strings.scanNoCookie, Toast.LENGTH_SHORT).show()
+                else -> coroutineScope.launch {
+                    val ok = QrPairClient.sendCookie(unikey, cookie)
+                    Toast.makeText(
+                        context,
+                        if (ok) strings.scanSuccess else strings.scanFailed,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        },
+        onClose = { showScanner = false }
     )
 
     if (showQrLogin) QrLoginDialog(
@@ -555,6 +586,7 @@ private fun MetroDropdownRow(
 private fun AccountDialog(
     userProfile: PlaylistApi.UserProfile?,
     onDismiss: () -> Unit,
+    onScanAuthorize: () -> Unit,
     onLogout: () -> Unit
 ) {
     val strings = LocalStrings.current
@@ -589,6 +621,16 @@ private fun AccountDialog(
                 )
                 Spacer(Modifier.height(20.dp))
             }
+
+            // 扫码授权其他设备：扫平板的登录二维码，经局域网把本机账号授权过去。
+            FullWidthDialogButton(
+                text = strings.scanEntryTitle,
+                accent = false,
+                borderColor = LocalMetroColors.current.primary,
+                textColor = LocalMetroColors.current.primary,
+                onClick = onScanAuthorize
+            )
+            Spacer(Modifier.height(12.dp))
 
             // 全宽按钮：容器 fillMaxWidth，文字 Center + 换行——极长翻译最多多占一行，不会撑破对话框。
             FullWidthDialogButton(

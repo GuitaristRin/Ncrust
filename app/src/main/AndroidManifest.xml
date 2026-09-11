@@ -12,6 +12,9 @@
     <!-- 后台持续播放：请求系统把本应用加入电池优化白名单（"允许后台活动"）。
          不申请该权限时，ColorOS/MIUI 等 ROM 会在熄屏后杀掉前台播放服务。 -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 手机端扫码授权其他设备时用相机识别二维码（非必装硬件，故 required=false）。 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".NcrustApplication"

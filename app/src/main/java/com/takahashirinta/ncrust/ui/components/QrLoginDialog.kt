@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.takahashirinta.ncrust.auth.QrPairServer
 import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
@@ -54,9 +55,13 @@ fun QrLoginDialog(
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var state by remember { mutableStateOf(QrState.Loading) }
     var pollJob by remember { mutableStateOf<Job?>(null) }
+    // 平板侧局域网配对服务：手机 Ncrust 扫同一个二维码时把 cookie 回传过来。
+    var pairServer by remember { mutableStateOf<QrPairServer?>(null) }
 
     fun refresh() {
         pollJob?.cancel()
+        pairServer?.stop()
+        pairServer = null
         qrBitmap = null
         state = QrState.Loading
         pollJob = scope.launch {
@@ -65,6 +70,8 @@ fun QrLoginDialog(
                 state = QrState.Failed
                 return@launch
             }
+            // 官方 App 扫码走轮询; Ncrust 手机扫码走局域网回传, 两条路谁先到用谁。
+            pairServer = QrPairServer(key.unikey) { cookie -> onLoginSuccess(cookie) }.also { it.start() }
             // eapi 客户端版通常不返回 qrcode 图, 客户端本地生成(官方客户端同款做法)。
             // QR 内容必须是官方登录链接, 而不是裸 unikey —— 裸串官方 App 扫不出。
             val qrContent = if (key.unikey.startsWith("http")) key.unikey
@@ -96,7 +103,12 @@ fun QrLoginDialog(
     }
 
     LaunchedEffect(Unit) { refresh() }
-    DisposableEffect(Unit) { onDispose { pollJob?.cancel() } }
+    DisposableEffect(Unit) {
+        onDispose {
+            pollJob?.cancel()
+            pairServer?.stop()
+        }
+    }
 
     val refreshable = state == QrState.Expired || state == QrState.Failed
 
