@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. It reflects the code as of **v1.3.0** (`versionCode = 5`). When in doubt, the source wins — update this file if you find a stale claim.
+This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. It reflects the code as of **v1.3.1** (`versionCode = 6`). When in doubt, the source wins — update this file if you find a stale claim.
 
 ## Build & Test Commands
 
@@ -55,7 +55,7 @@ Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` /
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
 - Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → `gh release create vX.Y.Z --draft <apk>` → user smoke-tests and publishes manually.
-- Current: `versionName = "1.3.0"`, `versionCode = 5`. Latest release: `v1.3.0` (2026-09-10).
+- Current: `versionName = "1.3.1"`, `versionCode = 6`. Latest release: `v1.3.1` (2026-09-11).
 
 ## Commit Convention
 
@@ -86,7 +86,7 @@ Ncrust is a third-party NetEase Cloud Music (网易云音乐) Android client bui
 2. **GPU zero-recomposition** — animations driven by a single `progress: Float` through `graphicsLayer`, not state-driven recomposition.
 3. **Three-layer graphics architecture** — main page / player card / navigation bar are independent composable layers, enabling gesture transitions without interference.
 
-Feature surface at v1.3.0: home discovery (daily songs / recommended playlists / new songs / private FM), three-type search with 500 ms debounce + history, cloud-synced library (liked songs / subscribed albums / user playlists), full-screen player with gapless playback and a 7-level quality ladder, 5 playback modes, bilingual lyrics, system media controls + Android Auto / Automotive, WebView + QR login, runtime theming (6 colors × 3 modes), and 8 runtime languages.
+Feature surface at v1.3.1: home discovery (daily songs / recommended playlists / new songs / private FM), three-type search with 500 ms debounce + history, cloud-synced library (liked songs / subscribed albums / user playlists), full-screen player with gapless playback and a 7-level quality ladder, 5 playback modes, bilingual lyrics, system media controls + Android Auto / Automotive, WebView + QR login, runtime theming (6 colors × 3 modes), and 8 runtime languages.
 
 ## Terminology: Kanesumi Design
 

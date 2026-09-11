@@ -8,7 +8,7 @@
 
 纯 Kotlin / Jetpack Compose · Media3 播放引擎 · eapi 加密直连 · 无中间服务器
 
-[![Version](https://img.shields.io/badge/version-1.3.0-brightgreen?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
+[![Version](https://img.shields.io/badge/version-1.3.1-brightgreen?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
 [![APK](https://img.shields.io/badge/APK-2.9%20MB-blue?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
 [![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.24-purple?style=flat-square&logo=kotlin)](https://kotlinlang.org)
@@ -200,7 +200,8 @@ app/src/main/java/com/takahashirinta/ncrust/
 | v1.2.0 | 2026-07-28 | Sokuou 动画系统、ContentCache + Crossfade、专辑收藏、批量入队 |
 | v1.2.1 | 2026-07-29 | Kanesumi 化收官、冷启动预热、播放器重组归零、R8（25 MB → 4.1 MB） |
 | v1.2.2 | 2026-08-04 | 全页面 Kanesumi 统一、底部导航与迷你条衔接、登录统一为浏览器方式 |
-| **v1.3.0** | **2026-09-10** | **平板 / 大屏 Sidebar、车机（Android Auto / AAOS）、AudioSink 降档兜底、歌词竞态与定位修复、队列拖拽重排、私人 FM 续播** |
+| v1.3.0 | 2026-09-10 | 平板 / 大屏 Sidebar 与宽屏两栏、唯一封面、弱网缓冲、AudioSink 降档兜底、歌词竞态与定位修复、队列拖拽重排、私人 FM 续播 |
+| **v1.3.1** | **2026-09-11** | **车机（Android Auto / AAOS）媒体源与浏览树、浅色模式与主题模式切换、扫码登录重构（平板扫码 + 手机扫码授权平板 + weapi 加密修正）、冷启动与歌词性能优化、播放卡与浅色修复** |
 
 ---
 
