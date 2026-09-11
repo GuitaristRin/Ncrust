@@ -502,15 +502,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val cached = LyricsCache.get(getApplication(), songId)
             if (cached != null) {
                 if (currentSongId.value == songId) {
+                    // 解析是 CPU 活(逐行正则), 放 Default 上跑, 别让主线程在切歌瞬间
+                    // 一边处理重组一边解 LRC。
                     if (cached.lrc.isNotEmpty()) {
-                        lyrics.value = LrcParser.parse(cached.lrc)
+                        lyrics.value = withContext(Dispatchers.Default) { LrcParser.parse(cached.lrc) }
                         lyricsSongId.value = songId
                     } else {
                         // 缓存里就是"确无歌词"，保持按钮置灰语义
                         lyricsNoContentSongId.value = songId
                     }
                     translatedLyrics.value =
-                        if (cached.tlyric.isNotEmpty()) LrcParser.parse(cached.tlyric) else emptyList()
+                        if (cached.tlyric.isNotEmpty()) {
+                            withContext(Dispatchers.Default) { LrcParser.parse(cached.tlyric) }
+                        } else {
+                            emptyList()
+                        }
                 }
                 Log.d("PlayerViewModel", "fetchLyrics cache hit id=$songId lrc=${cached.lrc.length}")
                 return
@@ -540,8 +546,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     // 只在本请求仍是"当前歌"时写入——恢复路径与 playSong 的并发请求
                     // 返回乱序时, 旧请求不得覆盖新歌的歌词/译文
                     if (currentSongId.value == songId && code == 200) {
+                        // 同上: 解析放 Default, 避免网络返回后在主线程解 LRC。
                         if (lrcText.isNotEmpty()) {
-                            lyrics.value = LrcParser.parse(lrcText)
+                            lyrics.value = withContext(Dispatchers.Default) { LrcParser.parse(lrcText) }
                             // 有歌词：标记为"当前歌的歌词就绪"（供 UI 自动回切歌词视图）
                             lyricsSongId.value = songId
                             lyricsNoContentSongId.value = -1L
@@ -550,7 +557,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                             lyricsNoContentSongId.value = songId
                         }
                         translatedLyrics.value =
-                            if (tlyricText.isNotEmpty()) LrcParser.parse(tlyricText) else emptyList()
+                            if (tlyricText.isNotEmpty()) {
+                                withContext(Dispatchers.Default) { LrcParser.parse(tlyricText) }
+                            } else {
+                                emptyList()
+                            }
                     }
                     Log.d(
                         "PlayerViewModel",
