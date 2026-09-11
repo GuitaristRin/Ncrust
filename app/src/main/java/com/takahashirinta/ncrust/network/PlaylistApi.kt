@@ -402,19 +402,24 @@ object PlaylistApi {
 
     // ==================== 原生扫码登录（平板 / 大屏） ====================
 
-    data class LoginQrKey(val unikey: String, val qrimg: String?)
+    data class LoginQrKey(val unikey: String, val qrurl: String?, val qrimg: String?)
 
     /**
-     * 申请二维码登录 key。注意: eapi 客户端版通常不返回 qrimg 图(官方客户端
-     * 拿 unikey 自己画二维码), UI 侧用 zxing 本地生成, 不依赖服务端给图。
+     * 申请二维码登录 key。
+     *
+     * 必须走**网页 weapi** 通道: 官方 App 扫码确认的就是网页登录的 unikey。
+     * 之前用 eapi 客户端版 `/eapi/login/qrcode/unikey`, 拿到的 unikey 与官方
+     * App 的扫码确认不是同一条链路——官方扫了也永远停在待确认, 表现为"没反应"。
      */
     suspend fun getLoginQrKey(): LoginQrKey? = withContext(Dispatchers.IO) {
-        val response = RetrofitClient.eapiPost("/eapi/login/qrcode/unikey", mapOf("type" to "1"))
-        val body = decodeEapiBody(response.body?.string()) ?: return@withContext null
+        val payload = JSONObject().put("type", 1).toString()
+        val response = RetrofitClient.weapiPost("/api/login/qrcode/unikey", payload)
+        val body = response.body?.string() ?: return@withContext null
         val json = runCatching { JSONObject(body) }.getOrNull() ?: return@withContext null
         if (json.optInt("code", -1) != 200) return@withContext null
         LoginQrKey(
             unikey = json.optString("unikey"),
+            qrurl = json.optString("qrurl", "").takeIf { it.isNotEmpty() },
             qrimg = json.optString("qrimg", "").takeIf { it.isNotEmpty() }
         )
     }
@@ -423,28 +428,15 @@ object PlaylistApi {
 
     /**
      * 轮询二维码状态。code: 800=过期, 801=待扫码, 802=已扫码待确认, 803=成功。
-     * 成功时 cookie 在响应的 Set-Cookie 头里(eapi 客户端接口不含在 body), 拼出完整
-     * cookie 串交上层走 CookieManager/RetrofitClient 的既有保存路径。
+     * 成功时 cookie 在响应的 Set-Cookie 头里, 拼出完整 cookie 串交上层走
+     * CookieManager/RetrofitClient 的既有保存路径。
      */
     suspend fun checkLoginQr(key: String): LoginQrStatus = withContext(Dispatchers.IO) {
-        val response = RetrofitClient.eapiPost(
-            "/eapi/login/qrcode/client/unikey",
-            mapOf("key" to key, "type" to "1")
-        )
-        val body = decodeEapiBody(response.body?.string())
-            ?: return@withContext LoginQrStatus(-1, null)
+        val payload = JSONObject().put("key", key).put("type", 1).toString()
+        val response = RetrofitClient.weapiPost("/api/login/qrcode/client/login", payload)
+        val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
         val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
         LoginQrStatus(code, if (code == 803) extractSessionCookie(response) else null)
-    }
-
-    /**
-     * eapi 写接口(登录/二维码等)的响应可能是 AES 加密 body——与 likeSong 相同的
-     * 机制。明文 JSON 原样返回, 密文 body 解密后返回; null 表示拿不到正文。
-     */
-    private fun decodeEapiBody(body: String?): String? {
-        if (body == null) return null
-        if (body.trimStart().startsWith("{")) return body
-        return EapiCrypto.decryptResponse(body).ifEmpty { null }
     }
 
     /** 从 Set-Cookie 头拼出会话 cookie 串(仅当含 MUSIC_U 时有效)。 */

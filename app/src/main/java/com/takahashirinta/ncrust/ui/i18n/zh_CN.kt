@@ -93,6 +93,7 @@ val zhCN = Strings(
     scanNoCookie = "请先在本机登录后再授权",
     scanSuccess = "已授权, 平板将自动登录",
     scanFailed = "授权失败: 请确认已登录且两台设备在同一 Wi-Fi",
+    scanConnecting = "正在连接平板…",
     clearQueue = "清空队列",
     actionAddToPlaylist = "加入播放列表",
     actionRemoveFromLibrary = "移除收藏",

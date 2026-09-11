@@ -93,6 +93,7 @@ val jpJP = Strings(
     scanNoCookie = "先にこの端末でログインしてください",
     scanSuccess = "認証しました。タブレットは自動でログインします",
     scanFailed = "失敗: ログイン済みか、同じWi-Fiに接続しているか確認してください",
+    scanConnecting = "タブレットに接続中…",
     clearQueue = "キューを空にする",
     actionAddToPlaylist = "プレイリストに追加",
     actionRemoveFromLibrary = "ライブラリから削除",

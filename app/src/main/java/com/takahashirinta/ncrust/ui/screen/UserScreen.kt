@@ -32,8 +32,6 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import coil.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.takahashirinta.ncrust.auth.CookieManager
-import com.takahashirinta.ncrust.auth.QrPair
-import com.takahashirinta.ncrust.auth.QrPairClient
 import com.takahashirinta.ncrust.cache.ContentCache
 import android.content.Context
 import android.widget.Toast
@@ -41,8 +39,8 @@ import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.power.BackgroundActivity
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
+import com.takahashirinta.ncrust.ui.components.QrAuthorizeScreen
 import com.takahashirinta.ncrust.ui.components.QrLoginDialog
-import com.takahashirinta.ncrust.ui.components.QrScannerScreen
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.i18n.LanguagePreset
 import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
@@ -136,26 +134,10 @@ fun UserScreen(
         }
     )
 
-    // 手机端扫码授权：扫平板上的登录二维码 → 解析 unikey → 局域网回传本机 cookie。
-    if (showScanner) QrScannerScreen(
-        onScanned = { content ->
-            showScanner = false
-            val unikey = QrPair.unikeyFromQrContent(content)
-            val cookie = CookieManager.getCookie(context)
-            when {
-                unikey == null -> Toast.makeText(context, strings.scanFailed, Toast.LENGTH_SHORT).show()
-                cookie.isNullOrBlank() ->
-                    Toast.makeText(context, strings.scanNoCookie, Toast.LENGTH_SHORT).show()
-                else -> coroutineScope.launch {
-                    val ok = QrPairClient.sendCookie(unikey, cookie)
-                    Toast.makeText(
-                        context,
-                        if (ok) strings.scanSuccess else strings.scanFailed,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        },
+    // 手机端扫码授权：扫平板登录二维码 → 解析 unikey → 局域网回传本机 cookie。
+    // 连接/成功/失败状态都在扫码页内呈现，不再扫到即关闭。
+    if (showScanner) QrAuthorizeScreen(
+        onAuthorized = { showScanner = false },
         onClose = { showScanner = false }
     )
 

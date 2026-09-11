@@ -93,6 +93,7 @@ val deDE = Strings(
     scanNoCookie = "Bitte zuerst auf diesem Gerät anmelden",
     scanSuccess = "Autorisiert, das Tablet meldet sich automatisch an",
     scanFailed = "Fehlgeschlagen: angemeldet und im selben WLAN?",
+    scanConnecting = "Verbindung zum Tablet…",
     clearQueue = "Warteschlange leeren",
     actionAddToPlaylist = "Zur Playlist hinzufügen",
     actionRemoveFromLibrary = "Aus Bibliothek entfernen",

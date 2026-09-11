@@ -109,6 +109,7 @@ data class Strings(
     val scanNoCookie: String,
     val scanSuccess: String,
     val scanFailed: String,
+    val scanConnecting: String,
 
     val clearQueue: String,
     val actionAddToPlaylist: String,

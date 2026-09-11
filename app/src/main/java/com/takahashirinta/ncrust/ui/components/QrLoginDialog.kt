@@ -72,9 +72,10 @@ fun QrLoginDialog(
             }
             // 官方 App 扫码走轮询; Ncrust 手机扫码走局域网回传, 两条路谁先到用谁。
             pairServer = QrPairServer(key.unikey) { cookie -> onLoginSuccess(cookie) }.also { it.start() }
-            // eapi 客户端版通常不返回 qrcode 图, 客户端本地生成(官方客户端同款做法)。
-            // QR 内容必须是官方登录链接, 而不是裸 unikey —— 裸串官方 App 扫不出。
-            val qrContent = if (key.unikey.startsWith("http")) key.unikey
+            // 二维码内容优先用服务端给的 qrurl; 否则由 unikey 拼官方登录链接。
+            // 服务端一般不给图, 用 zxing 本地生成(官方客户端同款做法)。
+            val qrContent = key.qrurl
+                ?: if (key.unikey.startsWith("http")) key.unikey
                 else "https://music.163.com/login?codekey=${key.unikey}"
             qrBitmap = key.qrimg?.let { decodeQrImage(it) } ?: generateQrBitmap(qrContent)
             if (qrBitmap == null) {

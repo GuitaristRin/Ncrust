@@ -93,6 +93,7 @@ val en = Strings(
     scanNoCookie = "Log in on this device first",
     scanSuccess = "Authorized, the tablet will log in automatically",
     scanFailed = "Failed: make sure you're logged in and both devices share the same Wi-Fi",
+    scanConnecting = "Connecting to the tablet…",
     clearQueue = "Clear queue",
     actionAddToPlaylist = "Add to Playlist",
     actionRemoveFromLibrary = "Remove from Library",

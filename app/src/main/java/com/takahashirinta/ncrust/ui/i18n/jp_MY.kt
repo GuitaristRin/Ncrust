@@ -93,6 +93,7 @@ val jpMY = Strings(
     scanNoCookie = "先 本機 入 後 認",
     scanSuccess = "認 了 平板 自 入",
     scanFailed = "認 失敗 入 濟 同 Wi-Fi 確",
+    scanConnecting = "平板 接続 中…",
     clearQueue = "キューを空にする",
     actionAddToPlaylist = "曲目 加",
     actionRemoveFromLibrary = "庫 除",

@@ -93,6 +93,7 @@ val ruRU = Strings(
     scanNoCookie = "Сначала войдите на этом устройстве",
     scanSuccess = "Авторизовано, планшет войдёт автоматически",
     scanFailed = "Не удалось: войдите и подключитесь к той же Wi-Fi сети",
+    scanConnecting = "Подключение к планшету…",
     clearQueue = "Очистить очередь",
     actionAddToPlaylist = "Добавить в плейлист",
     actionRemoveFromLibrary = "Удалить из библиотеки",
