@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -240,6 +241,9 @@ fun MainScreen(
     onLanguageChange: (String) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(1) }
+    // 根布局实测高度(px)：车机会把窗口内容区 inset 到系统栏之间，但 WindowInsets
+    // 全为 0、screenHeightDp 又是整屏高度，只有实测高度才准。
+    var rootHeightPx by remember { mutableStateOf(0f) }
     val playerViewModel: PlayerViewModel = viewModel()
     val isPlaying by playerViewModel.isPlaying.collectAsState()
     var currentSong by remember { mutableStateOf<SongItem?>(null) }
@@ -251,16 +255,10 @@ fun MainScreen(
 
     // ---------- 系统栏高度 ----------
     // 正常设备从 WindowInsets 取；车机（Android Automotive）的 CarSystemUI 顶/底栏是
-    // 独立窗口、不下发 WindowInsets（实测全为 0），此时回退到系统资源
-    // status_bar_height / navigation_bar_height，并在根节点用 padding 让出内容区。
+    // 独立窗口、不下发 WindowInsets（实测全为 0），但系统会把应用窗口内容区 inset
+    // 到系统栏之间——所以车机上内容区高度靠根布局实测，而不是 screenHeightDp。
     val sysStatusPx = WindowInsets.statusBars.getTop(density).toFloat()
     val sysNavPx = WindowInsets.navigationBars.getBottom(density).toFloat()
-    val resStatusPx = context.resources.getIdentifier("status_bar_height", "dimen", "android")
-        .let { if (it > 0) context.resources.getDimensionPixelSize(it).toFloat() else 0f }
-    val resNavPx = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        .let { if (it > 0) context.resources.getDimensionPixelSize(it).toFloat() else 0f }
-    val fallbackStatusPx = if (sysStatusPx == 0f) resStatusPx else 0f
-    val fallbackNavPx = if (sysNavPx == 0f) resNavPx else 0f
 
     // 宽屏（平板/折叠展开/车机）：左侧常驻 sidebar 取代底部导航，内容右移。
     // 与方向无关地按当前窗口宽度判定；窄屏(<600dp)完全走原底部导航路径。
@@ -273,13 +271,14 @@ fun MainScreen(
     val navBarHeightPx = if (isWideLayout) 0f else with(density) { 56.dp.toPx() }
     val miniBarHeightPx = with(density) { 56.dp.toPx() }
     val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
-    // 内容区高度：扣掉系统栏（WindowInsets 或资源兜底）。
-    val contentHeightPx =
-        screenHeightPx - sysStatusPx - sysNavPx - fallbackStatusPx - fallbackNavPx
+    // 内容区高度：优先用根布局实测高度（车机内容区已被系统 inset，screenHeightDp 是整屏
+    // 高度、对不上）；实测前先用整屏过渡。
+    val contentHeightPx = if (rootHeightPx > 0f) rootHeightPx else screenHeightPx
 
-    // miniBar 底 = navBar 顶。系统栏已由根节点 padding（车机兜底）或 WindowInsets
-    // （正常设备）让出，这里只需把 miniBar 顶到内容区底部之上。
-    val collapsedOffsetY = contentHeightPx - navBarHeightPx - miniBarHeightPx
+    // miniBar 底 = navBar 顶。正常设备系统栏由 WindowInsets 给出，车机内容区已被系统
+    // inset（WindowInsets 为 0），两种情况用同一公式。
+    val collapsedOffsetY =
+        contentHeightPx - sysNavPx - navBarHeightPx - miniBarHeightPx - sysStatusPx
 
     val totalDragDistancePx = contentHeightPx * 0.85f
 
@@ -1002,13 +1001,11 @@ fun MainScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // 背景先铺满整窗，再让出系统栏（车机 CarSystemUI 不下发 WindowInsets，
-            // 用资源兜底）；正常设备 fallback 为 0，不受影响。
+            // 车机把应用窗口内容区 inset 到系统栏之间（实测内容区 620px，但
+            // WindowInsets 全为 0），所以这里不再自己 padding，只让背景铺满内容区；
+            // 位置计算用 contentHeightPx（扣掉系统栏的资源兜底值）。
             .background(LocalMetroColors.current.background)
-            .padding(
-                top = with(density) { fallbackStatusPx.toDp() },
-                bottom = with(density) { fallbackNavPx.toDp() }
-            )
+            .onSizeChanged { rootHeightPx = it.height.toFloat() }
     ) {
         // PlayerCardOverlay is FIRST child: processes first in Compose Main pass (siblings are
         // dispatched in composition order). Its inner consumer modifier in PlayerCard prevents
