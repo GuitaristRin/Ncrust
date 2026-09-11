@@ -65,6 +65,8 @@ fun UserScreen(
     var showAccountDialog by remember { mutableStateOf(false) }
     var showQrLogin by remember { mutableStateOf(false) }
     var showScanner by remember { mutableStateOf(false) }
+    var showClearCacheConfirm by remember { mutableStateOf(false) }
+    var cacheSize by remember { mutableStateOf(currentCacheSize(context)) }
     var hasCookie by remember { mutableStateOf(CookieManager.hasCookie(context)) }
     // 扫码登录为平板 / 大屏独占：手机端未登录点头像仍直接进 WebView 官方登录页。
     val isWideLayout = LocalConfiguration.current.screenWidthDp >= 600
@@ -156,6 +158,25 @@ fun UserScreen(
         onDismiss = { showQrLogin = false }
     )
 
+    if (showClearCacheConfirm) ClearCacheConfirmDialog(
+        onConfirm = {
+            ContentCache.clearAll()
+            runCatching { coil.Coil.imageLoader(context).memoryCache?.clear() }
+            runCatching { coil.Coil.imageLoader(context).diskCache?.clear() }
+            runCatching {
+                context.cacheDir?.let { dir ->
+                    dir.listFiles()
+                        ?.filter { it.name == "WebView" || it.name == "http" }
+                        ?.forEach { it.deleteRecursively() }
+                }
+            }
+            cacheSize = currentCacheSize(context)
+            Toast.makeText(context, strings.cacheCleared, Toast.LENGTH_SHORT).show()
+            showClearCacheConfirm = false
+        },
+        onDismiss = { showClearCacheConfirm = false }
+    )
+
     // 宽屏设置/资料内容居中限宽（上限 720dp），避免设置行横跨平板。
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
@@ -226,58 +247,31 @@ fun UserScreen(
 
         // 播放
         item {
-            SectionTitle(strings.gaplessSectionTitle)
-            // 无缝播放：标题 + 描述在左（自动换行），Switch 固定 52dp 在右上角。
-            // 描述 weight(1f)，任何语言的长文都能自然换行不撑破。
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    MetroText(
-                        strings.gaplessDescription,
-                        color = Color.Gray,
-                        style = LocalMetroTypography.current.caption,
-                    )
+            SectionTitle(strings.playbackSectionTitle)
+            // 标题与 Switch 同行居中，描述另起一行——描述不参与对齐，否则 Switch
+            // 会被顶到与描述顶部对齐，看起来像挂在描述上。
+            SettingSwitchRow(
+                title = strings.gaplessSectionTitle,
+                description = strings.gaplessDescription,
+                checked = gaplessEnabled,
+                onCheckedChange = {
+                    gaplessEnabled = it
+                    prefs.edit().putBoolean("gapless_playback", it).apply()
+                    // 即时生效: VM 缓存的 gaplessEnabled 不刷新的话,
+                    // 本首歌的预载状态与开关不一致, 要等下一首歌才对上
+                    playerViewModel.refreshGaplessSetting()
                 }
-                Spacer(Modifier.width(16.dp))
-                MetroSwitch(
-                    checked = gaplessEnabled,
-                    onCheckedChange = {
-                        gaplessEnabled = it
-                        prefs.edit().putBoolean("gapless_playback", it).apply()
-                        // 即时生效: VM 缓存的 gaplessEnabled 不刷新的话,
-                        // 本首歌的预载状态与开关不一致, 要等下一首歌才对上
-                        playerViewModel.refreshGaplessSetting()
-                    }
-                )
-            }
+            )
             // 歌词翻译开关(Spotify 式双语:原句下方小号译文)。切了立即生效,播放器常挂载无需重进。
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    MetroText(
-                        strings.lyricsTranslationLabel,
-                        color = Color.White,
-                        style = LocalMetroTypography.current.bodyMedium,
-                    )
+            SettingSwitchRow(
+                title = strings.lyricsTranslationLabel,
+                checked = lyricsTranslation,
+                onCheckedChange = {
+                    lyricsTranslation = it
+                    prefs.edit().putBoolean("lyrics_translation", it).apply()
+                    playerViewModel.setLyricsTranslation(it)
                 }
-                Spacer(Modifier.width(16.dp))
-                MetroSwitch(
-                    checked = lyricsTranslation,
-                    onCheckedChange = {
-                        lyricsTranslation = it
-                        prefs.edit().putBoolean("lyrics_translation", it).apply()
-                        playerViewModel.setLyricsTranslation(it)
-                    }
-                )
-            }
+            )
             Spacer(Modifier.height(24.dp))
         }
 
@@ -342,27 +336,13 @@ fun UserScreen(
             Spacer(Modifier.height(24.dp))
         }
 
-        // 存储与缓存：显示当前占用，点击清除（内存缓存 + 图片磁盘缓存 + WebView 缓存）。
+        // 存储与缓存：显示当前占用，点击后弹窗确认再清除。
         item {
             SectionTitle(strings.storageSectionTitle)
-            var cacheSize by remember { mutableStateOf(currentCacheSize(context)) }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        ContentCache.clearAll()
-                        runCatching { coil.Coil.imageLoader(context).memoryCache?.clear() }
-                        runCatching { coil.Coil.imageLoader(context).diskCache?.clear() }
-                        runCatching {
-                            context.cacheDir?.let { dir ->
-                                dir.listFiles()
-                                    ?.filter { it.name == "WebView" || it.name == "http" }
-                                    ?.forEach { it.deleteRecursively() }
-                            }
-                        }
-                        cacheSize = currentCacheSize(context)
-                        Toast.makeText(context, strings.cacheCleared, Toast.LENGTH_SHORT).show()
-                    }
+                    .clickable { showClearCacheConfirm = true }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -505,6 +485,82 @@ private fun SectionTitle(text: String) {
         style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
         modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
     )
+}
+
+/**
+ * 开关设置行：标题与 Switch 同一行垂直居中，描述（可选）另起一行。
+ * 描述不参与对齐，避免 Switch 被顶到与描述顶部对齐。
+ */
+@Composable
+private fun SettingSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    description: String? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        MetroText(
+            title,
+            color = Color.White,
+            style = LocalMetroTypography.current.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(16.dp))
+        MetroSwitch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+    if (description != null) {
+        MetroText(
+            description,
+            color = Color.Gray,
+            style = LocalMetroTypography.current.caption,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 4.dp)
+        )
+    }
+}
+
+/** 清除缓存确认弹窗。 */
+@Composable
+private fun ClearCacheConfirmDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val strings = LocalStrings.current
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF282828))
+                .padding(24.dp)
+        ) {
+            MetroText(
+                strings.clearCache,
+                color = Color.White,
+                style = LocalMetroTypography.current.titleLarge.copy(fontWeight = FontWeight.Bold),
+            )
+            Spacer(Modifier.height(12.dp))
+            MetroText(
+                strings.clearCacheConfirm,
+                color = Color.Gray,
+                style = LocalMetroTypography.current.bodyMedium,
+            )
+            Spacer(Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                DialogButton(text = strings.cancel, accent = false, onClick = onDismiss)
+                Spacer(Modifier.width(12.dp))
+                DialogButton(text = strings.clearCache, accent = true, onClick = onConfirm)
+            }
+        }
+    }
 }
 
 /**

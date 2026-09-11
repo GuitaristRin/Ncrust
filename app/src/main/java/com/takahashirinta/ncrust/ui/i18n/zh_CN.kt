@@ -23,6 +23,7 @@ val zhCN = Strings(
     wifiQualityLabel = "WLAN 环境下",
     mobileQualityLabel = "移动数据环境下",
     qualityOptions = listOf("压缩", "较好", "更好", "无损", "高解析", "高清环绕声", "杜比全景声"),
+    playbackSectionTitle = "播放",
     gaplessSectionTitle = "无缝播放",
     gaplessDescription = "提前加载下一首，消除曲间空白",
     lyricsTranslationLabel = "歌词翻译",
@@ -33,6 +34,7 @@ val zhCN = Strings(
     storageSectionTitle = "存储与缓存",
     cacheSizeLabel = { b -> "缓存占用 ${formatCacheBytes(b)}" },
     clearCache = "清除缓存",
+    clearCacheConfirm = "确定清除全部缓存？",
     cacheCleared = "缓存已清除",
 
     dailySongsTitle = "每日推荐",

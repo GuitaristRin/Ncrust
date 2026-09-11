@@ -35,8 +35,10 @@ fun ThemeColorSelector(
 ) {
     val colorNames = LocalStrings.current.themeColorNames
     Column(modifier = Modifier.fillMaxWidth()) {
+        // 限宽：色块按 weight 等分，若跟随平板整宽(最多 720dp)会变成巨大的方块。
+        // 上限 336dp 让每块约 51dp，手机上仍是整宽自适应。
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = 336.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             presets.forEachIndexed { index, preset ->

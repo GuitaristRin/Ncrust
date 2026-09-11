@@ -23,6 +23,7 @@ val ruRU = Strings(
     wifiQualityLabel = "В сети Wi-Fi",
     mobileQualityLabel = "В мобильной сети",
     qualityOptions = listOf("Сжатое", "Среднее", "Лучшее", "Без потерь", "Hi-Res", "Объёмный звук", "Dolby Atmos"),
+    playbackSectionTitle = "Воспроизведение",
     gaplessSectionTitle = "Бесшовное воспроизведение",
     gaplessDescription = "Предзагрузка следующего трека для устранения пауз",
     lyricsTranslationLabel = "Перевод текста",
@@ -33,6 +34,7 @@ val ruRU = Strings(
     storageSectionTitle = "Хранилище и кэш",
     cacheSizeLabel = { b -> "Кэш: ${formatCacheBytes(b)}" },
     clearCache = "Очистить кэш",
+    clearCacheConfirm = "Очистить весь кэш?",
     cacheCleared = "Кэш очищен",
 
     dailySongsTitle = "Ежедневные рекомендации",

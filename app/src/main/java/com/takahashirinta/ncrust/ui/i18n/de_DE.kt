@@ -23,6 +23,7 @@ val deDE = Strings(
     wifiQualityLabel = "Im WLAN",
     mobileQualityLabel = "Bei mobilen Daten",
     qualityOptions = listOf("Komprimiert", "Normal", "Besser", "Verlustfrei", "Hi-Res", "Surround", "Dolby Atmos"),
+    playbackSectionTitle = "Wiedergabe",
     gaplessSectionTitle = "Nahtlose Wiedergabe",
     gaplessDescription = "Nächsten Titel vorladen, um Lücken zu vermeiden",
     lyricsTranslationLabel = "Liedtext-Übersetzung",
@@ -33,6 +34,7 @@ val deDE = Strings(
     storageSectionTitle = "Speicher & Cache",
     cacheSizeLabel = { b -> "Cache: ${formatCacheBytes(b)}" },
     clearCache = "Cache leeren",
+    clearCacheConfirm = "Gesamten Cache leeren?",
     cacheCleared = "Cache geleert",
 
     dailySongsTitle = "Tägliche Empfehlungen",

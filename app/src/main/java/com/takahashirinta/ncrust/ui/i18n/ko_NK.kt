@@ -23,6 +23,7 @@ val koNK = Strings(
     wifiQualityLabel = "무선통신망 환경",
     mobileQualityLabel = "이동통신망 환경",
     qualityOptions = listOf("압축", "보통", "더 좋음", "비파괴", "고해상도", "서라운드", "돌비 애트모스"),
+    playbackSectionTitle = "재생",
     gaplessSectionTitle = "틈 없이 이어 재생",
     gaplessDescription = "다음곡 미리불러와 틈 없애기",
     lyricsTranslationLabel = "가사 번역",
@@ -33,6 +34,7 @@ val koNK = Strings(
     storageSectionTitle = "저장소 및 캐시",
     cacheSizeLabel = { b -> "캐시: ${formatCacheBytes(b)}" },
     clearCache = "캐시 지우기",
+    clearCacheConfirm = "모든 캐시를 지우겠습니까?",
     cacheCleared = "캐시가 삭제되었습니다",
 
     dailySongsTitle = "날마다 추천곡",

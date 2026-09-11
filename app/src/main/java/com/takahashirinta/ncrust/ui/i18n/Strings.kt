@@ -27,6 +27,7 @@ data class Strings(
     val wifiQualityLabel: String,
     val mobileQualityLabel: String,
     val qualityOptions: List<String>,
+    val playbackSectionTitle: String,
     val gaplessSectionTitle: String,
     val gaplessDescription: String,
     val lyricsTranslationLabel: String,
@@ -37,6 +38,7 @@ data class Strings(
     val storageSectionTitle: String,
     val cacheSizeLabel: (Long) -> String,
     val clearCache: String,
+    val clearCacheConfirm: String,
     val cacheCleared: String,
 
     // Home screen

@@ -23,6 +23,7 @@ val jpJP = Strings(
     wifiQualityLabel = "Wi-Fi環境",
     mobileQualityLabel = "モバイルデータ環境",
     qualityOptions = listOf("圧縮", "標準", "高品質", "ロスレス", "ハイレゾ", "サラウンド", "Dolby Atmos"),
+    playbackSectionTitle = "再生",
     gaplessSectionTitle = "ギャップレス再生",
     gaplessDescription = "次の曲を先読みして途切れをなくす",
     lyricsTranslationLabel = "歌詞翻訳",
@@ -33,6 +34,7 @@ val jpJP = Strings(
     storageSectionTitle = "ストレージとキャッシュ",
     cacheSizeLabel = { b -> "キャッシュ: ${formatCacheBytes(b)}" },
     clearCache = "キャッシュを消去",
+    clearCacheConfirm = "すべてのキャッシュを消去しますか？",
     cacheCleared = "キャッシュを消去しました",
 
     dailySongsTitle = "おすすめ今日の曲",

@@ -23,6 +23,7 @@ val en = Strings(
     wifiQualityLabel = "On Wi-Fi",
     mobileQualityLabel = "On Mobile Data",
     qualityOptions = listOf("Low", "Fair", "Better", "Lossless", "Hi-Res", "Surround", "Dolby Atmos"),
+    playbackSectionTitle = "Playback",
     gaplessSectionTitle = "Gapless Playback",
     gaplessDescription = "Preload next track to eliminate gaps",
     lyricsTranslationLabel = "Lyrics Translation",
@@ -33,6 +34,7 @@ val en = Strings(
     storageSectionTitle = "Storage & Cache",
     cacheSizeLabel = { b -> "Cache: ${formatCacheBytes(b)}" },
     clearCache = "Clear Cache",
+    clearCacheConfirm = "Clear all cached data?",
     cacheCleared = "Cache cleared",
 
     dailySongsTitle = "Daily Recommendations",

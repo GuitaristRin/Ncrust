@@ -23,6 +23,7 @@ val zhTW = Strings(
     wifiQualityLabel = "無線局域網境下",
     mobileQualityLabel = "流動數據境下",
     qualityOptions = listOf("廉質", "中平", "上佳", "無損", "高清", "高清環繞聲", "杜比全景聲"),
+    playbackSectionTitle = "播放",
     gaplessSectionTitle = "無縫而歌",
     gaplessDescription = "預載下曲，去其隙縫",
     lyricsTranslationLabel = "歌詞翻譯",
@@ -33,6 +34,7 @@ val zhTW = Strings(
     storageSectionTitle = "儲存與快取",
     cacheSizeLabel = { b -> "快取占用 ${formatCacheBytes(b)}" },
     clearCache = "清除快取",
+    clearCacheConfirm = "確定清除全部快取？",
     cacheCleared = "快取已清除",
 
     dailySongsTitle = "日薦之曲",
