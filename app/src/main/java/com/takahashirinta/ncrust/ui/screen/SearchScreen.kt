@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -94,7 +95,10 @@ fun SearchScreen(
     val categories = listOf(strings.searchCategoryTracks, strings.searchCategoryAlbums, strings.searchCategoryArtists)
 
     val currentThemeColor = themeColorForIndex(themeIndex)
-    val desaturatedFill = desaturateColor(currentThemeColor)
+    val desaturatedFill = desaturateColor(
+        currentThemeColor,
+        darkTheme = LocalMetroColors.current.background.luminance() < 0.5f
+    )
 
     // 键盘治理: 点结果进详情/切 tab 后键盘不该还浮着
     val keyboard = LocalSoftwareKeyboardController.current

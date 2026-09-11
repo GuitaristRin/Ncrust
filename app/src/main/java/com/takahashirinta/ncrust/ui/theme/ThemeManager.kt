@@ -93,11 +93,19 @@ fun NcrustTheme(
     )
 }
 
-fun desaturateColor(color: ComposeColor, saturationFactor: Float = 0.08f): ComposeColor {
+/**
+ * 由主题色派生的输入框/搜索框底色：深色主题下是极暗的低饱和色，
+ * 浅色主题下是极亮(近白)的低饱和色——保证框内文字(onBackground)始终可读。
+ */
+fun desaturateColor(
+    color: ComposeColor,
+    saturationFactor: Float = 0.08f,
+    darkTheme: Boolean = true
+): ComposeColor {
     val hsv = FloatArray(3)
     android.graphics.Color.colorToHSV(color.toArgb(), hsv)
     hsv[1] *= saturationFactor
-    hsv[2] = hsv[2] * 0.25f + 0.02f
+    hsv[2] = if (darkTheme) hsv[2] * 0.25f + 0.02f else 0.93f
     return ComposeColor(android.graphics.Color.HSVToColor(hsv))
 }
 
