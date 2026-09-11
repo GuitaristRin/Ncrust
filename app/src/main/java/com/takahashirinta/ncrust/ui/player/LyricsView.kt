@@ -75,8 +75,16 @@ fun LyricsView(
     // 订阅位置流:collectAsState 建 State;displayPosition 只在面板 draw/derived
     // 阶段被读,按需写一次也只重算当前行,不触发本 Composable 重组。
     val positionState = positionFlow.collectAsState()
-    val displayPosition = remember { mutableLongStateOf(0L) }
-    val anchor = remember { PositionAnchor().apply { anchorNanos = System.nanoTime() } }
+    // 初值取当前流值而非 0:否则面板首次出现时会先按"位置 0"高亮第一行/吸顶,
+    // 等锚点被采样纠正后才跳回真实行。按需唤醒把纠错窗口拉长到最多 1s, 这个初值
+    // 尤为重要。
+    val displayPosition = remember { mutableLongStateOf(positionState.value) }
+    val anchor = remember {
+        PositionAnchor().apply {
+            anchorPosMs = positionState.value
+            anchorNanos = System.nanoTime()
+        }
+    }
 
     // 行时间戳(升序),把"下一次跨行"算成精确唤醒时刻。
     val timestamps = remember(lyrics) { LongArray(lyrics.size) { lyrics[it].timeMs } }
