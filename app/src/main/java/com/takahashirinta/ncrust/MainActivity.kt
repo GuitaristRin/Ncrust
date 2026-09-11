@@ -250,8 +250,17 @@ fun MainScreen(
     val coroutineScope = rememberCoroutineScope()
 
     // ---------- 系统栏高度 ----------
-    val systemNavBarHeightDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val systemNavBarHeightPx = with(density) { systemNavBarHeightDp.toPx() }
+    // 正常设备从 WindowInsets 取；车机（Android Automotive）的 CarSystemUI 顶/底栏是
+    // 独立窗口、不下发 WindowInsets（实测全为 0），此时回退到系统资源
+    // status_bar_height / navigation_bar_height，并在根节点用 padding 让出内容区。
+    val sysStatusPx = WindowInsets.statusBars.getTop(density).toFloat()
+    val sysNavPx = WindowInsets.navigationBars.getBottom(density).toFloat()
+    val resStatusPx = context.resources.getIdentifier("status_bar_height", "dimen", "android")
+        .let { if (it > 0) context.resources.getDimensionPixelSize(it).toFloat() else 0f }
+    val resNavPx = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
+        .let { if (it > 0) context.resources.getDimensionPixelSize(it).toFloat() else 0f }
+    val fallbackStatusPx = if (sysStatusPx == 0f) resStatusPx else 0f
+    val fallbackNavPx = if (sysNavPx == 0f) resNavPx else 0f
 
     // 宽屏（平板/折叠展开/车机）：左侧常驻 sidebar 取代底部导航，内容右移。
     // 与方向无关地按当前窗口宽度判定；窄屏(<600dp)完全走原底部导航路径。
@@ -263,18 +272,16 @@ fun MainScreen(
     // 卡片相关尺寸。宽屏无底部导航, navBar 高度记 0, miniBar 直接贴到系统栏之上。
     val navBarHeightPx = if (isWideLayout) 0f else with(density) { 56.dp.toPx() }
     val miniBarHeightPx = with(density) { 56.dp.toPx() }
-    val statusBarHeightPx = with(density) {
-        WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
-    }
     val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+    // 内容区高度：扣掉系统栏（WindowInsets 或资源兜底）。
+    val contentHeightPx =
+        screenHeightPx - sysStatusPx - sysNavPx - fallbackStatusPx - fallbackNavPx
 
-    // miniBar 底 = navBar 顶。navBar 视觉 56dp 之下由 navigationBarsPadding 补系统导航栏。
-    // 减 statusBarHeightPx 抵消 PlayerCard 内 miniBar 自带的 statusBarsPadding，
-    // 否则 miniBar 会向下漂 statusBar 高度、盖住 navBar 顶。
-    val collapsedOffsetY =
-        screenHeightPx - systemNavBarHeightPx - navBarHeightPx - miniBarHeightPx - statusBarHeightPx
+    // miniBar 底 = navBar 顶。系统栏已由根节点 padding（车机兜底）或 WindowInsets
+    // （正常设备）让出，这里只需把 miniBar 顶到内容区底部之上。
+    val collapsedOffsetY = contentHeightPx - navBarHeightPx - miniBarHeightPx
 
-    val totalDragDistancePx = screenHeightPx * 0.85f
+    val totalDragDistancePx = contentHeightPx * 0.85f
 
     val navBarHideOffset = if (isWideLayout) 0f else with(density) { 132.dp.toPx() }
     // ------------------------------------
@@ -992,7 +999,17 @@ fun MainScreen(
         selectedTab = tab
         if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
     }
-    Box(modifier = Modifier.fillMaxSize().background(LocalMetroColors.current.background)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            // 车机 CarSystemUI 栏不下发 WindowInsets，用资源兜底把内容区让出来；
+            // 正常设备 fallback 为 0，走 WindowInsets/内部 padding，不受影响。
+            .padding(
+                top = with(density) { fallbackStatusPx.toDp() },
+                bottom = with(density) { fallbackNavPx.toDp() }
+            )
+            .background(LocalMetroColors.current.background)
+    ) {
         // PlayerCardOverlay is FIRST child: processes first in Compose Main pass (siblings are
         // dispatched in composition order). Its inner consumer modifier in PlayerCard prevents
         // Scaffold's SongCards from receiving events when the player is fully expanded.
@@ -1003,7 +1020,7 @@ fun MainScreen(
             isPlaying = isPlaying,
             progress = progress,
             collapsedOffsetY = collapsedOffsetY,
-            screenHeightPx = screenHeightPx,
+            screenHeightPx = contentHeightPx,
             totalDragDistancePx = totalDragDistancePx,
             playbackQueue = playbackQueue,
             currentQueueIndex = currentQueueIndex,
