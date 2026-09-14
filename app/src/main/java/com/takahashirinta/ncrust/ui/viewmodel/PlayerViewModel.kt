@@ -82,15 +82,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // 需要充足时间, 20s 碰到慢网络/冷缓存会来不及, 无缝退化成硬切。
     private val PRELOAD_THRESHOLD_MS = 60_000L
 
-    // Metadata for the in-flight preload; applied when ExoPlayer auto-transitions.
-    // All reads/writes happen on the main thread.
-    private var preloadedSongId = -1L
-    private var preloadedTitle = ""
-    private var preloadedArtist = ""
-    private var preloadedArtwork = ""
-    private var preloadedActualLevel = ""
-    // Cached stream URL from the last completed preload; used by playSong fast-path to skip fetch.
-    private var preloadedUrl = ""
     // Song ID most recently requested by playSong; lets a concurrent preload detect a same-song race.
     private var latestPlaySongId = -1L
 
@@ -150,64 +141,77 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         PlaybackService.onPlaybackError = { sid -> handlePlaybackError(sid) }
 
         // Called on the main thread by ExoPlayer's onMediaItemTransition (AUTO reason).
-        // 身份/元数据来自播放器新当前项的 MediaItem（now），不再由本轮预载的全局槽推断，
-        // 因此音频实际切的歌与 UI 显示的歌绝不会错位。
+        // 元数据由 PlaybackService 从真正开始播放的 MediaItem 读出，与音频同源。
         PlaybackService.onSongTransitioned = { now ->
             if (now.songId > 0) {
                 resetLyricsForNewSong()
                 currentSongId.value = now.songId
                 currentSongName.value = now.title
                 currentSongArtist.value = now.artist
-                currentSongArtwork.value = now.artworkUrl.ifEmpty { null }
-                // 音质档位仍取本轮预载记录（若正好对应同一首），否则沿用上一次实际档位。
-                val level = if (preloadedSongId == now.songId && preloadedActualLevel.isNotEmpty())
-                    preloadedActualLevel else lastPlayedLevel
-                if (level.isNotEmpty()) {
-                    currentQualityIndex.value = qualityApiLevels.indexOf(level).coerceAtLeast(0)
+                currentSongArtwork.value = now.artwork.ifEmpty { null }
+                // 音质档位同样取自当前 MediaItem 的 extras，与标题/封面同源，
+                // 因此三者绝不会互相错位（旧的全局预载槽推断正是错位来源）。
+                if (now.actualLevel.isNotEmpty()) {
+                    lastPlayedLevel = now.actualLevel
+                    currentQualityIndex.value =
+                        qualityApiLevels.indexOf(now.actualLevel).coerceAtLeast(0)
                 }
                 PlaybackStateManager.saveState(
-                    getApplication(), now.songId,
-                    now.title, now.artist, now.artworkUrl, true
+                    getApplication(), now.songId, now.title, now.artist, now.artwork, true
                 )
                 viewModelScope.launch { fetchLyrics(now.songId) }
-                preloadedSongId = -1L
-                needsPreload.value = false
             }
+            needsPreload.value = false
             onSongTransitionedCallback?.invoke()
         }
 
+        // 恢复当前曲目：优先以「仍在播放的 Service 的真实当前 item」为准——Activity 冷重建
+        // 而 Service 已无缝切到下一首时，持久化的 song 字段是过期的，若用它会导致歌词/封面
+        // 与正在响的歌错位。Service 不在（进程被杀）才回退到持久化的会话单曲字段。
+        val svc = PlaybackService.instance
+        val live = runCatching { svc?.currentNowPlaying() }.getOrNull()
         val savedState = PlaybackStateManager.getState(getApplication())
-        if (savedState != null) {
+        if (live != null) {
+            resetLyricsForNewSong()
+            currentSongId.value = live.songId
+            currentSongName.value = live.title
+            currentSongArtist.value = live.artist
+            currentSongArtwork.value = live.artwork
+            if (live.actualLevel.isNotEmpty()) {
+                lastPlayedLevel = live.actualLevel
+                currentQualityIndex.value =
+                    qualityApiLevels.indexOf(live.actualLevel).coerceAtLeast(0)
+            }
+            viewModelScope.launch { fetchLyrics(live.songId) }
+        } else if (savedState != null) {
             resetLyricsForNewSong()
             currentSongId.value = savedState.songId
             currentSongName.value = savedState.songName
             currentSongArtist.value = savedState.songArtist
             currentSongArtwork.value = savedState.songArtwork
-
-            // Activity 冷重建但前台 Service 还活着的场景：不能盲写 isPlaying=false，
-            // 否则 UI 显示暂停但音频还在响，用户要点多次按钮才能让状态与音频对齐。
-            // 直接从 live service 拉真值，同时把 duration/position 一并同步——
-            // 否则 500ms 心跳到来前 duration=0，togglePlayPause 会误走全量 playSong 分支导致重取 URL。
-            val svc = PlaybackService.instance
-            if (svc != null) {
-                runCatching {
-                    val p = svc.player
-                    isPlaying.value = p.isPlaying
-                    val livePos = p.currentPosition
-                    val liveDur = p.duration
-                    if (liveDur > 0) {
-                        currentPosition.value = livePos
-                        duration.value = liveDur
-                        progress.value = livePos.toFloat() / liveDur.toFloat()
-                    }
-                }
-            } else {
-                isPlaying.value = false
-            }
-
             if (savedState.songId > 0) {
                 viewModelScope.launch { fetchLyrics(savedState.songId) }
             }
+        }
+
+        // Activity 冷重建但前台 Service 还活着的场景：不能盲写 isPlaying=false，
+        // 否则 UI 显示暂停但音频还在响，用户要点多次按钮才能让状态与音频对齐。
+        // 直接从 live service 拉真值，同时把 duration/position 一并同步——
+        // 否则 500ms 心跳到来前 duration=0，togglePlayPause 会误走全量 playSong 分支导致重取 URL。
+        if (svc != null) {
+            runCatching {
+                val p = svc.player
+                isPlaying.value = p.isPlaying
+                val livePos = p.currentPosition
+                val liveDur = p.duration
+                if (liveDur > 0) {
+                    currentPosition.value = livePos
+                    duration.value = liveDur
+                    progress.value = livePos.toFloat() / liveDur.toFloat()
+                }
+            }
+        } else {
+            isPlaying.value = false
         }
     }
 
@@ -274,8 +278,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             it.requestedLevel == selectedQuality && System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS
         }
         if (cachedEntry != null) {
-            preloadedSongId = -1L; preloadedTitle = ""; preloadedArtist = ""
-            preloadedArtwork = ""; preloadedActualLevel = ""; preloadedUrl = ""
             lastPlayedLevel = cachedEntry.actualLevel
             val actualIdx = qualityApiLevels.indexOf(cachedEntry.actualLevel).coerceAtLeast(0)
             currentQualityIndex.value = actualIdx
@@ -463,12 +465,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         return@withContext
                     }
                     // Normal path: add to ExoPlayer queue for gapless auto-transition.
-                    preloadedSongId = songId
-                    preloadedTitle = title
-                    preloadedArtist = artist
-                    preloadedArtwork = artworkUrl
-                    preloadedActualLevel = result.actualLevel
-                    preloadedUrl = result.url
+                    // 元数据随 item 一起入队，切换时由服务端从 item 读回。
                     val intent = Intent(getApplication(), PlaybackService::class.java).apply {
                         putExtra("action", "preload_next")
                         putExtra("url", result.url)
@@ -476,6 +473,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         putExtra("artist", artist)
                         putExtra("artwork", artworkUrl)
                         putExtra("songId", songId)
+                        putExtra("actualLevel", result.actualLevel)
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                         getApplication<Application>().startForegroundService(intent)
@@ -609,6 +607,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
+     * 进程重建、Service 未存活时，用持久化会话的当前曲目对齐 ViewModel。
+     * 会话（queue[index]）是唯一真源，避免持久化单曲字段与队列因分别写盘而发散。
+     */
+    fun syncCurrentSongFromSession(songId: Long, title: String, artist: String, artwork: String) {
+        if (songId <= 0 || currentSongId.value == songId) return
+        resetLyricsForNewSong()
+        currentSongId.value = songId
+        currentSongName.value = title
+        currentSongArtist.value = artist
+        currentSongArtwork.value = artwork
+        viewModelScope.launch { fetchLyrics(songId) }
+    }
+
+    /**
      * 只载入歌曲元数据, 不取链不播放(剪贴板分享的单曲场景)。
      * 之后用户按下播放键 → togglePlayPause 检测到 duration==0 且 songId>0,
      * 自动走全量 playSong 路径开播。
@@ -671,7 +683,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun stopService() {
         val app = getApplication<Application>()
         PlaybackStateManager.clearState(app)
-        PlaybackStateManager.clearQueue(app)
+        PlaybackStateManager.clearSession(app)
 
         val intent = Intent(app, PlaybackService::class.java).apply {
             putExtra("action", "stop")
