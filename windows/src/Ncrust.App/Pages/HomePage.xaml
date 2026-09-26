@@ -55,7 +55,7 @@
 
     <Grid>
         <ScrollViewer>
-            <StackPanel Padding="24,16,24,88" Spacing="16">
+            <StackPanel Padding="24,16,24,24" Spacing="16">
                 <TextBlock Style="{StaticResource PageHeadingTextStyle}" Text="首页" />
 
                 <TextBlock Style="{StaticResource TitleTextStyle}" Text="每日推荐" />

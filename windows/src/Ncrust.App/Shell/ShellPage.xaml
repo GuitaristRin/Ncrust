@@ -2,50 +2,107 @@
     x:Class="Ncrust.Shell.ShellPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:player="using:Ncrust.Player"
     RequestedTheme="Dark"
     Background="{ThemeResource KBackgroundBrush}">
 
     <!--
-      外壳：标题栏 + 侧栏（MetroSidebarStyle）+ 内容 Frame + 播放器层 + 登录覆盖层。
-      播放器层覆盖标题栏以下的整个窗口（含侧栏）。窄窗底部导航后续加入。
+      外壳（参考 Groove Music / Apple Music）：
+      - 标准汉堡菜单：WinUI 2 NavigationView（Version1 直角样式 + Kanesumi 资源覆盖），
+        按窗口宽度自适应：≥1008 展开 / 600~1008 紧凑（只剩图标）/ <600 最小（只剩汉堡按钮）。
+      - 面板顶部是搜索框（Groove）；分组标题「我的音乐」（Apple Music 的资料库分组）；
+        底部是账户项（未登录时为「登录」）。
+      - 内容延伸进标题栏：AppTitleBar 是拖动区，左侧给返回 / 汉堡按钮让位。
+      - 第二行 72 是播放栏的位置：页面内容不会被播放栏盖住，不需要额外的底部内边距。
+      - 播放器层与登录层覆盖整个窗口，但顶部让出标题栏（标题栏区域的输入被系统拿去拖动窗口）。
     -->
-    <Grid Background="{ThemeResource KBackgroundBrush}">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="32" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="72" />
         </Grid.RowDefinitions>
 
-        <TextBlock
+        <muxc:NavigationView
+            x:Name="Nav"
             Grid.Row="0"
-            Margin="16,0"
-            VerticalAlignment="Center"
-            FontSize="13"
-            Foreground="{ThemeResource KOnBackgroundBrush}"
-            Text="Ncrust" />
+            AlwaysShowHeader="False"
+            BackRequested="NavBackRequested"
+            CompactModeThresholdWidth="600"
+            DisplayModeChanged="NavDisplayModeChanged"
+            ExpandedModeThresholdWidth="1008"
+            IsBackButtonVisible="Visible"
+            IsBackEnabled="False"
+            IsSettingsVisible="False"
+            IsTitleBarAutoPaddingEnabled="True"
+            ItemInvoked="NavItemInvoked"
+            OpenPaneLength="240"
+            PaneDisplayMode="Auto">
 
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+            <muxc:NavigationView.AutoSuggestBox>
+                <AutoSuggestBox
+                    x:Name="SearchBox"
+                    PlaceholderText="搜索歌曲、专辑、歌手"
+                    QueryIcon="Find"
+                    QuerySubmitted="SearchQuerySubmitted" />
+            </muxc:NavigationView.AutoSuggestBox>
 
-            <ListView
-                x:Name="Sidebar"
-                Grid.Column="0"
-                SelectionChanged="SidebarSelectionChanged"
-                Style="{StaticResource MetroSidebarStyle}">
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding}" />
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+            <muxc:NavigationView.MenuItems>
+                <muxc:NavigationViewItem x:Name="HomeItem" Content="首页" Tag="home">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE80F;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+                <muxc:NavigationViewItemHeader Content="我的音乐" />
+                <muxc:NavigationViewItem x:Name="LibraryItem" Content="音乐库" Tag="library">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8F1;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+            </muxc:NavigationView.MenuItems>
 
-            <Frame x:Name="ContentFrame" Grid.Column="1" />
+            <muxc:NavigationView.FooterMenuItems>
+                <muxc:NavigationViewItem
+                    x:Name="AccountItem"
+                    Content="登录"
+                    SelectsOnInvoked="False"
+                    Tag="account">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE77B;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+            </muxc:NavigationView.FooterMenuItems>
+
+            <Frame x:Name="ContentFrame" Navigated="ContentFrameNavigated" />
+        </muxc:NavigationView>
+
+        <!-- 自定义标题栏：拖动区。左边距随 NavigationView 的显示模式调整，给返回 / 汉堡按钮让位。 -->
+        <Grid
+            x:Name="AppTitleBar"
+            Grid.Row="0"
+            Height="32"
+            VerticalAlignment="Top"
+            Background="Transparent"
+            Canvas.ZIndex="1">
+            <StackPanel
+                Margin="12,0,0,0"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="12">
+                <Image
+                    Width="16"
+                    Height="16"
+                    Source="ms-appx:///Assets/Square44x44Logo.png" />
+                <TextBlock
+                    x:Name="AppTitle"
+                    VerticalAlignment="Center"
+                    FontSize="12"
+                    Foreground="{ThemeResource KOnBackgroundBrush}"
+                    Text="Ncrust" />
+            </StackPanel>
         </Grid>
 
-        <player:PlayerHost x:Name="Player" Grid.Row="1" />
+        <player:PlayerHost x:Name="Player" Grid.RowSpan="2" />
 
         <Grid x:Name="OverlayHost" Grid.RowSpan="2" />
     </Grid>

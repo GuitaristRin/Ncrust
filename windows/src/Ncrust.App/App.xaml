@@ -7,11 +7,14 @@
     <!--
       资源装配。顺序不能反：Kanesumi 必须排在 XamlControlsResources 之后，
       否则它的圆角归零等覆盖盖不住 WinUI 2 的默认值。
+
+      ControlsResourcesVersion="Version1"：用 WinUI 2 的 Windows 10 / Groove 一代样式
+      （直角、标准汉堡菜单 NavigationView），不用 Version2 的 Windows 11 圆角样式。
     -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" ControlsResourcesVersion="Version1" />
                 <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Kanesumi.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

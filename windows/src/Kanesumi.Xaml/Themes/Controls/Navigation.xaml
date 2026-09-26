@@ -1,0 +1,124 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      NavigationView（标准汉堡菜单）的 Kanesumi 化覆盖。前提：应用以
+      XamlControlsResources ControlsResourcesVersion="Version1" 合并 WinUI 2 ——
+      Version1 是 Windows 10 / Groove Music 那一代的直角样式（汉堡按钮 + 左侧竖条选中），
+      比 Version2（Windows 11 圆角、内容区浮起一块中灰圆角面板）更接近 Kanesumi。
+
+      这里只覆盖资源键（轻量样式），不重写模板，保留 NavigationView 的自适应三态
+      （展开 / 紧凑 / 最小）、返回按钮、键盘与 UIA。
+
+      覆盖的要点：
+      - 面板纯色，不用亚克力：展开时与页面同为 background，浮出（紧凑 / 最小模式点开）时用
+        surface，与内容区分层但不透明。
+      - 内容区无边框、无圆角、透明背景（Version2 的中灰圆角面板就是这些键）。
+      - 悬停 / 按下用 pressTint（悬停 0.5 倍），不用 Reveal 光效；选中无底色，只有 primary 竖条。
+      - 文字与图标用不透明 token 色（arc-deck 实测：半透明系统色压在材质上会看不见）。
+
+      资源键名以 WinUI 2.8 为准；写了不存在的键不会报错，只会不生效。
+    -->
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#FF000000" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#FF1A1A1A" />
+            <SolidColorBrush x:Key="NavigationViewTopPaneBackground" Color="#FF000000" />
+            <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+
+            <SolidColorBrush x:Key="NavigationViewItemBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="#11FFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="#22FFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundDisabled" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="#11FFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="#22FFFFFF" />
+
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushPointerOver" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushPressed" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushDisabled" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushSelected" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushSelectedPointerOver" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushSelectedPressed" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushSelectedDisabled" Color="Transparent" />
+
+            <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundPointerOver" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundPressed" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundDisabled" Color="#66FFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPointerOver" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPressed" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedDisabled" Color="#66FFFFFF" />
+
+            <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#FF1DB954" />
+
+            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="#11FFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="#22FFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewButtonForegroundPointerOver" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewButtonForegroundPressed" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewButtonForegroundDisabled" Color="#66FFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewBackButtonBackground" Color="Transparent" />
+
+            <SolidColorBrush x:Key="NavigationViewItemHeaderForeground" Color="#FFB3B3B3" />
+            <SolidColorBrush x:Key="NavigationViewItemSeparatorForeground" Color="#FF2A2A2A" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#FFF6F2E9" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#FFFFFDF8" />
+            <SolidColorBrush x:Key="NavigationViewTopPaneBackground" Color="#FFF6F2E9" />
+            <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+
+            <SolidColorBrush x:Key="NavigationViewItemBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="#0A000000" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="#14000000" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundDisabled" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="#0A000000" />
+            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="#14000000" />
+
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushPointerOver" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushPressed" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushDisabled" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushSelected" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushSelectedPointerOver" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushSelectedPressed" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewItemBorderBrushSelectedDisabled" Color="Transparent" />
+
+            <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#FF1C1A16" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundPointerOver" Color="#FF1C1A16" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundPressed" Color="#FF1C1A16" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundDisabled" Color="#661C1A16" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#FF1C1A16" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPointerOver" Color="#FF1C1A16" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPressed" Color="#FF1C1A16" />
+            <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedDisabled" Color="#661C1A16" />
+
+            <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#FF1DB954" />
+
+            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="#0A000000" />
+            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="#14000000" />
+            <SolidColorBrush x:Key="NavigationViewButtonForegroundPointerOver" Color="#FF1C1A16" />
+            <SolidColorBrush x:Key="NavigationViewButtonForegroundPressed" Color="#FF1C1A16" />
+            <SolidColorBrush x:Key="NavigationViewButtonForegroundDisabled" Color="#661C1A16" />
+            <SolidColorBrush x:Key="NavigationViewBackButtonBackground" Color="Transparent" />
+
+            <SolidColorBrush x:Key="NavigationViewItemHeaderForeground" Color="#FF6E6658" />
+            <SolidColorBrush x:Key="NavigationViewItemSeparatorForeground" Color="#FFE2DACB" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- 内容区：无边框、无圆角（Version2 的浮起圆角面板由这几个键决定）。 -->
+    <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+    <Thickness x:Key="NavigationViewMinimalContentGridBorderThickness">0</Thickness>
+    <CornerRadius x:Key="NavigationViewContentGridCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="NavigationViewMinimalContentGridCornerRadius">0</CornerRadius>
+
+</ResourceDictionary>

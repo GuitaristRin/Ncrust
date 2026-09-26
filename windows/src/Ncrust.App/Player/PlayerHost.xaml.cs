@@ -238,7 +238,8 @@ namespace Ncrust.Player
             _props.StartAnimation(property, animation);
         }
 
-        private void ExpandClick(object sender, RoutedEventArgs e)
+        /// <summary>展开卡片 ↔ 收起（Ctrl+L 与播放栏按钮都走这里）。</summary>
+        public void ToggleExpanded()
         {
             if (_expanded)
             {
@@ -249,6 +250,8 @@ namespace Ncrust.Player
                 Expand();
             }
         }
+
+        private void ExpandClick(object sender, RoutedEventArgs e) => ToggleExpanded();
 
         private void CoverTapped(object sender, TappedRoutedEventArgs e)
         {

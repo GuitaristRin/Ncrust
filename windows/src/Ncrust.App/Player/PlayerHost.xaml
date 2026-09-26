@@ -9,7 +9,11 @@
       CompositionPropertySet 里；封面是全应用唯一的一个元素，尺寸/位移由 ExpressionAnimation
       从 Progress/Fullscreen 算出（迷你栏缩略图 → 卡片大图 → 真全屏），不复制第二张。
     -->
-    <Grid x:Name="Root" Background="Transparent" IsHitTestVisible="False">
+    <!--
+      Root 不设背景（null）而不是 Transparent：null 背景的空白处不接收命中，点击会穿透到下面的页面；
+      也不能设 IsHitTestVisible="False" —— 那会连同迷你栏、封面在内整棵子树都点不到。
+    -->
+    <Grid x:Name="Root" Background="{x:Null}">
         <!-- 展开卡片层：透明度由 Progress 驱动；收起时不参与命中测试。 -->
         <Grid
             x:Name="CardLayer"

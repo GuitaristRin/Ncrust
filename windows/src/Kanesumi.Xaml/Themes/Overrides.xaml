@@ -14,4 +14,18 @@
     <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
     <CornerRadius x:Key="OverlayCornerRadius">0</CornerRadius>
 
+    <!--
+      系统强调色覆盖为 Kanesumi 默认强调色（云杉 #1DB954），否则平台控件（选中条、焦点、
+      文本框聚焦下划线、滑块等）会跟着用户的 Windows 强调色走，与 KPrimaryBrush 不一致。
+      Light1..3 / Dark1..3 是平台控件悬停、按下时用到的深浅变体。
+      运行时切换主题色（M2 的 KanesumiTheme.Apply）要同时更新这组颜色。
+    -->
+    <Color x:Key="SystemAccentColor">#FF1DB954</Color>
+    <Color x:Key="SystemAccentColorLight1">#FF3FC66D</Color>
+    <Color x:Key="SystemAccentColorLight2">#FF63D38B</Color>
+    <Color x:Key="SystemAccentColorLight3">#FF8BE0A9</Color>
+    <Color x:Key="SystemAccentColorDark1">#FF18A04A</Color>
+    <Color x:Key="SystemAccentColorDark2">#FF148A3F</Color>
+    <Color x:Key="SystemAccentColorDark3">#FF0F6B30</Color>
+
 </ResourceDictionary>
