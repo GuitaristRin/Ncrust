@@ -252,6 +252,63 @@ namespace Ncrust.Core.Playback
             }
         }
 
+        /// <summary>
+        /// 预载 / 衔接用的「下一首」（不改状态）。SINGLE 返回当前曲（无缝单曲循环）；CYCLE 队尾回绕队首，
+        /// 单曲队列返回 null；SHUFFLE 在一轮内前进、队尾回绕到打乱表首位；LINE / INFINITY 到队尾返回 null。
+        /// </summary>
+        public SongItem? PeekNext()
+        {
+            if (_songs.Count == 0 || CurrentIndex < 0)
+            {
+                return null;
+            }
+
+            switch (Mode)
+            {
+                case PlaybackMode.Single:
+                    return Current;
+                case PlaybackMode.Shuffle:
+                    if (_shuffledIndices.Count == 0)
+                    {
+                        return null;
+                    }
+
+                    var nextPosition = _shuffledPosition < _shuffledIndices.Count - 1 ? _shuffledPosition + 1 : 0;
+                    return SongAt(_shuffledIndices[nextPosition]);
+                case PlaybackMode.Line:
+                case PlaybackMode.Infinity:
+                    return CurrentIndex < _songs.Count - 1 ? _songs[CurrentIndex + 1] : null;
+                default:
+                    if (_songs.Count <= 1)
+                    {
+                        return null;
+                    }
+
+                    return CurrentIndex < _songs.Count - 1 ? _songs[CurrentIndex + 1] : _songs[0];
+            }
+        }
+
+        /// <summary>「上一首」（不改状态）。SINGLE 返回当前曲；SHUFFLE 首项返回 null；INFINITY 不可回退。</summary>
+        public SongItem? PeekPrevious()
+        {
+            if (_songs.Count == 0 || CurrentIndex < 0)
+            {
+                return null;
+            }
+
+            switch (Mode)
+            {
+                case PlaybackMode.Infinity:
+                    return null;
+                case PlaybackMode.Single:
+                    return Current;
+                case PlaybackMode.Shuffle:
+                    return _shuffledPosition > 0 ? SongAt(_shuffledIndices[_shuffledPosition - 1]) : null;
+                default:
+                    return CurrentIndex > 0 ? _songs[CurrentIndex - 1] : _songs[_songs.Count - 1];
+            }
+        }
+
         /// <summary>按当前歌在新队列中的位置重建打乱表；首项恒为当前索引。</summary>
         public void RegenerateShuffle()
         {
@@ -285,6 +342,8 @@ namespace Ncrust.Core.Playback
                 (values[i], values[j]) = (values[j], values[i]);
             }
         }
+
+        private SongItem? SongAt(int index) => index >= 0 && index < _songs.Count ? _songs[index] : null;
 
         private static int Clamp(int value, int min, int max) =>
             value < min ? min : value > max ? max : value;

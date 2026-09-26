@@ -504,18 +504,7 @@ namespace Ncrust.Core.Library
             lock (_lock)
             {
                 var sb = new StringBuilder();
-                sb.Append("{\"songs\":[");
-                for (var i = 0; i < _songs.Count; i++)
-                {
-                    if (i > 0)
-                    {
-                        sb.Append(',');
-                    }
-
-                    AppendSong(sb, _songs[i]);
-                }
-
-                sb.Append("],\"albums\":[");
+                sb.Append("{\"songs\":").Append(SongJson.Write(_songs)).Append(",\"albums\":[");
                 for (var i = 0; i < _albums.Count; i++)
                 {
                     if (i > 0)
@@ -557,51 +546,6 @@ namespace Ncrust.Core.Library
             return _files.WriteTextAsync(FileName, json);
         }
 
-        private static void AppendSong(StringBuilder sb, SongItem song)
-        {
-            sb.Append("{\"id\":").Append(song.Id).Append(",\"name\":").Append(JsonText.Escape(song.Name)).Append(",\"ar\":[");
-            for (var i = 0; i < song.Artists.Count; i++)
-            {
-                if (i > 0)
-                {
-                    sb.Append(',');
-                }
-
-                var artist = song.Artists[i];
-                sb.Append("{\"name\":").Append(JsonText.Escape(artist.Name));
-                if (artist.Id.HasValue)
-                {
-                    sb.Append(",\"id\":").Append(artist.Id.Value);
-                }
-
-                sb.Append('}');
-            }
-
-            sb.Append(']');
-            if (song.Album != null)
-            {
-                sb.Append(",\"al\":{\"name\":").Append(JsonText.Escape(song.Album.Name));
-                if (song.Album.Id.HasValue)
-                {
-                    sb.Append(",\"id\":").Append(song.Album.Id.Value);
-                }
-
-                if (!string.IsNullOrEmpty(song.Album.PicUrl))
-                {
-                    sb.Append(",\"picUrl\":").Append(JsonText.Escape(song.Album.PicUrl));
-                }
-
-                sb.Append('}');
-            }
-
-            if (song.Duration > 0)
-            {
-                sb.Append(",\"dt\":").Append(song.Duration);
-            }
-
-            sb.Append('}');
-        }
-
         private static void AppendAlbum(StringBuilder sb, CloudAlbum album)
         {
             sb.Append("{\"albumId\":").Append(album.AlbumId)
@@ -634,14 +578,7 @@ namespace Ncrust.Core.Library
                 return (songs, albums, likedIds, pending);
             }
 
-            var songArray = json.GetArray("songs");
-            if (songArray != null)
-            {
-                foreach (var item in songArray)
-                {
-                    songs.Add(SongItem.FromJson(item));
-                }
-            }
+            songs.AddRange(SongJson.ReadArray(json.GetArray("songs")));
 
             var albumArray = json.GetArray("albums");
             if (albumArray != null)
