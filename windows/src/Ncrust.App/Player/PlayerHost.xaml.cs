@@ -100,8 +100,11 @@ namespace Ncrust.Player
             }
             catch (Exception ex)
             {
-                // 合成初始化失败时降级：播放栏仍可用，只是没有形变动画。
+                // 合成初始化失败时降级：播放栏仍可用，只是没有形变动画与卡片
+                // （卡片层的 XAML 透明度是 1，没有合成表达式压住它就会整块盖住界面）。
                 App.WriteCrashLog(ex);
+                _compositor = null;
+                CardLayer.Visibility = Visibility.Collapsed;
             }
 
             var engine = PlaybackHost.Engine;
@@ -152,9 +155,6 @@ namespace Ncrust.Player
                 return;
             }
 
-            // 迷你封面布局在 Root 左下角：top-left = (0, height - 72)。
-            var miniTop = height - MiniCover;
-
             // 卡片：封面放在左栏（右栏留给歌词 / 队列），位于曲目信息与传输栏之上；窄窗口占满宽度。
             const float top = 48f;
             const float infoBlock = 120f;
@@ -169,26 +169,37 @@ namespace Ncrust.Player
             var fullLeft = (width - fullCover) / 2f;
             var fullTop = (height - fullCover) / 2f;
 
-            var toCardScale = cardCover / MiniCover;
-            var toCardDx = cardLeft;
-            var toCardDy = cardTop - miniTop;
-            var toFullScale = fullCover / MiniCover;
-            var toFullDx = fullLeft;
-            var toFullDy = fullTop - miniTop;
+            // 封面元素按最大尺寸（真全屏）布局，贴 Root 左下：top-left = (0, height - base)。
+            // 三个状态都是「缩小 + 平移」：按最大尺寸渲染再缩小，任何状态下都清晰。
+            var baseSize = Math.Max(MiniCover, fullCover);
+            if (Math.Abs(CoverImage.Width - baseSize) > 0.5)
+            {
+                CoverImage.Width = baseSize;
+                CoverImage.Height = baseSize;
+            }
 
+            var baseTop = height - baseSize;
+            var miniScale = MiniCover / baseSize;
+            var cardScale = cardCover / baseSize;
+            const float fullScale = 1f;
+            var miniDy = (height - MiniCover) - baseTop;
+            var cardDy = cardTop - baseTop;
+            var fullDy = fullTop - baseTop;
+
+            // 值 = 迷你 + (卡片 - 迷你) * Progress + (全屏 - 卡片) * Fullscreen。
             // Scale 是 Vector3：表达式必须返回 Vector3，标量会抛
             // 「expression output does not match animating property type」。
             var scaleValue = Formattable(
-                "1 + ({0} - 1) * props.Progress + ({1} - {2}) * props.Fullscreen",
-                toCardScale, toFullScale, toCardScale);
+                "{0} + ({1} - {0}) * props.Progress + ({2} - {1}) * props.Fullscreen",
+                miniScale, cardScale, fullScale);
             var scale = _compositor.CreateExpressionAnimation("Vector3(" + scaleValue + ", " + scaleValue + ", 1)");
             scale.SetReferenceParameter("props", _props);
             _coverVisual.StartAnimation("Scale", scale);
 
             var translation = _compositor.CreateExpressionAnimation(
                 Formattable(
-                    "Vector3({0} * props.Progress + ({1} - {0}) * props.Fullscreen, {2} * props.Progress + ({3} - {2}) * props.Fullscreen, 0)",
-                    toCardDx, toFullDx, toCardDy, toFullDy));
+                    "Vector3({0} * props.Progress + ({1} - {0}) * props.Fullscreen, {2} + ({3} - {2}) * props.Progress + ({4} - {3}) * props.Fullscreen, 0)",
+                    cardLeft, fullLeft, miniDy, cardDy, fullDy));
             translation.SetReferenceParameter("props", _props);
             _coverVisual.StartAnimation("Translation", translation);
         }
@@ -235,8 +246,17 @@ namespace Ncrust.Player
             }
 
             // 新封面解码完成后再替换，换歌期间旧封面保留（对应 COVER_HOLD_MS 的观感）。
+            // 必须挂到树里的预加载器上才会开始下载；只 new 出来等 ImageOpened 永远等不到。
             var bitmap = new BitmapImage(uri);
-            bitmap.ImageOpened += (_, __) => CoverImage.Source = bitmap;
+            bitmap.ImageOpened += (_, __) =>
+            {
+                // 连续换歌时只采用最后一次请求的封面。
+                if (ReferenceEquals(CoverPreloader.Source, bitmap))
+                {
+                    CoverImage.Source = bitmap;
+                }
+            };
+            CoverPreloader.Source = bitmap;
         }
 
         private void OnIsPlayingChanged(bool playing)

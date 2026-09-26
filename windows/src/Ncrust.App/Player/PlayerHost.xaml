@@ -39,12 +39,15 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <!-- 展开卡片层：透明度由 Progress 驱动；收起时不参与命中测试。播放控制沿用底部传输栏。 -->
+        <!--
+          展开卡片层：透明度完全由合成表达式 props.Progress 驱动；收起时不参与命中测试。
+          播放控制沿用底部传输栏。注意 XAML 的 Opacity 不能写 0：XAML 会跳过渲染 Opacity=0 的元素，
+          挂在它合成 Visual 上的透明度动画就永远显示不出来（实测：展开后卡片背景不出现）。
+        -->
         <Grid
             x:Name="CardLayer"
             Background="{ThemeResource KBackgroundBrush}"
-            IsHitTestVisible="False"
-            Opacity="0">
+            IsHitTestVisible="False">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -95,6 +98,15 @@
                 <ColumnDefinition x:Name="TransportColumn" Width="2*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+
+            <!--
+              封面的点击区：唯一封面元素按全屏尺寸布局、靠 Composition 缩小显示，而 XAML 命中测试
+              不认 Composition 变换 —— 让封面本身接收点击会挡住一大片界面，所以点击放在这里。
+            -->
+            <Grid
+                Grid.Column="0"
+                Background="Transparent"
+                Tapped="CoverTapped" />
 
             <!-- 顶边细进度条：只在窄窗口显示（对应 Android SlimProgressBar）。 -->
             <ProgressBar
@@ -267,14 +279,31 @@
             </StackPanel>
         </Grid>
 
-        <!-- 唯一封面：对齐到 Root 左下（迷你栏位置），由 Composition 位移+缩放形变。 -->
+        <!--
+          封面预加载器：BitmapImage 只有挂在可视树里的 Image 上才会开始下载解码。新封面先挂到这里，
+          ImageOpened 后再换到唯一封面上 —— 换歌期间旧封面保留，不露空。
+        -->
+        <Image
+            x:Name="CoverPreloader"
+            Width="1"
+            Height="1"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            IsHitTestVisible="False"
+            Opacity="0" />
+
+        <!--
+          唯一封面：对齐到 Root 左下，布局尺寸 = 真全屏尺寸（代码里随窗口设置），由 Composition
+          缩小到卡片 / 迷你栏。按最大尺寸布局再缩小，封面在任何状态下都清晰（原先按 72 布局再放大 6 倍，
+          卡片里是糊的）。不接收点击，点击区在迷你栏第 0 列。
+        -->
         <Image
             x:Name="CoverImage"
             Width="72"
             Height="72"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
-            Stretch="UniformToFill"
-            Tapped="CoverTapped" />
+            IsHitTestVisible="False"
+            Stretch="UniformToFill" />
     </Grid>
 </UserControl>
