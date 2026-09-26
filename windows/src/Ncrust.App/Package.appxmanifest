@@ -14,7 +14,7 @@
   <Identity
     Name="TakahashiRinta.Ncrust"
     Publisher="CN=TakahashiRinta"
-    Version="0.1.0.0" />
+    Version="0.1.1.0" />
 
   <!-- 桌面清单里也是必需元素，缺它报 APPX1673。 -->
   <mp:PhoneIdentity PhoneProductId="9d4e7a21-6b3c-4f58-a1e2-7c5b3d9f0a48"
