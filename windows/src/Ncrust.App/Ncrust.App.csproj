@@ -52,6 +52,11 @@
       <DependentUpon>ShellPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Platform\LocalSettingsStore.cs" />
+    <Compile Include="Platform\LocalFileStore.cs" />
+    <Compile Include="Platform\PasswordVaultCredentialStore.cs" />
+    <Compile Include="Platform\WindowsCodecProbe.cs" />
+    <Compile Include="Platform\ConnectionProfileNetworkInfo.cs" />
     <Content Include="Properties\Default.rd.xml" />
   </ItemGroup>
 
