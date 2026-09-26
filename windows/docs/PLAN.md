@@ -51,10 +51,11 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ### 1.5 缓存与持久化
 
-- [ ] `Cache/ContentCache`：首页快照（15s 新鲜期）+ 专辑 / 歌单 / 歌手的 LRU-32 + 用户资料
-- [ ] `Lyrics/LyricsCache`（200 条，落 `IFileStore`）
-- [ ] `Search/SearchHistory`（每类 10 条、14 天过期）
-- [ ] `Library/LibraryManager`：喜欢的歌曲 / 收藏专辑云同步，**云端读失败不覆盖本地**
+- [x] `Cache/ContentCache` + `Cache/LruCache`：首页快照（15s 新鲜期）+ 专辑 / 歌单 / 歌手 LRU-32 + 用户资料
+- [x] `Lyrics/LyricsCache`（200 条，落 `IFileStore`）
+- [x] `Search/SearchHistory`（每类 10 条、14 天过期，落 `IFileStore`）
+- [ ] `Library/LibraryManager`：喜欢的歌曲 / 收藏专辑云同步，**云端读失败不覆盖本地**（需补
+      liked ids / subscribed albums / like / sub album 端点）
 
 ### 1.6 平台接口
 
@@ -137,6 +138,5 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 ## 当前状态速览
 
 - 阶段 1.1–1.4 主体完成；`Ncrust.Core.Playback` 完整；Api 端点（搜索 / 详情 / 歌词 / 歌单 /
-  专辑 / 歌手 / 账号）已铺齐。Core 测试 140 个通过。
-- 下一步：**1.5 缓存与持久化**（ContentCache / SearchHistory / LyricsCache / LibraryManager）
-  → 1.4 状态层 → 阶段 2 平台层。
+  专辑 / 歌手 / 账号）已铺齐；ContentCache / SearchHistory / LyricsCache 落地。Core 测试 154 个通过。
+- 下一步：**LibraryManager 与其端点** → 1.4 状态层 → 阶段 2 平台层。

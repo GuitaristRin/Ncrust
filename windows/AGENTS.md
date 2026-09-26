@@ -10,9 +10,10 @@ Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`N
 自研只读 `JsonValue`、登录层（`SessionCookie` / `QrLoginClient` / `IBrowserCookieSource`）、
 `DiscoveryApi`（首页）、`SearchApi` / `SongApi` / `PlaylistApi` / `AlbumApi` / `ArtistApi` /
 `AccountApi`（搜索 / 详情 / 歌词 / 歌单 / 专辑 / 歌手 / 账号）、`QualityLadder`、
-`LrcParser` / `LyricMerger`、`PlaybackQueue`、`SongUrlResolver`、`PlayReport`。
+`LrcParser` / `LyricMerger`、`PlaybackQueue`、`SongUrlResolver`、`PlayReport`、
+缓存与持久化（`ContentCache` / `SearchHistory` / `LyricsCache`）。
 `Ncrust.Core.Playback` 已完整，`spec/fixtures` 第一批（crypto / quality / queue / lrc）与
-`spec/api/endpoints.md` 已落地，Core 测试 140 个通过；施工单见 `windows/docs/PLAN.md`。
+`spec/api/endpoints.md` 已落地，Core 测试 154 个通过；施工单见 `windows/docs/PLAN.md`。
 M0 的 UWP 侧验证项还没开始。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
