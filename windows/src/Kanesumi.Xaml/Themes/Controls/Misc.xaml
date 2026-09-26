@@ -20,6 +20,19 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
+    <!--
+      网格磁贴容器：间距 2（tokens.json layout.gridSpacing，对应 Android spacedBy(2.dp)），
+      去掉 GridViewItem 默认的外边距与内边距。
+    -->
+    <Style x:Key="MetroGridTileStyle" TargetType="GridViewItem">
+        <Setter Property="Margin" Value="0,0,2,2" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+
     <!-- 文本框 / 搜索框：surfaceVariant 底、内边距 12、无边框、无圆角（平台默认模板绑定这些属性）。 -->
     <Style x:Key="MetroTextBoxStyle" TargetType="TextBox">
         <Setter Property="Background" Value="{ThemeResource KSurfaceVariantBrush}" />

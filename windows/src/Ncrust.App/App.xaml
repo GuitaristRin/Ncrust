@@ -2,7 +2,8 @@
 <Application
     x:Class="Ncrust.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:resources="using:Ncrust.Resources">
 
     <!--
       资源装配。顺序不能反：Kanesumi 必须排在 XamlControlsResources 之后，
@@ -16,6 +17,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" ControlsResourcesVersion="Version1" />
                 <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Kanesumi.xaml" />
+                <resources:Templates />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

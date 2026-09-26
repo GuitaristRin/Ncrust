@@ -43,6 +43,29 @@ namespace Ncrust.Playback
         }
 
         /// <summary>
+        /// 播放单曲但保留队列（对应 Android playSongItem）：已在队列里就跳过去，否则插到当前曲之后再播。
+        /// 搜索结果、搜索建议点歌走这里。
+        /// </summary>
+        public static void PlaySong(SongItem song)
+        {
+            if (song == null)
+            {
+                return;
+            }
+
+            var queue = AppServices.Queue;
+            queue.PlaySong(song);
+
+            // PlaySong 内部在改当前索引之前重建了打乱表：按新的当前曲再重建一次，保证它是本轮首项。
+            if (queue.Mode == Core.Playback.PlaybackMode.Shuffle)
+            {
+                queue.RegenerateShuffle();
+            }
+
+            Engine.PlayCurrent();
+        }
+
+        /// <summary>
         /// 启动时恢复上次的队列与当前曲（对应 Android PlaybackStateManager）。只显示、不自动播放；
         /// 按播放键时从当前曲开始。只执行一次。
         /// </summary>

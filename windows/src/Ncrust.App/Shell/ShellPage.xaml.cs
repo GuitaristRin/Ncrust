@@ -24,6 +24,7 @@ namespace Ncrust.Shell
     public sealed partial class ShellPage : Page
     {
         private LoginPage _login;
+        private int _suggestVersion;
 
         public ShellPage()
         {
@@ -169,8 +170,58 @@ namespace Ncrust.Shell
 
         // ── 搜索 ──────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// 即时建议（Groove）：用户输入停顿 500ms 后取前几首歌作为建议。防抖间隔与 Android
+        /// SearchViewModel 相同，不能去掉 —— 否则每敲一个字都打一次接口。
+        /// </summary>
+        private async void SearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+        {
+            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+            {
+                return;
+            }
+
+            var version = ++_suggestVersion;
+            var text = sender.Text.Trim();
+            if (text.Length == 0)
+            {
+                sender.ItemsSource = null;
+                return;
+            }
+
+            await System.Threading.Tasks.Task.Delay(500);
+            if (version != _suggestVersion)
+            {
+                return; // 500ms 内又输入了：这次作废。
+            }
+
+            try
+            {
+                var songs = await AppServices.Search.SearchSongsAsync(text, 8);
+                if (version == _suggestVersion)
+                {
+                    sender.ItemsSource = songs;
+                }
+            }
+            catch
+            {
+                // 建议失败不打扰用户，回车仍可进入完整搜索。
+            }
+        }
+
         private void SearchQuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
         {
+            _suggestVersion++;
+            sender.ItemsSource = null;
+
+            // 选了建议里的歌：直接播放（与搜索结果点歌相同：插到当前曲之后）。
+            if (args.ChosenSuggestion is Core.Api.SongItem song)
+            {
+                PlaybackHost.PlaySong(song);
+                _ = AppServices.SearchHistory.AddSongAsync(song);
+                return;
+            }
+
             var query = (args.QueryText ?? string.Empty).Trim();
             if (query.Length == 0)
             {

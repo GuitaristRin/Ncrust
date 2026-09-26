@@ -2,10 +2,84 @@
     x:Class="Ncrust.Pages.SearchPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Kanesumi.Xaml.Controls"
+    NavigationCacheMode="Enabled"
     RequestedTheme="Dark"
     Background="{ThemeResource KBackgroundBrush}">
-    <StackPanel Padding="24,16" Spacing="12">
-        <TextBlock Style="{StaticResource PageHeadingTextStyle}" Text="搜索" />
-        <TextBlock Style="{StaticResource CaptionTextStyle}" Text="搜索页（M1 待实现）" />
-    </StackPanel>
+
+    <!--
+      搜索结果页。查询词来自面板顶部的搜索框（提交后导航到这里，参数是查询词）。
+      三类结果用 Kanesumi Tab 行切换（对应 Android SearchScreen 的三个 Tab）。
+      NavigationCacheMode=Enabled：从后续页面返回时保留结果与所在 Tab。
+    -->
+    <Grid Padding="24,16,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,24,8">
+            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="搜索" />
+            <TextBlock x:Name="QueryText" Style="{StaticResource PageHeadingTextStyle}" />
+        </StackPanel>
+
+        <ListView
+            x:Name="Tabs"
+            Grid.Row="1"
+            HorizontalAlignment="Left"
+            SelectionChanged="TabSelectionChanged"
+            Style="{StaticResource MetroTabRowStyle}">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsStackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <x:String>歌曲</x:String>
+            <x:String>专辑</x:String>
+            <x:String>歌手</x:String>
+        </ListView>
+
+        <Grid Grid.Row="2">
+            <ListView
+                x:Name="SongList"
+                Padding="0,0,0,24"
+                IsItemClickEnabled="True"
+                ItemClick="SongItemClick"
+                ItemContainerStyle="{StaticResource MetroListRowStyle}"
+                ItemTemplate="{StaticResource SongRowTemplate}"
+                SelectionMode="None" />
+
+            <GridView
+                x:Name="AlbumGrid"
+                Padding="0,0,24,24"
+                IsItemClickEnabled="False"
+                ItemContainerStyle="{StaticResource MetroGridTileStyle}"
+                ItemTemplate="{StaticResource AlbumTileTemplate}"
+                SelectionMode="None"
+                Visibility="Collapsed" />
+
+            <ListView
+                x:Name="ArtistList"
+                Padding="0,0,0,24"
+                IsItemClickEnabled="False"
+                ItemContainerStyle="{StaticResource MetroListRowStyle}"
+                ItemTemplate="{StaticResource ArtistRowTemplate}"
+                SelectionMode="None"
+                Visibility="Collapsed" />
+
+            <TextBlock
+                x:Name="EmptyText"
+                Margin="0,24,24,0"
+                Style="{StaticResource CaptionTextStyle}"
+                Text="没有找到相关结果"
+                Visibility="Collapsed" />
+
+            <controls:MetroProgressRing
+                x:Name="LoadingRing"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Visibility="Collapsed" />
+        </Grid>
+    </Grid>
 </Page>

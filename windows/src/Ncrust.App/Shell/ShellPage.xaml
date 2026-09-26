@@ -42,9 +42,13 @@
             <muxc:NavigationView.AutoSuggestBox>
                 <AutoSuggestBox
                     x:Name="SearchBox"
+                    ItemTemplate="{StaticResource SongSuggestionTemplate}"
                     PlaceholderText="搜索歌曲、专辑、歌手"
                     QueryIcon="Find"
-                    QuerySubmitted="SearchQuerySubmitted" />
+                    QuerySubmitted="SearchQuerySubmitted"
+                    TextChanged="SearchTextChanged"
+                    TextMemberPath="Name"
+                    UpdateTextOnSelect="False" />
             </muxc:NavigationView.AutoSuggestBox>
 
             <muxc:NavigationView.MenuItems>

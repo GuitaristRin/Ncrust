@@ -1,0 +1,108 @@
+<ResourceDictionary
+    x:Class="Ncrust.Resources.Templates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:api="using:Ncrust.Core.Api"
+    xmlns:local="using:Ncrust.Resources">
+
+    <!--
+      全应用共用的列表项模板（x:Bind 编译绑定，所以本字典带 x:Class 与代码隐藏）。
+      在 App.xaml 里排在 Kanesumi 之后合并；模板内容是延迟实例化的，里面的 StaticResource
+      在实例化时沿元素树 → 应用资源查找，能找到 Kanesumi 的样式。
+    -->
+
+    <!-- 歌曲行：72 封面贴左边（Kanesumi 无边框贴边），标题 / 歌手，右侧时长。 -->
+    <DataTemplate x:Key="SongRowTemplate" x:DataType="api:SongItem">
+        <Grid Height="72">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="72" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Image
+                Grid.Column="0"
+                Width="72"
+                Height="72"
+                Source="{x:Bind CoverUrl}"
+                Stretch="UniformToFill" />
+            <StackPanel
+                Grid.Column="1"
+                Margin="12,0"
+                VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource BodyTextStyle}" Text="{x:Bind Name}" />
+                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ArtistText}" />
+            </StackPanel>
+            <TextBlock
+                Grid.Column="2"
+                Margin="0,0,16,0"
+                VerticalAlignment="Center"
+                Style="{StaticResource CaptionTextStyle}"
+                Text="{x:Bind DurationText}" />
+        </Grid>
+    </DataTemplate>
+
+    <!-- 专辑磁贴：160 方形封面 + 两行文字（Groove / Apple Music 的专辑墙）。 -->
+    <DataTemplate x:Key="AlbumTileTemplate" x:DataType="api:AlbumSearchItem">
+        <StackPanel Width="160">
+            <Image
+                Width="160"
+                Height="160"
+                Source="{x:Bind PicUrl}"
+                Stretch="UniformToFill" />
+            <TextBlock
+                Margin="0,8,0,0"
+                Style="{StaticResource BodyTextStyle}"
+                Text="{x:Bind Name}" />
+            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind Artist.Name}" />
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- 歌单磁贴：160 方形封面 + 最多两行标题。 -->
+    <DataTemplate x:Key="PlaylistTileTemplate" x:DataType="api:PlaylistCard">
+        <StackPanel Width="160">
+            <Image
+                Width="160"
+                Height="160"
+                Source="{x:Bind CoverUrl}"
+                Stretch="UniformToFill" />
+            <TextBlock
+                Margin="0,8,0,0"
+                MaxLines="2"
+                Style="{StaticResource BodyTextStyle}"
+                Text="{x:Bind Name}"
+                TextWrapping="Wrap" />
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- 歌手行：72 头像贴左边，名字 / 专辑与歌曲数。 -->
+    <DataTemplate x:Key="ArtistRowTemplate" x:DataType="api:ArtistSearchItem">
+        <Grid Height="72">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="72" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Image
+                Grid.Column="0"
+                Width="72"
+                Height="72"
+                Source="{x:Bind PicUrl}"
+                Stretch="UniformToFill" />
+            <StackPanel
+                Grid.Column="1"
+                Margin="12,0"
+                VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource BodyTextStyle}" Text="{x:Bind Name}" />
+                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:DisplayFormat.ArtistCounts(AlbumSize, MusicSize)}" />
+            </StackPanel>
+        </Grid>
+    </DataTemplate>
+
+    <!-- 搜索框建议项：歌名 + 歌手一行（Groove 的即时建议）。 -->
+    <DataTemplate x:Key="SongSuggestionTemplate" x:DataType="api:SongItem">
+        <StackPanel Padding="0,6">
+            <TextBlock Style="{StaticResource BodyTextStyle}" Text="{x:Bind Name}" />
+            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ArtistText}" />
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>
