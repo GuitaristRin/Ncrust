@@ -186,4 +186,7 @@ val ruRU = Strings(
 
     pendingSyncCount = { "$it сохранено только локально, ожидает синхронизации" },
     retrySync = "Повторить синхронизацию",
+
+    actionShare = "Поделиться",
+    shareChooserTitle = "Поделиться с",
 )

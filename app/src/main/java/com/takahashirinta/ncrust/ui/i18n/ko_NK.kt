@@ -186,4 +186,7 @@ scanConnecting = "평판에 연결중…",
 
     pendingSyncCount = { "로컬 저장만 ${it}곡, 클라우드 동기화 대기" },
     retrySync = "동기화 재시도",
+
+    actionShare = "공유",
+    shareChooserTitle = "공유 대상",
 )

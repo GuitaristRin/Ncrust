@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust
 import com.takahashirinta.ncrust.ui.theme.LocalNcrustColors
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
@@ -75,6 +77,8 @@ import com.takahashirinta.ncrust.ui.theme.saveThemeMode
 import com.takahashirinta.ncrust.ui.theme.themeColorForIndex
 import com.takahashirinta.ncrust.ui.theme.toMetroColors
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
+import com.takahashirinta.ncrust.share.NeteaseLink
+import com.takahashirinta.ncrust.share.NeteaseLinkParser
 import io.github.takahashirinta.kanesumi.anim.sokuou.metroViewConfiguration
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroTheme
@@ -86,8 +90,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    // 外部传入的分享/深链文本（ACTION_SEND / ACTION_VIEW），交由 MainScreen 统一解析。
+    // 冷启动与已在前台（onNewIntent）两条路径都会写入。
+    private val incomingLink = androidx.compose.runtime.mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleExternalIntent(intent)
         // 手机锁竖屏、大屏(平板/折叠展开/车机)放开方向。见 applyOrientationPolicy。
         applyOrientationPolicy()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -147,7 +156,9 @@ class MainActivity : ComponentActivity() {
                                 saveLanguageCode(this@MainActivity, newCode)
                                 languageCode = newCode
                                 showSplash = true
-                            }
+                            },
+                            externalLink = incomingLink.value,
+                            onExternalLinkConsumed = { incomingLink.value = null }
                         )
                         if (showSplash) {
                             SplashScreen(onFinished = { showSplash = false })
@@ -189,6 +200,30 @@ class MainActivity : ComponentActivity() {
                     }
                     }  // MetroTheme
                 }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTop：应用已在前台时复用实例，新 Intent 由此送达。
+        setIntent(intent)
+        handleExternalIntent(intent)
+    }
+
+    /**
+     * 从外部 Intent 提取分享文本 / 深链 URL。只做提取，不做解析导航——
+     * 统一交给 MainScreen 的解析器（与剪贴板同一路径）。
+     */
+    private fun handleExternalIntent(intent: Intent?) {
+        when (intent?.action) {
+            Intent.ACTION_SEND -> {
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+                if (!text.isNullOrBlank()) incomingLink.value = text
+            }
+            Intent.ACTION_VIEW -> {
+                val url = intent.dataString
+                if (!url.isNullOrBlank()) incomingLink.value = url
             }
         }
     }
@@ -239,7 +274,10 @@ fun MainScreen(
     onThemeChange: (Int) -> Unit = {},
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeModeChange: (ThemeMode) -> Unit = {},
-    onLanguageChange: (String) -> Unit = {}
+    onLanguageChange: (String) -> Unit = {},
+    // 外部 Intent（ACTION_SEND / ACTION_VIEW）传入的文本；处理后经 onExternalLinkConsumed 清空。
+    externalLink: String? = null,
+    onExternalLinkConsumed: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(1) }
     // 根布局实测高度(px)：车机会把窗口内容区 inset 到系统栏之间，但 WindowInsets
@@ -878,9 +916,80 @@ fun MainScreen(
         }
     }
 
-    // ---------- 剪贴板分享链接识别 ----------
-    // 别人发来的 music.163.com 链接(或 163cn.tv 短链)在回到 app 时自动打开;
+    // ---------- 分享/深链/剪贴板链接识别 ----------
+    // 三个收件入口（剪贴板、ACTION_SEND 文本、ACTION_VIEW URL）共用同一解析器；
     // 单曲则载入播放器但不播放, 由用户按播放键才开始。
+    fun handleNeteaseText(raw: String?) {
+        val url = NeteaseLinkParser.extractUrl(raw) ?: return
+        coroutineScope.launch(Dispatchers.IO) {
+            // 163cn.tv 短链：HEAD 拿 302 Location 再解析；只对短链域名发起网络，
+            // 其余 URL 一律由纯解析器校验 host/scheme，绝不把任意外部地址交给网络层。
+            val resolved = if (NeteaseLinkParser.parseUrl(url) is NeteaseLink.ShortLink) {
+                runCatching {
+                    val client = okhttp3.OkHttpClient.Builder().followRedirects(false).build()
+                    val resp = client.newCall(
+                        okhttp3.Request.Builder().url(url).head().build()
+                    ).execute()
+                    resp.header("Location")
+                }.getOrNull() ?: return@launch
+            } else url
+
+            when (val link = NeteaseLinkParser.parseUrl(resolved)) {
+                is NeteaseLink.Album -> withContext(Dispatchers.Main) {
+                    navController.navigate(NavRoutes.album(link.id))
+                }
+                is NeteaseLink.Playlist -> withContext(Dispatchers.Main) {
+                    navController.navigate(NavRoutes.playlist(link.id))
+                }
+                is NeteaseLink.Artist -> withContext(Dispatchers.Main) {
+                    navController.navigate(NavRoutes.artist(link.id))
+                }
+                is NeteaseLink.Song -> {
+                    // 单曲: 载入播放器但不自动播放, 等用户按下播放键
+                    val detail = runCatching {
+                        PlaylistApi.getSongsByIds(listOf(link.id))
+                    }.getOrDefault(emptyList()).firstOrNull() ?: return@launch
+                    withContext(Dispatchers.Main) {
+                        currentSong = detail
+                        playbackQueue = listOf(detail)
+                        currentQueueIndex = 0
+                        shuffledIndices = emptyList()
+                        PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
+                        val (t, a, w) = songParams(detail)
+                        playerViewModel.prepareSongWithoutPlay(detail.id, t, a, w)
+                    }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    // 分享出口：Android Sharesheet（标准网易云 URL + 标题/艺人文本）。
+    fun shareSong(song: SongItem, chooserTitle: String) {
+        val (_, artist, _) = songParams(song)
+        val url = NeteaseLinkParser.songUrl(song.id)
+        val text = buildString {
+            append(song.name)
+            if (artist.isNotEmpty()) append(" - ").append(artist)
+            append('\n').append(url)
+        }
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_SUBJECT, song.name)
+        }
+        runCatching {
+            context.startActivity(Intent.createChooser(send, chooserTitle))
+        }
+    }
+
+    // 外部分享/深链（冷启动与 onNewIntent）→ 统一处理并消费，避免重复处理。
+    LaunchedEffect(externalLink) {
+        val link = externalLink ?: return@LaunchedEffect
+        handleNeteaseText(link)
+        onExternalLinkConsumed()
+    }
+
     val lastHandledClip = remember { mutableStateOf("") }
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
 
@@ -893,56 +1002,7 @@ fun MainScreen(
             } catch (_: Exception) { null } ?: return@LifecycleEventObserver
             if (clip == lastHandledClip.value || !clip.contains("163")) return@LifecycleEventObserver
             lastHandledClip.value = clip
-
-            coroutineScope.launch(Dispatchers.IO) {
-                var target = clip
-                // 163cn.tv 短链: HEAD 跟随 302 拿真实地址
-                if (target.contains("163cn.tv")) {
-                    target = runCatching {
-                        val client = okhttp3.OkHttpClient.Builder()
-                            .followRedirects(false).build()
-                        val resp = client.newCall(
-                            okhttp3.Request.Builder().url(target).head().build()
-                        ).execute()
-                        resp.header("Location") ?: ""
-                    }.getOrDefault("")
-                }
-                fun idOf(pattern: Regex): Long? =
-                    pattern.find(target)?.groupValues?.get(1)?.toLongOrNull()
-
-                val songId = idOf(Regex("music\\.163\\.com/song\\?id=(\\d+)"))
-                val albumId = idOf(Regex("music\\.163\\.com/album\\?id=(\\d+)"))
-                val playlistId = idOf(Regex("music\\.163\\.com/playlist\\?id=(\\d+)"))
-                val artistId = idOf(Regex("music\\.163\\.com/artist\\?id=(\\d+)"))
-
-                when {
-                    albumId != null -> withContext(Dispatchers.Main) {
-                        navController.navigate(NavRoutes.album(albumId))
-                    }
-                    playlistId != null -> withContext(Dispatchers.Main) {
-                        navController.navigate(NavRoutes.playlist(playlistId))
-                    }
-                    artistId != null -> withContext(Dispatchers.Main) {
-                        navController.navigate(NavRoutes.artist(artistId))
-                    }
-                    songId != null -> {
-                        // 单曲: 载入播放器但不自动播放, 等用户按下播放键
-                        val detail = runCatching {
-                            PlaylistApi.getSongsByIds(listOf(songId))
-                        }.getOrDefault(emptyList()).firstOrNull()
-                            ?: return@launch
-                        withContext(Dispatchers.Main) {
-                            currentSong = detail
-                            playbackQueue = listOf(detail)
-                            currentQueueIndex = 0
-                            shuffledIndices = emptyList()
-                            PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)
-                            val (t, a, w) = songParams(detail)
-                            playerViewModel.prepareSongWithoutPlay(detail.id, t, a, w)
-                        }
-                    }
-                }
-            }
+            handleNeteaseText(clip)
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -1311,16 +1371,20 @@ fun MainScreen(
         }
 
         menuSong?.let { song ->
+            val menuStrings = LocalStrings.current
             Box(Modifier.fillMaxSize().zIndex(2f)) {
                 SongMenuSheet(
                     song = song,
-                    // 统一在这里追加"转到歌手/转到专辑": 所有长按菜单(首页/歌单/专辑/
-                    // 歌手/收藏/搜索)自动获得回调入口, 各 Screen 无需感知导航
+                    // 统一在这里追加"分享/转到歌手/转到专辑": 所有长按菜单(首页/歌单/
+                    // 专辑/歌手/收藏/搜索)与全屏播放器点歌名自动获得入口, 各 Screen 无需感知。
                     actions = menuSongActions + listOf(
-                        SongMenuAction(Icons.Default.Person, LocalStrings.current.actionGoToArtist) {
+                        SongMenuAction(Icons.Default.Share, menuStrings.actionShare) {
+                            shareSong(song, menuStrings.shareChooserTitle)
+                        },
+                        SongMenuAction(Icons.Default.Person, menuStrings.actionGoToArtist) {
                             resolveAndNavigate(song, toArtist = true)
                         },
-                        SongMenuAction(Icons.Default.LibraryMusic, LocalStrings.current.actionGoToAlbum) {
+                        SongMenuAction(Icons.Default.LibraryMusic, menuStrings.actionGoToAlbum) {
                             resolveAndNavigate(song, toArtist = false)
                         },
                     ),

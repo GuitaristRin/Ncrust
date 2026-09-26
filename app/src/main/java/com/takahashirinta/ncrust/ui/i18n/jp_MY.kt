@@ -186,4 +186,7 @@ val jpMY = Strings(
 
     pendingSyncCount = { "$it 曲、地存のみ、雲 同期 待" },
     retrySync = "同期 再試",
+
+    actionShare = "頒",
+    shareChooserTitle = "頒 處",
 )

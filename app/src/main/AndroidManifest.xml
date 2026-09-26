@@ -42,12 +42,34 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:resizeableActivity="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.Ncrust">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- 从其他应用分享文本进 Ncrust（接收侧）。分享出口由 ACTION_SEND + Sharesheet 完成。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <!-- 网页链接 deep link（未验证 App Links）。music.163.com 的 assetlinks.json 由
+                 网易控制，本应用无法要求该域名把链接归属给 Ncrust，故系统/浏览器/IM 是否
+                 弹出"选择应用"不受本应用单方保证。 -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" android:host="music.163.com" />
+                <data android:scheme="https" android:host="music.163.com" />
+                <data android:scheme="http" android:host="y.music.163.com" />
+                <data android:scheme="https" android:host="y.music.163.com" />
+                <data android:scheme="https" android:host="163cn.tv" />
             </intent-filter>
         </activity>
 

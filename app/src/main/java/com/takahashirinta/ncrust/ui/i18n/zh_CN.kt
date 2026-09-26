@@ -187,4 +187,7 @@ val zhCN = Strings(
 
     pendingSyncCount = { "$it 首仅本地保存，等待同步到云端" },
     retrySync = "重试同步",
+
+    actionShare = "分享",
+    shareChooserTitle = "分享到",
 )

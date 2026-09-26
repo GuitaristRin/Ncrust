@@ -186,4 +186,7 @@ val deDE = Strings(
 
     pendingSyncCount = { "$it nur lokal gespeichert, Synchronisierung ausstehend" },
     retrySync = "Sync wiederholen",
+
+    actionShare = "Teilen",
+    shareChooserTitle = "Teilen mit",
 )

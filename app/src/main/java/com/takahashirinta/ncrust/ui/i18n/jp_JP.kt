@@ -187,4 +187,7 @@ val jpJP = Strings(
 
     pendingSyncCount = { "ローカル保存のみ $it 曲、クラウド同期待ち" },
     retrySync = "同期を再試行",
+
+    actionShare = "共有",
+    shareChooserTitle = "共有先",
 )

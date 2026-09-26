@@ -187,4 +187,7 @@ scanConnecting = "正在連接平板…",
 
     pendingSyncCount = { "$it 首僅本地保存，等待同步至雲端" },
     retrySync = "重試同步",
+
+    actionShare = "分享",
+    shareChooserTitle = "分享至",
 )
