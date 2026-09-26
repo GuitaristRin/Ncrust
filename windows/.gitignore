@@ -1,0 +1,19 @@
+# 构建产物（UWP 走 MSBuild，Core / 测试走 dotnet，产物都叫 bin/obj）
+bin/
+obj/
+AppPackages/
+BundleArtifacts/
+TestResults/
+*.appxupload
+*.appxsym
+
+# 签名用的测试证书，现场生成，不入库
+*.cer
+*.pfx
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# 图标（src/Ncrust.App/Assets/*.png）入库：Package.appxmanifest 引用它们，忽略会导致干净克隆后构建失败。

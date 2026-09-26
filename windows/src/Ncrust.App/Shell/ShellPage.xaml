@@ -1,0 +1,16 @@
+<Page
+    x:Class="Ncrust.Shell.ShellPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark"
+    Background="{ThemeResource KBackgroundBrush}">
+
+    <!--
+      外壳占位。按 windows/AGENTS.md「UI 与交互」，这里将是：
+      MetroSidebar（宽窗口）/ MetroBottomNav（窄窗口）+ 内容 Frame + 播放栏 + 全屏播放器层。
+      背景显式使用 KBackgroundBrush，不依赖系统材质。
+    -->
+    <Grid Padding="24,32,24,0">
+        <TextBlock Text="Ncrust" Style="{StaticResource PageHeadingTextStyle}" />
+    </Grid>
+</Page>

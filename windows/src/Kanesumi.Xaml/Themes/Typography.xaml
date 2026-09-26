@@ -1,0 +1,68 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      字号 token，取值与 spec/design/tokens.json 的 typography 一致（与 Kanesumi-sec-a
+      MetroTypography 相同）。每个样式都固定行高：默认行高会让中文段落显得过松。
+      字体跟随系统 UI 字体，与 Android 一致。
+    -->
+    <Style x:Key="KBaseTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource KOnBackgroundBrush}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!-- 语义轴：新代码优先使用 -->
+    <Style x:Key="PageHeadingTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="34" />
+        <Setter Property="LineHeight" Value="42" />
+    </Style>
+    <Style x:Key="TitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="LineHeight" Value="28" />
+    </Style>
+    <Style x:Key="BodyTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="LineHeight" Value="22" />
+    </Style>
+    <Style x:Key="CaptionTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="LineHeight" Value="18" />
+        <Setter Property="Foreground" Value="{ThemeResource KOnSurfaceVariantBrush}" />
+    </Style>
+    <Style x:Key="LabelTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="LineHeight" Value="14" />
+    </Style>
+
+    <!-- 尺度轴：M3 命名，Kanesumi 定值；从 Android 代码逐个对照迁移时使用 -->
+    <Style x:Key="HeadlineMediumTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="LineHeight" Value="36" />
+    </Style>
+    <Style x:Key="TitleLargeTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="LineHeight" Value="28" />
+    </Style>
+    <Style x:Key="TitleMediumTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="LineHeight" Value="24" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style x:Key="BodyLargeTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="LineHeight" Value="24" />
+    </Style>
+    <Style x:Key="BodyMediumTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="LineHeight" Value="20" />
+    </Style>
+    <Style x:Key="BodySmallTextStyle" TargetType="TextBlock" BasedOn="{StaticResource KBaseTextStyle}">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="LineHeight" Value="16" />
+    </Style>
+
+</ResourceDictionary>

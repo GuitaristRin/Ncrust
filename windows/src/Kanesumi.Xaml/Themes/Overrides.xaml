@@ -1,0 +1,17 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      平台默认值的覆盖。必须排在 XamlControlsResources 之后合并（见 Kanesumi.xaml）。
+
+      圆角归零：ControlCornerRadius / OverlayCornerRadius 是框架内建的默认值，
+      Windows SDK 与 WinUI 2 的资源文件里都查不到定义，控件模板只是 {ThemeResource} 引用它们，
+      所以只能在这一层覆盖。模板里写死的 CornerRadius 不受影响，要在各控件样式里逐个处理。
+
+      焦点框、滚动条等其他覆盖随控件移植逐步加入，见 windows/docs/KANESUMI_XAML.md。
+    -->
+    <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="OverlayCornerRadius">0</CornerRadius>
+
+</ResourceDictionary>

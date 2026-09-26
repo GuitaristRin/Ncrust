@@ -1,0 +1,10 @@
+<!--
+  .NET Native 运行时指令：告诉优化器哪些类型需要保留反射元数据。
+  编译期看不到的反射（JSON 反序列化等）如果没在这里声明，Release 构建下运行时才会失败。
+  JSON 方案在 M0 确定后，把响应模型所需的指令补在这里。
+-->
+<Directives xmlns="http://schemas.microsoft.com/netfx/2013/01/metadata">
+  <Application>
+    <Assembly Name="*Application*" Dynamic="Required All" />
+  </Application>
+</Directives>

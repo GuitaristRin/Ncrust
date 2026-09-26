@@ -1,0 +1,20 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      Kanesumi.Xaml 的合并入口。应用在 App.xaml 里这样引用：
+
+          <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+          <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Kanesumi.xaml" />
+
+      顺序不能反：本字典必须排在 XamlControlsResources 之后，否则 Overrides 里的
+      圆角归零盖不住 WinUI 2 的默认值。
+    -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Colors.xaml" />
+        <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Typography.xaml" />
+        <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Overrides.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    协议与业务核心。netstandard2.0 且不依赖 WinRT / UI：
+    - UWP（.NET Native）可以直接引用；
+    - 测试用普通 dotnet test 跑，不需要部署 UWP；
+    - 以后换运行时也能原样复用。
+    平台能力一律经 Platform/ 下的接口注入，实现放在 Ncrust.App。
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>10.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Ncrust.Core</RootNamespace>
+    <AssemblyName>Ncrust.Core</AssemblyName>
+  </PropertyGroup>
+
+</Project>

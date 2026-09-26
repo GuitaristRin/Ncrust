@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  IgnorableNamespaces="uap uap3 mp">
+
+  <!--
+    版本号是 Windows 端版本的唯一来源（X.Y.Z.0），About 页读取 Package.Current.Id.Version。
+    开发期每次改动都要递增：同版本号但内容不同的包会被拒装（0x80073CFB），
+    而卸载重装会清掉 LocalSettings，设置持久化之类的问题就测不出来。
+  -->
+  <Identity
+    Name="TakahashiRinta.Ncrust"
+    Publisher="CN=TakahashiRinta"
+    Version="0.1.0.0" />
+
+  <!-- 桌面清单里也是必需元素，缺它报 APPX1673。 -->
+  <mp:PhoneIdentity PhoneProductId="9d4e7a21-6b3c-4f58-a1e2-7c5b3d9f0a48"
+                    PhonePublisherId="00000000-0000-0000-0000-000000000000" />
+
+  <Properties>
+    <DisplayName>Ncrust</DisplayName>
+    <PublisherDisplayName>Takahashi Rinta</PublisherDisplayName>
+    <!-- StoreLogo 校验要求恰好 50×50。 -->
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal"
+                        MinVersion="10.0.17763.0"
+                        MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="zh-CN" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="Ncrust.App">
+      <uap:VisualElements
+        DisplayName="Ncrust"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        Description="网易云音乐第三方客户端"
+        BackgroundColor="transparent">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#000000" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <!-- 单进程后台播放：最小化或锁屏后继续出声。 -->
+    <uap3:Capability Name="backgroundMediaPlayback" />
+  </Capabilities>
+</Package>

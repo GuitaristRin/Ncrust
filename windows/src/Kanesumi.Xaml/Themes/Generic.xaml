@@ -1,0 +1,11 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      自定义控件（MetroTabRow、MetroSidebar、MetroProgressRing、MetroLyricsPanel 等）的默认样式。
+      框架按约定从这里加载 Control 派生类的 DefaultStyleKey，所以文件名和位置不能改。
+      目前还没有自定义控件，见 windows/docs/KANESUMI_XAML.md 的控件对照表。
+    -->
+
+</ResourceDictionary>
