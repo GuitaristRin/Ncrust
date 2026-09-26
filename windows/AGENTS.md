@@ -19,8 +19,9 @@ Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`N
 （`LocalSettingsStore` / `LocalFileStore` / `PasswordVaultCredentialStore` / `WindowsCodecProbe` /
 `ConnectionProfileNetworkInfo`），Release|x64 + .NET Native 构建零警告。施工单见 `windows/docs/PLAN.md`。
 App 侧已实现平台层、独立登录窗口（WebView2 + 二维码）与 `PlaybackEngine`（滑动窗口 /
-MediaBinder / 降级 / 上报），Shell 有 M0 播放验证入口。待设备验收 M0 #2（无缝）/ #3（带 cookie 取链）；
-下一步做播放器层或 Kanesumi.Xaml 控件。
+MediaBinder / 降级 / 上报），Shell 有 M0 播放验证入口；Kanesumi.Xaml 已起步
+（`KanesumiEasing` / `KanesumiMotion` + 按钮 / 分隔线 / 列表行样式）。
+待设备验收 M0 #2（无缝）/ #3（带 cookie 取链）；下一步做 Kanesumi.Xaml 剩余 M1 控件。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。

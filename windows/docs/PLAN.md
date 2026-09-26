@@ -95,10 +95,12 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 阶段 5 · Kanesumi.Xaml 控件（见 `KANESUMI_XAML.md`）
 
-- [ ] M1：`MetroButton` / `MetroIconButton` / `MetroListRow` / `MetroDivider` / `MetroTabRow` /
-      `MetroProgressRing` / `MetroTextBox` / `MetroSidebar` / `MetroDetailScaffold` /
-      `MetroLyricsPanel`；`MetroIndication`（PressTint + VisualStates）
-- [ ] M1：`KanesumiEasing` / `KanesumiMotion`（tokens → Composition / KeySpline）
+- [x] M1：`KanesumiEasing` / `KanesumiMotion`（tokens → Composition / KeySpline）
+- [x] M1 控件起步：`MetroButtonStyle`（主）/ `MetroSecondaryButtonStyle` / `MetroGhostButtonStyle` /
+      `MetroIconButtonStyle`、`MetroDividerStyle`、`MetroListRowStyle`；
+      `MetroIndication`（PressTint + VisualStates，进入 100ms / 离开 200ms / 悬停 0.5）
+- [ ] M1 剩余：`MetroTabRow` / `MetroProgressRing` / `MetroTextBoxStyle` / `MetroSidebar` /
+      `MetroDetailScaffold` / `MetroLyricsPanel`
 - [ ] M2：`MetroToggleSwitch` / `MetroComboBox` / `MetroMenuFlyout` / `MetroContentDialog` /
       `MetroBottomNav`
 - [ ] 每个控件：深浅 × 两强调色截图对比 + `Contrast.ps1` + `ResourceAudit.ps1` 零未定义键
@@ -142,5 +144,6 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 - **阶段 1（Ncrust.Core）全部完成**；阶段 2 平台层 + 独立登录窗口完成；阶段 3 PlaybackEngine 代码完成。
   Release|x64 + .NET Native 构建零警告、产出 MSIX；Core 测试 183 个通过。
-- 待设备验收：M0 #2（无缝两首）/ #3（UWP 内带 cookie 取链）。下一步：**阶段 6 播放器层（PlayerHost）**
-  或先做阶段 5 Kanesumi.Xaml 控件。
+- 待设备验收：M0 #2（无缝两首）/ #3（UWP 内带 cookie 取链）。阶段 5 已起步（动效 + 按钮/列表样式）。
+- 下一步：**阶段 5 剩余控件**（TabRow / ProgressRing / TextBox / Sidebar / DetailScaffold / LyricsPanel）
+  → 阶段 6 播放器层 → 阶段 7 页面。
