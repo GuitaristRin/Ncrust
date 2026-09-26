@@ -8,11 +8,11 @@ Android 专属的章节不适用于这里。
 Release|x64 构建零警告并生成 MSIX；注册后能启动，显示纯黑底加 34px 页头（颜色和字号来自
 Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`NcmHttp`）、
 自研只读 `JsonValue`、登录层（`SessionCookie` / `QrLoginClient` / `IBrowserCookieSource`）、
-首页发现端点（`DiscoveryApi`）、音质阶梯（`QualityLadder`）、歌词解析 / 合并
-（`LrcParser` / `LyricMerger`）、队列状态机（`PlaybackQueue`）、歌曲取链
-（`SongUrlResolver`）与播放上报（`PlayReport`）。`Ncrust.Core.Playback` 已完整；
-`spec/fixtures` 第一批（crypto / quality / queue / lrc）与 `spec/api/endpoints.md` 已落地，
-Core 测试 125 个通过；M0 的 UWP 侧验证项还没开始。
+`DiscoveryApi`（首页）、`SearchApi` / `SongApi` / `PlaylistApi`（搜索 / 详情 / 歌词 / 歌单）、
+`QualityLadder`、`LrcParser` / `LyricMerger`、`PlaybackQueue`、`SongUrlResolver`、`PlayReport`。
+`Ncrust.Core.Playback` 已完整，`spec/fixtures` 第一批（crypto / quality / queue / lrc）与
+`spec/api/endpoints.md` 已落地，Core 测试 134 个通过；施工单见 `windows/docs/PLAN.md`。
+M0 的 UWP 侧验证项还没开始。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
@@ -214,11 +214,11 @@ Ncrust.App ──► Kanesumi.Xaml
 
 规则（对应 Android 的「GPU 零重组」）：
 
-1. **播放器卡片由一个 `CompositionPropertySet`（`PlayerProps`）驱动**，里面放 `Progress`
-   （0 = 收起，1 = 展开），另有 `LyricAnim`、`QueueSlide`，与 Android 的 `lyricAnimProgress`、
-   `queueSlideProgress` 一一对应。卡片位移、封面从播放栏缩略图变到大图、各层透明度，
-   全部是引用这个 PropertySet 的 `ExpressionAnimation`。**不用 Storyboard，不用数据绑定，
-   不逐帧改 XAML 属性。**
+1. **播放器层由一个 `CompositionPropertySet`（`PlayerProps`）驱动**，里面放 `Progress`
+   （0 = 迷你栏，1 = 展开卡片）、`Fullscreen`（0 = 卡片，1 = 真全屏）、`LyricAnim`、`QueueSlide`，
+   与 Android 的 `lyricAnimProgress`、`queueSlideProgress` 一一对应。卡片位移、封面从播放栏缩略图
+   变到大图再铺满窗口、各层透明度，全部是引用这个 PropertySet 的 `ExpressionAnimation`。
+   **不用 Storyboard，不用数据绑定，不逐帧改 XAML 属性。** 封面是全应用唯一的那个元素（见下节）。
 2. 展开：400ms `standard`；收起：260ms `fastOutSlowIn`。都用 `ScalarKeyFrameAnimation`
    作用在 `Progress` 上。没有弹簧，没有回弹。
 3. **触屏拖拽**：`ManipulationDelta` 直接在 UI 线程写 `Progress`（等同 Android 拖拽时的
@@ -278,14 +278,34 @@ Ncrust.App ──► Kanesumi.Xaml
 `BottomOverlayInset` 按实际叠层高度算，**不照抄 Android 的 144**（那里的 80 是 M3 时代导航栏的高度）。
 所有可滚动内容都用它作为底部内边距，**不在列表末尾手动加 Spacer**。
 
-### 全屏播放器
+### 播放器层：迷你栏 → 展开卡片 → 真全屏
 
-- 覆盖标题栏以下的整个窗口（包括侧栏），左上角有收起按钮。
-- 宽窗口：双栏。左栏放封面和控件，右栏放歌词；歌词与队列用 `QueueSlide` 切换
-  （对应 Android 的 `wideSplit`）。窄窗口：沿用 Android 手机布局。
-- 封面始终完整显示、不裁切；换歌时旧封面保留 400ms（`COVER_HOLD_MS`）。
-- 触发方式：点播放栏的封面或歌名、点「词」按钮（展开并定位到歌词）展开；
-  Esc 或收起按钮收起；触屏可以上拉 / 下拉。
+播放器是**一个常驻覆盖层**（`PlayerHost`），始终在内容与侧栏之上，由一个
+`CompositionPropertySet`（`PlayerProps`）驱动。两个标量：`Progress`（0 迷你栏 → 1 展开卡片）
+与 `Fullscreen`（0 展开卡片 → 1 真全屏）。参考 Groove Music：传输栏的封面与「正在播放」的大封面
+是**同一个元素的形变**，不是两张图。
+
+**封面唯一性**：全应用只有**一个**封面元素（`PlayerHost` 的子节点），迷你栏与卡片 / 全屏都用它，
+尺寸、位置、缩放全部由引用 `Progress`、`Fullscreen` 的 `ExpressionAnimation` 算出。
+**不要**在迷你栏放一张、播放器里再放一张——那会破坏形变连续性、重复解码，并让换歌时闪烁。
+换歌时旧封面保留 400ms（`COVER_HOLD_MS`），形变与落定期间不露空。
+
+三个状态：
+
+1. **迷你栏**（`Progress=0, Fullscreen=0`）：底栏。宽窗口高 72、封面 72 贴左；窄窗口高 56、顶边一条
+   细进度条（对应 Android 的 `SlimProgressBar`）。
+2. **展开卡片**（`Progress=1, Fullscreen=0`）：覆盖标题栏以下的整个窗口（含侧栏），左上角收起按钮。
+   宽窗口双栏：左封面 + 控件，右歌词；歌词与队列用 `QueueSlide` 切换（对应 `wideSplit`）。
+   窄窗口沿用 Android 手机布局。封面完整显示、不裁切。
+   进入：点封面或歌名、点「词」（展开并定位歌词）、`Ctrl+L`、触屏上拉。
+   退出：`Esc` / 收起按钮 / 触屏下拉。
+3. **真全屏**（`Progress=1, Fullscreen=1`）：封面铺满整个窗口、无边距，控件与返回箭头闲置后自动隐藏、
+   指针移动再出现。**只能由卡片里的专用全屏按钮（⤢）或 `F11` 进入** —— 它与「拖上来的卡片」是两件事，
+   不共用触发方式。退出：按钮 / 双击封面 / `Esc`。
+   `Esc` 的层级：全屏 → 回卡片；卡片 → 收起迷你栏。
+
+（可选）真 OS 全屏（隐藏任务栏）用 `ApplicationView.TryEnterFullScreenMode`；默认只做应用内全屏，
+是否进 OS 全屏在实现时再定。
 
 ### 列表与操作
 
@@ -305,7 +325,8 @@ Ncrust.App ──► Kanesumi.Xaml
 | Ctrl+← / Ctrl+→ | 上一首 / 下一首 | |
 | Ctrl+F | 聚焦搜索框 | |
 | Ctrl+L | 展开播放器并显示歌词 | |
-| Esc | 收起播放器 / 关闭浮层 | |
+| F11 | 展开卡片并在卡片 / 真全屏之间切换 | |
+| Esc | 全屏 → 回卡片；卡片 → 收起；否则关闭浮层 | 逐层退出 |
 | 媒体键 | 播放控制 | 由 SMTC 自动处理 |
 
 ### 登录
