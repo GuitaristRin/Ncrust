@@ -1,0 +1,46 @@
+<Page
+    x:Class="Ncrust.Login.LoginPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    RequestedTheme="Dark"
+    Background="{ThemeResource KBackgroundBrush}">
+
+    <!--
+      独立登录层：内嵌 WebView2 登录（主）+ 二维码（辅）。
+      两条路径成功后都回传同一个 cookie 串，由 Shell 落 ICredentialStore 并刷新云端库。
+      控件样式暂时用平台默认，Kanesumi.Xaml 的 M1 控件落地后再统一。
+    -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Padding="16,12" Background="{ThemeResource KSurfaceBrush}">
+            <TextBlock Text="登录" Style="{StaticResource TitleTextStyle}" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" VerticalAlignment="Center">
+                <Button x:Name="WebTab" Content="网页登录" Click="ShowWebClick" />
+                <Button x:Name="QrTab" Content="扫码登录" Click="ShowQrClick" />
+                <Button x:Name="CloseButton" Content="关闭" Click="CloseClick" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <controls:WebView2 x:Name="WebLogin" Visibility="Visible" />
+
+            <StackPanel
+                x:Name="QrPanel"
+                Visibility="Collapsed"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="14">
+                <Border Background="White" Width="264" Height="264">
+                    <Image x:Name="QrImage" Stretch="Uniform" Margin="10" />
+                </Border>
+                <TextBlock x:Name="QrStatus" Style="{StaticResource CaptionTextStyle}" HorizontalAlignment="Center" />
+                <Button x:Name="RefreshButton" Content="刷新二维码" HorizontalAlignment="Center" Click="RefreshQrClick" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>
