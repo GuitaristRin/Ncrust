@@ -23,7 +23,14 @@ MediaBinder / 降级 / 上报），Shell 有 M0 播放验证入口；Kanesumi.Xa
 （`KanesumiEasing` / `KanesumiMotion` + 按钮 / 分隔线 / 列表行样式）。
 已可点播：Shell 侧栏 + 首页 → `PlaybackHost` 起播；底部播放栏 + `PlayerHost` 唯一封面形变
 （卡片 / 真全屏）已落地；Kanesumi.Xaml 动效与按钮 / 列表 / 侧栏 / Tab / 进度环样式已落地。
-待设备验收 M0 #2（无缝）/ #3（带 cookie 取链）；下一步做歌词 / 队列层与 SeekBar。
+
+**2026-09-26 第二轮（参考 Groove Music / Apple Music，负责人暂不便开应用，只做了代码走查与构建）**：
+外壳改为标准汉堡菜单（WinUI 2 `NavigationView`，`ControlsResourcesVersion="Version1"` + Kanesumi 资源覆盖）
+与自定义标题栏；Groove 式传输栏（模式 / 进度拖动 / 音量）；搜索页 + 即时建议；首页登录提示与空分区隐藏；
+图标改为整块绿底唱片纹。review 修掉了 `PlaybackEngine` 的跨线程改 UI（首次播放即崩）、窗口续播停止、
+随机模式不前进、上一首无效、降级重试不切回，以及 `PlayerHost` 整棵子树点不到等问题。
+**以上全部只经构建验证，运行期待验收**，清单见 `docs/PLAN.md`「待设备验收」。
+下一步：歌词 / 队列层、歌单 / 专辑 / 歌手详情页、音乐库页。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
@@ -49,6 +56,9 @@ MediaBinder / 降级 / 上报），Shell 有 M0 播放验证入口；Kanesumi.Xa
 | 业务核心 | `Ncrust.Core` 用 netstandard2.0，**不依赖 WinRT，也不依赖 UI** | 测试可以用普通 `dotnet test` 秒级跑完；以后换运行时也能原样复用 |
 | 播放 | `MediaPlayer` + `MediaPlaybackList` + `MediaBinder` | 系统提供无缝播放、SMTC、后台音频；延迟绑定正好解决 URL 过期问题 |
 | 动画 | `Windows.UI.Composition`，单一 progress 标量驱动 | 对应 Android 的「单一 progress + `graphicsLayer`」，在合成线程执行 |
+| 外壳导航 | **标准汉堡菜单**：WinUI 2 `NavigationView`（自适应展开 / 紧凑 / 最小），不用自绘 ListView 侧栏或窄窗底部导航 | 负责人要求标准汉堡菜单；参考 Groove Music。平台控件自带自适应、返回按钮、键盘与 UIA |
+| WinUI 2 样式版本 | `XamlControlsResources ControlsResourcesVersion="Version1"` | Windows 10 / Groove 一代的直角样式；Version2 是 Windows 11 圆角 + 中灰圆角内容面板，与 Kanesumi 冲突 |
+| 图标 | 界面图标用 **Segoe MDL2 Assets**（显式指定 `FontFamily`）；应用图标是整块绿底唱片纹 | Groove 同源的原生图标字体；不打包 Material Icons（原 KANESUMI_XAML 的设想已撤回） |
 | DI / MVVM 框架 | 不用。与 Android 一样用单例充当服务定位器；`INotifyPropertyChanged` 手写；只用 `x:Bind` | 依赖越少，.NET Native 的反射问题越少；`x:Bind` 是编译期绑定 |
 
 ## 构建、测试与运行
@@ -103,21 +113,18 @@ windows/
 │   └── Ncrust.App/             # UWP 应用 —— 页面、播放引擎、平台集成
 ├── tests/
 │   └── Ncrust.Core.Tests/      # net9.0 + xUnit，直接读取 ../../spec/
-└── tools/                      # （尚未建立）
-    └── shot/                   # 截图、UIA、对比度、资源审计脚本
+└── tools/
+    ├── shot/Shot.ps1           # 按固定尺寸截 Ncrust 窗口，可先点击 / 按键（DPI aware）
+    └── icons/MakeIcons.ps1     # 生成应用图标（整块绿底唱片纹，33 张 scale / targetsize 资源）
 ```
 
-目前已有的文件：
+应用资源的合并顺序（`App.xaml`，顺序不能反）：
 
-| 项目 | 现有内容 |
-|---|---|
-| `Ncrust.Core` | `Platform/` 下的五个平台接口：`ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo` |
-| `Kanesumi.Xaml` | `Themes/Kanesumi.xaml`（合并入口）、`Colors.xaml`、`Typography.xaml`、`Overrides.xaml`（圆角归零）、`Generic.xaml`（空，留给自定义控件） |
-| `Ncrust.App` | `App`（资源装配、崩溃日志）、`Shell/ShellPage`（占位）、`Package.appxmanifest`、`Properties/Default.rd.xml`、`Assets/`（按 Android `ic_launcher.xml` 的几何等比绘制的图标） |
-| `Ncrust.Core.Tests` | `DesignTokensTests`：tokens.json 自洽性检查，以及 UWP 缓动贝塞尔写法精确性的逐点验证 |
+1. `XamlControlsResources ControlsResourcesVersion="Version1"`（WinUI 2，Windows 10 直角样式）；
+2. `ms-appx:///Kanesumi.Xaml/Themes/Kanesumi.xaml`（token、样式、平台覆盖：圆角归零、强调色、NavigationView）；
+3. `Resources/Templates.xaml`（带 `x:Class`，共用列表项模板：歌曲行 / 专辑磁贴 / 歌单磁贴 / 歌手行 / 搜索建议）。
 
-应用引用 Kanesumi 资源的方式：`App.xaml` 先合并 `XamlControlsResources`，再合并
-`ms-appx:///Kanesumi.Xaml/Themes/Kanesumi.xaml`。顺序不能反，否则圆角归零等覆盖不生效。
+Kanesumi 必须排在 WinUI 之后，否则覆盖不生效；模板字典排最后，模板里的 `StaticResource` 在实例化时才解析。
 
 依赖方向（不得反向）：
 
@@ -250,44 +257,45 @@ Ncrust.App ──► Kanesumi.Xaml
 
 ### 窗口
 
-- 内容延伸进标题栏（`ExtendViewIntoTitleBar`），标题栏高 32，用 `Window.SetTitleBar`
-  指定拖动区域；系统标题栏按钮背景透明，前景色随主题。
+- 内容延伸进标题栏（`ExtendViewIntoTitleBar`），标题栏高度取 `CoreApplicationViewTitleBar.Height`
+  （通常 32），`AppTitleBar`（应用图标 + Ncrust，失焦变淡）用 `Window.SetTitleBar` 作拖动区；
+  左边距随 NavigationView 显示模式调整，给返回 / 汉堡按钮让位（最小模式两个按钮都在这一行）。
+  系统标题栏按钮背景透明，前景白色。
+- **标题栏区域的输入会被系统拿去拖动窗口**：播放器层、登录层等覆盖层要让出标题栏高度
+  （`ShellPage.ApplyTitleBarHeight`），否则覆盖在这一条上的按钮点不到。
 - 最小尺寸 360 × 500（`SetPreferredMinSize` 上限是 500 × 500）。
 - 页面背景**显式设为** token 的 `background`，不依赖系统材质（arc-deck 实测：窗口背景会被混合成中灰）。
 
-### 布局
-
-**宽窗口（≥ 600）**：
+### 布局（参考 Groove Music / Apple Music）
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Ncrust                                  标题栏 32，纯黑，可拖动 │
+│ ←  ▣ Ncrust                              标题栏（拖动区）  ─ □ ✕ │
 ├──────────┬───────────────────────────────────────────────────┤
-│ [搜索  ] │  首页                                     页头 34px │
-│          │                                                    │
-│▌首页     │  每日推荐 ▸   ■■■■■■   网格间距 2                   │
-│ 搜索     │  推荐歌单 ▸   ■■■■■■                                │
-│ 音乐库   │  新歌 ▸       ──────────                            │
-│ 我的     │                                                    │
-│ 侧栏 200 │                                                    │
+│ ≡        │  首页                                     页头 34px │
+│ [搜索  ] │  ┌ 登录网易云音乐 ……………………………… [登录] ┐（未登录时）│
+│▌首页     │  每日推荐                          [▷ 全部播放]     │
+│ 我的音乐 │  ■ 歌名 / 歌手 ………………………………………… 3:47          │
+│ 音乐库   │  推荐歌单   ■■■■■■（磁贴间距 2）                    │
+│          │  新歌速递   ────────                                │
+│ 👤 昵称  │                                                    │
 ├──────────┴───────────────────────────────────────────────────┤
-│■■■■■■│ 歌名        ⏮  ⏯  ⏭      0:42 ━━━━○───── 3:51  🔊 无损 ≡ 词│
-│■■■■■■│ 歌手                                        播放栏高 72    │
+│■■■■■■│ 歌名   │  ⟳  ⏮  ⏯  ⏭                 │ 🔊  词  ⌃        │
+│■■■■■■│ 歌手   │  0:42 ━━━━━━○────────── 3:51 │                  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- 侧栏：`MetroSidebar`，宽 200，顶部放常驻搜索框。
-- 播放栏：高 72。**封面 72×72 贴左边**（与列表行的无边框贴边风格一致）；歌名用 `body`，
-  歌手用 `caption`；中间是上一首 / 播放 / 下一首加可拖动的进度条；右侧是音量（点开浮层）、
-  音质标签、队列开关、歌词开关。
-- 内容底部留白 `BottomOverlayInset = 72 + 8 = 80`。
-
-**窄窗口（< 600）**：`MetroBottomNav`（56）+ 迷你播放栏（56，顶边一条细进度条，
-对应 Android 的 `SlimProgressBar`），内容宽度最多 360、居中；
-`BottomOverlayInset = 56 + 56 + 8 = 120`。
-
-`BottomOverlayInset` 按实际叠层高度算，**不照抄 Android 的 144**（那里的 80 是 M3 时代导航栏的高度）。
-所有可滚动内容都用它作为底部内边距，**不在列表末尾手动加 Spacer**。
+- **导航**：WinUI 2 `NavigationView`（标准汉堡菜单），按窗口宽度自适应：
+  ≥ 1008 展开（面板宽 240）、600 ~ 1008 紧凑（只剩图标）、< 600 最小（只剩汉堡按钮，点开浮出面板）。
+  面板：顶部搜索框（Groove）→ 首页 → 分组标题「我的音乐」（Apple Music 的资料库分组）→ 音乐库；
+  底部账户项：未登录显示「登录」并打开登录层，登录后显示昵称与头像、进入「我的」。
+  返回按钮常驻，随 `Frame.CanGoBack` 启用；返回后菜单高亮与当前页同步，
+  搜索结果 / 详情页等不对应菜单项的页面清掉高亮。
+- **播放栏**：外壳第二行固定 72，页面内容区在它上方，**不会被播放栏遮挡**，
+  因此不再需要 Android 那种 `BottomOverlayInset` 底部内边距（页面底部留 24 即可）。
+  详见下节「传输栏」。
+- **窄窗口（< 600）**：导航退化为汉堡按钮（不另做底部导航），传输栏退化为 Android 迷你栏形态。
+- 首页：未登录时顶部是登录提示卡；任何分区为空整块隐藏；每日推荐带「全部播放」。
 
 ### 播放器层：迷你栏 → 展开卡片 → 真全屏
 
@@ -303,12 +311,22 @@ Ncrust.App ──► Kanesumi.Xaml
 
 三个状态：
 
-1. **迷你栏**（`Progress=0, Fullscreen=0`）：底栏。宽窗口高 72、封面 72 贴左；窄窗口高 56、顶边一条
-   细进度条（对应 Android 的 `SlimProgressBar`）。
-2. **展开卡片**（`Progress=1, Fullscreen=0`）：覆盖标题栏以下的整个窗口（含侧栏），左上角收起按钮。
-   宽窗口双栏：左封面 + 控件，右歌词；歌词与队列用 `QueueSlide` 切换（对应 `wideSplit`）。
-   窄窗口沿用 Android 手机布局。封面完整显示、不裁切。
-   进入：点封面或歌名、点「词」（展开并定位歌词）、`Ctrl+L`、触屏上拉。
+1. **传输栏**（`Progress=0, Fullscreen=0`）：底栏，高 72，封面 72 贴左。参考 Groove 的正在播放栏：
+   - 曲目信息（点击展开卡片）；
+   - 中间：模式按钮（列表循环 → 单曲循环 → 随机 → 顺序播完即停；INFINITY 落地后再加入）、
+     上一首 / 播放 / 下一首，下方是可拖动进度条 + 已播 / 总时长。**拖动时只在松手后 seek**
+     （避免反复跳转让流媒体卡顿），键盘方向键 / 单击轨道立即跳转，拖动中不被 2Hz 进度拉回；
+   - 右侧：音量浮层（静音 + 0~100 滑块）、歌词、展开 / 收起。
+   - 音量与播放模式存 LocalSettings（`volume` / `play_mode`）并在启动时恢复
+     （Android 不持久化模式，桌面按 Groove 习惯记住）。
+   - 窄窗口（< 600）：退化为 Android 迷你栏——顶边 2px 细进度条（对应 `SlimProgressBar`），
+     只留播放 / 下一首与展开（`AdaptiveTrigger`）。
+2. **展开卡片**（`Progress=1, Fullscreen=0`）：覆盖标题栏以下的整个窗口（含导航面板），
+   **传输栏保持在底部**作为唯一一套播放控件（卡片不重复放上一首 / 播放 / 下一首）。
+   宽窗口双栏：左栏封面（落在曲目信息与传输栏之上）+ 大字号曲名 / 歌手，右栏歌词；
+   歌词与队列用 `QueueSlide` 切换（对应 `wideSplit`）。右上角是全屏与收起。
+   窄窗口封面占满宽度。封面完整显示、不裁切。
+   进入：点封面或曲目信息、点「词」、展开按钮、`Ctrl+L`、触屏上拉。
    退出：`Esc` / 收起按钮 / 触屏下拉。
 3. **真全屏**（`Progress=1, Fullscreen=1`）：封面铺满整个窗口、无边距，控件与返回箭头闲置后自动隐藏、
    指针移动再出现。**只能由卡片里的专用全屏按钮（⤢）或 `F11` 进入** —— 它与「拖上来的卡片」是两件事，
@@ -322,23 +340,27 @@ Ncrust.App ──► Kanesumi.Xaml
 
 | 操作 | 方式 |
 |---|---|
-| 播放一首歌 | 双击或 Enter；鼠标悬停时行内出现 ▶，单击它播放。「替换队列并播放」还是「插入播放」，以 Android 对应页面的现行行为为准 |
+| 播放一首歌 | 单击（当前实现）；双击 / 悬停 ▶ 待做。「替换队列并播放」还是「插入播放」，以 Android 对应页面的现行行为为准：首页、搜索、音乐库都是 `playSongItem`（`PlaybackHost.PlaySong`，插到当前曲之后播放，不替换队列）；「全部播放」按钮才替换队列（`PlaybackHost.PlayAll`） |
 | 歌曲菜单 | 右键、触屏长按、Shift+F10 或菜单键 → `MenuFlyout`（与 `SongMenuSheet` 项目一致） |
 | 多选 | Ctrl / Shift 多选，批量「下一首播放 / 加入队列」（M2） |
 | 返回 | 详情页左上角悬浮箭头；Alt+←、鼠标侧键、焦点不在输入框时的 Backspace |
-| 搜索 | 侧栏搜索框（窄窗口时在搜索页里），Ctrl+F 聚焦；结果页用 `MetroTabRow` 分歌曲 / 专辑 / 歌手三类；**500ms 防抖不能去掉**；搜索历史作为输入建议显示 |
+| 搜索 | 导航面板顶部的搜索框（窄窗口先展开面板），Ctrl+F 聚焦。输入停顿 **500ms（防抖不能去掉）** 后下拉即时建议（前 8 首歌，选中即播放）；回车进入搜索页，用 `MetroTabRowStyle` 分歌曲 / 专辑 / 歌手三类，三类并发请求。点歌记入搜索历史（历史的展示入口待做） |
 
 ### 快捷键
 
 | 键 | 作用 | 条件 |
 |---|---|---|
-| Space | 播放 / 暂停 | 焦点不在文本输入框 |
+| Space | 播放 / 暂停 | 焦点不在文本输入框或按钮上 |
+| Ctrl+P | 播放 / 暂停 | Groove Music 的快捷键 |
 | Ctrl+← / Ctrl+→ | 上一首 / 下一首 | |
-| Ctrl+F | 聚焦搜索框 | |
-| Ctrl+L | 展开播放器并显示歌词 | |
+| Ctrl+F | 聚焦搜索框 | 最小 / 紧凑模式先展开面板 |
+| Ctrl+L | 展开 / 收起播放器 | |
 | F11 | 展开卡片并在卡片 / 真全屏之间切换 | |
-| Esc | 全屏 → 回卡片；卡片 → 收起；否则关闭浮层 | 逐层退出 |
+| Esc | 关闭登录层；全屏 → 回卡片；卡片 → 收起 | 逐层退出 |
+| Alt+← / 鼠标侧键 | 后退 | |
 | 媒体键 | 播放控制 | 由 SMTC 自动处理 |
+
+快捷键挂在 `ShellPage.KeyboardAccelerators` 上，`KeyboardAcceleratorPlacementMode = Hidden`（不弹按键提示）。
 
 ### 登录
 
@@ -391,7 +413,7 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 ### M2 · 与 Android 主干功能对齐
 
 音乐库云同步、专辑与歌手页、私人 FM 与 INFINITY、音质设置、主题（6 色 × 3 模式）、
-多选、窄窗口布局（`MetroBottomNav`）、Kanesumi.Xaml 的 M2 控件、dolby / jyeffect 解码实测。
+多选、窄窗口细节（导航已由 NavigationView 最小模式覆盖）、Kanesumi.Xaml 的 M2 控件、dolby / jyeffect 解码实测。
 
 ### M3 · 收尾
 
@@ -451,6 +473,19 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
   而终端窗口的标题里也可能带 "Ncrust"，会截错窗口。要求标题等于 "Ncrust"，
   并且窗口类是 `ApplicationFrameWindow`。
 - **UWP 窗口在还原状态下可能截到一整块空白**：实测第一次截图是纯 `#222222`，
-  加 `-Max` 最大化后才截到内容。截图前先最大化，或者把窗口激活到前台。
+  窗口只有 514x359，最大化请求也不一定生效。用 `tools/shot/Shot.ps1`（`SetWindowPos` 摆成固定尺寸再截）。
+- **MediaPlayer / MediaPlaybackList 的事件在后台线程触发**：回调里直接改 XAML 会
+  `RPC_E_WRONG_THREAD` 崩溃。`PlaybackEngine` 统一封送到 UI 线程（`CoreDispatcher.RunAsync`），
+  公开事件都在 UI 线程触发；`MediaBinder.Binding` 仍在后台，只能读闭包捕获的不可变参数。
+  封送后的 `CurrentItemChanged` 可能已过时（列表又切走了），处理前先核对 `_list.CurrentItem`。
+- **`IsHitTestVisible="False"` 对整棵子树生效**：想让覆盖层「空白处穿透、子元素可点」，
+  用 `Background="{x:Null}"`（null 背景不接收命中），不要用 `Transparent`，也不要关父元素命中测试。
+  反过来，`Opacity=0` 的元素照样接收点击，隐藏时要一并关掉命中测试。
+- **Composition 动画参数的求值顺序**：`KanesumiEasing.Standard(_compositor)` 这类工厂在传参时就会执行；
+  合成初始化失败（`_compositor == null`）的降级路径里要先判空再创建缓动。
+- **编辑工具会把 `\uXXXX` 转义写成私用区字符**：图标码点在源码里要保持 `""` 这样的转义，
+  提交前确认没有混进看不见的字符。
+- **快捷键 Space**：`KeyboardAccelerator` 会先于文本输入触发；焦点在 `TextBox` / `AutoSuggestBox` /
+  按钮上时不要 `Handled`，否则打不了空格、按不了按钮。
 - **应用能力声明**：`internetClient`、`backgroundMediaPlayback`；M3 做 `QrPair` 时再加
   `privateNetworkClientServer`。

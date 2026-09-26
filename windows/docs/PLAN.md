@@ -17,7 +17,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] 解决方案四项目：`Ncrust.Core` / `Kanesumi.Xaml` / `Ncrust.App` / `Ncrust.Core.Tests`
 - [x] Release|x64 构建、.NET Native、MSIX、图标
 - [x] Kanesumi.Xaml 的 `Colors` / `Typography` / `Overrides`
-- [ ] 从 arc-deck 移植 `windows/tools/shot`（截图 / UIA / Contrast / ResourceAudit）
+- [~] `windows/tools/shot`：`Shot.ps1`（固定尺寸截图 + 点击 / 按键）已落地；UIA / Contrast / ResourceAudit 未移植
+- [x] 应用图标：整块绿底唱片纹，`tools/icons/MakeIcons.ps1` 生成 33 张 scale / targetsize 资源
 - [ ] 附带评估：UWP on 现代 .NET（半天，只记结论）
 
 ## 阶段 1 · Ncrust.Core（协议与业务，全部 dotnet test 可验）
@@ -78,8 +79,13 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
       **不用** `ShuffleEnabled` / `AutoRepeatEnabled`；`CurrentItemChanged` 推进状态机
 - [x] `MediaSource.CreateFromMediaBinder` 延迟取 URL（`Binding` + deferral → `SongUrlResolver`）；
       元数据随条目走（`MediaItemDisplayProperties`），SMTC 自动接管
-- [x] `ItemFailed` → `QualityLadder` 降级重取（standard 再失败发 PlaybackError）
+- [x] `ItemFailed` → `QualityLadder` 降级重取（songId@level 3s 去重；失败的是当前曲则切回重建条目；
+      全部音质失败按 Android onUnplayable 跳下一首，连续失败满一队停下）
 - [x] 进度 500ms ticker（约 2Hz）；60s 预载窗口由 `PlaybackSessionState` 判定；播放上报接入
+- [x] review 修正：事件统一封送 UI 线程（原先首次播放即 RPC_E_WRONG_THREAD）；窗口只看「当前项之后
+      有没有条目」（原先 CYCLE 回绕会停播）；队列推进用 `PlaybackQueue.MoveNext`（随机模式推进打乱位置）；
+      上一首由队列后退并重建窗口；启动恢复上次队列（`PlaybackHost.RestoreAsync`）；
+      `SetMode` / `RefreshNext` / 音量 / 静音
 - [ ] 引擎接线单测（MediaPlayer 不可注入，靠设备实测）
 - [ ] **M0 #2 实测**：真实 URL 连播两首无空隙、第二首 URL 在 Binding 里才取、SMTC 元数据正确
 - [ ] **M0 #3 实测**：UWP 进程内带 cookie 取每日推荐（`UseCookies=false` 生效）
@@ -87,10 +93,12 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 阶段 4 · Shell 与窗口
 
-- [ ] 自定义标题栏（`ExtendViewIntoTitleBar` + `SetTitleBar`），最小尺寸
-- [x] `ShellPage`：宽窗口 `MetroSidebar` + 内容 `Frame` + 登录覆盖层（窄窗 `MetroBottomNav`、播放栏待加）
-- [ ] `BottomOverlayInset`（宽 80 / 窄 120）统一底部内边距（播放栏落地后）
-- [ ] 全局快捷键（Space / Ctrl+←→ / Ctrl+F / Ctrl+L / F11 / Esc / 返回键）
+- [x] 自定义标题栏（`ExtendViewIntoTitleBar` + `SetTitleBar`，随显示模式让位），最小尺寸 360x500；
+      覆盖层让出标题栏高度
+- [x] `ShellPage`：**标准汉堡菜单** `NavigationView`（Version1 样式 + Kanesumi 覆盖，自适应三态）+ 面板搜索框 +
+      「我的音乐」分组 + 底部账户项（登录 / 昵称头像）+ 返回按钮 + 内容 `Frame` + 登录覆盖层
+- [x] 播放栏占外壳第二行（72），内容不被遮挡 —— 取代原 `BottomOverlayInset` 方案
+- [x] 全局快捷键（Space / Ctrl+P / Ctrl+←→ / Ctrl+F / Ctrl+L / F11 / Esc / Alt+← / 鼠标侧键）
 - [ ] 剪贴板 / `ncrust://`（M3）
 
 ## 阶段 5 · Kanesumi.Xaml 控件（见 `KANESUMI_XAML.md`）
@@ -101,9 +109,11 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
       `MetroIndication`（PressTint + VisualStates，进入 100ms / 离开 200ms / 悬停 0.5）
 - [x] M1：`MetroProgressRing`（Composition 旋转 270° 弧）、`MetroTextBoxStyle`
 - [x] M1：`MetroSidebarStyle` / `MetroTabRowStyle`（ListView + 重写 ListViewItem，选中指示条）
+      （外壳已改用 NavigationView，`MetroSidebarStyle` 保留但不再使用）
+- [x] NavigationView 资源覆盖（`Themes/Controls/Navigation.xaml`）+ `SystemAccentColor` 覆盖；`MetroGridTileStyle`
 - [ ] M1 剩余：`MetroDetailScaffold` / `MetroLyricsPanel`（跨项滑动指示条与 Composition 指示条待补）
-- [ ] M2：`MetroToggleSwitch` / `MetroComboBox` / `MetroMenuFlyout` / `MetroContentDialog` /
-      `MetroBottomNav`
+- [ ] M2：`MetroToggleSwitch` / `MetroComboBox` / `MetroMenuFlyout` / `MetroContentDialog`
+      （`MetroBottomNav` 不再需要：窄窗口由 NavigationView 最小模式覆盖）
 - [ ] 每个控件：深浅 × 两强调色截图对比 + `Contrast.ps1` + `ResourceAudit.ps1` 零未定义键
 
 ## 阶段 6 · 播放器层（Composition）
@@ -112,16 +122,24 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] **唯一封面元素** + `ExpressionAnimation` 形变（迷你栏 → 卡片 → 真全屏）；换歌旧封面保留
 - [x] 展开 400ms `standard` / 收起 260ms `fastOutSlowIn`；鼠标点击封面/词按钮展开
 - [x] 真全屏专用按钮 + `F11`；`Esc` 逐层退出（全屏 → 卡片 → 收起）
+- [x] Groove 式传输栏：模式按钮（循环 / 单曲 / 随机 / 顺序）、上一首 / 播放 / 下一首、可拖动进度条
+      （松手才 seek）+ 时长、音量浮层（静音）、歌词 / 展开；音量与模式持久化；窄窗口退化为迷你栏
+- [x] 卡片不再重复传输控件；封面落在左栏；全屏时传输栏关闭命中测试
 - [ ] `LyricAnim` / `QueueSlide` 标量 + 歌词 / 队列层
-- [ ] 触屏拖拽（25% 阈值）；`Progress < 0.05` 重子树 `x:Load` 门控；控件闲置自动隐藏
-- [ ] `SeekBar`（Composition 插值，可拖动）/ `QueueView` / `LyricsView`（封装 `MetroLyricsPanel`）
+- [ ] 触屏拖拽（25% 阈值）；`Progress < 0.05` 重子树 `x:Load` 门控；全屏控件闲置自动隐藏
+- [ ] 进度条两次 tick 之间的 Composition 插值（目前是 2Hz 跳动）/ `QueueView` / `LyricsView`
 - [ ] **M0 #1 实测**：Release 下展开收起无掉帧、拖拽跟手、收起后重子树卸载
 
 ## 阶段 7 · 页面（M1）
 
 - [x] Home：每日推荐 / 推荐歌单 / 新歌（缓存优先 + 后台刷新 + `MetroProgressRing` 加载态）
+- [x] Home 第二轮：未登录提示卡、空分区隐藏、每日推荐「全部播放」、点歌改为 `playSongItem`（对齐 Android）、
+      页面缓存 + 登录状态变化刷新（`AppServices.SessionChanged`）
 - [x] `Login/LoginPage`：WebView2（主）+ 二维码（辅），独立登录层
-- [ ] Playlist 详情、Search（三类 Tab + 500ms 防抖 + 历史建议）、Library、User（设置 / 账户）、About
+- [x] Search：面板搜索框即时建议（500ms 防抖，选中即播）+ 搜索页三类 Tab、并发请求、取消过期查询、
+      点歌记历史；共享模板字典 `Resources/Templates.xaml`
+- [ ] 搜索历史的展示入口（空查询时显示历史）；专辑 / 歌手结果可点（依赖详情页）
+- [ ] Playlist 详情、Library、User（设置 / 账户）、About
 - [ ] 页面加载态沿用「缓存优先 + 后台刷新」模式，不整屏替换加载器
 
 ## 阶段 8 · M2 对齐 Android 主干
@@ -130,7 +148,7 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [ ] 私人 FM + INFINITY（相似 / FM 续播、去重、防重入）
 - [ ] 音质设置（6 档偏好 + Wi-Fi / 计费两档默认 3 / 1）、歌词翻译开关、gapless 开关
 - [ ] 主题 6 色 × 3 模式（`KanesumiTheme.Apply`，共享 `KPrimaryBrush`）
-- [ ] 多选批量操作、窄窗口布局
+- [ ] 多选批量操作、窄窗口细节（导航已由 NavigationView 最小模式覆盖）
 - [ ] dolby / jyeffect 在 Windows 上的解码实测（解不了靠自动降级兜底）
 
 ## 阶段 9 · M3 收尾与发布
@@ -142,11 +160,28 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ---
 
+## 待设备验收（2026-09-26 第二轮只经构建验证）
+
+第二轮（汉堡菜单外壳、传输栏、搜索、首页、引擎修正、图标）是在负责人不便开应用时完成的，
+**只经过 Release 构建，没有运行过**。下次开应用时按顺序过一遍，有问题先修这里：
+
+1. 启动不崩：`crash.log` / `boot.log` 为空（`%LOCALAPPDATA%\Packages\TakahashiRinta.Ncrust_98kk3q0vty278\LocalState\`）。
+   最可能出问题的是 App.xaml 的 `ControlsResourcesVersion="Version1"` 与 `Resources/Templates.xaml` 合并。
+2. 图标：开始菜单 / 任务栏 / 标题栏是整块绿底唱片纹（注册前先卸载旧包，否则图标缓存可能不刷新）。
+3. 汉堡菜单：宽 ≥1008 展开、600~1008 紧凑、<600 只剩汉堡；面板纯黑、无圆角、无中灰内容面板；
+   选中项是绿色竖条；返回按钮可用；标题栏可拖动，且不挡住返回 / 汉堡按钮。
+4. 账户项：未登录「登录」→ 打开登录层（顶部按钮可点，Esc 可关）；登录后显示昵称与头像。
+5. 传输栏：按钮都能点（原 `IsHitTestVisible` 问题）；播放 / 暂停图标切换；进度条走动、拖动松手跳转；
+   模式按钮循环四种模式并重启后保留；音量浮层与静音；窄窗口退化为迷你栏。
+6. 播放：首次播放不崩（原跨线程问题）；一首播完自动下一首；列表循环回绕继续播；随机模式能一直播下去；
+   上一首回到上一曲；SMTC 媒体键可用。（即 M0 #2 / #3）
+7. 搜索：输入停顿后出建议、选中即播；回车进搜索页，三个 Tab 切换、空态、加载态。
+8. 首页：未登录显示登录卡且没有空的「每日推荐」；登录后自动出现每日推荐；「全部播放」替换队列。
+9. 快捷键：Space（输入框里打空格不被拦截）、Ctrl+P、Ctrl+← / →、Ctrl+F、Ctrl+L、F11、Esc、Alt+←。
+
 ## 当前状态速览
 
-- **阶段 1（Ncrust.Core）全部完成**；阶段 2 平台层 + 独立登录窗口完成；阶段 3 PlaybackEngine 代码完成。
-  Release|x64 + .NET Native 构建零警告、产出 MSIX；Core 测试 183 个通过。
-- 待设备验收：M0 #2（无缝两首）/ #3（UWP 内带 cookie 取链）。
-- 已可点播：Shell 侧栏 + 首页（每日推荐 / 歌单 / 新歌）→ 点歌经 `PlaybackHost` 起播；
-  底部播放栏 + 唯一封面形变（卡片 / 真全屏）已落地。
-- 下一步：**歌词 / 队列层 + SeekBar** → 详情页 / 搜索 / 音乐库 → 窄窗布局。
+- **阶段 1（Ncrust.Core）全部完成**，Core 测试 191 个通过；阶段 2 平台层 + 独立登录窗口完成；
+  阶段 3 PlaybackEngine 代码完成并经 review 修正。Release|x64 + .NET Native 构建零警告、产出 MSIX。
+- 外壳：标准汉堡菜单 + 自定义标题栏；Groove 式传输栏；搜索页；首页第二轮。**以上待设备验收（见上节）。**
+- 下一步：**歌词 / 队列层** → 歌单 / 专辑 / 歌手详情页 → 音乐库页 → 设置页。

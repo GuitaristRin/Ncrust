@@ -50,7 +50,7 @@ Kanesumi.Xaml/
 │   ├── Colors.xaml           # ThemeDictionaries: Dark / Light，全部来自 tokens.json
 │   ├── Typography.xaml       # TextBlock 样式：语义轴 + 尺度轴
 │   ├── Overrides.xaml        # CornerRadius 归零、FocusVisual、滚动条等平台覆盖
-│   └── Controls/*.xaml       # 每个控件一个样式文件
+│   └── Controls/*.xaml       # 按控件族分文件：Buttons / Lists / Misc / Navigation
 ├── Motion/
 │   ├── KanesumiEasing.cs     # tokens.json easing → CubicBezierEasingFunction / KeySpline
 │   └── KanesumiMotion.cs     # tokens.json motion → 时长常量 + 常用 Composition 动画工厂
@@ -64,12 +64,18 @@ Kanesumi.Xaml/
   「跟随系统」监听 `UISettings.ColorValuesChanged`。
 - 强调色：`Colors.xaml` 里的 `KPrimaryBrush` 是**单一共享的 `SolidColorBrush` 实例**，
   `KanesumiTheme.Apply` 直接改它的 `Color`，所有引用处即时更新，无需重载资源。
+  `Overrides.xaml` 同时把 `SystemAccentColor`（及 Light1..3 / Dark1..3）覆盖为同一强调色，
+  平台控件（选中条、焦点、滑块、文本框）才不会跟着用户的 Windows 强调色走；切换主题色时要一起改。
 - 标题栏按钮颜色随主题同步。
 
+**WinUI 2 样式版本**：应用以 `XamlControlsResources ControlsResourcesVersion="Version1"` 合并 WinUI 2，
+即 Windows 10 / Groove 一代的直角样式。Version2（Windows 11）自带圆角与浮起的中灰内容面板，
+与 Kanesumi 的直角、纯黑底冲突；Version1 再配上本库的资源覆盖即可。
+
 **字体**：跟随系统 UI 字体（与 Android 一致，不打包字体）。
-**图标**：打包 **Material Icons（Filled）** 字体，通过 `FontIcon` 使用。Android 端用的是
-`Icons.Default`（Filled，70 处）与 `Icons.AutoMirrored.Filled`（8 处），同一套字形才能视觉统一。
-Segoe MDL2 / Fluent Icons 只用于系统标题栏按钮。
+**图标**：用 **Segoe MDL2 Assets**，在 `FontIcon` 上显式指定 `FontFamily`（Windows 11 上默认的
+`SymbolThemeFontFamily` 是 Segoe Fluent Icons，个别码点语义不同）。Windows 端以 Groove Music 为参考，
+用系统原生图标字体；原设想的「打包 Material Icons 与 Android 统一字形」已撤回。
 
 ## 交互反馈：MetroIndication 的 XAML 版
 
@@ -98,9 +104,9 @@ XAML：可点击控件的模板里放一个铺满的 `Rectangle x:Name="PressTin
 |---|---|---|---|---|
 | `MetroTheme` / `MetroColors` | `Colors.xaml` + `KanesumiTheme` | 资源 | 见 tokens `color` | M1 |
 | `MetroTypography` | `Typography.xaml`：`PageHeadingTextStyle` … `BodySmallTextStyle` | 样式 | 见 tokens `typography`，每个样式都设 `LineHeight` + `LineStackingStrategy=BlockLineHeight` | M1 |
-| `MetroText` / `MetroIcon` | `TextBlock` 样式 / `FontIcon`（Material Icons） | 样式 | 图标 24，导航图标 22 | M1 |
+| `MetroText` / `MetroIcon` | `TextBlock` 样式 / `FontIcon`（Segoe MDL2 Assets） | 样式 | 图标 24，导航图标 22 | M1 |
 | `MetroIndication` | 模板部件 `PressTint` + VisualStates | 样式约定 | 见上节 | M1 |
-| `MetroInsets` / `MetroBottomStack` | 不移植。Windows 没有刘海或手势条；底部叠层由 Ncrust.App 的 Shell 计算 `BottomOverlayInset` | — | — | — |
+| `MetroInsets` / `MetroBottomStack` | 不移植。Windows 没有刘海或手势条；Ncrust 的播放栏占外壳独立的一行，内容区不被遮挡，不需要底部叠层内边距 | — | — | — |
 
 ### 层 1 · anim
 
@@ -135,8 +141,8 @@ XAML：可点击控件的模板里放一个铺满的 `Rectangle x:Name="PressTin
 
 | sec-a | Kanesumi.Xaml | 基底 | 关键数值 / 行为 | 阶段 |
 |---|---|---|---|---|
-| `MetroSidebar` | `MetroSidebar` | 自定义 · 派生 `ListView` | 宽 200（取 Ncrust 的值，sec-a 默认是 240），行高 48；左侧 3px `primary` 竖条随选中项滑动 200ms `metroCubic`；图标 22，左 18 右 12，图标与文字间距 14；各项激活度 = `1 - abs(指示条位置 - index)`，限制在 [0,1]，图标和文字按此交叉淡化。**不用 `NavigationView`**：它的内容区自带圆角与底色，arc-deck 截图里左上角圆角、中灰底就是它 | M1 |
-| `MetroBottomNav` | `MetroBottomNav` | 自定义 · 派生 `ListView` | 窗口宽度 < 600 时使用。高 56，顶部 24×2 指示条，图标 22；动画同侧栏 | M2 |
+| `MetroSidebar` | **WinUI 2 `NavigationView`** + `Themes/Controls/Navigation.xaml` 资源覆盖 | 样式（只覆盖资源键，不重写模板） | 标准汉堡菜单，自适应展开 / 紧凑 / 最小；面板宽 240（sec-a 默认值）。覆盖：展开面板与页面同为 background、浮出面板用 surface（都不透明，不用亚克力）；内容区无边框、无圆角、透明；悬停 / 按下用 pressTint（悬停 0.5 倍）替代 Reveal；选中无底色，只有 primary 竖条；文字不透明。**修订**：原计划自绘 ListView 侧栏并「不用 NavigationView」，理由是 arc-deck 里的圆角中灰内容区 —— 那是 WinUI 2 **Version2** 样式；改用 `ControlsResourcesVersion="Version1"` + 资源覆盖即可解决，而负责人要求的是标准汉堡菜单。旧的 `MetroSidebarStyle`（ListView）保留在 Lists.xaml 但外壳不再使用 | M1 ✅ |
+| `MetroBottomNav` | **不移植** | — | 窄窗口由 NavigationView 最小模式（汉堡按钮 + 浮出面板）覆盖，不另做底部导航 | — |
 | `MetroDetailScaffold` | `MetroDetailScaffold` | 自定义 | 三态（加载 / 错误 / 内容）交叉淡化；内容入场：淡入 + 上移 12，220ms `metroDefault`；`HasCachedContent = true` 时跳过加载态（对应 Ncrust 的 ContentCache 模式） | M1 |
 | `MetroTopScrim` | `MetroDetailScaffold` 的模板部件 | — | 高 120，黑色 alpha 0.55 → 0 渐变；悬浮返回按钮 48，默认无按压反馈 | M1 |
 | `MetroShell` / `MetroAppBar` | **不移植** | — | 外壳由 Ncrust.App 的 `ShellPage` 实现；Ncrust 用 34px 页头，不用顶栏 | — |
