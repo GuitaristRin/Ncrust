@@ -309,6 +309,57 @@ namespace Ncrust.Core.Playback
             }
         }
 
+        /// <summary>
+        /// 前进到 <see cref="PeekNext"/> 所指的那首（对应 Android <c>playNext</c>），返回新的当前曲；
+        /// 没有下一首时不改状态并返回 null。SHUFFLE 会推进打乱表位置 —— 只改 <see cref="CurrentIndex"/>
+        /// 而不推进位置的话，<see cref="PeekNext"/> 会一直指向同一首。
+        /// </summary>
+        public SongItem? MoveNext()
+        {
+            var next = PeekNext();
+            if (next == null)
+            {
+                return null;
+            }
+
+            if (Mode == PlaybackMode.Shuffle)
+            {
+                _shuffledPosition = _shuffledPosition < _shuffledIndices.Count - 1 ? _shuffledPosition + 1 : 0;
+                CurrentIndex = _shuffledIndices[_shuffledPosition];
+            }
+            else if (Mode != PlaybackMode.Single)
+            {
+                CurrentIndex = CurrentIndex < _songs.Count - 1 ? CurrentIndex + 1 : 0;
+            }
+
+            return Current;
+        }
+
+        /// <summary>
+        /// 回到 <see cref="PeekPrevious"/> 所指的那首（对应 Android <c>playPrevious</c>），返回新的当前曲；
+        /// 不可回退时（INFINITY、SHUFFLE 首项）不改状态并返回 null。
+        /// </summary>
+        public SongItem? MovePrevious()
+        {
+            var previous = PeekPrevious();
+            if (previous == null)
+            {
+                return null;
+            }
+
+            if (Mode == PlaybackMode.Shuffle)
+            {
+                _shuffledPosition--;
+                CurrentIndex = _shuffledIndices[_shuffledPosition];
+            }
+            else if (Mode != PlaybackMode.Single)
+            {
+                CurrentIndex = CurrentIndex > 0 ? CurrentIndex - 1 : _songs.Count - 1;
+            }
+
+            return Current;
+        }
+
         /// <summary>按当前歌在新队列中的位置重建打乱表；首项恒为当前索引。</summary>
         public void RegenerateShuffle()
         {

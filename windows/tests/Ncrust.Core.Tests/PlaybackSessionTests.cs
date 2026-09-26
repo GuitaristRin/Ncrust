@@ -64,6 +64,71 @@ public class PlaybackQueuePeekTests
         Assert.Equal(3, cycle.PeekPrevious()!.Id);
     }
 
+    [Theory]
+    [InlineData(PlaybackMode.Cycle)]
+    [InlineData(PlaybackMode.Shuffle)]
+    [InlineData(PlaybackMode.Single)]
+    [InlineData(PlaybackMode.Line)]
+    public void MoveNext_LandsOnWhatPeekNextPredicted(PlaybackMode mode)
+    {
+        var queue = Queue(mode, 1, 2, 3, 4, 5);
+        for (var step = 0; step < 12; step++)
+        {
+            var predicted = queue.PeekNext();
+            var moved = queue.MoveNext();
+            Assert.Equal(predicted?.Id, moved?.Id);
+            if (moved != null)
+            {
+                Assert.Equal(moved.Id, queue.Current!.Id); // 不变量：Songs[CurrentIndex] 就是新当前曲
+            }
+        }
+    }
+
+    [Fact]
+    public void Shuffle_MoveNext_VisitsEverySongOncePerRound()
+    {
+        // 回归：只改 CurrentIndex 不推进打乱位置时，PeekNext 会一直指向同一首。
+        var queue = Queue(PlaybackMode.Shuffle, 1, 2, 3, 4, 5);
+        var played = new List<long> { queue.Current!.Id };
+        for (var i = 0; i < 4; i++)
+        {
+            played.Add(queue.MoveNext()!.Id);
+        }
+
+        Assert.Equal(new long[] { 1, 2, 3, 4, 5 }, played.OrderBy(id => id));
+    }
+
+    [Fact]
+    public void Shuffle_MovePrevious_RetracesTheRound()
+    {
+        var queue = Queue(PlaybackMode.Shuffle, 1, 2, 3, 4);
+        var first = queue.Current!.Id;
+        var second = queue.MoveNext()!.Id;
+        queue.MoveNext();
+
+        Assert.Equal(second, queue.MovePrevious()!.Id);
+        Assert.Equal(first, queue.MovePrevious()!.Id);
+        Assert.Null(queue.MovePrevious()); // 一轮开头不可回退，状态不变
+        Assert.Equal(first, queue.Current!.Id);
+    }
+
+    [Fact]
+    public void Line_MoveNext_AtTail_ReturnsNullAndKeepsCurrent()
+    {
+        var queue = Queue(PlaybackMode.Line, 1, 2);
+        queue.SetCurrentIndex(1);
+        Assert.Null(queue.MoveNext());
+        Assert.Equal(2, queue.Current!.Id);
+    }
+
+    [Fact]
+    public void Cycle_MovePrevious_WrapsToTail()
+    {
+        var queue = Queue(PlaybackMode.Cycle, 1, 2, 3);
+        Assert.Equal(3, queue.MovePrevious()!.Id);
+        Assert.Null(Queue(PlaybackMode.Infinity, 1, 2).MovePrevious());
+    }
+
     private static PlaybackQueue Queue(PlaybackMode mode, params long[] ids)
     {
         var queue = new PlaybackQueue();
