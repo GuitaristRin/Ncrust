@@ -421,6 +421,13 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 ## 已知的坑（大多来自 arc-deck 的实测）
 
 - **UWP 项目不能用 `dotnet build`**，必须用 MSBuild；日常开发也用 **Release** 构建。
+- **本地注册必须用 `bin\Release\ilc\AppxManifest.xml`**（.NET Native 布局）。注册
+  `bin\Release\AppxManifest.xml`（IL 布局）会在激活期直接崩溃，而且**不产生任何托管日志**
+  （App 构造函数都没跑到），极其难查。启动命令与日志路径见「构建与测试」。
+- **Composition 的表达式/动画类型必须与目标属性一致**：`Scale` 是 `Vector3`，用标量表达式
+  会在运行期抛 `ArgumentException: The expression output does not match animating property type`
+  （UI 线程未处理异常 → 整进程崩溃）。凡是 `StartAnimation(name, expression)` 都要确认返回类型；
+  合成初始化最好包 try/catch 降级。
 - **`UseDotNetNativeToolchain` 必须为 true**：否则产物依赖 `Microsoft.NET.CoreRuntime.2.x`
   框架包，而较新的 Windows 默认不装，部署会失败。
 - **C# 版本默认是 7.3**：不加 `<LangVersion>10.0</LangVersion>`，写 `is not` 会报 CS8370，
