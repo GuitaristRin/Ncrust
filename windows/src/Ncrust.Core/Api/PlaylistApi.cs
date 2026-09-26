@@ -25,6 +25,45 @@ namespace Ncrust.Core.Api
         }
 
         /// <summary>
+        /// 只取歌单的有序单曲 id 列表（红心歌单的分页底表）。业务码非 200 抛
+        /// <see cref="NcmApiException"/>。
+        /// </summary>
+        public async Task<IReadOnlyList<long>> GetPlaylistTrackIdsAsync(
+            long playlistId,
+            CancellationToken cancellationToken = default)
+        {
+            using (var response = await _http.EapiPostAsync(PlaylistDetailPath, new[]
+            {
+                new KeyValuePair<string, string>("id", playlistId.ToString()),
+                new KeyValuePair<string, string>("n", "1000"),
+                new KeyValuePair<string, string>("s", "0"),
+            }, useInterface: false, cancellationToken).ConfigureAwait(false))
+            {
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var json = JsonValue.Parse(body);
+                var code = json.GetInt("code", -1);
+                if (code != 200)
+                {
+                    throw new NcmApiException($"playlist trackIds code={code}");
+                }
+
+                var trackIds = json.GetObject("playlist")?.GetArray("trackIds");
+                if (trackIds == null)
+                {
+                    return Array.Empty<long>();
+                }
+
+                var ids = new List<long>(trackIds.Count);
+                foreach (var entry in trackIds)
+                {
+                    ids.Add(entry.GetLong("id"));
+                }
+
+                return ids;
+            }
+        }
+
+        /// <summary>
         /// 歌单详情：<c>trackIds</c> 是全量顺序，<c>tracks</c> 只是一部分（约前 20 首）。
         /// 取全量顺序后，用批量 song/detail 补齐缺失项，最后按 <c>trackIds</c> 顺序返回。
         /// 结构与业务码异常抛 <see cref="NcmApiException"/>。

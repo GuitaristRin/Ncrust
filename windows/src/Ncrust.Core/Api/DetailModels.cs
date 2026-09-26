@@ -126,6 +126,37 @@ namespace Ncrust.Core.Api
         public bool More { get; }
     }
 
+    /// <summary>云端「我收藏的专辑」的一项（对应 Android <c>PlaylistApi.CloudAlbum</c>）。</summary>
+    public sealed class CloudAlbum
+    {
+        public long AlbumId { get; set; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public string Artist { get; set; } = string.Empty;
+
+        public string PicUrl { get; set; } = string.Empty;
+
+        public int SongCount { get; set; }
+
+        public static CloudAlbum FromJson(JsonValue item)
+        {
+            var artists = item.GetArray("artists");
+            var artist = artists != null && artists.Count > 0
+                ? artists[0].GetString("name", string.Empty)
+                : item.GetObject("artist")?.GetString("name", string.Empty);
+
+            return new CloudAlbum
+            {
+                AlbumId = item.GetLong("id"),
+                Name = item.GetString("name", string.Empty) ?? string.Empty,
+                Artist = artist ?? string.Empty,
+                PicUrl = item.GetString("picUrl", string.Empty) ?? string.Empty,
+                SongCount = item.GetInt("size"),
+            };
+        }
+    }
+
     /// <summary>当前登录用户资料（对应 Android <c>PlaylistApi.UserProfile</c>）。</summary>
     public sealed class UserProfile
     {

@@ -33,5 +33,39 @@ namespace Ncrust.Core.Api
 
             return new AlbumDetailResult(albumJson == null ? null : AlbumDetail.FromJson(albumJson), songs);
         }
+
+        /// <summary>
+        /// 云端「我收藏的专辑」/eapi/album/sublist。eapi 的 data 直接是专辑数组，
+        /// 老结构是 <c>data.albums</c>，都兜底。
+        /// </summary>
+        public async Task<IReadOnlyList<CloudAlbum>> GetSubscribedAlbumsAsync(
+            int limit = 100,
+            int offset = 0,
+            CancellationToken cancellationToken = default)
+        {
+            using (var response = await _http.EapiPostAsync("/eapi/album/sublist", new[]
+            {
+                new KeyValuePair<string, string>("limit", limit.ToString()),
+                new KeyValuePair<string, string>("offset", offset.ToString()),
+                new KeyValuePair<string, string>("total", "true"),
+            }, useInterface: false, cancellationToken).ConfigureAwait(false))
+            {
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var json = JsonValue.Parse(body);
+                var albums = json.GetArray("data") ?? json.GetObject("data")?.GetArray("albums");
+                if (albums == null)
+                {
+                    return Array.Empty<CloudAlbum>();
+                }
+
+                var result = new List<CloudAlbum>(albums.Count);
+                foreach (var album in albums)
+                {
+                    result.Add(CloudAlbum.FromJson(album));
+                }
+
+                return result;
+            }
+        }
     }
 }
