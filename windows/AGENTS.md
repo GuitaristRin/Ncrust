@@ -117,6 +117,7 @@ Ncrust.App ──► Kanesumi.Xaml
 |---|---|---|
 | `Net/` | `NcmHttp`：`EapiPost` / `EapiPostOfficial` / `WeapiPost` / `Get` / `PostWeblog`；Cookie 注入；PC UA 与 Referer | `RetrofitClient` |
 | `Net/Crypto/` | `EapiCrypto`（AES-128-ECB + MD5 签名，响应解密）、`WeapiCrypto`（双层 AES-CBC + 不加填充的 RSA，用 `BigInteger.ModPow`） | `network/crypto/` |
+| `Json/` | `JsonValue`：只读 JSON DOM，零反射、零外部依赖，供所有响应解析 | —— |
 | `Api/` | REST 端点与 eapi 端点、响应模型 | `NcmApi`、`PlaylistApi`、`CoverUrls` |
 | `Auth/` | 解析 cookie（`MUSIC_U`、`__csrf`、deviceId、osver）、二维码登录轮询状态机 | `CookieManager`、`QrLoginDialog` 的逻辑部分 |
 | `Playback/` | `PlaybackQueue`（纯状态机：5 种模式、全部队列操作、索引不变量）、`QualityLadder`、`SongUrlResolver`、`PlayReportPolicy` | `MainScreen` 里的队列函数、`SongUrlFetcher`、`PlayerViewModel.handlePlaybackError`、`PlayReporter` |
@@ -329,7 +330,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | 2 | 无缝播放 | 用真实 NetEase URL 连续播两首，中间没有空隙；第二首的 URL 是在 `Binding` 事件里才取的；SMTC 显示的元数据正确 |
 | 3 | eapi 请求 | 在 UWP 进程里带 cookie 取到每日推荐；确认 `HttpClient` 不会自己附加或吞掉 cookie（需要设 `UseCookies = false`） |
 | 4 | 浏览器 Cookie 导入 | 从 Chrome / Edge 的 Cookie 库读到 `MUSIC_U`；`PasswordVault` 能存下完整 cookie |
-| 5 | .NET Native Release 构建 | 响应模型的 JSON 反序列化正常（在 System.Text.Json 源生成器和 Newtonsoft + rd.xml 之间定一个，写进本文） |
+| 5 | .NET Native Release 构建 | 响应模型的 JSON 解析正常。方案已定为 **Core 自研的只读 `JsonValue`**（零反射、零外部依赖），M0 只需在 Release + .NET Native 下确认解析正常 |
 | — | 附带评估（半天） | 「UWP on 现代 .NET」能否带 WinUI 2.8 跑起来。只记录结论，不切换 |
 
 M0 的配套工作：解决方案骨架（✅ 已完成）、Kanesumi.Xaml 的 `Colors` / `Typography` /
@@ -385,7 +386,7 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
   都查不到定义，只能在应用资源层覆盖。
 - **不要依赖半透明的系统文字色**：窗口背景可能被材质混合成 `#808080`，这时平台文字色的
   对比度只有 1.00。页面背景要显式设置，文字色用不透明的 token。
-- **.NET Native 对反射敏感**：绑定只用 `x:Bind`；JSON 方案在 M0 里确定。
+- **.NET Native 对反射敏感**：绑定只用 `x:Bind`；JSON **读取**用 `Ncrust.Core.Json.JsonValue`（自研只读 DOM，零反射），**写入**用 `Net.JsonText`。不引入 System.Text.Json / Newtonsoft。
 - **`LocalSettings` 单个值有大小上限**：队列、音乐库这类数据放进 `LocalFolder` 的文件里。
 - **`rd.xml` 要作为 `Content` 加入项目**：写成 `EmbeddedResource` 会报 ILT0027
   「嵌入清单中不允许的应用程序指令」；完全不加也会报 ILT0027「缺少运行时指令文件」。
