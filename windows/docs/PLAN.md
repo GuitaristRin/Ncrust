@@ -73,15 +73,17 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 阶段 3 · PlaybackEngine（M0 #2 / #3）
 
-- [ ] `Playback/PlaybackEngine`：`MediaPlayer` + `MediaPlaybackList` 滑动窗口（当前 + 下一首），
-      **不用** `ShuffleEnabled` / `AutoRepeatEnabled`；`CurrentItemChanged` 驱动状态机前进一步
-- [ ] `MediaSource.CreateFromMediaBinder` 延迟取 URL（`Binding` + deferral → `SongUrlResolver`）；
-      元数据随条目走（`MediaItemDisplayProperties`）
-- [ ] `ItemFailed` → `QualityLadder` 降级重取，`songId@level` 3s 去重；standard 再失败跳歌
-- [ ] 进度 `PositionChanged` 节流 2Hz；`needsPreload`（60s 窗口）；SMTC 元数据随曲更新
-- [ ] 播放上报接入 `PlayReportPolicy` + `NcmHttp.PostWeblogAsync`
-- [ ] 单测：引擎与状态机的接线用可注入的 fake 播放器/取链覆盖
+- [x] `AppServices` 服务定位器（NcmHttp / 平台实现 / 各 Api / 缓存 / 播放状态）
+- [x] `Playback/PlaybackEngine`：`MediaPlayer` + `MediaPlaybackList` 滑动窗口（当前 + 下一首），
+      **不用** `ShuffleEnabled` / `AutoRepeatEnabled`；`CurrentItemChanged` 推进状态机
+- [x] `MediaSource.CreateFromMediaBinder` 延迟取 URL（`Binding` + deferral → `SongUrlResolver`）；
+      元数据随条目走（`MediaItemDisplayProperties`），SMTC 自动接管
+- [x] `ItemFailed` → `QualityLadder` 降级重取（standard 再失败发 PlaybackError）
+- [x] 进度 500ms ticker（约 2Hz）；60s 预载窗口由 `PlaybackSessionState` 判定；播放上报接入
+- [ ] 引擎接线单测（MediaPlayer 不可注入，靠设备实测）
+- [ ] **M0 #2 实测**：真实 URL 连播两首无空隙、第二首 URL 在 Binding 里才取、SMTC 元数据正确
 - [ ] **M0 #3 实测**：UWP 进程内带 cookie 取每日推荐（`UseCookies=false` 生效）
+- [x] Shell 临时入口：登录 / 播放测试曲 / 播放暂停 / 下一首（M0 验证用）
 
 ## 阶段 4 · Shell 与窗口
 
@@ -138,6 +140,7 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 当前状态速览
 
-- **阶段 1（Ncrust.Core）全部完成**；阶段 2 平台层五个接口实现完成，Release|x64 + .NET Native 构建零警告。
-  Core 测试 183 个通过。
-- 下一步：**独立登录窗口**（WebView2 + 二维码）→ 阶段 3 PlaybackEngine。
+- **阶段 1（Ncrust.Core）全部完成**；阶段 2 平台层 + 独立登录窗口完成；阶段 3 PlaybackEngine 代码完成。
+  Release|x64 + .NET Native 构建零警告、产出 MSIX；Core 测试 183 个通过。
+- 待设备验收：M0 #2（无缝两首）/ #3（UWP 内带 cookie 取链）。下一步：**阶段 6 播放器层（PlayerHost）**
+  或先做阶段 5 Kanesumi.Xaml 控件。

@@ -18,7 +18,9 @@ Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`N
 `spec/api/endpoints.md` 已落地，Core 测试 183 个通过。App 侧平台层已实现
 （`LocalSettingsStore` / `LocalFileStore` / `PasswordVaultCredentialStore` / `WindowsCodecProbe` /
 `ConnectionProfileNetworkInfo`），Release|x64 + .NET Native 构建零警告。施工单见 `windows/docs/PLAN.md`。
-下一步：独立登录窗口（WebView2 主 + 二维码辅）；M0 的其余 UWP 验证项（Composition 卡片 / 无缝播放 / eapi in UWP）还没开始。
+App 侧已实现平台层、独立登录窗口（WebView2 + 二维码）与 `PlaybackEngine`（滑动窗口 /
+MediaBinder / 降级 / 上报），Shell 有 M0 播放验证入口。待设备验收 M0 #2（无缝）/ #3（带 cookie 取链）；
+下一步做播放器层或 Kanesumi.Xaml 控件。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
