@@ -124,7 +124,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | `Lyrics/` | `LrcParser`、双语歌词合并、`LyricsCache`（200 条） | `lyric/` |
 | `Cache/` | `ContentCache`：首页快照（15s 新鲜期）+ 专辑 / 歌单 / 歌手的 LRU-32 | `cache/` |
 | `Search/` | 搜索历史（每类最多 10 条，14 天过期） | `SearchHistoryManager` |
-| `Platform/` | 接口：`ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo` | —— |
+| `Platform/` | 接口：`ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo`、`IBrowserCookieSource` | —— |
 
 规则：Core 里的 `await` 一律 `ConfigureAwait(false)`，不假设有 UI 线程；由 App 负责切回 Dispatcher。
 
@@ -136,7 +136,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | `Pages/` | Home、Search、Library、User（账户与设置）、Album、Artist、Playlist、About |
 | `Player/` | `PlayerHost`（Composition 驱动的展开层）、`PlayerControls`、`SeekBar`、`QueueView`、`LyricsView`（封装 `MetroLyricsPanel`） |
 | `Playback/` | `PlaybackEngine`：把 `PlaybackQueue` 的决定落到 `MediaPlaybackList` 上；`MediaBinder` 的绑定处理 |
-| `Login/` | `QrLoginDialog`、`WebLoginPage`（WebView2） |
+| `Login/` | `QrLoginDialog`、`BrowserLogin`（唤起默认浏览器 + 从浏览器 Cookie 库导入 `MUSIC_U`） |
 | `Platform/` | Core 平台接口的实现 |
 | `I18n/` | `Strings` 类 + 各语言实例 |
 
@@ -155,7 +155,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | `CookieManager`（明文 SharedPreferences） | `ICredentialStore` → `PasswordVault` | M0 验证能否存下完整 cookie；存不下就改用 `DataProtectionProvider` 加密后写文件 |
 | `ncrust_settings` | `LocalSettings` | 键名尽量与 Android 相同 |
 | `ncrust_library`、歌词缓存、搜索历史 | `LocalFolder/*.json` | `LocalSettings` 单个值有大小上限，大块数据不能放进去 |
-| WebView 登录 | WebView2（WinUI 2.8）+ `CoreWebView2.CookieManager` 读取 `MUSIC_U` | HttpOnly 的 cookie 也能读 |
+| WebView 登录 | 唤起默认浏览器登录 + 从浏览器 Cookie 库导入 `MUSIC_U`（`IBrowserCookieSource`） | **不引入 WebView2**。Chrome / Edge 的 Cookies 库需 DPAPI 解密，新版 Chrome 的 App-Bound 加密在 AppContainer 里的可行性与是否要 `broadFileSystemAccess` 由 M0 实测；读不到就退回二维码登录 |
 | 二维码登录（宽屏默认） | 二维码登录（**桌面默认**），用 ZXing.Net 渲染 | 同一套 weapi 轮询：每 2s 一次，最多 150 次；800 过期 / 802 已扫码 / 803 成功 |
 | `QrPair`：手机扫码，把 cookie 交给平板 | M3：Windows 作为被扫端（`QrPairServer`） | 需要 `privateNetworkClientServer` 能力；UDP 广播在 AppContainer 里的表现必须实测 |
 | `QrScannerScreen` / `QrAuthorizeScreen` | 不移植 | Windows 不做扫码端 |
@@ -305,7 +305,10 @@ Ncrust.App ──► Kanesumi.Xaml
 ### 登录
 
 默认显示**二维码登录**对话框（用手机上的网易云 App 扫码）；对话框里提供「通用登录」入口，
-跳到 WebView2 登录页。登录成功后刷新云端音乐库，与 Android 相同。
+用 `Launcher.LaunchUriAsync` **唤起默认浏览器**打开 `https://music.163.com/`。用户在浏览器
+登录后回到应用点「已登录，导入」，应用经 `IBrowserCookieSource` 从浏览器 Cookie 库读出
+`MUSIC_U` 及同域字段，存进 `ICredentialStore` 并刷新云端音乐库，与 Android 相同。
+**不引入 WebView2**；浏览器 Cookie 库读不出时，二维码登录仍是可用路径。
 
 ## 国际化
 
@@ -325,7 +328,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | 1 | Composition 播放器卡片 | Release 构建下，展开和收起流畅无掉帧；触屏拖拽跟手；收起后歌词、队列从可视树里卸载 |
 | 2 | 无缝播放 | 用真实 NetEase URL 连续播两首，中间没有空隙；第二首的 URL 是在 `Binding` 事件里才取的；SMTC 显示的元数据正确 |
 | 3 | eapi 请求 | 在 UWP 进程里带 cookie 取到每日推荐；确认 `HttpClient` 不会自己附加或吞掉 cookie（需要设 `UseCookies = false`） |
-| 4 | WebView2 登录 | 读到 `MUSIC_U`；`PasswordVault` 能存下完整 cookie |
+| 4 | 浏览器 Cookie 导入 | 从 Chrome / Edge 的 Cookie 库读到 `MUSIC_U`；`PasswordVault` 能存下完整 cookie |
 | 5 | .NET Native Release 构建 | 响应模型的 JSON 反序列化正常（在 System.Text.Json 源生成器和 Newtonsoft + rd.xml 之间定一个，写进本文） |
 | — | 附带评估（半天） | 「UWP on 现代 .NET」能否带 WinUI 2.8 跑起来。只记录结论，不切换 |
 
@@ -334,7 +337,7 @@ M0 的配套工作：解决方案骨架（✅ 已完成）、Kanesumi.Xaml 的 `
 
 ### M1 · MVP（能日常使用）
 
-登录（二维码 + WebView2）、首页（每日推荐 / 推荐歌单 / 新歌）、歌单详情、搜索（三类）、
+登录（二维码 + 浏览器 Cookie 导入）、首页（每日推荐 / 推荐歌单 / 新歌）、歌单详情、搜索（三类）、
 播放栏与全屏播放器、队列与 5 种播放模式、歌词、音质降级、播放上报。
 Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 `spec/fixtures` 第一批：crypto、quality、queue、lrc，并有 Core 测试覆盖。
