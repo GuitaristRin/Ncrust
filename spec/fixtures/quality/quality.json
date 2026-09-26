@@ -1,0 +1,186 @@
+[
+  {
+    "id": "quality.ladder.dolby",
+    "kind": "ladder",
+    "description": "杜比起点：先试 dolby，再逐级降到 standard。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() fallbackLevels",
+    "input": { "level": "dolby", "supportsFlac": true },
+    "expect": { "levels": ["dolby", "hires", "lossless", "exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.dolby-no-flac",
+    "kind": "ladder",
+    "description": "无 FLAC 解码时，dolby 序列里剔除 hires / lossless，dolby 本身保留。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() FLAC_TIERS 门控",
+    "input": { "level": "dolby", "supportsFlac": false },
+    "expect": { "levels": ["dolby", "exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.jyeffect",
+    "kind": "ladder",
+    "description": "高清环绕声起点：jyeffect, lossless, exhigh, higher, standard。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() fallbackLevels",
+    "input": { "level": "jyeffect", "supportsFlac": true },
+    "expect": { "levels": ["jyeffect", "lossless", "exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.jyeffect-no-flac",
+    "kind": "ladder",
+    "description": "无 FLAC 解码时 jyeffect 与 lossless 都被剔除。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() FLAC_TIERS 门控",
+    "input": { "level": "jyeffect", "supportsFlac": false },
+    "expect": { "levels": ["exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.hires",
+    "kind": "ladder",
+    "description": "高解析起点。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() fallbackLevels",
+    "input": { "level": "hires", "supportsFlac": true },
+    "expect": { "levels": ["hires", "lossless", "exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.hires-no-flac",
+    "kind": "ladder",
+    "description": "无 FLAC 解码时 hires 与 lossless 都被剔除。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() FLAC_TIERS 门控",
+    "input": { "level": "hires", "supportsFlac": false },
+    "expect": { "levels": ["exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.lossless",
+    "kind": "ladder",
+    "description": "无损起点（默认 Wi-Fi 档）。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() fallbackLevels",
+    "input": { "level": "lossless", "supportsFlac": true },
+    "expect": { "levels": ["lossless", "exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.lossless-no-flac",
+    "kind": "ladder",
+    "description": "无 FLAC 解码时无损档被剔除，直接落到 exhigh。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() FLAC_TIERS 门控",
+    "input": { "level": "lossless", "supportsFlac": false },
+    "expect": { "levels": ["exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.exhigh",
+    "kind": "ladder",
+    "description": "exhigh 起点。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() fallbackLevels",
+    "input": { "level": "exhigh", "supportsFlac": true },
+    "expect": { "levels": ["exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.higher",
+    "kind": "ladder",
+    "description": "higher 起点（默认移动档）。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() fallbackLevels",
+    "input": { "level": "higher", "supportsFlac": true },
+    "expect": { "levels": ["higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.standard",
+    "kind": "ladder",
+    "description": "standard 无档可降。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() fallbackLevels",
+    "input": { "level": "standard", "supportsFlac": true },
+    "expect": { "levels": ["standard"] }
+  },
+  {
+    "id": "quality.ladder.unknown-with-flac",
+    "kind": "ladder",
+    "description": "服务端可能返回阶梯外的档位（如 sky），从该档位起再走标准降级序列。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() else 分支",
+    "input": { "level": "sky", "supportsFlac": true },
+    "expect": { "levels": ["sky", "lossless", "exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.ladder.unknown-no-flac",
+    "kind": "ladder",
+    "description": "阶梯外档位 + 无 FLAC 解码：序列里的 lossless 也被剔除。",
+    "source": "app/.../player/SongUrlFetcher.kt fetch() else 分支 + FLAC 门控",
+    "input": { "level": "sky", "supportsFlac": false },
+    "expect": { "levels": ["sky", "exhigh", "higher", "standard"] }
+  },
+  {
+    "id": "quality.retry.from-dolby",
+    "kind": "retry",
+    "description": "解码失败时按固定重试顺序降一档。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt handlePlaybackError()",
+    "input": { "level": "dolby" },
+    "expect": { "nextLevel": "jyeffect" }
+  },
+  {
+    "id": "quality.retry.from-jyeffect",
+    "kind": "retry",
+    "description": "jyeffect 降一级到 hires（注意顺序与取链降级序列不同）。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt handlePlaybackError()",
+    "input": { "level": "jyeffect" },
+    "expect": { "nextLevel": "hires" }
+  },
+  {
+    "id": "quality.retry.from-hires",
+    "kind": "retry",
+    "description": "hires 降一级到 lossless。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt handlePlaybackError()",
+    "input": { "level": "hires" },
+    "expect": { "nextLevel": "lossless" }
+  },
+  {
+    "id": "quality.retry.from-lossless",
+    "kind": "retry",
+    "description": "lossless 降一级到 exhigh。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt handlePlaybackError()",
+    "input": { "level": "lossless" },
+    "expect": { "nextLevel": "exhigh" }
+  },
+  {
+    "id": "quality.retry.from-exhigh",
+    "kind": "retry",
+    "description": "exhigh 降一级到 higher。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt handlePlaybackError()",
+    "input": { "level": "exhigh" },
+    "expect": { "nextLevel": "higher" }
+  },
+  {
+    "id": "quality.retry.from-higher",
+    "kind": "retry",
+    "description": "higher 降一级到 standard。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt handlePlaybackError()",
+    "input": { "level": "higher" },
+    "expect": { "nextLevel": "standard" }
+  },
+  {
+    "id": "quality.retry.from-standard",
+    "kind": "retry",
+    "description": "最低档仍失败返回 null，由上层跳歌。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt handlePlaybackError() else 分支",
+    "input": { "level": "standard" },
+    "expect": { "nextLevel": null }
+  },
+  {
+    "id": "quality.retry.unknown-level",
+    "kind": "retry",
+    "description": "阶梯外档位（如 sky）失败时从 lossless 起降，而不是直接跳歌。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt handlePlaybackError() idx<0 分支",
+    "input": { "level": "sky" },
+    "expect": { "nextLevel": "lossless" }
+  },
+  {
+    "id": "quality.preference.default-lossless",
+    "kind": "preference",
+    "description": "偏好索引 3 → lossless（默认 Wi-Fi 档）。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt qualityApiLevels",
+    "input": { "index": 3 },
+    "expect": { "level": "lossless" }
+  },
+  {
+    "id": "quality.preference.out-of-range",
+    "kind": "preference",
+    "description": "越界索引兜底为 lossless（对应 getOrElse）。",
+    "source": "app/.../ui/viewmodel/PlayerViewModel.kt getOrElse { \"lossless\" }",
+    "input": { "index": 99 },
+    "expect": { "level": "lossless" }
+  }
+]
