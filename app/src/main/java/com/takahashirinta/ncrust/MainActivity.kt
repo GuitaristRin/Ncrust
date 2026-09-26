@@ -46,6 +46,7 @@ import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
+import com.takahashirinta.ncrust.player.PlaybackQueueLogic
 import com.takahashirinta.ncrust.player.PlaybackStateManager
 import com.takahashirinta.ncrust.power.BackgroundActivity
 import com.takahashirinta.ncrust.ui.components.BackgroundActivityDialog
@@ -596,15 +597,18 @@ fun MainScreen(
         if (!songTransitioned) return@LaunchedEffect
         songTransitioned = false
         if (playbackQueue.isEmpty()) return@LaunchedEffect
-        val nextIndex = when (playMode) {
+
+        // 1) 播放模式决定"下一个该是谁"，作为兜底索引。
+        var fallbackShufflePos = shuffledPosition
+        val fallbackIndex = when (playMode) {
             QueueModes.SINGLE -> currentQueueIndex
             QueueModes.SHUFFLE -> {
                 if (shuffledPosition < shuffledIndices.size - 1) {
-                    shuffledPosition++
-                    shuffledIndices.getOrElse(shuffledPosition) { 0 }
+                    fallbackShufflePos = shuffledPosition + 1
+                    shuffledIndices.getOrElse(fallbackShufflePos) { 0 }
                 } else {
                     generateShuffledIndices()
-                    shuffledPosition = 0
+                    fallbackShufflePos = 0
                     shuffledIndices.getOrElse(0) { 0 }
                 }
             }
@@ -618,6 +622,15 @@ fun MainScreen(
                 else if (playbackQueue.isNotEmpty()) 0 else currentQueueIndex
             else -> if (currentQueueIndex < playbackQueue.size - 1) currentQueueIndex + 1 else 0
         }
+
+        // 2) 以播放器实际切到的 mediaId 为准回查队列（事实源），兜底才用模式推断。
+        //    这样自然结束、错误降档重试、手动抢占都不会让 UI 与音频错位或双推进。
+        val actualId = playerViewModel.currentSongId.value
+        val nextIndex = PlaybackQueueLogic.resolveCurrentIndex(playbackQueue, actualId, fallbackIndex)
+        shuffledPosition = if (playMode == QueueModes.SHUFFLE) {
+            PlaybackQueueLogic.realignShuffledPosition(shuffledIndices, nextIndex, fallbackShufflePos)
+        } else fallbackShufflePos
+
         currentQueueIndex = nextIndex
         currentSong = playbackQueue.getOrNull(nextIndex)
         PlaybackStateManager.saveQueue(context, playbackQueue, currentQueueIndex)

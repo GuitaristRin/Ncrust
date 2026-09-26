@@ -150,20 +150,26 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         PlaybackService.onPlaybackError = { sid -> handlePlaybackError(sid) }
 
         // Called on the main thread by ExoPlayer's onMediaItemTransition (AUTO reason).
-        PlaybackService.onSongTransitioned = {
-            if (preloadedSongId > 0) {
+        // 身份/元数据来自播放器新当前项的 MediaItem（now），不再由本轮预载的全局槽推断，
+        // 因此音频实际切的歌与 UI 显示的歌绝不会错位。
+        PlaybackService.onSongTransitioned = { now ->
+            if (now.songId > 0) {
                 resetLyricsForNewSong()
-                currentSongId.value = preloadedSongId
-                currentSongName.value = preloadedTitle
-                currentSongArtist.value = preloadedArtist
-                currentSongArtwork.value = preloadedArtwork
-                val idx = qualityApiLevels.indexOf(preloadedActualLevel).coerceAtLeast(0)
-                currentQualityIndex.value = idx
+                currentSongId.value = now.songId
+                currentSongName.value = now.title
+                currentSongArtist.value = now.artist
+                currentSongArtwork.value = now.artworkUrl.ifEmpty { null }
+                // 音质档位仍取本轮预载记录（若正好对应同一首），否则沿用上一次实际档位。
+                val level = if (preloadedSongId == now.songId && preloadedActualLevel.isNotEmpty())
+                    preloadedActualLevel else lastPlayedLevel
+                if (level.isNotEmpty()) {
+                    currentQualityIndex.value = qualityApiLevels.indexOf(level).coerceAtLeast(0)
+                }
                 PlaybackStateManager.saveState(
-                    getApplication(), preloadedSongId,
-                    preloadedTitle, preloadedArtist, preloadedArtwork, true
+                    getApplication(), now.songId,
+                    now.title, now.artist, now.artworkUrl, true
                 )
-                viewModelScope.launch { fetchLyrics(preloadedSongId) }
+                viewModelScope.launch { fetchLyrics(now.songId) }
                 preloadedSongId = -1L
                 needsPreload.value = false
             }
