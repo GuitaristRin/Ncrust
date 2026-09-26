@@ -67,9 +67,10 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] `Platform/` 实现：`LocalSettingsStore`、`LocalFileStore`、`PasswordVaultCredentialStore`、
       `WindowsCodecProbe`（恒 true）、`ConnectionProfileNetworkInfo`（`IsMetered`）
 - [x] 播放设置键名对齐 Android（`gapless_playback` / `lyrics_translation` / `wifi_quality` / `mobile_quality`）
-- [ ] `Login/BrowserLogin`：`Launcher` 开浏览器 + `IBrowserCookieSource` 导入 + `PasswordVault` 存储
-- [ ] **M0 #4 实测**：浏览器 Cookie 库（Chrome / Edge、DPAPI / App-Bound、AppContainer 沙箱）；
-      读不到时的 full-trust 伴随进程方案；结论回写 `AGENTS.md`
+- [x] **M0 #4 实测**：浏览器 Cookie 导入**不可行**（Chrome / Edge 用 App-Bound Encryption，
+      前缀 `v20`；DB 运行中被锁）。结论已回写 `AGENTS.md`。
+- [ ] `Login/`：二维码登录（主路径）+「通用登录」回退方案**待定**（手机号登录 / 手动粘贴 / 重评估
+      WebView，三选一），定了再实现
 
 ## 阶段 3 · PlaybackEngine（M0 #2 / #3）
 

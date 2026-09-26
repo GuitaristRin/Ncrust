@@ -167,7 +167,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | `CookieManager`（明文 SharedPreferences） | `ICredentialStore` → `PasswordVault` | M0 验证能否存下完整 cookie；存不下就改用 `DataProtectionProvider` 加密后写文件 |
 | `ncrust_settings` | `LocalSettings` | 键名尽量与 Android 相同 |
 | `ncrust_library`、歌词缓存、搜索历史 | `LocalFolder/*.json` | `LocalSettings` 单个值有大小上限，大块数据不能放进去 |
-| WebView 登录 | 唤起默认浏览器登录 + 从浏览器 Cookie 库导入 `MUSIC_U`（`IBrowserCookieSource`） | **不引入 WebView2**。Chrome / Edge 的 Cookies 库需 DPAPI 解密，新版 Chrome 的 App-Bound 加密在 AppContainer 里的可行性与是否要 `broadFileSystemAccess` 由 M0 实测；读不到就退回二维码登录 |
+| WebView 登录 | **不移植**（M0 #4 实测浏览器 Cookie 导入不可行） | 现代 Chrome / Edge 的 App-Bound Encryption 使第三方拿不到 `MUSIC_U`；登录以二维码为主，回退方案见「登录」一节 |
 | 二维码登录（宽屏默认） | 二维码登录（**桌面默认**），用 ZXing.Net 渲染 | 同一套 weapi 轮询：每 2s 一次，最多 150 次；800 过期 / 802 已扫码 / 803 成功 |
 | `QrPair`：手机扫码，把 cookie 交给平板 | M3：Windows 作为被扫端（`QrPairServer`） | 需要 `privateNetworkClientServer` 能力；UDP 广播在 AppContainer 里的表现必须实测 |
 | `QrScannerScreen` / `QrAuthorizeScreen` | 不移植 | Windows 不做扫码端 |
@@ -337,11 +337,17 @@ Ncrust.App ──► Kanesumi.Xaml
 
 ### 登录
 
-默认显示**二维码登录**对话框（用手机上的网易云 App 扫码）；对话框里提供「通用登录」入口，
-用 `Launcher.LaunchUriAsync` **唤起默认浏览器**打开 `https://music.163.com/`。用户在浏览器
-登录后回到应用点「已登录，导入」，应用经 `IBrowserCookieSource` 从浏览器 Cookie 库读出
-`MUSIC_U` 及同域字段，存进 `ICredentialStore` 并刷新云端音乐库，与 Android 相同。
-**不引入 WebView2**；浏览器 Cookie 库读不出时，二维码登录仍是可用路径。
+**M0 #4 实测结论：浏览器 Cookie 导入不可行。** 现代 Chrome / Edge 用 App-Bound Encryption
+（cookie 前缀 `v20`，专门防第三方读取）；DPAPI 老格式 `v10` 已罕见，浏览器运行时 DB 还被锁。
+所以「唤起浏览器 → 导入 `MUSIC_U`」这条链走不通，`IBrowserCookieSource` 无可用实现。
+
+- **二维码登录**（桌面默认，已实现）：无 WebView、无风控、手机扫码即用，**是可靠主路径**。
+- **「通用登录」回退方案待定**（本项目此前明确「不引入 WebView」，Android 又明确「不再手工粘贴
+  MUSIC_U」，两条都封死了常规做法）。候选：① 应用内手机号登录（eapi `/login/cellphone`，需处理
+  验证码与风控）；② 唤起浏览器 + 用户从 DevTools 复制 `MUSIC_U` 粘贴（放弃「不手工粘贴」约定）；
+  ③ 重新引入内嵌 WebView（放弃「不用 WebView」约定）。**定后回写本节。**
+
+由此 `IBrowserCookieSource` 暂不实现，二维码是唯一可用登录路径。
 
 ## 国际化
 
@@ -361,7 +367,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | 1 | Composition 播放器卡片 | Release 构建下，展开和收起流畅无掉帧；触屏拖拽跟手；收起后歌词、队列从可视树里卸载 |
 | 2 | 无缝播放 | 用真实 NetEase URL 连续播两首，中间没有空隙；第二首的 URL 是在 `Binding` 事件里才取的；SMTC 显示的元数据正确 |
 | 3 | eapi 请求 | 在 UWP 进程里带 cookie 取到每日推荐；确认 `HttpClient` 不会自己附加或吞掉 cookie（需要设 `UseCookies = false`） |
-| 4 | 浏览器 Cookie 导入 | 从 Chrome / Edge 的 Cookie 库读到 `MUSIC_U`；`PasswordVault` 能存下完整 cookie |
+| 4 | 浏览器 Cookie 导入（**已实测：不可行**） | Chrome / Edge 现用 App-Bound Encryption（cookie 前缀 `v20`，专门防第三方读取），DPAPI 老格式 `v10` 已罕见，且浏览器占用时 DB 被锁。结论：唤起浏览器后拿不回 `MUSIC_U`，登录回退方案见「登录」一节 |
 | 5 | .NET Native Release 构建 | 响应模型的 JSON 解析正常。方案已定为 **Core 自研的只读 `JsonValue`**（零反射、零外部依赖），M0 只需在 Release + .NET Native 下确认解析正常 |
 | — | 附带评估（半天） | 「UWP on 现代 .NET」能否带 WinUI 2.8 跑起来。只记录结论，不切换 |
 
@@ -419,6 +425,9 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 - **不要依赖半透明的系统文字色**：窗口背景可能被材质混合成 `#808080`，这时平台文字色的
   对比度只有 1.00。页面背景要显式设置，文字色用不透明的 token。
 - **.NET Native 对反射敏感**：绑定只用 `x:Bind`；JSON **读取**用 `Ncrust.Core.Json.JsonValue`（自研只读 DOM，零反射），**写入**用 `Net.JsonText`。不引入 System.Text.Json / Newtonsoft。
+- **浏览器 Cookie 读不了**：Chrome / Edge 127+ 用 App-Bound Encryption（cookie 前缀 `v20`），
+  第三方（含 full-trust 进程）拿不到明文；且浏览器运行时 Cookie DB 被锁。不要再尝试从浏览器
+  导入登录态（M0 #4 本机实测，DPAPI `v10` 已罕见）。
 - **`LocalSettings` 单个值有大小上限**：队列、音乐库这类数据放进 `LocalFolder` 的文件里。
 - **`rd.xml` 要作为 `Content` 加入项目**：写成 `EmbeddedResource` 会报 ILT0027
   「嵌入清单中不允许的应用程序指令」；完全不加也会报 ILT0027「缺少运行时指令文件」。
