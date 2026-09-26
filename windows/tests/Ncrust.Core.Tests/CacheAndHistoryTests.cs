@@ -182,6 +182,19 @@ public class SearchHistoryTests
 public class LyricsCacheTests
 {
     [Fact]
+    public async Task Clear_RemovesMemoryAndFile()
+    {
+        var store = new InMemoryFileStore();
+        var cache = new LyricsCache(store);
+        await cache.PutAsync(1, "lrc", "tlyric");
+
+        await cache.ClearAsync();
+
+        Assert.Null(await cache.GetAsync(1));
+        Assert.Null(await new LyricsCache(store).GetAsync(1)); // 文件也已删除
+    }
+
+    [Fact]
     public async Task PutThenGet_RoundTrips()
     {
         var cache = new LyricsCache(new InMemoryFileStore());

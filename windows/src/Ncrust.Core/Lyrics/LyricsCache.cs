@@ -76,6 +76,17 @@ namespace Ncrust.Core.Lyrics
             await _files.WriteTextAsync(FileName, payload).ConfigureAwait(false);
         }
 
+        /// <summary>清空歌词缓存（设置页「清除缓存」）：内存与文件一起清掉。</summary>
+        public async Task ClearAsync()
+        {
+            lock (_lock)
+            {
+                _memory = new Dictionary<string, CachedLyrics>();
+            }
+
+            await _files.DeleteAsync(FileName).ConfigureAwait(false);
+        }
+
         private static void EvictExcess(Dictionary<string, CachedLyrics> map)
         {
             if (map.Count <= MaxEntries)
