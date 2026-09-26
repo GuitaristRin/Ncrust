@@ -28,7 +28,7 @@ Ncrust 的三个端（Android `app/`、Windows `windows/`、以后的 Linux）**
 | `api/endpoints.md` | 端点目录：路径、加密方式（REST / eapi / weapi）、参数、所用 host | ⏳ Windows M1 |
 | `fixtures/crypto/` | eapi / weapi 固定输入 → 固定输出（weapi 固定 16 位 secret 以保证可复现） | ✅ 已落地（Windows Core + 测试） |
 | `fixtures/quality/` | 7 级音质阶梯、各起点的降级序列、FLAC 门控规则 | ✅ 已落地（Windows Core + 测试） |
-| `fixtures/queue/` | 队列操作用例：初始队列 + 模式 + 操作 → 期望队列与索引 | ⏳ Windows M1 |
+| `fixtures/queue/` | 队列操作用例：初始队列 + 模式 + 操作 → 期望队列与索引 | ✅ 已落地（Windows Core + 测试） |
 | `fixtures/lrc/` | LRC 时间戳解析、`tlyric` 双语合并用例 | ✅ 已落地（Windows Core + 测试） |
 
 消费方：
@@ -54,7 +54,10 @@ Ncrust 的三个端（Android `app/`、Windows `windows/`、以后的 Linux）**
 
 - `id` 全局唯一，测试失败信息里直接打印它。
 - `input` / `expect` 的形状按主题各自定义，在该子目录的 `README.md` 里写明 schema。
-- 队列用例的语义**以 Android 现行实现为准**：编写第一批时逐条对照 `MainScreen`
-  里的 `insertNext` / `appendToQueue` / `removeFromQueue` / `moveInQueue` 等函数，
-  并覆盖 `AGENTS.md` 里的关键不变量 —— `playbackQueue[currentQueueIndex]` 必须始终是
-  正在播放的歌（去重时先记下当前歌 id，过滤后重新定位索引）。
+- 队列用例的语义以 Android `MainScreen` 的队列函数为基线：逐条对照
+  `insertNext` / `appendToQueue` / `playSongItem` / `insertAllNext` / `appendAllToQueue` /
+  `moveInQueue` 等，并覆盖关键不变量 —— `queue[current]` 必须始终是正在播放的歌
+  （去重时先记下当前歌 id，过滤后重新定位索引）。
+- **唯一有意偏差**：Android `removeFromQueue` 只做 clamp，删当前曲之前的歌会让当前索引
+  错位（破坏上述不变量）。queue 夹具按正确行为定义「删除后按歌曲身份重新定位当前索引」，
+  Android 侧在 M3 接入夹具时同步修正；细节见 `fixtures/queue/README.md`。
