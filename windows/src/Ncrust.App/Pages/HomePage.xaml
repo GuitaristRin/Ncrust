@@ -2,97 +2,97 @@
     x:Class="Ncrust.Pages.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:api="using:Ncrust.Core.Api"
     xmlns:controls="using:Kanesumi.Xaml.Controls"
+    NavigationCacheMode="Enabled"
     RequestedTheme="Dark"
     Background="{ThemeResource KBackgroundBrush}">
 
-    <Page.Resources>
-        <DataTemplate x:Key="SongTemplate" x:DataType="api:SongItem">
-            <Grid Height="72">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="72" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Image
-                    Grid.Column="0"
-                    Width="72"
-                    Height="72"
-                    Source="{x:Bind CoverUrl}"
-                    Stretch="UniformToFill" />
-                <StackPanel
-                    Grid.Column="1"
-                    Margin="12,0"
-                    VerticalAlignment="Center">
-                    <TextBlock Style="{StaticResource BodyTextStyle}" Text="{x:Bind Name}" />
-                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ArtistText}" />
-                </StackPanel>
-                <TextBlock
-                    Grid.Column="2"
-                    Margin="0,0,16,0"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource CaptionTextStyle}"
-                    Text="{x:Bind DurationText}" />
-            </Grid>
-        </DataTemplate>
-
-        <DataTemplate x:Key="PlaylistTemplate" x:DataType="api:PlaylistCard">
-            <StackPanel Width="160" Margin="0,0,10,10">
-                <Image
-                    Width="160"
-                    Height="160"
-                    Source="{x:Bind CoverUrl}"
-                    Stretch="UniformToFill" />
-                <TextBlock
-                    Margin="0,8,0,0"
-                    MaxLines="2"
-                    Text="{x:Bind Name}"
-                    TextWrapping="Wrap" />
-            </StackPanel>
-        </DataTemplate>
-    </Page.Resources>
-
+    <!--
+      首页（参考 Apple Music「现在就听」）：34px 页头；未登录时顶部是登录提示而不是空的「每日推荐」；
+      每个分区为空时整个分区隐藏；每日推荐带「全部播放」。
+      NavigationCacheMode=Enabled：切到别的页面再回来不重新构建、不重新请求（后台刷新仍按缓存模式）。
+    -->
     <Grid>
         <ScrollViewer>
             <StackPanel Padding="24,16,24,24" Spacing="16">
                 <TextBlock Style="{StaticResource PageHeadingTextStyle}" Text="首页" />
 
-                <TextBlock Style="{StaticResource TitleTextStyle}" Text="每日推荐" />
-                <ListView
-                    x:Name="DailyList"
-                    IsItemClickEnabled="True"
-                    ItemClick="SongItemClick"
-                    ItemTemplate="{StaticResource SongTemplate}"
-                    SelectionMode="None">
-                    <ListView.ItemContainerStyle>
-                        <Style BasedOn="{StaticResource MetroListRowStyle}" TargetType="ListViewItem" />
-                    </ListView.ItemContainerStyle>
-                </ListView>
+                <!-- 未登录提示 -->
+                <Grid
+                    x:Name="LoginPrompt"
+                    Padding="20"
+                    Background="{ThemeResource KSurfaceBrush}"
+                    Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Spacing="4">
+                        <TextBlock Style="{StaticResource TitleTextStyle}" Text="登录网易云音乐" />
+                        <TextBlock
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="登录后可以看到每日推荐，并同步你喜欢的音乐与收藏。"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button
+                        Grid.Column="1"
+                        Margin="16,0,0,0"
+                        VerticalAlignment="Center"
+                        Click="LoginClick"
+                        Content="登录"
+                        Style="{StaticResource MetroButtonStyle}" />
+                </Grid>
 
-                <TextBlock Style="{StaticResource TitleTextStyle}" Text="推荐歌单" />
-                <GridView
-                    x:Name="PlaylistGrid"
-                    ItemTemplate="{StaticResource PlaylistTemplate}"
-                    SelectionMode="None">
-                    <GridView.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="0" />
-                        </ItemsPanelTemplate>
-                    </GridView.ItemsPanel>
-                </GridView>
+                <!-- 每日推荐 -->
+                <StackPanel x:Name="DailySection" Spacing="8" Visibility="Collapsed">
+                    <Grid>
+                        <TextBlock VerticalAlignment="Center" Style="{StaticResource TitleTextStyle}" Text="每日推荐" />
+                        <Button
+                            HorizontalAlignment="Right"
+                            Click="PlayDailyClick"
+                            Style="{StaticResource MetroSecondaryButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE768;" />
+                                <TextBlock Text="全部播放" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <ListView
+                        x:Name="DailyList"
+                        IsItemClickEnabled="True"
+                        ItemClick="SongItemClick"
+                        ItemContainerStyle="{StaticResource MetroListRowStyle}"
+                        ItemTemplate="{StaticResource SongRowTemplate}"
+                        SelectionMode="None" />
+                </StackPanel>
 
-                <TextBlock Style="{StaticResource TitleTextStyle}" Text="新歌速递" />
-                <ListView
-                    x:Name="NewList"
-                    IsItemClickEnabled="True"
-                    ItemClick="SongItemClick"
-                    ItemTemplate="{StaticResource SongTemplate}"
-                    SelectionMode="None">
-                    <ListView.ItemContainerStyle>
-                        <Style BasedOn="{StaticResource MetroListRowStyle}" TargetType="ListViewItem" />
-                    </ListView.ItemContainerStyle>
-                </ListView>
+                <!-- 推荐歌单 -->
+                <StackPanel x:Name="PlaylistSection" Spacing="8" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TitleTextStyle}" Text="推荐歌单" />
+                    <GridView
+                        x:Name="PlaylistGrid"
+                        ItemContainerStyle="{StaticResource MetroGridTileStyle}"
+                        ItemTemplate="{StaticResource PlaylistTileTemplate}"
+                        SelectionMode="None">
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsWrapGrid MaximumRowsOrColumns="0" Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                    </GridView>
+                </StackPanel>
+
+                <!-- 新歌速递 -->
+                <StackPanel x:Name="NewSection" Spacing="8" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TitleTextStyle}" Text="新歌速递" />
+                    <ListView
+                        x:Name="NewList"
+                        IsItemClickEnabled="True"
+                        ItemClick="SongItemClick"
+                        ItemContainerStyle="{StaticResource MetroListRowStyle}"
+                        ItemTemplate="{StaticResource SongRowTemplate}"
+                        SelectionMode="None" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 

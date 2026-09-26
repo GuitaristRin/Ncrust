@@ -62,6 +62,9 @@ namespace Ncrust
 
         public static QrLoginClient Qr { get; } = new QrLoginClient(Http);
 
+        /// <summary>登录 / 退出后触发（在调用 SetCookie / SignOut 的线程上，通常是 UI 线程）。</summary>
+        public static event System.Action SessionChanged;
+
         public static bool IsLoggedIn() => !string.IsNullOrEmpty(Http.Cookie);
 
         /// <summary>登录成功后统一入口：更新请求层与凭据存储。</summary>
@@ -69,12 +72,16 @@ namespace Ncrust
         {
             Http.Cookie = cookie;
             Credentials.SetCookie(cookie);
+            SessionChanged?.Invoke();
         }
 
         public static void SignOut()
         {
             Http.Cookie = null;
             Credentials.ClearCookie();
+            Cache.UserProfile = null;
+            Cache.HomeDailySongs = null;
+            SessionChanged?.Invoke();
         }
 
         private static NcmHttp CreateHttp()
