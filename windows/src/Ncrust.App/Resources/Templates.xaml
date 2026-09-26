@@ -23,7 +23,7 @@
                 Grid.Column="0"
                 Width="72"
                 Height="72"
-                Source="{x:Bind CoverUrl}"
+                Source="{x:Bind local:DisplayFormat.Cover(CoverUrl, 144)}"
                 Stretch="UniformToFill" />
             <StackPanel
                 Grid.Column="1"
@@ -47,7 +47,7 @@
             <Image
                 Width="160"
                 Height="160"
-                Source="{x:Bind PicUrl}"
+                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 320)}"
                 Stretch="UniformToFill" />
             <TextBlock
                 Margin="0,8,0,0"
@@ -63,7 +63,7 @@
             <Image
                 Width="160"
                 Height="160"
-                Source="{x:Bind CoverUrl}"
+                Source="{x:Bind local:DisplayFormat.Cover(CoverUrl, 320)}"
                 Stretch="UniformToFill" />
             <TextBlock
                 Margin="0,8,0,0"
@@ -85,7 +85,7 @@
                 Grid.Column="0"
                 Width="72"
                 Height="72"
-                Source="{x:Bind PicUrl}"
+                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 144)}"
                 Stretch="UniformToFill" />
             <StackPanel
                 Grid.Column="1"

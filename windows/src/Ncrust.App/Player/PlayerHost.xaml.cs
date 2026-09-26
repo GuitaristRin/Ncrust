@@ -227,13 +227,15 @@ namespace Ncrust.Player
 
         private void SetCover(string url)
         {
-            if (string.IsNullOrEmpty(url))
+            // 大封面（全屏时铺满窗口）；空串或非法 URL 时保留旧封面，不抛异常。
+            var sized = CoverUrls.Large(url);
+            if (sized == null || !Uri.TryCreate(sized, UriKind.Absolute, out var uri))
             {
                 return;
             }
 
             // 新封面解码完成后再替换，换歌期间旧封面保留（对应 COVER_HOLD_MS 的观感）。
-            var bitmap = new BitmapImage(new Uri(url));
+            var bitmap = new BitmapImage(uri);
             bitmap.ImageOpened += (_, __) => CoverImage.Source = bitmap;
         }
 
