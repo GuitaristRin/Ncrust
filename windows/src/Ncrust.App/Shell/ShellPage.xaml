@@ -16,10 +16,10 @@
             <StackPanel Spacing="16" VerticalAlignment="Top">
                 <TextBlock Text="Ncrust" Style="{StaticResource PageHeadingTextStyle}" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="LoginButton" Content="登录" Click="LoginClick" />
-                    <Button x:Name="PlayTestButton" Content="播放测试曲" Click="PlayTestClick" />
-                    <Button x:Name="PlayPauseButton" Content="播放 / 暂停" Click="PlayPauseClick" />
-                    <Button x:Name="NextButton" Content="下一首" Click="NextClick" />
+                    <Button x:Name="LoginButton" Content="登录" Style="{StaticResource MetroButtonStyle}" Click="LoginClick" />
+                    <Button x:Name="PlayTestButton" Content="播放测试曲" Style="{StaticResource MetroSecondaryButtonStyle}" Click="PlayTestClick" />
+                    <Button x:Name="PlayPauseButton" Content="播放 / 暂停" Style="{StaticResource MetroSecondaryButtonStyle}" Click="PlayPauseClick" />
+                    <Button x:Name="NextButton" Content="下一首" Style="{StaticResource MetroGhostButtonStyle}" Click="NextClick" />
                 </StackPanel>
                 <TextBlock x:Name="CurrentText" Style="{StaticResource CaptionTextStyle}" Text="未播放" />
             </StackPanel>

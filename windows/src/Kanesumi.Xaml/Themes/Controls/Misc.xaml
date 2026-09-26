@@ -1,0 +1,23 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 分隔线：1px、divider 色，只做水平方向。 -->
+    <Style x:Key="MetroDividerStyle" TargetType="Rectangle">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Fill" Value="{ThemeResource KDividerBrush}" />
+    </Style>
+
+    <!--
+      列表行：左 0 右 16、上下 8 由行内容自己控制；这里只去掉 ListViewItem 的默认内边距与最小高度，
+      并让内容横向拉伸。圆角由 Overrides.xaml 的 CornerRadius 归零覆盖。
+    -->
+    <Style x:Key="MetroListRowStyle" TargetType="ListViewItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+</ResourceDictionary>

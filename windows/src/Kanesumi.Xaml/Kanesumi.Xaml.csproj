@@ -41,6 +41,8 @@
 
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Motion\KanesumiEasing.cs" />
+    <Compile Include="Motion\KanesumiMotion.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -61,6 +63,14 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Themes\Overrides.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Themes\Controls\Buttons.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Themes\Controls\Misc.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
