@@ -1,0 +1,78 @@
+[
+  {
+    "id": "lrc.parse.basic-and-sorted",
+    "kind": "parse",
+    "description": "2 位 / 3 位毫秒、无时间戳行、空文本行、排序。",
+    "source": "app/.../lyric/LrcParser.kt",
+    "input": {
+      "lrc": "[00:12.34]first\n[00:12.345]second\n[01:02.03]third\n[00:05.00]earlier\nno timestamp\n[00:07.50]\n"
+    },
+    "expect": {
+      "lines": [
+        { "timeMs": 5000, "text": "earlier" },
+        { "timeMs": 12340, "text": "first" },
+        { "timeMs": 12345, "text": "second" },
+        { "timeMs": 62030, "text": "third" }
+      ]
+    }
+  },
+  {
+    "id": "lrc.parse.two-digit-milliseconds",
+    "kind": "parse",
+    "description": "两位毫秒按十毫秒解释：`03` → 30ms。",
+    "source": "app/.../lyric/LrcParser.kt 的 length==2 分支",
+    "input": {
+      "lrc": "[00:00.03]a\n[00:00.30]b\n[00:00.300]c\n"
+    },
+    "expect": {
+      "lines": [
+        { "timeMs": 30, "text": "a" },
+        { "timeMs": 300, "text": "b" },
+        { "timeMs": 300, "text": "c" }
+      ]
+    }
+  },
+  {
+    "id": "lrc.parse.first-timestamp-only",
+    "kind": "parse",
+    "description": "一行多个时间戳时只取第一个，其余原样进入文本（Android Regex.find 行为）。",
+    "source": "app/.../lyric/LrcParser.kt Regex.find 只匹配一次",
+    "input": {
+      "lrc": "[00:01.00][00:02.00]word\n"
+    },
+    "expect": {
+      "lines": [
+        { "timeMs": 1000, "text": "[00:02.00]word" }
+      ]
+    }
+  },
+  {
+    "id": "lrc.parse.ignores-garbage",
+    "kind": "parse",
+    "description": "全是无时间戳/空文本时输出为空。",
+    "source": "app/.../lyric/LrcParser.kt",
+    "input": {
+      "lrc": "作词：某某\n[ar:歌手]\n[00:01.00]\n\n"
+    },
+    "expect": {
+      "lines": []
+    }
+  },
+  {
+    "id": "lrc.merge.exact-time-alignment",
+    "kind": "merge",
+    "description": "译文按时间戳精确对齐原句；缺译文留空；孤立译文忽略。",
+    "source": "app/.../ui/player/LyricsView.kt associateBy { it.timeMs }",
+    "input": {
+      "lrc": "[00:01.00]line1\n[00:02.00]line2\n[00:03.00]line3\n",
+      "tlyric": "[00:01.00]trans1\n[00:03.00]trans3\n[00:09.00]orphan\n"
+    },
+    "expect": {
+      "lines": [
+        { "timeMs": 1000, "text": "line1", "translation": "trans1" },
+        { "timeMs": 2000, "text": "line2", "translation": "" },
+        { "timeMs": 3000, "text": "line3", "translation": "trans3" }
+      ]
+    }
+  }
+]

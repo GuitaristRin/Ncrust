@@ -29,7 +29,7 @@ Ncrust 的三个端（Android `app/`、Windows `windows/`、以后的 Linux）**
 | `fixtures/crypto/` | eapi / weapi 固定输入 → 固定输出（weapi 固定 16 位 secret 以保证可复现） | ✅ 已落地（Windows Core + 测试） |
 | `fixtures/quality/` | 7 级音质阶梯、各起点的降级序列、FLAC 门控规则 | ✅ 已落地（Windows Core + 测试） |
 | `fixtures/queue/` | 队列操作用例：初始队列 + 模式 + 操作 → 期望队列与索引 | ⏳ Windows M1 |
-| `fixtures/lrc/` | LRC 时间戳解析、`tlyric` 双语合并用例 | ⏳ Windows M1 |
+| `fixtures/lrc/` | LRC 时间戳解析、`tlyric` 双语合并用例 | ✅ 已落地（Windows Core + 测试） |
 
 消费方：
 
