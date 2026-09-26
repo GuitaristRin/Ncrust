@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Ncrust.Login;
 using Ncrust.Pages;
 using Ncrust.Playback;
@@ -216,7 +216,7 @@ namespace Ncrust.Shell
             }
             else
             {
-                AccountItem.Icon = new FontIcon { FontFamily = new Windows.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"), Glyph = "" };
+                AccountItem.Icon = new FontIcon { FontFamily = new Windows.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"), Glyph = "\uE77B" };
             }
         }
 

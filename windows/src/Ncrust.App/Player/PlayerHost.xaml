@@ -8,13 +8,38 @@
       播放器层：常驻覆盖层。Progress（0 迷你栏 → 1 展开卡片）、Fullscreen 两个标量放在
       CompositionPropertySet 里；封面是全应用唯一的一个元素，尺寸/位移由 ExpressionAnimation
       从 Progress/Fullscreen 算出（迷你栏缩略图 → 卡片大图 → 真全屏），不复制第二张。
-    -->
-    <!--
+
       Root 不设背景（null）而不是 Transparent：null 背景的空白处不接收命中，点击会穿透到下面的页面；
       也不能设 IsHitTestVisible="False" —— 那会连同迷你栏、封面在内整棵子树都点不到。
     -->
     <Grid x:Name="Root" Background="{x:Null}">
-        <!-- 展开卡片层：透明度由 Progress 驱动；收起时不参与命中测试。 -->
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="WidthStates">
+                <!-- 宽窗口：Groove 式传输栏（中间是模式 / 上一首 / 播放 / 下一首 + 可拖动进度条）。 -->
+                <VisualState x:Name="Wide">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="600" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+                <!-- 窄窗口：退化为 Android 迷你栏（顶边细进度条 + 播放 / 下一首）。 -->
+                <VisualState x:Name="Narrow">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="SeekRow.Visibility" Value="Collapsed" />
+                        <Setter Target="ModeButton.Visibility" Value="Collapsed" />
+                        <Setter Target="PreviousButton.Visibility" Value="Collapsed" />
+                        <Setter Target="VolumeButton.Visibility" Value="Collapsed" />
+                        <Setter Target="LyricsButton.Visibility" Value="Collapsed" />
+                        <Setter Target="SlimProgress.Visibility" Value="Visible" />
+                        <Setter Target="TransportColumn.Width" Value="Auto" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
+        <!-- 展开卡片层：透明度由 Progress 驱动；收起时不参与命中测试。播放控制沿用底部传输栏。 -->
         <Grid
             x:Name="CardLayer"
             Background="{ThemeResource KBackgroundBrush}"
@@ -25,25 +50,14 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- 左栏：封面预留区 + 曲目信息 + 控件 -->
+            <!-- 左栏：封面在其上方由 Composition 摆放；这里只放曲目信息，贴在传输栏上方。 -->
             <StackPanel
                 Grid.Column="0"
-                Margin="48,24,24,24"
+                Margin="48,24,24,104"
                 VerticalAlignment="Bottom"
-                Spacing="12">
-                <TextBlock x:Name="CardTitle" Style="{StaticResource TitleTextStyle}" TextTrimming="CharacterEllipsis" />
-                <TextBlock x:Name="CardArtist" Style="{StaticResource CaptionTextStyle}" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Style="{StaticResource MetroIconButtonStyle}" Click="PreviousClick">
-                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE892;" FontSize="18" />
-                    </Button>
-                    <Button Style="{StaticResource MetroIconButtonStyle}" Click="PlayPauseClick">
-                        <FontIcon x:Name="CardPlayIcon" FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;" FontSize="18" />
-                    </Button>
-                    <Button Style="{StaticResource MetroIconButtonStyle}" Click="NextClick">
-                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE893;" FontSize="18" />
-                    </Button>
-                </StackPanel>
+                Spacing="4">
+                <TextBlock x:Name="CardTitle" Style="{StaticResource HeadlineMediumTextStyle}" />
+                <TextBlock x:Name="CardArtist" Style="{StaticResource BodyLargeTextStyle}" Foreground="{ThemeResource KOnSurfaceVariantBrush}" />
             </StackPanel>
 
             <!-- 右栏：歌词 / 队列（占位，后续接 MetroLyricsPanel / QueueView） -->
@@ -54,74 +68,201 @@
                 Style="{StaticResource CaptionTextStyle}"
                 Text="歌词 / 队列（待实现）" />
 
-            <Button
+            <StackPanel
                 Grid.Column="1"
-                Margin="0,16,16,0"
+                Margin="0,8,8,0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
-                Style="{StaticResource MetroIconButtonStyle}"
-                Click="FullscreenClick"
-                ToolTipService.ToolTip="全屏">
-                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE740;" FontSize="18" />
-            </Button>
+                Orientation="Horizontal">
+                <Button Style="{StaticResource MetroIconButtonStyle}" Click="FullscreenClick" ToolTipService.ToolTip="全屏 (F11)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE740;" FontSize="16" />
+                </Button>
+                <Button Style="{StaticResource MetroIconButtonStyle}" Click="ExpandClick" ToolTipService.ToolTip="收起 (Esc)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70D;" FontSize="16" />
+                </Button>
+            </StackPanel>
         </Grid>
 
-        <!-- 迷你播放栏（高 72）。左侧 72 是封面的位置（封面是本层最后一个元素，浮在其上）。 -->
+        <!-- 传输栏（高 72）。左侧 72 是封面的位置（封面是本层最后一个元素，浮在其上）。 -->
         <Grid
             x:Name="MiniBar"
             Height="72"
             VerticalAlignment="Bottom"
-            Background="{ThemeResource KSurfaceBrush}"
-            IsHitTestVisible="True">
+            Background="{ThemeResource KSurfaceBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="72" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="96" MaxWidth="320" />
+                <ColumnDefinition x:Name="TransportColumn" Width="2*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel
-                Grid.Column="1"
-                Margin="12,0"
-                VerticalAlignment="Center">
-                <TextBlock x:Name="MiniTitle" Style="{StaticResource BodyTextStyle}" Text="未在播放" TextTrimming="CharacterEllipsis" />
-                <TextBlock x:Name="MiniArtist" Style="{StaticResource CaptionTextStyle}" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
+            <!-- 顶边细进度条：只在窄窗口显示（对应 Android SlimProgressBar）。 -->
+            <ProgressBar
+                x:Name="SlimProgress"
+                Grid.ColumnSpan="4"
+                Height="2"
+                MinHeight="2"
+                VerticalAlignment="Top"
+                Maximum="1"
+                Minimum="0"
+                Visibility="Collapsed" />
 
-            <StackPanel
+            <!-- 曲目信息：点击展开卡片（Groove：点正在播放的信息进入「正在播放」）。 -->
+            <Grid
+                Grid.Column="1"
+                Padding="12,0"
+                Background="Transparent"
+                Tapped="InfoTapped">
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="MiniTitle" Style="{StaticResource BodyTextStyle}" Text="未在播放" />
+                    <TextBlock x:Name="MiniArtist" Style="{StaticResource CaptionTextStyle}" />
+                </StackPanel>
+            </Grid>
+
+            <Grid
+                x:Name="TransportPanel"
                 Grid.Column="2"
-                Orientation="Horizontal"
-                VerticalAlignment="Center"
-                Spacing="4">
-                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="PreviousClick">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE892;" FontSize="16" />
-                </Button>
-                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="PlayPauseClick">
-                    <FontIcon x:Name="MiniPlayIcon" FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;" FontSize="16" />
-                </Button>
-                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="NextClick">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE893;" FontSize="16" />
-                </Button>
-            </StackPanel>
+                VerticalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="4">
+                    <Button
+                        x:Name="ModeButton"
+                        Width="36"
+                        Height="36"
+                        Click="ModeClick"
+                        Style="{StaticResource MetroIconButtonStyle}">
+                        <FontIcon x:Name="ModeIcon" FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE8EE;" />
+                    </Button>
+                    <Button
+                        x:Name="PreviousButton"
+                        Width="36"
+                        Height="36"
+                        Click="PreviousClick"
+                        Style="{StaticResource MetroIconButtonStyle}"
+                        ToolTipService.ToolTip="上一首 (Ctrl+←)">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE892;" />
+                    </Button>
+                    <Button
+                        x:Name="PlayButton"
+                        Width="40"
+                        Height="36"
+                        Click="PlayPauseClick"
+                        Style="{StaticResource MetroIconButtonStyle}"
+                        ToolTipService.ToolTip="播放 / 暂停 (Space)">
+                        <FontIcon x:Name="MiniPlayIcon" FontFamily="Segoe MDL2 Assets" FontSize="18" Glyph="&#xE768;" />
+                    </Button>
+                    <Button
+                        x:Name="NextButton"
+                        Width="36"
+                        Height="36"
+                        Click="NextClick"
+                        Style="{StaticResource MetroIconButtonStyle}"
+                        ToolTipService.ToolTip="下一首 (Ctrl+→)">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE893;" />
+                    </Button>
+                </StackPanel>
+
+                <Grid
+                    x:Name="SeekRow"
+                    Grid.Row="1"
+                    MaxWidth="560"
+                    Margin="0,0,0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="44" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="PositionText"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource LabelTextStyle}"
+                        Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                        Text="0:00"
+                        TextAlignment="Right" />
+                    <Slider
+                        x:Name="SeekSlider"
+                        Grid.Column="1"
+                        Margin="8,0"
+                        VerticalAlignment="Center"
+                        IsThumbToolTipEnabled="False"
+                        Maximum="1"
+                        Minimum="0"
+                        StepFrequency="1"
+                        ValueChanged="SeekValueChanged" />
+                    <TextBlock
+                        x:Name="DurationText"
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource LabelTextStyle}"
+                        Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                        Text="0:00" />
+                </Grid>
+            </Grid>
 
             <StackPanel
                 Grid.Column="3"
-                Margin="0,0,12,0"
-                Orientation="Horizontal"
+                Margin="0,0,8,0"
                 VerticalAlignment="Center"
-                Spacing="4">
-                <ProgressBar
-                    x:Name="MiniProgress"
-                    Width="120"
-                    Height="2"
-                    Maximum="1"
-                    Minimum="0"
-                    VerticalAlignment="Center" />
-                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="ExpandClick">
-                    <TextBlock Text="词" FontSize="15" />
+                Orientation="Horizontal">
+                <Button
+                    x:Name="VolumeButton"
+                    Width="40"
+                    Height="40"
+                    Style="{StaticResource MetroIconButtonStyle}"
+                    ToolTipService.ToolTip="音量">
+                    <FontIcon x:Name="VolumeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE767;" />
+                    <Button.Flyout>
+                        <Flyout Placement="Top">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button
+                                    Width="40"
+                                    Height="40"
+                                    Click="MuteClick"
+                                    Style="{StaticResource MetroIconButtonStyle}"
+                                    ToolTipService.ToolTip="静音">
+                                    <FontIcon x:Name="MuteIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE767;" />
+                                </Button>
+                                <Slider
+                                    x:Name="VolumeSlider"
+                                    Width="160"
+                                    VerticalAlignment="Center"
+                                    Maximum="100"
+                                    Minimum="0"
+                                    ValueChanged="VolumeValueChanged" />
+                                <TextBlock
+                                    x:Name="VolumeText"
+                                    Width="28"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource CaptionTextStyle}" />
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
                 </Button>
-                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="ExpandClick">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8FD;" FontSize="16" />
+                <Button
+                    x:Name="LyricsButton"
+                    Width="40"
+                    Height="40"
+                    Click="ExpandClick"
+                    Style="{StaticResource MetroIconButtonStyle}"
+                    ToolTipService.ToolTip="歌词 (Ctrl+L)">
+                    <TextBlock FontSize="15" Text="词" />
+                </Button>
+                <Button
+                    x:Name="ExpandButton"
+                    Width="40"
+                    Height="40"
+                    Click="ExpandClick"
+                    Style="{StaticResource MetroIconButtonStyle}"
+                    ToolTipService.ToolTip="正在播放">
+                    <FontIcon x:Name="ExpandIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE70E;" />
                 </Button>
             </StackPanel>
         </Grid>
@@ -133,7 +274,6 @@
             Height="72"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
-            IsHitTestVisible="True"
             Stretch="UniformToFill"
             Tapped="CoverTapped" />
     </Grid>

@@ -1,12 +1,14 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Numerics;
 using Kanesumi.Xaml.Motion;
 using Ncrust.Core.Api;
+using Ncrust.Core.Playback;
 using Ncrust.Playback;
 using Windows.UI.Composition;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Hosting;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media.Imaging;
@@ -15,26 +17,32 @@ namespace Ncrust.Player
 {
     /// <summary>
     /// 播放器覆盖层。Progress / Fullscreen 两个标量驱动全部形变（见 windows/AGENTS.md「播放器层」）。
+    /// 底部是 Groove 式传输栏：模式 / 上一首 / 播放 / 下一首、可拖动进度条、音量、歌词、展开。
     /// </summary>
     public sealed partial class PlayerHost : UserControl
     {
         private const float MiniCover = 72f;
-        private static readonly TimeSpan Duration = TimeSpan.FromMilliseconds(400);
+        private const float BarHeight = 72f;
+        private const string VolumeKey = "volume";
+        private const string PlayModeKey = "play_mode";
+
+        /// <summary>模式按钮的切换顺序。INFINITY（FM / 相似歌曲续播）落地后再加入。</summary>
+        private static readonly PlaybackMode[] ModeCycle =
+        {
+            PlaybackMode.Cycle, PlaybackMode.Single, PlaybackMode.Shuffle, PlaybackMode.Line,
+        };
 
         private Compositor _compositor;
         private CompositionPropertySet _props;
         private Visual _coverVisual;
-        private Visual _miniBarVisual;
 
-        private float _toCardScale = 1f;
-        private float _toCardDx;
-        private float _toCardDy;
-        private float _toFullScale = 1f;
-        private float _toFullDx;
-        private float _toFullDy;
-
+        private bool _initialized;
         private bool _fullscreen;
         private bool _expanded;
+
+        private bool _seekDragging;
+        private bool _seekProgrammatic;
+        private bool _volumeProgrammatic;
 
         public PlayerHost()
         {
@@ -51,10 +59,24 @@ namespace Ncrust.Player
                     App.WriteCrashLog(ex);
                 }
             };
+
+            // 拖动进度条时只在松手后跳转，避免拖动过程中反复 seek 让流媒体卡顿。
+            // Slider 自己会处理指针事件，所以要用 handledEventsToo 才收得到。
+            SeekSlider.AddHandler(PointerPressedEvent, new PointerEventHandler((_, __) => _seekDragging = true), true);
+            SeekSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler((_, __) => EndSeekDrag()), true);
+            SeekSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler((_, __) => EndSeekDrag()), true);
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            // Loaded 在元素重新入树时会再次触发；合成与事件订阅只做一次。
+            if (_initialized)
+            {
+                return;
+            }
+
+            _initialized = true;
+
             try
             {
                 _compositor = ElementCompositionPreview.GetElementVisual(Root).Compositor;
@@ -66,15 +88,13 @@ namespace Ncrust.Player
                 ElementCompositionPreview.SetIsTranslationEnabled(CoverImage, true);
                 _coverVisual.CenterPoint = new Vector3(0f, 0f, 0f);
 
-                _miniBarVisual = ElementCompositionPreview.GetElementVisual(MiniBar);
-
                 var cardOpacity = _compositor.CreateExpressionAnimation("props.Progress");
                 cardOpacity.SetReferenceParameter("props", _props);
                 ElementCompositionPreview.GetElementVisual(CardLayer).StartAnimation("Opacity", cardOpacity);
 
-                var miniOpacity = _compositor.CreateExpressionAnimation("1 - props.Fullscreen");
-                miniOpacity.SetReferenceParameter("props", _props);
-                _miniBarVisual.StartAnimation("Opacity", miniOpacity);
+                var barOpacity = _compositor.CreateExpressionAnimation("1 - props.Fullscreen");
+                barOpacity.SetReferenceParameter("props", _props);
+                ElementCompositionPreview.GetElementVisual(MiniBar).StartAnimation("Opacity", barOpacity);
 
                 RebuildExpressions();
             }
@@ -88,8 +108,35 @@ namespace Ncrust.Player
             engine.CurrentSongChanged += OnSongChanged;
             engine.IsPlayingChanged += OnIsPlayingChanged;
             engine.ProgressChanged += OnProgressChanged;
+            engine.ModeChanged += UpdateModeButton;
+
+            RestorePreferences(engine);
             OnSongChanged(AppServices.Queue.Current);
+            OnIsPlayingChanged(engine.IsPlaying);
         }
+
+        private void RestorePreferences(PlaybackEngine engine)
+        {
+            var volume = AppServices.Settings.GetInt(VolumeKey, 100);
+            engine.Volume = volume / 100.0;
+            SetVolumeSlider(volume);
+            UpdateVolumeIcons();
+
+            var mode = (PlaybackMode)AppServices.Settings.GetInt(PlayModeKey, (int)PlaybackMode.Cycle);
+            if (Array.IndexOf(ModeCycle, mode) < 0)
+            {
+                mode = PlaybackMode.Cycle;
+            }
+
+            if (engine.Mode != mode)
+            {
+                engine.SetMode(mode);
+            }
+
+            UpdateModeButton(engine.Mode);
+        }
+
+        // ── 形变 ──────────────────────────────────────────────────────────────
 
         private void RebuildExpressions()
         {
@@ -108,27 +155,32 @@ namespace Ncrust.Player
             // 迷你封面布局在 Root 左下角：top-left = (0, height - 72)。
             var miniTop = height - MiniCover;
 
-            var cardCover = Math.Min(width - 96f, height * 0.42f);
-            var cardLeft = (width - cardCover) / 2f;
-            var cardTop = 48f;
+            // 卡片：封面放在左栏（右栏留给歌词 / 队列），位于曲目信息与传输栏之上；窄窗口占满宽度。
+            const float top = 48f;
+            const float infoBlock = 120f;
+            var columnWidth = width >= 600f ? width / 2f : width;
+            var availableHeight = Math.Max(MiniCover, height - BarHeight - infoBlock - top);
+            var cardCover = Math.Max(MiniCover, Math.Min(columnWidth - 96f, availableHeight));
+            var cardLeft = (columnWidth - cardCover) / 2f;
+            var cardTop = top + (availableHeight - cardCover) / 2f;
 
+            // 真全屏：封面按窗口短边铺满、居中。
             var fullCover = Math.Min(width, height);
             var fullLeft = (width - fullCover) / 2f;
-            var fullTop = 0f;
+            var fullTop = (height - fullCover) / 2f;
 
-            _toCardScale = cardCover / MiniCover;
-            _toCardDx = cardLeft;
-            _toCardDy = cardTop - miniTop;
-
-            _toFullScale = fullCover / MiniCover;
-            _toFullDx = fullLeft;
-            _toFullDy = fullTop - miniTop;
+            var toCardScale = cardCover / MiniCover;
+            var toCardDx = cardLeft;
+            var toCardDy = cardTop - miniTop;
+            var toFullScale = fullCover / MiniCover;
+            var toFullDx = fullLeft;
+            var toFullDy = fullTop - miniTop;
 
             // Scale 是 Vector3：表达式必须返回 Vector3，标量会抛
             // 「expression output does not match animating property type」。
             var scaleValue = Formattable(
                 "1 + ({0} - 1) * props.Progress + ({1} - {2}) * props.Fullscreen",
-                _toCardScale, _toFullScale, _toCardScale);
+                toCardScale, toFullScale, toCardScale);
             var scale = _compositor.CreateExpressionAnimation("Vector3(" + scaleValue + ", " + scaleValue + ", 1)");
             scale.SetReferenceParameter("props", _props);
             _coverVisual.StartAnimation("Scale", scale);
@@ -136,7 +188,7 @@ namespace Ncrust.Player
             var translation = _compositor.CreateExpressionAnimation(
                 Formattable(
                     "Vector3({0} * props.Progress + ({1} - {0}) * props.Fullscreen, {2} * props.Progress + ({3} - {2}) * props.Fullscreen, 0)",
-                    _toCardDx, _toFullDx, _toCardDy, _toFullDy));
+                    toCardDx, toFullDx, toCardDy, toFullDy));
             translation.SetReferenceParameter("props", _props);
             _coverVisual.StartAnimation("Translation", translation);
         }
@@ -152,12 +204,16 @@ namespace Ncrust.Player
             return string.Format(CultureInfo.InvariantCulture, template, args);
         }
 
+        // ── 引擎回调（均在 UI 线程） ────────────────────────────────────────────
+
         private void OnSongChanged(SongItem song)
         {
             if (song == null)
             {
                 MiniTitle.Text = "未在播放";
                 MiniArtist.Text = string.Empty;
+                CardTitle.Text = string.Empty;
+                CardArtist.Text = string.Empty;
                 return;
             }
 
@@ -166,6 +222,7 @@ namespace Ncrust.Player
             CardTitle.Text = song.Name;
             CardArtist.Text = song.ArtistText;
             SetCover(song.CoverUrl);
+            OnProgressChanged(0, song.Duration);
         }
 
         private void SetCover(string url)
@@ -182,30 +239,203 @@ namespace Ncrust.Player
 
         private void OnIsPlayingChanged(bool playing)
         {
-            var glyph = playing ? "\uE769" : "\uE768";
-            MiniPlayIcon.Glyph = glyph;
-            CardPlayIcon.Glyph = glyph;
+            MiniPlayIcon.Glyph = playing ? "\uE769" : "\uE768";
         }
 
         private void OnProgressChanged(long positionMs, long durationMs)
         {
-            MiniProgress.Value = durationMs > 0 ? (double)positionMs / durationMs : 0;
+            var fraction = durationMs > 0 ? (double)positionMs / durationMs : 0;
+            SlimProgress.Value = fraction;
+            DurationText.Text = FormatTime(durationMs);
+
+            if (_seekDragging)
+            {
+                return; // 拖动中：进度条跟手，不被 2Hz 的播放进度拉回去。
+            }
+
+            PositionText.Text = FormatTime(positionMs);
+            _seekProgrammatic = true;
+            SeekSlider.Maximum = Math.Max(1, durationMs / 1000.0);
+            SeekSlider.Value = Math.Min(SeekSlider.Maximum, positionMs / 1000.0);
+            _seekProgrammatic = false;
         }
+
+        private static string FormatTime(long ms)
+        {
+            if (ms <= 0)
+            {
+                return "0:00";
+            }
+
+            var total = (long)(ms / 1000);
+            return (total / 60).ToString(CultureInfo.InvariantCulture) + ":" +
+                   (total % 60).ToString("00", CultureInfo.InvariantCulture);
+        }
+
+        // ── 进度条 ────────────────────────────────────────────────────────────
+
+        private void SeekValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (_seekProgrammatic)
+            {
+                return;
+            }
+
+            PositionText.Text = FormatTime((long)(e.NewValue * 1000));
+
+            // 键盘方向键 / 无拖动的点击：立即跳转；拖动中等松手。
+            if (!_seekDragging)
+            {
+                PlaybackHost.Engine.Seek((long)(e.NewValue * 1000));
+            }
+        }
+
+        private void EndSeekDrag()
+        {
+            if (!_seekDragging)
+            {
+                return;
+            }
+
+            _seekDragging = false;
+            PlaybackHost.Engine.Seek((long)(SeekSlider.Value * 1000));
+        }
+
+        // ── 模式 ──────────────────────────────────────────────────────────────
+
+        private void ModeClick(object sender, RoutedEventArgs e)
+        {
+            var engine = PlaybackHost.Engine;
+            var index = Array.IndexOf(ModeCycle, engine.Mode);
+            var next = ModeCycle[(index + 1) % ModeCycle.Length];
+            engine.SetMode(next);
+            AppServices.Settings.SetInt(PlayModeKey, (int)next);
+        }
+
+        private void UpdateModeButton(PlaybackMode mode)
+        {
+            string glyph;
+            string tip;
+            switch (mode)
+            {
+                case PlaybackMode.Single:
+                    glyph = "\uE8ED";
+                    tip = "单曲循环";
+                    break;
+                case PlaybackMode.Shuffle:
+                    glyph = "\uE8B1";
+                    tip = "随机播放";
+                    break;
+                case PlaybackMode.Line:
+                    glyph = "\uE72A";
+                    tip = "顺序播放（播完停止）";
+                    break;
+                case PlaybackMode.Infinity:
+                    glyph = "\uE895";
+                    tip = "无限续播";
+                    break;
+                default:
+                    glyph = "\uE8EE";
+                    tip = "列表循环";
+                    break;
+            }
+
+            ModeIcon.Glyph = glyph;
+            ToolTipService.SetToolTip(ModeButton, tip);
+        }
+
+        // ── 音量 ──────────────────────────────────────────────────────────────
+
+        private void VolumeValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (_volumeProgrammatic)
+            {
+                return;
+            }
+
+            var engine = PlaybackHost.Engine;
+            engine.Volume = e.NewValue / 100.0;
+            if (engine.IsMuted && e.NewValue > 0)
+            {
+                engine.IsMuted = false;
+            }
+
+            AppServices.Settings.SetInt(VolumeKey, (int)Math.Round(e.NewValue));
+            UpdateVolumeIcons();
+        }
+
+        private void MuteClick(object sender, RoutedEventArgs e)
+        {
+            var engine = PlaybackHost.Engine;
+            engine.IsMuted = !engine.IsMuted;
+            UpdateVolumeIcons();
+        }
+
+        private void SetVolumeSlider(int volume)
+        {
+            _volumeProgrammatic = true;
+            VolumeSlider.Value = volume;
+            _volumeProgrammatic = false;
+        }
+
+        private void UpdateVolumeIcons()
+        {
+            var engine = PlaybackHost.Engine;
+            var percent = (int)Math.Round(engine.Volume * 100);
+            string glyph;
+            if (engine.IsMuted || percent == 0)
+            {
+                glyph = "\uE74F";
+            }
+            else if (percent < 34)
+            {
+                glyph = "\uE993";
+            }
+            else if (percent < 67)
+            {
+                glyph = "\uE994";
+            }
+            else
+            {
+                glyph = "\uE995";
+            }
+
+            VolumeIcon.Glyph = glyph;
+            MuteIcon.Glyph = glyph;
+            VolumeText.Text = engine.IsMuted ? "—" : percent.ToString(CultureInfo.InvariantCulture);
+        }
+
+        // ── 展开 / 全屏 ───────────────────────────────────────────────────────
 
         private void Expand()
         {
             _expanded = true;
             CardLayer.IsHitTestVisible = true;
-            AnimateProgress(1f, KanesumiMotion.PlayerExpand, KanesumiEasing.Standard(_compositor));
+            ExpandIcon.Glyph = "\uE70D";
+            AnimateScalar("Progress", 1f, expanding: true);
         }
 
         private void Collapse()
         {
             _expanded = false;
-            _fullscreen = false;
+            SetFullscreen(false);
             CardLayer.IsHitTestVisible = false;
-            AnimateScalar("Fullscreen", 0f, KanesumiMotion.PlayerCollapse, KanesumiEasing.FastOutSlowIn(_compositor));
-            AnimateProgress(0f, KanesumiMotion.PlayerCollapse, KanesumiEasing.FastOutSlowIn(_compositor));
+            ExpandIcon.Glyph = "\uE70E";
+            AnimateScalar("Progress", 0f, expanding: false);
+        }
+
+        private void SetFullscreen(bool fullscreen)
+        {
+            if (_fullscreen == fullscreen)
+            {
+                return;
+            }
+
+            _fullscreen = fullscreen;
+
+            // 全屏时传输栏透明度为 0，但透明元素照样接收点击：一并关掉命中测试。
+            MiniBar.IsHitTestVisible = !fullscreen;
+            AnimateScalar("Fullscreen", fullscreen ? 1f : 0f, expanding: fullscreen);
         }
 
         /// <summary>Esc 逐层退出：全屏 → 回卡片；卡片 → 收起。返回是否处理了。</summary>
@@ -213,8 +443,7 @@ namespace Ncrust.Player
         {
             if (_fullscreen)
             {
-                _fullscreen = false;
-                AnimateScalar("Fullscreen", 0f, KanesumiMotion.PlayerCollapse, KanesumiEasing.FastOutSlowIn(_compositor));
+                SetFullscreen(false);
                 return true;
             }
 
@@ -225,17 +454,6 @@ namespace Ncrust.Player
             }
 
             return false;
-        }
-
-        private void AnimateProgress(float to, TimeSpan duration, CompositionEasingFunction easing) =>
-            AnimateScalar("Progress", to, duration, easing);
-
-        private void AnimateScalar(string property, float to, TimeSpan duration, CompositionEasingFunction easing)
-        {
-            var animation = _compositor.CreateScalarKeyFrameAnimation();
-            animation.InsertKeyFrame(1f, to, easing);
-            animation.Duration = duration;
-            _props.StartAnimation(property, animation);
         }
 
         /// <summary>展开卡片 ↔ 收起（Ctrl+L 与播放栏按钮都走这里）。</summary>
@@ -251,16 +469,6 @@ namespace Ncrust.Player
             }
         }
 
-        private void ExpandClick(object sender, RoutedEventArgs e) => ToggleExpanded();
-
-        private void CoverTapped(object sender, TappedRoutedEventArgs e)
-        {
-            if (!_expanded)
-            {
-                Expand();
-            }
-        }
-
         /// <summary>卡片 ↔ 真全屏切换（F11 与卡片里的专用按钮都走这里）。</summary>
         public void ToggleFullscreen()
         {
@@ -269,12 +477,33 @@ namespace Ncrust.Player
                 Expand();
             }
 
-            _fullscreen = !_fullscreen;
-            AnimateScalar(
-                "Fullscreen",
-                _fullscreen ? 1f : 0f,
-                _fullscreen ? KanesumiMotion.PlayerExpand : KanesumiMotion.PlayerCollapse,
-                _fullscreen ? KanesumiEasing.Standard(_compositor) : KanesumiEasing.FastOutSlowIn(_compositor));
+            SetFullscreen(!_fullscreen);
+        }
+
+        /// <summary>展开方向 400ms standard，收起方向 260ms fastOutSlowIn（与 Android 播放卡一致）。</summary>
+        private void AnimateScalar(string property, float to, bool expanding)
+        {
+            if (_compositor == null)
+            {
+                return; // 合成初始化失败时降级为无动画（缓动也要在判空之后才创建）。
+            }
+
+            var easing = expanding ? KanesumiEasing.Standard(_compositor) : KanesumiEasing.FastOutSlowIn(_compositor);
+            _props.StartAnimation(property, KanesumiMotion.TweenScalar(_compositor, to, KanesumiMotion.PlayerDuration(expanding), easing));
+        }
+
+        private void ExpandClick(object sender, RoutedEventArgs e) => ToggleExpanded();
+
+        private void InfoTapped(object sender, TappedRoutedEventArgs e) => ToggleExpanded();
+
+        private void CoverTapped(object sender, TappedRoutedEventArgs e)
+        {
+            if (_fullscreen)
+            {
+                return;
+            }
+
+            ToggleExpanded();
         }
 
         private void FullscreenClick(object sender, RoutedEventArgs e) => ToggleFullscreen();
