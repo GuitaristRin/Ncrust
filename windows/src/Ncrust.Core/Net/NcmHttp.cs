@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Ncrust.Core.Net.Crypto;
+using Ncrust.Core.Util;
 
 namespace Ncrust.Core.Net
 {
@@ -27,9 +28,6 @@ namespace Ncrust.Core.Net
 
         private const string IosUa =
             "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1";
-
-        private static readonly object RandLock = new object();
-        private static readonly Random Rand = new Random();
 
         private readonly HttpClient _client;
         private readonly bool _ownsHandler;
@@ -94,7 +92,7 @@ namespace Ncrust.Core.Net
             {
                 new KeyValuePair<string, string>("os", "iphone"),
                 new KeyValuePair<string, string>("appver", "8.9.60"),
-                new KeyValuePair<string, string>("deviceId", mus.TryGetValue("deviceId", out var deviceId) ? deviceId : RandomHex(20)),
+                new KeyValuePair<string, string>("deviceId", mus.TryGetValue("deviceId", out var deviceId) ? deviceId : RandomText.Hex(20)),
                 new KeyValuePair<string, string>("osver", mus.TryGetValue("osver", out var osver) ? osver : "16.0"),
                 new KeyValuePair<string, string>("versioncode", "140"),
                 new KeyValuePair<string, string>("mobilename", string.Empty),
@@ -102,7 +100,7 @@ namespace Ncrust.Core.Net
                 new KeyValuePair<string, string>("resolution", "1920x1080"),
                 new KeyValuePair<string, string>("__csrf", csrf),
                 new KeyValuePair<string, string>("channel", "yykj"),
-                new KeyValuePair<string, string>("requestId", NextInt(20_000_000, 30_000_000).ToString()),
+                new KeyValuePair<string, string>("requestId", RandomText.Next(20_000_000, 30_000_000).ToString()),
             };
 
             if (mus.TryGetValue("MUSIC_U", out var musicU))
@@ -313,26 +311,6 @@ namespace Ncrust.Core.Net
             var inner = trimmed.Substring(1, trimmed.Length - 2).Trim();
             var property = "\"" + name + "\":" + JsonText.Escape(value);
             return inner.Length == 0 ? "{" + property + "}" : "{" + inner + "," + property + "}";
-        }
-
-        private static int NextInt(int minInclusive, int maxExclusive)
-        {
-            lock (RandLock)
-            {
-                return Rand.Next(minInclusive, maxExclusive);
-            }
-        }
-
-        private static string RandomHex(int length)
-        {
-            const string chars = "0123456789abcdef";
-            var sb = new StringBuilder(length);
-            for (var i = 0; i < length; i++)
-            {
-                sb.Append(chars[NextInt(0, chars.Length)]);
-            }
-
-            return sb.ToString();
         }
     }
 }
