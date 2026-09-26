@@ -15,13 +15,59 @@ namespace Ncrust
     {
         public App()
         {
-            InitializeComponent();
+            Trace("App ctor: enter");
 
-            // 未处理异常落盘到 LocalFolder/crash.log。
-            // UWP 的未处理异常默认只进事件日志，而那里的 .NET Runtime 条目不含异常消息，
-            // 一个 XAML 资源键写错导致的崩溃会完全无从查起。
+            // 先把处理器挂上：App.xaml 资源解析失败会在 InitializeComponent 里抛出，
+            // 那时若还没挂钩就会变成「无日志闪退」。
             UnhandledException += (_, e) => WriteCrashLog(e.Exception);
+            AppDomain.CurrentDomain.UnhandledException += (_, e) => WriteCrashLog(e.ExceptionObject as Exception);
+            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) => WriteCrashLog(e.Exception);
+
+            try
+            {
+                InitializeComponent();
+            }
+            catch (Exception ex)
+            {
+                WriteCrashLog(ex);
+                throw;
+            }
+
+            Trace("App ctor: after InitializeComponent");
             Suspending += OnSuspending;
+        }
+
+        internal static void Trace(string message) =>
+            WriteLog("boot.log", $"{DateTimeOffset.Now:HH:mm:ss.fff} {message}\r\n");
+
+        /// <summary>三个落盘点：LocalFolder 在极早期可能不可用，Environment 与 GetTempPath 兜底。</summary>
+        internal static void WriteLog(string fileName, string text)
+        {
+            try
+            {
+                var path = System.IO.Path.Combine(ApplicationData.Current.LocalFolder.Path, fileName);
+                System.IO.File.AppendAllText(path, text);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var dir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "ncrust-" + fileName), text);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ncrust-" + fileName), text);
+            }
+            catch
+            {
+            }
         }
 
         internal static void WriteCrashLog(Exception ex)
@@ -42,8 +88,7 @@ namespace Ncrust
                 sb.AppendLine(ex?.StackTrace);
                 sb.AppendLine();
 
-                var path = System.IO.Path.Combine(ApplicationData.Current.LocalFolder.Path, "crash.log");
-                System.IO.File.AppendAllText(path, sb.ToString());
+                WriteLog("crash.log", sb.ToString());
             }
             catch
             {
@@ -60,12 +105,15 @@ namespace Ncrust
                 Window.Current.Content = rootFrame;
             }
 
+            Trace("OnLaunched: before Navigate");
             if (!e.PrelaunchActivated && rootFrame.Content == null)
             {
                 rootFrame.Navigate(typeof(ShellPage), e.Arguments);
             }
 
+            Trace("OnLaunched: after Navigate");
             Window.Current.Activate();
+            Trace("OnLaunched: after Activate");
         }
 
         private void OnNavigationFailed(object sender, NavigationFailedEventArgs e)
