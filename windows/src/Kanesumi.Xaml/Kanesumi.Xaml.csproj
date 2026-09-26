@@ -43,6 +43,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Motion\KanesumiEasing.cs" />
     <Compile Include="Motion\KanesumiMotion.cs" />
+    <Compile Include="Controls\MetroProgressRing.cs" />
   </ItemGroup>
 
   <ItemGroup>

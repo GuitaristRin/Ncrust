@@ -20,4 +20,14 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
+    <!-- 文本框 / 搜索框：surfaceVariant 底、内边距 12、无边框、无圆角（平台默认模板绑定这些属性）。 -->
+    <Style x:Key="MetroTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Background" Value="{ThemeResource KSurfaceVariantBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource KOnSurfaceBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+
 </ResourceDictionary>
