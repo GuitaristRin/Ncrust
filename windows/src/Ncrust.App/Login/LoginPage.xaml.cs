@@ -45,8 +45,9 @@ namespace Ncrust.Login
 
         private async void OnLoaded(object sender, RoutedEventArgs e)
         {
+            // 只初始化当前可见的网页登录；二维码等切到「扫码登录」时再取，
+            // 否则后台一直轮询一个用户没看到的二维码。
             await InitWebViewAsync();
-            await StartQrAsync();
         }
 
         private async Task InitWebViewAsync()
@@ -63,14 +64,27 @@ namespace Ncrust.Login
                 WebLogin.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
                 WebLogin.CoreWebView2.Navigate(LoginUrl);
             }
-            catch
+            catch (Exception ex)
             {
-                // WebView2 运行时缺失时，二维码路径仍可用。
+                // WebView2 运行时缺失或初始化失败：不要静默留一片空白，提示改用扫码。
+                App.WriteCrashLog(ex);
+                WebStatus.Text = "网页登录不可用（WebView2 初始化失败）。请点右上角「扫码登录」。";
+                WebStatus.Visibility = Visibility.Visible;
             }
         }
 
         private async void OnNavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs args)
         {
+            if (args.IsSuccess)
+            {
+                WebStatus.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                WebStatus.Text = "登录页加载失败，请检查网络，或点右上角「扫码登录」。";
+                WebStatus.Visibility = Visibility.Visible;
+            }
+
             var cookie = await TryReadWebCookieAsync();
             if (cookie != null)
             {
@@ -129,13 +143,13 @@ namespace Ncrust.Login
                 return;
             }
 
-            QrImage.Source = RenderQr(_key);
+            QrImage.Source = await RenderQrAsync(_key);
             QrStatus.Text = "请用网易云 App 扫码";
             _ticks = 0;
             _pollTimer.Start();
         }
 
-        private BitmapImage RenderQr(QrLoginKey key)
+        private static async Task<BitmapImage> RenderQrAsync(QrLoginKey key)
         {
             // 服务端给了图就直接用，否则本地生成。
             if (!string.IsNullOrEmpty(key.QrImage))
@@ -145,7 +159,7 @@ namespace Ncrust.Login
                     : key.QrImage;
                 try
                 {
-                    return BytesToImage(Convert.FromBase64String(base64));
+                    return await BytesToImageAsync(Convert.FromBase64String(base64));
                 }
                 catch
                 {
@@ -153,21 +167,28 @@ namespace Ncrust.Login
                 }
             }
 
+            byte[] png;
             using (var generator = new QRCodeGenerator())
             using (var data = generator.CreateQrCode(key.QrUrl, QRCodeGenerator.ECCLevel.M))
             {
-                return BytesToImage(new PngByteQRCode(data).GetGraphic(10));
+                png = new PngByteQRCode(data).GetGraphic(10);
             }
+
+            return await BytesToImageAsync(png);
         }
 
-        private static BitmapImage BytesToImage(byte[] bytes)
+        /// <summary>
+        /// 必须真异步：SetSourceAsync 要回到 UI 线程完成，在 UI 线程上 .Wait() 它会死锁
+        /// （曾导致打开登录层后整个应用无响应、WebView2 一片空白）。
+        /// </summary>
+        private static async Task<BitmapImage> BytesToImageAsync(byte[] bytes)
         {
             var image = new BitmapImage();
             using (var stream = new InMemoryRandomAccessStream())
             {
-                stream.WriteAsync(bytes.AsBuffer()).AsTask().Wait();
+                await stream.WriteAsync(bytes.AsBuffer());
                 stream.Seek(0);
-                image.SetSourceAsync(stream).AsTask().Wait();
+                await image.SetSourceAsync(stream);
             }
 
             return image;
@@ -231,6 +252,7 @@ namespace Ncrust.Login
         private void ShowWebClick(object sender, RoutedEventArgs e)
         {
             WebLogin.Visibility = Visibility.Visible;
+            WebStatus.Visibility = _webInitialized ? Visibility.Collapsed : Visibility.Visible;
             QrPanel.Visibility = Visibility.Collapsed;
             _ = InitWebViewAsync();
         }
@@ -239,6 +261,7 @@ namespace Ncrust.Login
         {
             QrPanel.Visibility = Visibility.Visible;
             WebLogin.Visibility = Visibility.Collapsed;
+            WebStatus.Visibility = Visibility.Collapsed;
             if (_key == null)
             {
                 _ = StartQrAsync();

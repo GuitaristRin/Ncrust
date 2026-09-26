@@ -29,6 +29,16 @@
         <Grid Grid.Row="1">
             <controls:WebView2 x:Name="WebLogin" Visibility="Visible" />
 
+            <!-- 网页登录的加载 / 失败提示：WebView2 首次导航完成前是空白，失败时要告诉用户改用扫码。 -->
+            <TextBlock
+                x:Name="WebStatus"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Style="{StaticResource CaptionTextStyle}"
+                Text="正在加载登录页…"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+
             <StackPanel
                 x:Name="QrPanel"
                 Visibility="Collapsed"
