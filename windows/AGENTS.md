@@ -9,9 +9,10 @@ Release|x64 构建零警告并生成 MSIX；注册后能启动，显示纯黑底
 Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`NcmHttp`）、
 自研只读 `JsonValue`、登录层（`SessionCookie` / `QrLoginClient` / `IBrowserCookieSource`）、
 首页发现端点（`DiscoveryApi`）、音质阶梯（`QualityLadder`）、歌词解析 / 合并
-（`LrcParser` / `LyricMerger`）与队列状态机（`PlaybackQueue`）。`spec/fixtures` 的
-crypto / quality / queue / lrc 第一批已全部落地，Core 测试 111 个通过；
-M0 的 UWP 侧验证项还没开始。
+（`LrcParser` / `LyricMerger`）、队列状态机（`PlaybackQueue`）、歌曲取链
+（`SongUrlResolver`）与播放上报（`PlayReport`）。`Ncrust.Core.Playback` 已完整；
+`spec/fixtures` 第一批（crypto / quality / queue / lrc）与 `spec/api/endpoints.md` 已落地，
+Core 测试 125 个通过；M0 的 UWP 侧验证项还没开始。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
