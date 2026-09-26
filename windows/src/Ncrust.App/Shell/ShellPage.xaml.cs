@@ -1,7 +1,9 @@
 using System;
 using Ncrust.Login;
 using Ncrust.Pages;
+using Windows.System;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Input;
 
 namespace Ncrust.Shell
 {
@@ -20,6 +22,20 @@ namespace Ncrust.Shell
             Sidebar.ItemsSource = new[] { "首页", "搜索", "音乐库", "我的" };
             LoginLauncher.LaunchRequested += ShowLogin;
             Sidebar.SelectedIndex = 0; // 触发 SelectionChanged → 进入首页
+
+            AddAccelerator(VirtualKey.Escape, (_, args) => args.Handled = Player.HandleEscape());
+            AddAccelerator(VirtualKey.F11, (_, args) =>
+            {
+                Player.ToggleFullscreen();
+                args.Handled = true;
+            });
+        }
+
+        private void AddAccelerator(VirtualKey key, Windows.Foundation.TypedEventHandler<KeyboardAccelerator, KeyboardAcceleratorInvokedEventArgs> handler)
+        {
+            var accelerator = new KeyboardAccelerator { Key = key };
+            accelerator.Invoked += handler;
+            KeyboardAccelerators.Add(accelerator);
         }
 
         private void SidebarSelectionChanged(object sender, SelectionChangedEventArgs e)

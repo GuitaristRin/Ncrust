@@ -1,0 +1,136 @@
+<UserControl
+    x:Class="Ncrust.Player.PlayerHost"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark">
+
+    <!--
+      播放器层：常驻覆盖层。Progress（0 迷你栏 → 1 展开卡片）、Fullscreen 两个标量放在
+      CompositionPropertySet 里；封面是全应用唯一的一个元素，尺寸/位移由 ExpressionAnimation
+      从 Progress/Fullscreen 算出（迷你栏缩略图 → 卡片大图 → 真全屏），不复制第二张。
+    -->
+    <Grid x:Name="Root" Background="Transparent" IsHitTestVisible="False">
+        <!-- 展开卡片层：透明度由 Progress 驱动；收起时不参与命中测试。 -->
+        <Grid
+            x:Name="CardLayer"
+            Background="{ThemeResource KBackgroundBrush}"
+            IsHitTestVisible="False"
+            Opacity="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左栏：封面预留区 + 曲目信息 + 控件 -->
+            <StackPanel
+                Grid.Column="0"
+                Margin="48,24,24,24"
+                VerticalAlignment="Bottom"
+                Spacing="12">
+                <TextBlock x:Name="CardTitle" Style="{StaticResource TitleTextStyle}" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="CardArtist" Style="{StaticResource CaptionTextStyle}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Style="{StaticResource MetroIconButtonStyle}" Click="PreviousClick">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE892;" FontSize="18" />
+                    </Button>
+                    <Button Style="{StaticResource MetroIconButtonStyle}" Click="PlayPauseClick">
+                        <FontIcon x:Name="CardPlayIcon" FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;" FontSize="18" />
+                    </Button>
+                    <Button Style="{StaticResource MetroIconButtonStyle}" Click="NextClick">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE893;" FontSize="18" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 右栏：歌词 / 队列（占位，后续接 MetroLyricsPanel / QueueView） -->
+            <TextBlock
+                Grid.Column="1"
+                Margin="24"
+                VerticalAlignment="Top"
+                Style="{StaticResource CaptionTextStyle}"
+                Text="歌词 / 队列（待实现）" />
+
+            <Button
+                Grid.Column="1"
+                Margin="0,16,16,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Style="{StaticResource MetroIconButtonStyle}"
+                Click="FullscreenClick"
+                ToolTipService.ToolTip="全屏">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE740;" FontSize="18" />
+            </Button>
+        </Grid>
+
+        <!-- 迷你播放栏（高 72）。左侧 72 是封面的位置（封面是本层最后一个元素，浮在其上）。 -->
+        <Grid
+            x:Name="MiniBar"
+            Height="72"
+            VerticalAlignment="Bottom"
+            Background="{ThemeResource KSurfaceBrush}"
+            IsHitTestVisible="True">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="72" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel
+                Grid.Column="1"
+                Margin="12,0"
+                VerticalAlignment="Center">
+                <TextBlock x:Name="MiniTitle" Style="{StaticResource BodyTextStyle}" Text="未在播放" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="MiniArtist" Style="{StaticResource CaptionTextStyle}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <StackPanel
+                Grid.Column="2"
+                Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Spacing="4">
+                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="PreviousClick">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE892;" FontSize="16" />
+                </Button>
+                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="PlayPauseClick">
+                    <FontIcon x:Name="MiniPlayIcon" FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;" FontSize="16" />
+                </Button>
+                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="NextClick">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE893;" FontSize="16" />
+                </Button>
+            </StackPanel>
+
+            <StackPanel
+                Grid.Column="3"
+                Margin="0,0,12,0"
+                Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Spacing="4">
+                <ProgressBar
+                    x:Name="MiniProgress"
+                    Width="120"
+                    Height="2"
+                    Maximum="1"
+                    Minimum="0"
+                    VerticalAlignment="Center" />
+                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="ExpandClick">
+                    <TextBlock Text="词" FontSize="15" />
+                </Button>
+                <Button Style="{StaticResource MetroIconButtonStyle}" Width="40" Height="40" Click="ExpandClick">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8FD;" FontSize="16" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 唯一封面：对齐到 Root 左下（迷你栏位置），由 Composition 位移+缩放形变。 -->
+        <Image
+            x:Name="CoverImage"
+            Width="72"
+            Height="72"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            IsHitTestVisible="True"
+            Stretch="UniformToFill"
+            Tapped="CoverTapped" />
+    </Grid>
+</UserControl>

@@ -2,12 +2,13 @@
     x:Class="Ncrust.Shell.ShellPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:player="using:Ncrust.Player"
     RequestedTheme="Dark"
     Background="{ThemeResource KBackgroundBrush}">
 
     <!--
-      外壳：标题栏 + 侧栏（MetroSidebarStyle）+ 内容 Frame + 覆盖层。
-      窄窗口的 MetroBottomNav 与播放栏/播放器层后续加入。背景显式使用 token 的 background。
+      外壳：标题栏 + 侧栏（MetroSidebarStyle）+ 内容 Frame + 播放器层 + 登录覆盖层。
+      播放器层覆盖标题栏以下的整个窗口（含侧栏）。窄窗底部导航后续加入。
     -->
     <Grid Background="{ThemeResource KBackgroundBrush}">
         <Grid.RowDefinitions>
@@ -43,6 +44,8 @@
 
             <Frame x:Name="ContentFrame" Grid.Column="1" />
         </Grid>
+
+        <player:PlayerHost x:Name="Player" Grid.Row="1" />
 
         <Grid x:Name="OverlayHost" Grid.RowSpan="2" />
     </Grid>

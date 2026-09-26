@@ -57,6 +57,9 @@
     <Compile Include="AppServices.cs" />
     <Compile Include="Playback\PlaybackEngine.cs" />
     <Compile Include="Playback\PlaybackHost.cs" />
+    <Compile Include="Player\PlayerHost.xaml.cs">
+      <DependentUpon>PlayerHost.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Login\LoginLauncher.cs" />
     <Compile Include="Pages\HomePage.xaml.cs">
       <DependentUpon>HomePage.xaml</DependentUpon>
@@ -105,6 +108,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\UserPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Player\PlayerHost.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
