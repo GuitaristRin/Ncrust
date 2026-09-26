@@ -100,7 +100,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
       `MetroIconButtonStyle`、`MetroDividerStyle`、`MetroListRowStyle`；
       `MetroIndication`（PressTint + VisualStates，进入 100ms / 离开 200ms / 悬停 0.5）
 - [x] M1：`MetroProgressRing`（Composition 旋转 270° 弧）、`MetroTextBoxStyle`
-- [ ] M1 剩余：`MetroTabRow` / `MetroSidebar` / `MetroDetailScaffold` / `MetroLyricsPanel`
+- [x] M1：`MetroSidebarStyle` / `MetroTabRowStyle`（ListView + 重写 ListViewItem，选中指示条）
+- [ ] M1 剩余：`MetroDetailScaffold` / `MetroLyricsPanel`（跨项滑动指示条与 Composition 指示条待补）
 - [ ] M2：`MetroToggleSwitch` / `MetroComboBox` / `MetroMenuFlyout` / `MetroContentDialog` /
       `MetroBottomNav`
 - [ ] 每个控件：深浅 × 两强调色截图对比 + `Contrast.ps1` + `ResourceAudit.ps1` 零未定义键
