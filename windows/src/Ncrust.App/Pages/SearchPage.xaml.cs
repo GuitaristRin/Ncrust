@@ -108,13 +108,16 @@ namespace Ncrust.Pages
 
         private void TabSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateVisibility();
 
-        /// <summary>只显示当前 Tab 的列表；该类还在加载时转圈，加载完为空时显示空态。</summary>
+        /// <summary>当前 Tab 那一类还在加载时转圈，加载完为空时显示空态（Tab 切换本身由 Pivot 负责）。</summary>
         private void UpdateVisibility()
         {
+            // Pivot 在 InitializeComponent 期间就可能触发 SelectionChanged，此时后面的命名元素还没连上。
+            if (LoadingRing == null || EmptyText == null)
+            {
+                return;
+            }
+
             var tab = Math.Max(0, Tabs.SelectedIndex);
-            SongList.Visibility = tab == 0 ? Visibility.Visible : Visibility.Collapsed;
-            AlbumGrid.Visibility = tab == 1 ? Visibility.Visible : Visibility.Collapsed;
-            ArtistList.Visibility = tab == 2 ? Visibility.Visible : Visibility.Collapsed;
 
             int? count;
             switch (tab)
