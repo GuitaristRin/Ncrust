@@ -2,6 +2,8 @@
 
 This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. It reflects the code as of **v1.3.1** (`versionCode = 6`). When in doubt, the source wins — update this file if you find a stale claim.
 
+**Monorepo.** This repository now hosts more than the Android app: `windows/` (the Windows client, UWP + WinUI 2) and `spec/` (cross-platform spec + test fixtures). Everything below except *Repository Layout* and *Commit Convention* describes the **Android app** only. Working in `windows/`? Read **`windows/AGENTS.md`** — it is canonical there.
+
 ## Build & Test Commands
 
 ```bash
@@ -37,6 +39,8 @@ Toolchain:
 Ncrust/
 ├── app/                  # the Android application (Kotlin + Jetpack Compose)
 ├── benchmark/            # macrobenchmark module (3 benchmarks + run_benchmark.sh)
+├── windows/              # the Windows client (C# + UWP + WinUI 2) — see windows/AGENTS.md
+├── spec/                 # cross-platform source of truth: API docs, test fixtures, design tokens
 ├── ncrust-api/           # standalone Go reverse proxy — orphaned, not wired into the app
 ├── build.gradle.kts      # top-level plugin declarations
 ├── settings.gradle.kts   # :app, :benchmark + Kanesumi composite build
@@ -47,6 +51,8 @@ Ncrust/
 
 - **`app/`** — everything documented below.
 - **`benchmark/`** — `StartupBenchmark` (cold start, 8 iters), `HomeScrollBenchmark` (frame timing, 6 iters), `ExpandPlayerBenchmark` (player expand/collapse, 6 iters, HOT start). Results land in `benchmark/output/<device>/` (gitignored) as `*-benchmarkData.json` + Perfetto traces. `benchmark/cookie.secret` (gitignored) injects a login cookie for realistic runs; `cookie.secret.example` documents it.
+- **`windows/`** — the Windows port (UWP + WinUI 2, .NET Native; WinUI 3 is not on the table). Project-kickoff stage as of 2026-09-26: architecture decided, no code yet. It shares **no implementation code** with `app/`; its controls are ported from Kanesumi-sec-a (`windows/docs/KANESUMI_XAML.md`) for visual parity. Built with MSBuild, invisible to Gradle.
+- **`spec/`** — language-neutral answers every platform must agree on: `design/tokens.json` (colors, type, easing, durations, sizes — sourced from this app and Kanesumi-sec-a), and fixtures for crypto / quality ladder / queue ops / LRC (added during Windows M1). **Change a protocol or business rule here first, then in each platform.** See `spec/README.md`.
 - **`ncrust-api/`** — a self-contained Go 1.21 service (stdlib only) that reverse-proxies NetEase with eapi encryption and TTL caching. It includes a checked-in 9.75 MB binary. **The Android app never calls it** — the app talks directly to `music.163.com` / `interface*.music.163.com`. Treat it as an unused side artifact / future scaffold; do not assume it is part of the runtime.
 
 ## Versioning & Release
@@ -77,6 +83,8 @@ Conventional Commits, lowercase type prefix, Chinese subject:
 - Subject: prefix + one-sentence Chinese summary. Body (blank line, then paragraphs) explains **why** — commits should be readable a year later without opening a PR. Reference issues with `Fixes #N` / `#N`.
 - **One logical section = one commit, committed proactively without waiting to be asked.** Don't batch unrelated changes (e.g. "extract txt + fix color + update docs") into one commit. Split by logical unit, not by file count: changes that must compile together are one section; independently revertable changes are separate.
 - Multiple related fixes may share a commit only when they are the same logical change; pick the dominant type by user impact.
+- **Scopes (monorepo):** Android commits stay unscoped (matches existing history). Changes under `windows/` use `(windows)`, e.g. `feat(windows): …`; changes under `spec/` use `docs(spec): …`. A commit touching `spec/` plus one platform takes that platform's scope and states the other platform's follow-up status in the body.
+- **Tags:** Android keeps `vX.Y.Z`; Windows uses `win-vX.Y.Z`.
 
 ## What This App Is
 
