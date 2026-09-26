@@ -6,8 +6,10 @@ Android 专属的章节不适用于这里。
 
 **状态**（2026-09-26）：**M0 实施中，功能未开始。** 解决方案的四个项目都已建好，
 Release|x64 构建零警告并生成 MSIX；注册后能启动，显示纯黑底加 34px 页头（颜色和字号来自
-Kanesumi.Xaml）。`Ncrust.Core` 的网络与加密层（eapi / weapi）与 `NcmHttp` 已实现，
-`spec/fixtures/crypto` 覆盖，Core 测试 15 个通过；M0 其余验证项还没开始。
+Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`NcmHttp`）、
+自研只读 `JsonValue`、登录层（`SessionCookie` / `QrLoginClient` / `IBrowserCookieSource`）
+与首页发现端点（`DiscoveryApi`），`spec/fixtures/crypto` 覆盖，Core 测试 51 个通过；
+M0 的 UWP 侧验证项还没开始。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
