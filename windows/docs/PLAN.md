@@ -37,7 +37,7 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ### 1.3 登录与账号
 
-- [x] `Auth/SessionCookie`、`Auth/QrLoginClient`、`Platform/IBrowserCookieSource`
+- [x] `Auth/SessionCookie`、`Auth/QrLoginClient`
 - [ ] `Auth/CookieSession`：登录态判断、`__csrf` / deviceId / osver 派生、与 `ICredentialStore` 装配
 - [ ] 二维码轮询节奏封装（2s / 150 次）与「单次失败继续」策略
 
@@ -60,17 +60,16 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ### 1.6 平台接口
 
-- [x] `Platform/ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo`、`IBrowserCookieSource`
+- [x] `Platform/ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo`
 
 ## 阶段 2 · Ncrust.App 平台层
 
 - [x] `Platform/` 实现：`LocalSettingsStore`、`LocalFileStore`、`PasswordVaultCredentialStore`、
       `WindowsCodecProbe`（恒 true）、`ConnectionProfileNetworkInfo`（`IsMetered`）
 - [x] 播放设置键名对齐 Android（`gapless_playback` / `lyrics_translation` / `wifi_quality` / `mobile_quality`）
-- [x] **M0 #4 实测**：浏览器 Cookie 导入**不可行**（Chrome / Edge 用 App-Bound Encryption，
-      前缀 `v20`；DB 运行中被锁）。结论已回写 `AGENTS.md`。
-- [ ] `Login/`：二维码登录（主路径）+「通用登录」回退方案**待定**（手机号登录 / 手动粘贴 / 重评估
-      WebView，三选一），定了再实现
+- [x] **M0 #4 实测**：浏览器 Cookie 导入**不可行**（App-Bound Encryption，前缀 `v20`；DB 运行中被锁）。
+      决策：改用**独立登录窗口**——内嵌 WebView2（主）+ 二维码（辅）。结论已回写 `AGENTS.md`。
+- [ ] `Login/LoginWindow`：WebView2 登录 + 二维码渲染（QRCoder）+ 轮询，成功后落 `ICredentialStore`
 
 ## 阶段 3 · PlaybackEngine（M0 #2 / #3）
 
@@ -141,4 +140,4 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 - **阶段 1（Ncrust.Core）全部完成**；阶段 2 平台层五个接口实现完成，Release|x64 + .NET Native 构建零警告。
   Core 测试 183 个通过。
-- 下一步：**阶段 2 剩余**（`BrowserLogin` 与 M0 #4 浏览器 Cookie 导入）→ 阶段 3 PlaybackEngine。
+- 下一步：**独立登录窗口**（WebView2 + 二维码）→ 阶段 3 PlaybackEngine。
