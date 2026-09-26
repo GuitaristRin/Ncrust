@@ -1,0 +1,53 @@
+[
+  {
+    "id": "eapi.encrypt.empty-recommend-songs",
+    "kind": "eapi-encrypt",
+    "description": "eapi 空 payload：/eapi/ 路径重写为 /api/，签名覆盖重写后的路径与 JSON。",
+    "source": "app/.../network/crypto/EapiCrypto.kt encryptParams；独立 Node 参考实现生成",
+    "input": {
+      "url": "/eapi/v2/discovery/recommend/songs",
+      "payloadJson": "{}"
+    },
+    "expect": {
+      "params": "b300e3e5cd52e955a34ddbaf97bb2de24c51d37f9d5cf041c195c8bc28e88130ecbe604c79bfeb502961b9bae9d25b35f8feb27026a223faa5e487efb96a99b814d2692fe5609d9efdd81a32656d97b17acac40e48795aff81acfacec95db3ac"
+    }
+  },
+  {
+    "id": "eapi.encrypt.absolute-url-account-get",
+    "kind": "eapi-encrypt",
+    "description": "传入完整 URL 时只取 path 参与签名与加密，host 不影响结果。",
+    "source": "app/.../network/crypto/EapiCrypto.kt encryptParams（解析 URL 后取 path）；独立 Node 参考实现生成",
+    "input": {
+      "url": "https://interface.music.163.com/eapi/w/nuser/account/get",
+      "payloadJson": "{}"
+    },
+    "expect": {
+      "params": "c192ac725b8a5ed83b09166d871a835180179a3ad64c76043d122755552a5a53bf284da4c969c5a7aa29d7982eed30c9457d448013f9a9c98fbf99891fb2be43e8ea36ce6c3516a8f9672b79dac2f2840174d571c59548c9f4909ea85567ce76"
+    }
+  },
+  {
+    "id": "eapi.encrypt.radio-like",
+    "kind": "eapi-encrypt",
+    "description": "写接口 payload（多字段、含空 csrf_token）的加密体，防止字段顺序或转义变化导致签名漂移。",
+    "source": "app/.../network/crypto/EapiCrypto.kt；app/.../network/PlaylistApi.kt likeSong；独立 Node 参考实现生成",
+    "input": {
+      "url": "/eapi/radio/like",
+      "payloadJson": "{\"alg\":\"itembased\",\"trackId\":\"123456\",\"like\":\"true\",\"time\":\"1700000000\",\"e_r\":\"TRUE\",\"csrf_token\":\"\"}"
+    },
+    "expect": {
+      "params": "3273a967871d4eb16cea8896bcfa19dea18748d44ca0c06af910c6998322ae7c491782a4ce128dce36a53275cca0c945fc166283b875fc480e4b9b8836485d90a5786ca0b4e28a70c0751af5596706e1b3e6a532f6b559e901996c230dcfef0767a297898db2ab73dcd228b02d0cd19334b5cad311b2f708fcb340794cfc37cae2550bb4b72d1a718af194ba5642b3ae8dca39bf3f81ac02906e74844e6c9fda444ffab1acf3647ce207c04795acc7ee"
+    }
+  },
+  {
+    "id": "eapi.decrypt.response",
+    "kind": "eapi-decrypt",
+    "description": "eapi 写接口的 AES-ECB 加密响应能解回明文，末尾空白被裁掉。",
+    "source": "app/.../network/crypto/EapiCrypto.kt decryptResponse；独立 Node 参考实现生成",
+    "input": {
+      "base64": "3MUrMBPptmwDj44CflgOzlptXd3fmaDdXSV2vAye1uU="
+    },
+    "expect": {
+      "plaintext": "{\"code\":200,\"data\":[{\"id\":1}]}"
+    }
+  }
+]

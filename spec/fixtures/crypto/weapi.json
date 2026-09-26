@@ -1,0 +1,30 @@
+[
+  {
+    "id": "weapi.encrypt.qr-unikey",
+    "kind": "weapi-encrypt",
+    "description": "weapi 扫码取 key 的 payload；params 是两层 AES-CBC，encSecKey 是反转 secKey 的 raw RSA。",
+    "source": "app/.../network/crypto/WeapiCrypto.kt；app/.../network/PlaylistApi.kt getLoginQrKey；独立 Node 参考实现生成",
+    "input": {
+      "payloadJson": "{\"type\":1,\"noCheckToken\":true}",
+      "secKey": "0123456789abcdef"
+    },
+    "expect": {
+      "params": "YrMKn0ROo3kP9VVGF7WAg6qsDTyt7uDMLqq2i2FlPCMeqy3z7eYpRbw4QWZirIFQ",
+      "encSecKey": "35701388baf89fed412e11269b9c76625d095ecaf17f03fa018abe19ea2d38b949debf242ee39a71ca1f6cda71b1b86a45aa909ee27f7e78e267d34e732f0de948206c3340a788d0003372183e2f753c1f78b66ac23d134ac1fc9b993156520ea826b8aa89a962d4491b4b8d7e08738e1da9b07aa39bf4a7ef0b1c210728cd52"
+    }
+  },
+  {
+    "id": "weapi.encrypt.simi-song",
+    "kind": "weapi-encrypt",
+    "description": "weapi 相似歌曲 payload（含 csrf_token），覆盖带引号的 JSON 明文。",
+    "source": "app/.../network/crypto/WeapiCrypto.kt；app/.../network/PlaylistApi.kt getSimilarSongs；独立 Node 参考实现生成",
+    "input": {
+      "payloadJson": "{\"songid\":\"123\",\"limit\":\"20\",\"offset\":\"0\",\"csrf_token\":\"abc\"}",
+      "secKey": "abcdefghijklmnop"
+    },
+    "expect": {
+      "params": "uA4n+NjdoNW2zpz+Ahe0QIgojWxxtd/cx7jIaL6C34YzHA2icvdJhHVIo6AM6DpXepcmN6/1tob9Y1Plnwfomv8keiJs70p6FyjbdIX6lBYpRHUSjQsX6EPs64TJc/wP",
+      "encSecKey": "d15a1683c992095d0c234c19966605c5c5964911268bbeda8cb8d08d834913e59d53b32358903a121b5fca784c1f5ae44951fd02524df58ecc98e52cc7cf8689b42c2e93ddf05b0592512d87f5960467e2f086c018849d76014d323500e30f13ef4cafbb0cf5a66731a3f1776c75ca35d0062dac70a3e33245afabcf47938487"
+    }
+  }
+]
