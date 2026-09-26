@@ -1,4 +1,5 @@
 using Ncrust.Core.Api;
+using Ncrust.Core.Audio;
 using Ncrust.Core.Auth;
 using Ncrust.Core.Cache;
 using Ncrust.Core.Library;
@@ -61,6 +62,8 @@ namespace Ncrust
         public static AccountApi Account { get; } = new AccountApi(Http);
 
         public static QrLoginClient Qr { get; } = new QrLoginClient(Http);
+
+        public static EqualizerStore Equalizer { get; } = new EqualizerStore(Settings, Files);
 
         /// <summary>登录 / 退出后触发（在调用 SetCookie / SignOut 的线程上，通常是 UI 线程）。</summary>
         public static event System.Action SessionChanged;

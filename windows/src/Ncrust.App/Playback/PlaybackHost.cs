@@ -97,6 +97,7 @@ namespace Ncrust.Playback
                 AppServices.Network,
                 AppServices.Http);
             engine.Initialize();
+            engine.AttachEqualizer(AppServices.Equalizer.LoadState());
             return engine;
         }
     }

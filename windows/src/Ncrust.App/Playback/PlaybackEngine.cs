@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Ncrust.Core.Api;
+using Ncrust.Core.Audio;
 using Ncrust.Core.Net;
 using Ncrust.Core.Platform;
 using Ncrust.Core.Playback;
 using Windows.ApplicationModel.Core;
+using Windows.Foundation.Collections;
 using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
@@ -47,6 +50,9 @@ namespace Ncrust.Playback
         // 只在 UI 线程上读写。
         private readonly Dictionary<MediaPlaybackItem, ItemInfo> _infoByItem = new Dictionary<MediaPlaybackItem, ItemInfo>();
         private readonly Dictionary<string, DateTime> _lastRetryAt = new Dictionary<string, DateTime>();
+
+        // 均衡器参数：与音效组件按引用共享，改值即生效（见 EqualizerEffectKeys）。
+        private readonly PropertySet _equalizer = new PropertySet();
 
         private CoreDispatcher _dispatcher;
         private long _currentSongId = -1;
@@ -103,6 +109,35 @@ namespace Ncrust.Playback
         {
             get => _player.IsMuted;
             set => _player.IsMuted = value;
+        }
+
+        /// <summary>音效组件是否成功挂到播放器上（失败时设置页提示均衡器不可用）。</summary>
+        public bool EqualizerAvailable { get; private set; }
+
+        /// <summary>
+        /// 把 10 段均衡器挂到播放器上（启动时调用一次）。作为「可选」音效添加：万一管线插不进去，
+        /// 照常播放、只是没有均衡器，而不是整首歌放不出来。
+        /// </summary>
+        public void AttachEqualizer(EqualizerState state)
+        {
+            ApplyEqualizer(state);
+            try
+            {
+                _player.AddAudioEffect(EqualizerEffectKeys.ActivatableClassId, true, _equalizer);
+                EqualizerAvailable = true;
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+        }
+
+        /// <summary>更新均衡器参数，下一帧生效。</summary>
+        public void ApplyEqualizer(EqualizerState state)
+        {
+            _equalizer[EqualizerEffectKeys.GainsDb] = state.GainsDb.ToArray();
+            _equalizer[EqualizerEffectKeys.PreampDb] = state.PreampDb;
+            _equalizer[EqualizerEffectKeys.Enabled] = state.Enabled;
         }
 
         /// <summary>必须在 UI 线程上调用（DispatcherTimer 与 Dispatcher 都取自当前视图）。</summary>

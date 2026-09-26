@@ -171,6 +171,10 @@
     <ProjectReference Include="..\Ncrust.Core\Ncrust.Core.csproj">
       <Name>Ncrust.Core</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Ncrust.Audio\Ncrust.Audio.csproj">
+      <Project>{143062E4-C049-48B6-83A3-D47F66BCACCE}</Project>
+      <Name>Ncrust.Audio</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Kanesumi.Xaml\Kanesumi.Xaml.csproj">
       <Project>{3F1B6C2E-8A47-4D05-9E3B-5C7A2D8F41E6}</Project>
       <Name>Kanesumi.Xaml</Name>
