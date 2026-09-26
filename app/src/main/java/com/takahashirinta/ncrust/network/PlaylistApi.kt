@@ -515,20 +515,53 @@ object PlaylistApi {
         null
     }
 
-    /** 获取「我喜欢的音乐」全部单曲 ID（红心歌单 trackIds，有序、轻量、不会拉全部详情）。 */
-    suspend fun getLikedTrackIds(uid: Long): List<Long> = withContext(Dispatchers.IO) {
-        val playlistId = getLikedPlaylistId(uid) ?: return@withContext emptyList()
+    /**
+     * 读取「我喜欢的音乐」单曲 ID 的显式结果。
+     *
+     * 关键区分：`Success(emptyList())` 表示服务端权威确认"收藏为空"；
+     * `Failure` 表示网络/HTTP/业务码/结构异常——调用方**绝不能**用 Failure 覆盖本地缓存，
+     * 否则一次抖动就会被误判成"云端确实没有收藏"，把用户本地收藏清空。
+     */
+    sealed interface LikedIdsResult {
+        data class Success(val ids: List<Long>) : LikedIdsResult
+        data class Failure(val reason: String) : LikedIdsResult
+    }
+
+    /**
+     * 获取「我喜欢的音乐」全部单曲 ID（红心歌单 trackIds，有序、轻量、不会拉全部详情）。
+     * 失败不返回空列表，而是 [LikedIdsResult.Failure]，由调用方决定是否保留本地数据。
+     */
+    suspend fun getLikedTrackIds(uid: Long): LikedIdsResult = withContext(Dispatchers.IO) {
+        val playlistId = try {
+            getLikedPlaylistId(uid)
+        } catch (e: Exception) {
+            return@withContext LikedIdsResult.Failure("getLikedPlaylistId threw: ${e.message}")
+        } ?: return@withContext LikedIdsResult.Failure("liked playlist not found")
+
         val payload = mapOf(
             "id" to playlistId.toString(),
             "n" to "1000",
             "s" to "0"
         )
-        val response = RetrofitClient.eapiPost(PLAYLIST_DETAIL_PATH, payload)
-        val body = response.body?.string() ?: return@withContext emptyList()
-        val json = JSONObject(body)
-        val playlistObj = json.optJSONObject("playlist") ?: return@withContext emptyList()
-        val trackIds = playlistObj.optJSONArray("trackIds") ?: return@withContext emptyList()
-        return@withContext (0 until trackIds.length()).map { trackIds.getJSONObject(it).optLong("id") }
+        try {
+            val response = RetrofitClient.eapiPost(PLAYLIST_DETAIL_PATH, payload)
+            val body = response.body?.string()
+                ?: return@withContext LikedIdsResult.Failure("empty body")
+            val json = JSONObject(body)
+            val code = json.optInt("code", -1)
+            if (code != 200) {
+                return@withContext LikedIdsResult.Failure("business code=$code")
+            }
+            val playlistObj = json.optJSONObject("playlist")
+                ?: return@withContext LikedIdsResult.Failure("missing playlist object")
+            val trackIds = playlistObj.optJSONArray("trackIds")
+                ?: return@withContext LikedIdsResult.Failure("missing trackIds")
+            LikedIdsResult.Success(
+                (0 until trackIds.length()).map { trackIds.getJSONObject(it).optLong("id") }
+            )
+        } catch (e: Exception) {
+            LikedIdsResult.Failure("request threw: ${e.message}")
+        }
     }
 
     /** 按 ID 批量拉取单曲详情（eapi/v3/song/detail），供收藏单曲分页 lazy 加载用。 */
@@ -540,9 +573,14 @@ object PlaylistApi {
      * 走官方安卓客户端协议：eapi `/eapi/radio/like` + 客户端身份头 + 真随机 deviceId，
      * 并对**加密响应**做 AES 解密（eapi 写接口返回加密 JSON，读取接口为明文）。
      *
-     * 注意：like 写操作受网易账号/IP 级风险控制，本账号四种协议变体(eapi 最小/eapi+PC 指纹/
-     * eapi+安卓身份/经典 weapi)均被 `-460「检测到您的网络环境存在风险」`或异常响应拦截而
-     * 读取全部正常——这是服务端风控，非本实现问题。真实官方 like 协议待后续抓包确认。
+     * 注意：like 写操作历史上曾受网易账号/IP 级风险控制，本账号四种协议变体(eapi 最小/
+     * eapi+PC 指纹/eapi+安卓身份/经典 weapi)均被 `-460「检测到您的网络环境存在风险」`或
+     * 异常响应拦截而读取全部正常。该注释是既往观测，**不代表当前版本/当前账号的现状**——
+     * 以实际响应为准。成功与否只由 `code == 200` 判定，绝不把非 200 响应当成功。
+     *
+     * 只返回布尔结果不够：调用方（LibraryManager）需要据此决定是否标记"仅本地/待同步"，
+     * 并在成功后再做一次读回校验。这里额外记录脱敏的 HTTP 状态、业务码与耗时，便于诊断；
+     * **不记录** Cookie、CSRF token 或完整加密请求体。
      */
     suspend fun likeSong(songId: Long, like: Boolean): Boolean = withContext(Dispatchers.IO) {
         val payload = mapOf(
@@ -553,17 +591,32 @@ object PlaylistApi {
             "e_r" to "TRUE",
             "csrf_token" to (RetrofitClient.getCsrfToken().orEmpty())
         )
+        val startedAt = System.currentTimeMillis()
         val http = try {
             RetrofitClient.eapiPostOfficial("/eapi/radio/like", payload)
         } catch (e: Throwable) {
             Log.w("PlaylistApi", "likeSong req failed id=$songId like=$like", e)
             return@withContext false
         }
-        val raw = try { http.body?.bytes() } catch (_: Throwable) { null } ?: return@withContext false
+        val elapsed = System.currentTimeMillis() - startedAt
+        val raw = try { http.body?.bytes() } catch (_: Throwable) { null }
+        if (raw == null) {
+            Log.w("PlaylistApi", "likeSong id=$songId like=$like http=${http.code} no body elapsedMs=$elapsed")
+            return@withContext false
+        }
         val plain = EapiCrypto.decryptResponse(java.util.Base64.getEncoder().encodeToString(raw))
         val jsonText = plain.ifEmpty { String(raw) }
-        val code = try { JSONObject(jsonText).optInt("code", -1) } catch (_: Throwable) { -1 }
-        Log.i("PlaylistApi", "likeSong(eapi/client) id=$songId like=$like code=$code")
+        var code = -1
+        var parseOk = false
+        try {
+            code = JSONObject(jsonText).optInt("code", -1)
+            parseOk = true
+        } catch (_: Throwable) { /* parseOk stays false */ }
+        Log.i(
+            "PlaylistApi",
+            "likeSong(eapi/client) id=$songId like=$like http=${http.code} " +
+                "code=$code parsed=$parseOk elapsedMs=$elapsed"
+        )
         code == 200
     }
 

@@ -184,4 +184,7 @@ val jpJP = Strings(
 
     addedToLibrary = "ライブラリに追加しました",
     removedFromLibrary = "ライブラリから削除しました",
+
+    pendingSyncCount = { "ローカル保存のみ $it 曲、クラウド同期待ち" },
+    retrySync = "同期を再試行",
 )

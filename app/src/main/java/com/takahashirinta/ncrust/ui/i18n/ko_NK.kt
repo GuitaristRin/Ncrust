@@ -183,4 +183,7 @@ scanConnecting = "평판에 연결중…",
 
     addedToLibrary = "저장소에 추가됨",
     removedFromLibrary = "저장소에서 제거됨",
+
+    pendingSyncCount = { "로컬 저장만 ${it}곡, 클라우드 동기화 대기" },
+    retrySync = "동기화 재시도",
 )

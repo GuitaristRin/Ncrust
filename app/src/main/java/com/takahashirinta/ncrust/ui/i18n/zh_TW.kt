@@ -184,4 +184,7 @@ scanConnecting = "正在連接平板…",
 
     addedToLibrary = "已納入庫房",
     removedFromLibrary = "已從庫中移除",
+
+    pendingSyncCount = { "$it 首僅本地保存，等待同步至雲端" },
+    retrySync = "重試同步",
 )

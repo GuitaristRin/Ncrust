@@ -183,4 +183,7 @@ val deDE = Strings(
 
     addedToLibrary = "Zur Bibliothek hinzugefügt",
     removedFromLibrary = "Aus der Bibliothek entfernt",
+
+    pendingSyncCount = { "$it nur lokal gespeichert, Synchronisierung ausstehend" },
+    retrySync = "Sync wiederholen",
 )

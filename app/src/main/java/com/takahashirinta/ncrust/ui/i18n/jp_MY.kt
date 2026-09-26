@@ -183,4 +183,7 @@ val jpMY = Strings(
 
     addedToLibrary = "庫 追加",
     removedFromLibrary = "庫 刪除",
+
+    pendingSyncCount = { "$it 曲、地存のみ、雲 同期 待" },
+    retrySync = "同期 再試",
 )

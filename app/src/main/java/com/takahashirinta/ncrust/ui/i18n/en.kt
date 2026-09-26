@@ -183,4 +183,7 @@ val en = Strings(
 
     addedToLibrary = "Added to Library",
     removedFromLibrary = "Removed from Library",
+
+    pendingSyncCount = { "$it saved locally, waiting to sync to the cloud" },
+    retrySync = "Retry sync",
 )

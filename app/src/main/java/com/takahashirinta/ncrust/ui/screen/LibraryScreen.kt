@@ -70,6 +70,8 @@ fun LibraryScreen(
 
     var savedSongs by remember { mutableStateOf(LibraryManager.getSavedSongs(context)) }
     var savedAlbums by remember { mutableStateOf(LibraryManager.getSavedAlbums(context)) }
+    // 未获云端确认的点赞操作数量：>0 时页面顶部提示"仅本地/待重试"，不冒充已同步。
+    var pendingSyncCount by remember { mutableIntStateOf(0) }
     var selectedCategory by remember { mutableIntStateOf(0) }
     val categories = listOf(strings.categoryTracks, strings.categoryAlbums, strings.categoryPlaylists)
 
@@ -101,6 +103,7 @@ fun LibraryScreen(
     fun reloadLocal() {
         savedSongs = LibraryManager.getSavedSongs(context)
         savedAlbums = LibraryManager.getSavedAlbums(context)
+        pendingSyncCount = LibraryManager.getPendingSyncSongIds(context).size
     }
 
     LaunchedEffect(selectedCategory) {
@@ -186,42 +189,67 @@ fun LibraryScreen(
                 label = "LibraryCategoryContent"
             ) { category -> when (category) {
                 0 -> {
-                    if (savedSongs.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            MetroText(strings.noSavedSongs, color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodyLarge)
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            state = songListState,
-                            contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
-                            flingBehavior = rememberMetroFlingBehavior()
-                        ) {
-                            items(savedSongs, key = { it.id }) { song ->
-                                SongCard(
-                                    song = song,
-                                    style = SongCardStyle.LIST,
-                                    onClick = { onSongClick(song) },
-                                    onShowMenu = {
-                                        onShowSongMenu(song, listOf(
-                                            SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
-                                                LibraryManager.saveSong(context, song)
-                                                Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
-                                            },
-                                            SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
-                                                onSongInsertNext(song)
-                                            },
-                                            SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
-                                                onSongAppendToQueue(song)
-                                            },
-                                            SongMenuAction(Icons.Default.Delete, strings.actionRemoveFromLibrary) {
-                                                LibraryManager.removeSong(context, song.id)
-                                                savedSongs = LibraryManager.getSavedSongs(context)
-                                                savedAlbums = LibraryManager.getSavedAlbums(context)
-                                            }
-                                        ))
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (pendingSyncCount > 0) {
+                            PendingSyncNotice(
+                                message = strings.pendingSyncCount(pendingSyncCount),
+                                retryLabel = strings.retrySync,
+                                onRetry = {
+                                    coroutineScope.launch {
+                                        LibraryManager.retryPendingSync(context)
+                                        reloadLocal()
                                     }
-                                )
+                                }
+                            )
+                        }
+                        if (savedSongs.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                                MetroText(strings.noSavedSongs, color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodyLarge)
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                state = songListState,
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                                flingBehavior = rememberMetroFlingBehavior()
+                            ) {
+                                items(savedSongs, key = { it.id }) { song ->
+                                    SongCard(
+                                        song = song,
+                                        style = SongCardStyle.LIST,
+                                        onClick = { onSongClick(song) },
+                                        onShowMenu = {
+                                            val actions = mutableListOf(
+                                                SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
+                                                    LibraryManager.saveSong(context, song)
+                                                    Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                                                },
+                                                SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
+                                                    onSongInsertNext(song)
+                                                },
+                                                SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
+                                                    onSongAppendToQueue(song)
+                                                },
+                                                SongMenuAction(Icons.Default.Delete, strings.actionRemoveFromLibrary) {
+                                                    LibraryManager.removeSong(context, song.id)
+                                                    reloadLocal()
+                                                }
+                                            )
+                                            // 该歌云端未确认：给出显式"重试同步"入口，标明它是仅本地状态。
+                                            if (LibraryManager.isSongPendingSync(context, song.id)) {
+                                                actions.add(
+                                                    SongMenuAction(Icons.Default.Sync, strings.retrySync) {
+                                                        coroutineScope.launch {
+                                                            LibraryManager.retryPendingSync(context)
+                                                            reloadLocal()
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                            onShowSongMenu(song, actions)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -342,6 +370,39 @@ fun PlaylistGridItem(
         MetroText(playlist.name, color = LocalMetroColors.current.onBackground, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
         MetroText(strings.trackCount(playlist.trackCount), color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
         Spacer(Modifier.height(6.dp))
+    }
+}
+
+/** "仅本地/待重试"提示条：明确告知收藏尚未同步到云端，并提供重试入口。 */
+@Composable
+private fun PendingSyncNotice(
+    message: String,
+    retryLabel: String,
+    onRetry: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        MetroText(
+            message,
+            color = LocalMetroColors.current.onSurfaceVariant,
+            style = LocalMetroTypography.current.bodySmall,
+            modifier = Modifier.weight(1f)
+        )
+        Box(
+            modifier = Modifier
+                .clickable(onClick = onRetry)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+            MetroText(
+                retryLabel,
+                color = LocalMetroColors.current.primary,
+                style = LocalMetroTypography.current.bodyMedium
+            )
+        }
     }
 }
 

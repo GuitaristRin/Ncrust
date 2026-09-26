@@ -213,6 +213,10 @@ data class Strings(
     // Feedback toasts
     val addedToLibrary: String,
     val removedFromLibrary: String,
+
+    // Cloud sync state (local-only optimistic likes awaiting server confirmation)
+    val pendingSyncCount: (Int) -> String,
+    val retrySync: String,
 )
 
 /** 字节数格式化为人类可读的 B/KB/MB/GB，供 cacheSizeLabel 复用。 */

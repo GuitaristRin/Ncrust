@@ -183,4 +183,7 @@ val ruRU = Strings(
 
     addedToLibrary = "Добавлено в медиатеку",
     removedFromLibrary = "Удалено из медиатеки",
+
+    pendingSyncCount = { "$it сохранено только локально, ожидает синхронизации" },
+    retrySync = "Повторить синхронизацию",
 )

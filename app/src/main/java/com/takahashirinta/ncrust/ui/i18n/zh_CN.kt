@@ -184,4 +184,7 @@ val zhCN = Strings(
 
     addedToLibrary = "已加入库",
     removedFromLibrary = "已从库中移除",
+
+    pendingSyncCount = { "$it 首仅本地保存，等待同步到云端" },
+    retrySync = "重试同步",
 )
