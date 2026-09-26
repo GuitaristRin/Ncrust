@@ -88,8 +88,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 ## 阶段 4 · Shell 与窗口
 
 - [ ] 自定义标题栏（`ExtendViewIntoTitleBar` + `SetTitleBar`），最小尺寸
-- [ ] `ShellPage`：宽窗口 `MetroSidebar`（200）/ 窄窗口 `MetroBottomNav`（56）+ 内容 `Frame` + 播放器层
-- [ ] `BottomOverlayInset`（宽 80 / 窄 120）统一底部内边距
+- [x] `ShellPage`：宽窗口 `MetroSidebar` + 内容 `Frame` + 登录覆盖层（窄窗 `MetroBottomNav`、播放栏待加）
+- [ ] `BottomOverlayInset`（宽 80 / 窄 120）统一底部内边距（播放栏落地后）
 - [ ] 全局快捷键（Space / Ctrl+←→ / Ctrl+F / Ctrl+L / F11 / Esc / 返回键）
 - [ ] 剪贴板 / `ncrust://`（M3）
 
@@ -118,9 +118,9 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 阶段 7 · 页面（M1）
 
-- [ ] Home：每日推荐 / 推荐歌单 / 新歌（先读 `ContentCache`，后台刷新，`Crossfade` 400ms）
+- [x] Home：每日推荐 / 推荐歌单 / 新歌（缓存优先 + 后台刷新 + `MetroProgressRing` 加载态）
+- [x] `Login/LoginPage`：WebView2（主）+ 二维码（辅），独立登录层
 - [ ] Playlist 详情、Search（三类 Tab + 500ms 防抖 + 历史建议）、Library、User（设置 / 账户）、About
-- [ ] `Login/QrLoginDialog` + 浏览器导入入口
 - [ ] 页面加载态沿用「缓存优先 + 后台刷新」模式，不整屏替换加载器
 
 ## 阶段 8 · M2 对齐 Android 主干
@@ -145,6 +145,6 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 - **阶段 1（Ncrust.Core）全部完成**；阶段 2 平台层 + 独立登录窗口完成；阶段 3 PlaybackEngine 代码完成。
   Release|x64 + .NET Native 构建零警告、产出 MSIX；Core 测试 183 个通过。
-- 待设备验收：M0 #2（无缝两首）/ #3（UWP 内带 cookie 取链）。阶段 5 已起步（动效 + 按钮/列表样式）。
-- 下一步：**阶段 5 剩余控件**（TabRow / ProgressRing / TextBox / Sidebar / DetailScaffold / LyricsPanel）
-  → 阶段 6 播放器层 → 阶段 7 页面。
+- 待设备验收：M0 #2（无缝两首）/ #3（UWP 内带 cookie 取链）。
+- 已可点播：Shell 侧栏 + 首页（每日推荐 / 歌单 / 新歌）→ 点歌经 `PlaybackHost` 起播。
+- 下一步：**播放栏与播放器层（阶段 6）** → 详情页 / 搜索 / 音乐库 → 窄窗布局。

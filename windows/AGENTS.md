@@ -21,7 +21,9 @@ Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`N
 App 侧已实现平台层、独立登录窗口（WebView2 + 二维码）与 `PlaybackEngine`（滑动窗口 /
 MediaBinder / 降级 / 上报），Shell 有 M0 播放验证入口；Kanesumi.Xaml 已起步
 （`KanesumiEasing` / `KanesumiMotion` + 按钮 / 分隔线 / 列表行样式）。
-待设备验收 M0 #2（无缝）/ #3（带 cookie 取链）；下一步做 Kanesumi.Xaml 剩余 M1 控件。
+已可点播：Shell 侧栏 + 首页（每日推荐 / 歌单 / 新歌）经 `PlaybackHost` 起播；
+Kanesumi.Xaml 的动效与按钮 / 列表 / 侧栏 / Tab / 进度环样式已落地。
+待设备验收 M0 #2（无缝）/ #3（带 cookie 取链）；下一步做播放栏与播放器层。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
