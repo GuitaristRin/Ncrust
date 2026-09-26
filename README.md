@@ -188,6 +188,15 @@ app/src/main/java/com/takahashirinta/ncrust/
 
 ---
 
+## 🪟 Windows 版（开发中）
+
+Windows 客户端在本仓库的 [`windows/`](windows/) 目录，用 **C# + UWP + WinUI 2** 编写，与 Android 版不共享实现代码：
+控件从 Kanesumi-sec-a 移植，保证两端视觉一致；协议、音质阶梯、队列行为等由 [`spec/`](spec/) 里的共享规格与测试夹具约束。
+
+目前处于骨架阶段：解决方案能构建、能启动，功能尚未开始。架构与路线见 [windows/AGENTS.md](windows/AGENTS.md)。
+
+---
+
 ## 📋 版本历史
 
 | 版本 | 日期 | 亮点 |

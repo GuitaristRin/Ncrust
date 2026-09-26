@@ -4,7 +4,11 @@
 仓库级约定（提交规范、「一个逻辑单元一个 commit」等）见根目录 `AGENTS.md`；根文件里
 Android 专属的章节不适用于这里。
 
-**状态**：立项阶段（2026-09-26）。尚无代码，M0 未开始。本文描述的是**已定的架构**；
+**状态**（2026-09-26）：**骨架完成，功能未开始。** 解决方案的四个项目都已建好，
+Release|x64 构建零警告并生成 MSIX；注册后能启动，显示纯黑底加 34px 页头（颜色和字号来自
+Kanesumi.Xaml）；Core 测试 5 个全部通过。M0 的验证项还没开始。
+
+本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
 
 相关文档：
@@ -30,30 +34,50 @@ Android 专属的章节不适用于这里。
 | 动画 | `Windows.UI.Composition`，单一 progress 标量驱动 | 对应 Android 的「单一 progress + `graphicsLayer`」，在合成线程执行 |
 | DI / MVVM 框架 | 不用。与 Android 一样用单例充当服务定位器；`INotifyPropertyChanged` 手写；只用 `x:Bind` | 依赖越少，.NET Native 的反射问题越少；`x:Bind` 是编译期绑定 |
 
-## 构建与测试（规划）
+## 构建、测试与运行
+
+环境：VS 2022 Build Tools（已验证 MSBuild 17.14）+ UWP 工作负载（Windows SDK 10.0.22621）、
+.NET 9 SDK。
 
 UWP 项目**只能用 MSBuild**（不支持 `dotnet build`），并且**用 Release 配置**：
-Debug 版的 .NET Native 依赖一个默认不预装的调试运行时。
+Debug 版的 .NET Native 依赖一个默认不预装的调试运行时。解决方案里也只有 `Release|x64` 一种配置。
 
 ```powershell
 $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 
 & $msbuild windows\Ncrust.Windows.sln /t:Restore /p:Configuration=Release /p:Platform=x64
 & $msbuild windows\Ncrust.Windows.sln /p:Configuration=Release /p:Platform=x64
+# 产物：windows\src\Ncrust.App\AppPackages\Ncrust.App_<版本>_x64_Test\Ncrust.App_<版本>_x64.msix
 
-# Core 单元测试（net8.0，不需要部署 UWP）
+# Core 单元测试（net9.0，不需要部署 UWP；同时检查 spec/design/tokens.json）
 dotnet test windows\tests\Ncrust.Core.Tests
 ```
 
+本地运行（需要开启 Windows「开发者模式」）：注册 .NET Native 编译后的布局，再启动。
+
+```powershell
+Add-AppxPackage -Register windows\src\Ncrust.App\bin\Release\ilc\AppxManifest.xml
+explorer.exe "shell:AppsFolder\TakahashiRinta.Ncrust_98kk3q0vty278!App"
+
+# 未处理异常写在这里：
+Get-Content "$env:LOCALAPPDATA\Packages\TakahashiRinta.Ncrust_98kk3q0vty278\LocalState\crash.log"
+
+# 卸载（注册指向构建输出目录，清理 bin 之前先卸载）：
+Get-AppxPackage TakahashiRinta.Ncrust | Remove-AppxPackage
+```
+
+覆盖安装前先提高 `Package.appxmanifest` 的版本号；卸载重装会清掉 LocalSettings。
+
 界面验证工具：M0 时从 arc-deck `uwp/tools/shot/` 移植到 `windows/tools/shot/`
-（`ShotWindow`、`Uia`、`Verify`、`Contrast`、`ResourceAudit` 等）。
+（`ShotWindow`、`Uia`、`Verify`、`Contrast`、`ResourceAudit` 等）。移植时注意「已知的坑」里
+关于截图脚本的两条。
 
 ## 目录结构
 
 ```
 windows/
 ├── AGENTS.md
-├── Ncrust.Windows.sln
+├── Ncrust.Windows.sln          # 手写维护（dotnet sln 无法添加 UWP 项目），仅 Release|x64
 ├── docs/
 │   └── KANESUMI_XAML.md
 ├── src/
@@ -61,10 +85,22 @@ windows/
 │   ├── Kanesumi.Xaml/          # UWP 类库 —— token、样式、自定义控件；不依赖 Ncrust
 │   └── Ncrust.App/             # UWP 应用 —— 页面、播放引擎、平台集成
 ├── tests/
-│   └── Ncrust.Core.Tests/      # net8.0 + xUnit，直接读取 ../../spec/fixtures
-└── tools/
+│   └── Ncrust.Core.Tests/      # net9.0 + xUnit，直接读取 ../../spec/
+└── tools/                      # （尚未建立）
     └── shot/                   # 截图、UIA、对比度、资源审计脚本
 ```
+
+目前已有的文件：
+
+| 项目 | 现有内容 |
+|---|---|
+| `Ncrust.Core` | `Platform/` 下的五个平台接口：`ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo` |
+| `Kanesumi.Xaml` | `Themes/Kanesumi.xaml`（合并入口）、`Colors.xaml`、`Typography.xaml`、`Overrides.xaml`（圆角归零）、`Generic.xaml`（空，留给自定义控件） |
+| `Ncrust.App` | `App`（资源装配、崩溃日志）、`Shell/ShellPage`（占位）、`Package.appxmanifest`、`Properties/Default.rd.xml`、`Assets/`（按 Android `ic_launcher.xml` 的几何等比绘制的图标） |
+| `Ncrust.Core.Tests` | `DesignTokensTests`：tokens.json 自洽性检查，以及 UWP 缓动贝塞尔写法精确性的逐点验证 |
+
+应用引用 Kanesumi 资源的方式：`App.xaml` 先合并 `XamlControlsResources`，再合并
+`ms-appx:///Kanesumi.Xaml/Themes/Kanesumi.xaml`。顺序不能反，否则圆角归零等覆盖不生效。
 
 依赖方向（不得反向）：
 
@@ -292,8 +328,8 @@ Ncrust.App ──► Kanesumi.Xaml
 | 5 | .NET Native Release 构建 | 响应模型的 JSON 反序列化正常（在 System.Text.Json 源生成器和 Newtonsoft + rd.xml 之间定一个，写进本文） |
 | — | 附带评估（半天） | 「UWP on 现代 .NET」能否带 WinUI 2.8 跑起来。只记录结论，不切换 |
 
-M0 同时要完成：解决方案骨架、从 arc-deck 移植 `tools/shot`、Kanesumi.Xaml 的
-`Colors` / `Typography` / `Overrides` 三个资源文件。
+M0 的配套工作：解决方案骨架（✅ 已完成）、Kanesumi.Xaml 的 `Colors` / `Typography` /
+`Overrides` 三个资源文件（✅ 已完成）、从 arc-deck 移植 `tools/shot`（未做）。
 
 ### M1 · MVP（能日常使用）
 
@@ -347,5 +383,14 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
   对比度只有 1.00。页面背景要显式设置，文字色用不透明的 token。
 - **.NET Native 对反射敏感**：绑定只用 `x:Bind`；JSON 方案在 M0 里确定。
 - **`LocalSettings` 单个值有大小上限**：队列、音乐库这类数据放进 `LocalFolder` 的文件里。
+- **`rd.xml` 要作为 `Content` 加入项目**：写成 `EmbeddedResource` 会报 ILT0027
+  「嵌入清单中不允许的应用程序指令」；完全不加也会报 ILT0027「缺少运行时指令文件」。
+- **`dotnet sln add` 不能添加 UWP 项目**：它会到 .NET SDK 目录下找 WindowsXaml 的 targets，找不到就报错。
+  解决方案文件手写维护，新增项目时照现有条目补上 `Release|x64` 的映射。
+- **截图脚本按标题找窗口时要完全匹配**：arc-deck 的 `ShotWindow.ps1` 用的是「标题包含」，
+  而终端窗口的标题里也可能带 "Ncrust"，会截错窗口。要求标题等于 "Ncrust"，
+  并且窗口类是 `ApplicationFrameWindow`。
+- **UWP 窗口在还原状态下可能截到一整块空白**：实测第一次截图是纯 `#222222`，
+  加 `-Max` 最大化后才截到内容。截图前先最大化，或者把窗口激活到前台。
 - **应用能力声明**：`internetClient`、`backgroundMediaPlayback`；M3 做 `QrPair` 时再加
   `privateNetworkClientServer`。

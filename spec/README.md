@@ -35,7 +35,7 @@ Ncrust 的三个端（Android `app/`、Windows `windows/`、以后的 Linux）**
 
 | 端 | 测试位置 | 接入时间 |
 |---|---|---|
-| Windows | `windows/tests/Ncrust.Core.Tests`（net8.0 + xUnit） | M1，与 Core 同步编写 |
+| Windows | `windows/tests/Ncrust.Core.Tests`（net9.0 + xUnit） | M1，与 Core 同步编写 |
 | Android | `app/src/test`（JUnit） | Windows M3 |
 
 ## 夹具格式约定
