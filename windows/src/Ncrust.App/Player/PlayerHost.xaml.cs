@@ -40,31 +40,49 @@ namespace Ncrust.Player
         {
             InitializeComponent();
             Loaded += OnLoaded;
-            SizeChanged += (_, __) => RebuildExpressions();
+            SizeChanged += (_, __) =>
+            {
+                try
+                {
+                    RebuildExpressions();
+                }
+                catch (Exception ex)
+                {
+                    App.WriteCrashLog(ex);
+                }
+            };
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            _compositor = ElementCompositionPreview.GetElementVisual(Root).Compositor;
-            _props = _compositor.CreatePropertySet();
-            _props.InsertScalar("Progress", 0f);
-            _props.InsertScalar("Fullscreen", 0f);
+            try
+            {
+                _compositor = ElementCompositionPreview.GetElementVisual(Root).Compositor;
+                _props = _compositor.CreatePropertySet();
+                _props.InsertScalar("Progress", 0f);
+                _props.InsertScalar("Fullscreen", 0f);
 
-            _coverVisual = ElementCompositionPreview.GetElementVisual(CoverImage);
-            ElementCompositionPreview.SetIsTranslationEnabled(CoverImage, true);
-            _coverVisual.CenterPoint = new Vector3(0f, 0f, 0f);
+                _coverVisual = ElementCompositionPreview.GetElementVisual(CoverImage);
+                ElementCompositionPreview.SetIsTranslationEnabled(CoverImage, true);
+                _coverVisual.CenterPoint = new Vector3(0f, 0f, 0f);
 
-            _miniBarVisual = ElementCompositionPreview.GetElementVisual(MiniBar);
+                _miniBarVisual = ElementCompositionPreview.GetElementVisual(MiniBar);
 
-            var cardOpacity = _compositor.CreateExpressionAnimation("props.Progress");
-            cardOpacity.SetReferenceParameter("props", _props);
-            ElementCompositionPreview.GetElementVisual(CardLayer).StartAnimation("Opacity", cardOpacity);
+                var cardOpacity = _compositor.CreateExpressionAnimation("props.Progress");
+                cardOpacity.SetReferenceParameter("props", _props);
+                ElementCompositionPreview.GetElementVisual(CardLayer).StartAnimation("Opacity", cardOpacity);
 
-            var miniOpacity = _compositor.CreateExpressionAnimation("1 - props.Fullscreen");
-            miniOpacity.SetReferenceParameter("props", _props);
-            _miniBarVisual.StartAnimation("Opacity", miniOpacity);
+                var miniOpacity = _compositor.CreateExpressionAnimation("1 - props.Fullscreen");
+                miniOpacity.SetReferenceParameter("props", _props);
+                _miniBarVisual.StartAnimation("Opacity", miniOpacity);
 
-            RebuildExpressions();
+                RebuildExpressions();
+            }
+            catch (Exception ex)
+            {
+                // 合成初始化失败时降级：播放栏仍可用，只是没有形变动画。
+                App.WriteCrashLog(ex);
+            }
 
             var engine = PlaybackHost.Engine;
             engine.CurrentSongChanged += OnSongChanged;
@@ -106,8 +124,12 @@ namespace Ncrust.Player
             _toFullDx = fullLeft;
             _toFullDy = fullTop - miniTop;
 
-            var scale = _compositor.CreateExpressionAnimation(
-                Formattable("1 + ({0} - 1) * props.Progress + ({1} - {2}) * props.Fullscreen", _toCardScale, _toFullScale, _toCardScale));
+            // Scale 是 Vector3：表达式必须返回 Vector3，标量会抛
+            // 「expression output does not match animating property type」。
+            var scaleValue = Formattable(
+                "1 + ({0} - 1) * props.Progress + ({1} - {2}) * props.Fullscreen",
+                _toCardScale, _toFullScale, _toCardScale);
+            var scale = _compositor.CreateExpressionAnimation("Vector3(" + scaleValue + ", " + scaleValue + ", 1)");
             scale.SetReferenceParameter("props", _props);
             _coverVisual.StartAnimation("Scale", scale);
 
