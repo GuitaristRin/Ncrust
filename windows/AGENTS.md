@@ -15,8 +15,10 @@ Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`N
 （`LibraryManager` / `LibraryApi` / `ApiLibraryCloud`）、播放状态层
 （`PlaybackSessionState` / `PlaybackPreferences` / `PlaybackStateStore`）。
 **`Ncrust.Core` 的阶段 1 已全部完成**，`spec/fixtures` 第一批（crypto / quality / queue / lrc）与
-`spec/api/endpoints.md` 已落地，Core 测试 183 个通过；施工单见 `windows/docs/PLAN.md`。
-M0 的 UWP 侧验证项还没开始（下一步进阶段 2 App 平台层）。
+`spec/api/endpoints.md` 已落地，Core 测试 183 个通过。App 侧平台层已实现
+（`LocalSettingsStore` / `LocalFileStore` / `PasswordVaultCredentialStore` / `WindowsCodecProbe` /
+`ConnectionProfileNetworkInfo`），Release|x64 + .NET Native 构建零警告。施工单见 `windows/docs/PLAN.md`。
+下一步：`BrowserLogin` 与 M0 #4 浏览器 Cookie 导入；M0 的其余 UWP 验证项还没开始。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。

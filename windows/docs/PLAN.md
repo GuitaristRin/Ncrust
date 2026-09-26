@@ -64,12 +64,12 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 阶段 2 · Ncrust.App 平台层
 
-- [ ] `Platform/` 实现：`LocalSettingsStore`、`LocalFileStore`、`PasswordVaultCredentialStore`、
+- [x] `Platform/` 实现：`LocalSettingsStore`、`LocalFileStore`、`PasswordVaultCredentialStore`、
       `WindowsCodecProbe`（恒 true）、`ConnectionProfileNetworkInfo`（`IsMetered`）
+- [x] 播放设置键名对齐 Android（`gapless_playback` / `lyrics_translation` / `wifi_quality` / `mobile_quality`）
 - [ ] `Login/BrowserLogin`：`Launcher` 开浏览器 + `IBrowserCookieSource` 导入 + `PasswordVault` 存储
 - [ ] **M0 #4 实测**：浏览器 Cookie 库（Chrome / Edge、DPAPI / App-Bound、AppContainer 沙箱）；
       读不到时的 full-trust 伴随进程方案；结论回写 `AGENTS.md`
-- [ ] 设置键名对齐 Android（`ncrust_settings` 同名键）
 
 ## 阶段 3 · PlaybackEngine（M0 #2 / #3）
 
@@ -138,7 +138,6 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 当前状态速览
 
-- **阶段 1（Ncrust.Core）全部完成**：网络 / 加密、JSON、登录、播放（队列 / 音质 / 取链 / 上报 /
-  状态层 / 偏好 / 持久化）、端点、缓存、云收藏库。Core 测试 183 个通过。
-- 下一步：**阶段 2 App 平台层**（LocalSettings / LocalFile / PasswordVault / CodecProbe / NetworkInfo
-  / 浏览器 Cookie 导入）→ 阶段 3 PlaybackEngine。
+- **阶段 1（Ncrust.Core）全部完成**；阶段 2 平台层五个接口实现完成，Release|x64 + .NET Native 构建零警告。
+  Core 测试 183 个通过。
+- 下一步：**阶段 2 剩余**（`BrowserLogin` 与 M0 #4 浏览器 Cookie 导入）→ 阶段 3 PlaybackEngine。
