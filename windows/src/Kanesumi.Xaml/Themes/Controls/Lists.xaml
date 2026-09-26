@@ -1,0 +1,159 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      MetroSidebar / MetroTabRow：派生自平台 ListView（保留方向键、UIA、虚拟化），只重写
+      ListViewItem 模板与度量。选中标记是 3px（侧栏，左侧）/ 2px（Tab，顶部）的 primary 竖条；
+      跨项滑动指示条后续用 Composition 在页面层补（先保证视觉与可达性正确）。
+    -->
+
+    <ControlTemplate x:Key="MetroSidebarItemTemplate" TargetType="ListViewItem">
+        <Grid x:Name="Root" Background="Transparent" Height="48">
+            <Rectangle x:Name="PressTint" Fill="{ThemeResource KPressTintBrush}" Opacity="0" />
+            <Rectangle
+                x:Name="SelectionBar"
+                Width="3"
+                HorizontalAlignment="Left"
+                Fill="{ThemeResource KPrimaryBrush}"
+                Opacity="0" />
+            <ContentPresenter
+                x:Name="ContentPresenter"
+                Padding="{TemplateBinding Padding}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Center"
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}" />
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Target="PressTint.Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Target="PressTint.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled" />
+                </VisualStateGroup>
+                <VisualStateGroup x:Name="SelectionStates">
+                    <VisualState x:Name="Unselected" />
+                    <VisualState x:Name="Selected">
+                        <VisualState.Setters>
+                            <Setter Target="SelectionBar.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="PointerOverSelected">
+                        <VisualState.Setters>
+                            <Setter Target="SelectionBar.Opacity" Value="1" />
+                            <Setter Target="PressTint.Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="PressedSelected">
+                        <VisualState.Setters>
+                            <Setter Target="SelectionBar.Opacity" Value="1" />
+                            <Setter Target="PressTint.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+        </Grid>
+    </ControlTemplate>
+
+    <Style x:Key="MetroSidebarItemStyle" TargetType="ListViewItem">
+        <Setter Property="Padding" Value="18,0,12,0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template" Value="{StaticResource MetroSidebarItemTemplate}" />
+    </Style>
+
+    <!-- 侧栏：宽 200、行高 48，背景显式用 token 的 background。 -->
+    <Style x:Key="MetroSidebarStyle" TargetType="ListView">
+        <Setter Property="Width" Value="200" />
+        <Setter Property="Background" Value="{ThemeResource KBackgroundBrush}" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="IsItemClickEnabled" Value="True" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource MetroSidebarItemStyle}" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <ControlTemplate x:Key="MetroTabRowItemTemplate" TargetType="ListViewItem">
+        <Grid x:Name="Root" Background="Transparent" Height="48">
+            <Rectangle x:Name="PressTint" Fill="{ThemeResource KPressTintBrush}" Opacity="0" />
+            <Rectangle
+                x:Name="SelectionBar"
+                Height="2"
+                VerticalAlignment="Top"
+                Fill="{ThemeResource KPrimaryBrush}"
+                Opacity="0" />
+            <ContentPresenter
+                x:Name="ContentPresenter"
+                Padding="{TemplateBinding Padding}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}" />
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Target="PressTint.Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Target="PressTint.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled" />
+                </VisualStateGroup>
+                <VisualStateGroup x:Name="SelectionStates">
+                    <VisualState x:Name="Unselected" />
+                    <VisualState x:Name="Selected">
+                        <VisualState.Setters>
+                            <Setter Target="SelectionBar.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="PointerOverSelected">
+                        <VisualState.Setters>
+                            <Setter Target="SelectionBar.Opacity" Value="1" />
+                            <Setter Target="PressTint.Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="PressedSelected">
+                        <VisualState.Setters>
+                            <Setter Target="SelectionBar.Opacity" Value="1" />
+                            <Setter Target="PressTint.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+        </Grid>
+    </ControlTemplate>
+
+    <Style x:Key="MetroTabRowItemStyle" TargetType="ListViewItem">
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template" Value="{StaticResource MetroTabRowItemTemplate}" />
+    </Style>
+
+    <!-- Tab 行：高 48、水平等宽、单选。 -->
+    <Style x:Key="MetroTabRowStyle" TargetType="ListView">
+        <Setter Property="Height" Value="48" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="IsItemClickEnabled" Value="True" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource MetroTabRowItemStyle}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+    </Style>
+
+</ResourceDictionary>

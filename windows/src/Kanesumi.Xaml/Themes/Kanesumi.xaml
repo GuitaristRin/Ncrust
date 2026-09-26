@@ -17,6 +17,7 @@
         <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Overrides.xaml" />
         <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Controls/Buttons.xaml" />
         <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Controls/Misc.xaml" />
+        <ResourceDictionary Source="ms-appx:///Kanesumi.Xaml/Themes/Controls/Lists.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>
