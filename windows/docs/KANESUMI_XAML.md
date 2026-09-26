@@ -31,8 +31,9 @@ Kanesumi.Xaml 负责 token、样式、少量自定义控件。
    **禁止依赖动画**（`Width` / `Height` / `Margin` 等，`EnableDependentAnimation`
    永远不开）。这是 Android「只在 `graphicsLayer` 里读动画值」的 XAML 版。
 4. **颜色全部来自 Kanesumi token，且不透明（`pressTint` 等叠加色除外）。**
-   不引用 `SystemControl*` / `SystemAccentColor` 等系统画刷，不依赖亚克力或半透明底。
+   不引用 `SystemControl*` 等系统画刷，不依赖亚克力或半透明底。
    arc-deck 实测过：窗口背景在材质混合后是 `#808080` 中灰，平台半透明文字色对比度只有 1.00。
+   **例外：强调色**跟随 Windows 系统强调色（见下「运行时主题」），平台控件直接用 SystemAccentColor。
 5. **圆角全局归零。** `ControlCornerRadius`、`OverlayCornerRadius` 在应用资源层覆盖为 `0`；
    模板里写死的 `CornerRadius` 也要逐个查。唯一例外同 sec-a：进度环端帽保留圆头。
 6. **无阴影、无 Reveal、无亚克力。** Flyout / Menu / Dialog 的默认阴影关掉。
@@ -50,22 +51,27 @@ Kanesumi.Xaml/
 │   ├── Colors.xaml           # ThemeDictionaries: Dark / Light，全部来自 tokens.json
 │   ├── Typography.xaml       # TextBlock 样式：语义轴 + 尺度轴
 │   ├── Overrides.xaml        # CornerRadius 归零、FocusVisual、滚动条等平台覆盖
-│   └── Controls/*.xaml       # 按控件族分文件：Buttons / Lists / Misc / Navigation
+│   └── Controls/*.xaml       # 按控件族分文件：Buttons / Misc / Navigation
 ├── Motion/
 │   ├── KanesumiEasing.cs     # tokens.json easing → CubicBezierEasingFunction / KeySpline
 │   └── KanesumiMotion.cs     # tokens.json motion → 时长常量 + 常用 Composition 动画工厂
 ├── Controls/                 # 自定义控件（见下表「自定义」列）
-└── KanesumiTheme.cs          # 运行时切换：Apply(accentIndex, ThemeMode)
+└── KanesumiAccent.cs         # 强调色跟随 Windows：FollowSystem / Apply
 ```
 
-**运行时主题**：6 强调色 × 3 模式（系统 / 深 / 浅）。
+**平台控件优先**（负责人 2026-09-26 决定）：能用 WinUI / 平台原生控件的就用原生，只做资源键级覆盖，
+不再自绘替代品。已撤掉的自绘件：ListView 侧栏（→ NavigationView）、ListView Tab 行（→ Pivot）。
+
+**运行时主题**：明暗 3 模式（系统 / 深 / 浅）；强调色**跟随 Windows**。
 
 - 明暗：设置根元素的 `RequestedTheme`，`Colors.xaml` 的 ThemeDictionaries 自动切换；
-  「跟随系统」监听 `UISettings.ColorValuesChanged`。
-- 强调色：`Colors.xaml` 里的 `KPrimaryBrush` 是**单一共享的 `SolidColorBrush` 实例**，
-  `KanesumiTheme.Apply` 直接改它的 `Color`，所有引用处即时更新，无需重载资源。
-  `Overrides.xaml` 同时把 `SystemAccentColor`（及 Light1..3 / Dark1..3）覆盖为同一强调色，
-  平台控件（选中条、焦点、滑块、文本框）才不会跟着用户的 Windows 强调色走；切换主题色时要一起改。
+  「跟随系统」监听 `UISettings.ColorValuesChanged`。（尚未实现，目前固定深色。）
+- 强调色：**不覆盖** `SystemAccentColor`，平台控件（NavigationView 选中条、Pivot 下划线、焦点、滑块、
+  文本框）直接跟随「设置 → 个性化 → 颜色」里的强调色（Windows 10 / 11 都有）。
+  `Colors.xaml` 里的 `KPrimaryBrush` 是**单一共享的 `SolidColorBrush` 实例**，`KanesumiAccent.FollowSystem`
+  在启动时把它设成 `UISettings.GetColorValue(UIColorType.Accent)`，并订阅 `ColorValuesChanged` 实时跟随；
+  读不到时回落内置云杉 `#1DB954`。`KOnPrimaryBrush` 按相对亮度（>0.5）选黑 / 白。
+  原计划的「6 强调色预设」在 Windows 上不再做（系统强调色本身就可选任意颜色）。
 - 标题栏按钮颜色随主题同步。
 
 **WinUI 2 样式版本**：应用以 `XamlControlsResources ControlsResourcesVersion="Version1"` 合并 WinUI 2，
@@ -126,7 +132,7 @@ XAML：可点击控件的模板里放一个铺满的 `Rectangle x:Name="PressTin
 | `MetroIconButton` | `MetroIconButtonStyle` | 样式 · `Button` | 默认 48×48，无背板；可按场景覆盖为 40 / 44（对应 FullPlayerControls 的 compact） | M1 |
 | `MetroListRow` | `MetroListViewItemStyle` + 行模板约定 | 样式 · `ListViewItem` | 左 0 右 16、上下 8；前后元素间距 12；标题 `body`，副标题 `caption` + `onSurfaceVariant`。**关掉** WinUI 2 的圆角选中指示条与项圆角（具体属性以 WinUI 2.8 的 `ListViewItem` 模板为准，写样式前先查模板源码） | M1 |
 | `MetroDivider` | `MetroDividerStyle`（`Rectangle` 高 1） | 样式 | `divider` 色；只做水平方向 | M1 |
-| `MetroTabRow` | `MetroTabRow` | 自定义 · 派生 `ListView`（水平面板、单选） | 高 48，等宽；顶部 2px 满宽指示条，由 Composition `Offset.X` 滑动 200ms `metroCubic`；文字 14，选中 `primary` 500、未选中 `onSurfaceVariant` 400，两层叠放、`Opacity` 交叉淡化 180ms；文字距顶 14。派生 ListView 以保留方向键与 UIA Selection | M1 |
+| `MetroTabRow` | **平台原生 `Pivot`** | 原生（不覆盖） | sec-a 的 MetroTabRow 本身就是模仿 UWP Pivot 的，在 Windows 上直接用 Pivot（Groove「我的音乐」同款）：选中下划线跟随系统强调色，键盘 / 触屏滑动 / UIA 由平台提供。**修订**：曾用重写 ListViewItem 的 `MetroTabRowStyle` 自绘，负责人实测体验差，已删除 | M1 ✅ |
 | `MetroProgressIndicator` | `MetroProgressRing` | 自定义 | 36 / 描边 3，270° 弧，圆头端帽，Composition `RotationAngle` 线性 1s 一圈。不重写平台 `ProgressRing`：WinUI 2 的实现是 Lottie 动画，改不动弧形 | M1 |
 | `MetroTextField` | `MetroTextBoxStyle`；搜索框用 `MetroAutoSuggestBoxStyle` | 样式 · `TextBox` / `AutoSuggestBox` | `surfaceVariant` 底，内边距 12，无边框、无聚焦下划线、无圆角；占位符 `onSurfaceVariant`。光标色若平台不可配则接受默认 | M1 |
 | `MetroSwitch` | `MetroToggleSwitchStyle` | 样式 · `ToggleSwitch` | 轨道 52×28 直角，滑块 22 宽、内边距 3；关态轨道 `onSurfaceVariant@0.45` + `divider` 描边，开态 `primary`；滑块恒为 `onPrimary`；220ms `metroCubic`。拖拽释放判定用平台逻辑（sec-a 是「位移 < 15% 视为点击」），M2 实测后再决定是否需要自绘 | M2 |
@@ -141,7 +147,7 @@ XAML：可点击控件的模板里放一个铺满的 `Rectangle x:Name="PressTin
 
 | sec-a | Kanesumi.Xaml | 基底 | 关键数值 / 行为 | 阶段 |
 |---|---|---|---|---|
-| `MetroSidebar` | **WinUI 2 `NavigationView`** + `Themes/Controls/Navigation.xaml` 资源覆盖 | 样式（只覆盖资源键，不重写模板） | 标准汉堡菜单，自适应展开 / 紧凑 / 最小；面板宽 240（sec-a 默认值）。覆盖：展开面板与页面同为 background、浮出面板用 surface（都不透明，不用亚克力）；内容区无边框、无圆角、透明；悬停 / 按下用 pressTint（悬停 0.5 倍）替代 Reveal；选中无底色，只有 primary 竖条；文字不透明。**修订**：原计划自绘 ListView 侧栏并「不用 NavigationView」，理由是 arc-deck 里的圆角中灰内容区 —— 那是 WinUI 2 **Version2** 样式；改用 `ControlsResourcesVersion="Version1"` + 资源覆盖即可解决，而负责人要求的是标准汉堡菜单。旧的 `MetroSidebarStyle`（ListView）保留在 Lists.xaml 但外壳不再使用 | M1 ✅ |
+| `MetroSidebar` | **WinUI 2 `NavigationView`** + `Themes/Controls/Navigation.xaml` 资源覆盖 | 样式（只覆盖资源键，不重写模板） | 标准汉堡菜单，自适应展开 / 紧凑 / 最小；面板宽 240（sec-a 默认值）。覆盖：展开面板与页面同为 background、浮出面板用 surface（都不透明，不用亚克力）；内容区无边框、无圆角、透明；悬停 / 按下用 pressTint（悬停 0.5 倍）替代 Reveal；选中无底色，只有 primary 竖条；文字不透明。**修订**：原计划自绘 ListView 侧栏并「不用 NavigationView」，理由是 arc-deck 里的圆角中灰内容区 —— 那是 WinUI 2 **Version2** 样式；改用 `ControlsResourcesVersion="Version1"` + 资源覆盖即可解决，而负责人要求的是标准汉堡菜单。旧的 `MetroSidebarStyle`（ListView）已随 Lists.xaml 删除 | M1 ✅ |
 | `MetroBottomNav` | **不移植** | — | 窄窗口由 NavigationView 最小模式（汉堡按钮 + 浮出面板）覆盖，不另做底部导航 | — |
 | `MetroDetailScaffold` | `MetroDetailScaffold` | 自定义 | 三态（加载 / 错误 / 内容）交叉淡化；内容入场：淡入 + 上移 12，220ms `metroDefault`；`HasCachedContent = true` 时跳过加载态（对应 Ncrust 的 ContentCache 模式） | M1 |
 | `MetroTopScrim` | `MetroDetailScaffold` 的模板部件 | — | 高 120，黑色 alpha 0.55 → 0 渐变；悬浮返回按钮 48，默认无按压反馈 | M1 |

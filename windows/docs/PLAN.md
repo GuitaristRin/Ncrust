@@ -110,7 +110,9 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] M1：`MetroProgressRing`（Composition 旋转 270° 弧）、`MetroTextBoxStyle`
 - [x] M1：`MetroSidebarStyle` / `MetroTabRowStyle`（ListView + 重写 ListViewItem，选中指示条）
       （外壳已改用 NavigationView，`MetroSidebarStyle` 保留但不再使用）
-- [x] NavigationView 资源覆盖（`Themes/Controls/Navigation.xaml`）+ `SystemAccentColor` 覆盖；`MetroGridTileStyle`
+- [x] NavigationView 资源覆盖（`Themes/Controls/Navigation.xaml`）；`MetroGridTileStyle`
+- [x] 平台控件优先：搜索页 Tab 改原生 `Pivot`，删除自绘 `MetroSidebarStyle` / `MetroTabRowStyle`（Lists.xaml）
+- [x] 强调色跟随 Windows（`KanesumiAccent`），不再覆盖 `SystemAccentColor`
 - [ ] M1 剩余：`MetroDetailScaffold` / `MetroLyricsPanel`（跨项滑动指示条与 Composition 指示条待补）
 - [ ] M2：`MetroToggleSwitch` / `MetroComboBox` / `MetroMenuFlyout` / `MetroContentDialog`
       （`MetroBottomNav` 不再需要：窄窗口由 NavigationView 最小模式覆盖）
@@ -147,7 +149,7 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [ ] 音乐库云同步 UI、专辑 / 歌手页
 - [ ] 私人 FM + INFINITY（相似 / FM 续播、去重、防重入）
 - [ ] 音质设置（6 档偏好 + Wi-Fi / 计费两档默认 3 / 1）、歌词翻译开关、gapless 开关
-- [ ] 主题 6 色 × 3 模式（`KanesumiTheme.Apply`，共享 `KPrimaryBrush`）
+- [~] 主题：强调色已跟随 Windows 系统强调色（`KanesumiAccent`，不再做 6 色预设）；明暗 3 模式待做
 - [ ] 多选批量操作、窄窗口细节（导航已由 NavigationView 最小模式覆盖）
 - [ ] dolby / jyeffect 在 Windows 上的解码实测（解不了靠自动降级兜底）
 
@@ -160,28 +162,29 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ---
 
-## 待设备验收（2026-09-26 第二轮只经构建验证）
+## 设备验收（2026-09-26 晚，第二轮）
 
-第二轮（汉堡菜单外壳、传输栏、搜索、首页、引擎修正、图标）是在负责人不便开应用时完成的，
-**只经过 Release 构建，没有运行过**。下次开应用时按顺序过一遍，有问题先修这里：
+第二轮是在负责人不便开应用时写的，当晚上机验收。结果：
 
-1. 启动不崩：`crash.log` / `boot.log` 为空（`%LOCALAPPDATA%\Packages\TakahashiRinta.Ncrust_98kk3q0vty278\LocalState\`）。
-   最可能出问题的是 App.xaml 的 `ControlsResourcesVersion="Version1"` 与 `Resources/Templates.xaml` 合并。
-2. 图标：开始菜单 / 任务栏 / 标题栏是整块绿底唱片纹（注册前先卸载旧包，否则图标缓存可能不刷新）。
-3. 汉堡菜单：宽 ≥1008 展开、600~1008 紧凑、<600 只剩汉堡；面板纯黑、无圆角、无中灰内容面板；
-   选中项是绿色竖条；返回按钮可用；标题栏可拖动，且不挡住返回 / 汉堡按钮。
-4. 账户项：未登录「登录」→ 打开登录层（顶部按钮可点，Esc 可关）；登录后显示昵称与头像。
-5. 传输栏：按钮都能点（原 `IsHitTestVisible` 问题）；播放 / 暂停图标切换；进度条走动、拖动松手跳转；
-   模式按钮循环四种模式并重启后保留；音量浮层与静音；窄窗口退化为迷你栏。
-6. 播放：首次播放不崩（原跨线程问题）；一首播完自动下一首；列表循环回绕继续播；随机模式能一直播下去；
-   上一首回到上一曲；SMTC 媒体键可用。（即 M0 #2 / #3）
-7. 搜索：输入停顿后出建议、选中即播；回车进搜索页，三个 Tab 切换、空态、加载态。
-8. 首页：未登录显示登录卡且没有空的「每日推荐」；登录后自动出现每日推荐；「全部播放」替换队列。
-9. 快捷键：Space（输入框里打空格不被拦截）、Ctrl+P、Ctrl+← / →、Ctrl+F、Ctrl+L、F11、Esc、Alt+←。
+| # | 项目 | 结果 |
+|---|---|---|
+| 1 | 启动不崩 | ✅ `Version1` 与模板字典合并均正常 |
+| 2 | 图标 | ⏳ 未专门核对开始菜单 / 任务栏（标题栏小图标正常） |
+| 3 | 汉堡菜单 | ✅ 展开态、返回按钮、选中竖条、分组标题、标题栏拖动区；紧凑 / 最小态未测 |
+| 4 | 账户 / 登录 | ❌→✅ 打开登录层即**死锁**（二维码在 UI 线程上 `.Wait()`），已修；网页登录与扫码均可用，登录后显示昵称与头像 |
+| 5 | 传输栏 | ✅ 按钮可点、播放 / 暂停、进度走动；拖动松手、模式重启保留、音量浮层、窄窗口未逐项测 |
+| 6 | 播放 | ✅ 首次播放不崩、下一首正常、队列启动恢复；❌→✅ 封面不显示 / 卡片背景不显示 / 卡片封面发糊，已修；自动续播、随机、SMTC 未测 |
+| 7 | 搜索 | ✅ 即时建议、搜索页；❌→✅ 无封面的专辑 / 歌手**闪退**（空串绑 Image.Source），已修；Tab 按负责人要求改用原生 Pivot |
+| 8 | 首页 | ✅ 未登录登录卡、登录后每日推荐、「全部播放」按钮 |
+| 9 | 快捷键 | ✅ Esc 逐层退出播放器；其余未逐项测 |
+
+另按负责人要求：强调色改为**跟随 Windows 系统强调色**（实测蓝色生效），平台控件优先、不再自绘。
+
+仍待验：紧凑 / 最小导航态、自动续播与随机模式长时间播放、SMTC 媒体键、音量与模式持久化、各快捷键。
 
 ## 当前状态速览
 
-- **阶段 1（Ncrust.Core）全部完成**，Core 测试 191 个通过；阶段 2 平台层 + 独立登录窗口完成；
-  阶段 3 PlaybackEngine 代码完成并经 review 修正。Release|x64 + .NET Native 构建零警告、产出 MSIX。
-- 外壳：标准汉堡菜单 + 自定义标题栏；Groove 式传输栏；搜索页；首页第二轮。**以上待设备验收（见上节）。**
+- **阶段 1（Ncrust.Core）全部完成**，Core 测试 200 个通过；阶段 2 平台层 + 独立登录窗口完成；
+  阶段 3 PlaybackEngine 经 review 修正并上机验证可播放。Release|x64 + .NET Native 构建零警告。
+- 外壳（标准汉堡菜单 + 自定义标题栏）、Groove 式传输栏、搜索页（原生 Pivot）、首页均已上机验证（见上节）。
 - 下一步：**歌词 / 队列层** → 歌单 / 专辑 / 歌手详情页 → 音乐库页 → 设置页。

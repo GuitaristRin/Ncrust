@@ -56,6 +56,8 @@ MediaBinder / 降级 / 上报），Shell 有 M0 播放验证入口；Kanesumi.Xa
 | 业务核心 | `Ncrust.Core` 用 netstandard2.0，**不依赖 WinRT，也不依赖 UI** | 测试可以用普通 `dotnet test` 秒级跑完；以后换运行时也能原样复用 |
 | 播放 | `MediaPlayer` + `MediaPlaybackList` + `MediaBinder` | 系统提供无缝播放、SMTC、后台音频；延迟绑定正好解决 URL 过期问题 |
 | 动画 | `Windows.UI.Composition`，单一 progress 标量驱动 | 对应 Android 的「单一 progress + `graphicsLayer`」，在合成线程执行 |
+| 平台控件优先 | **能用 WinUI / 平台原生控件的就用原生**（NavigationView、Pivot、Slider、ContentDialog…），只做资源键级的 Kanesumi 覆盖；不再自绘替代品 | 负责人实测自绘 Tab 行体验差（2026-09-26）。原生控件自带键盘、UIA、触屏手势与系统一致的交互 |
+| 强调色 | **跟随 Windows 系统强调色**（设置 → 个性化 → 颜色，Windows 10 / 11 都有）；读不到时回落内置云杉 `#1DB954`。平台控件直接用 SystemAccentColor，Kanesumi 的 `KPrimaryBrush` 由 `KanesumiAccent.FollowSystem` 同步并实时跟随；`KOnPrimaryBrush` 按亮度选黑 / 白 | 负责人要求。应用图标的绿色是品牌色，不随强调色变 |
 | 外壳导航 | **标准汉堡菜单**：WinUI 2 `NavigationView`（自适应展开 / 紧凑 / 最小），不用自绘 ListView 侧栏或窄窗底部导航 | 负责人要求标准汉堡菜单；参考 Groove Music。平台控件自带自适应、返回按钮、键盘与 UIA |
 | WinUI 2 样式版本 | `XamlControlsResources ControlsResourcesVersion="Version1"` | Windows 10 / Groove 一代的直角样式；Version2 是 Windows 11 圆角 + 中灰圆角内容面板，与 Kanesumi 冲突 |
 | 图标 | 界面图标用 **Segoe MDL2 Assets**（显式指定 `FontFamily`）；应用图标是整块绿底唱片纹 | Groove 同源的原生图标字体；不打包 Material Icons（原 KANESUMI_XAML 的设想已撤回） |
@@ -121,7 +123,7 @@ windows/
 应用资源的合并顺序（`App.xaml`，顺序不能反）：
 
 1. `XamlControlsResources ControlsResourcesVersion="Version1"`（WinUI 2，Windows 10 直角样式）；
-2. `ms-appx:///Kanesumi.Xaml/Themes/Kanesumi.xaml`（token、样式、平台覆盖：圆角归零、强调色、NavigationView）；
+2. `ms-appx:///Kanesumi.Xaml/Themes/Kanesumi.xaml`（token、样式、平台覆盖：圆角归零、NavigationView；不覆盖系统强调色）；
 3. `Resources/Templates.xaml`（带 `x:Class`，共用列表项模板：歌曲行 / 专辑磁贴 / 歌单磁贴 / 歌手行 / 搜索建议）。
 
 Kanesumi 必须排在 WinUI 之后，否则覆盖不生效；模板字典排最后，模板里的 `StaticResource` 在实例化时才解析。
@@ -344,7 +346,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | 歌曲菜单 | 右键、触屏长按、Shift+F10 或菜单键 → `MenuFlyout`（与 `SongMenuSheet` 项目一致） |
 | 多选 | Ctrl / Shift 多选，批量「下一首播放 / 加入队列」（M2） |
 | 返回 | 详情页左上角悬浮箭头；Alt+←、鼠标侧键、焦点不在输入框时的 Backspace |
-| 搜索 | 导航面板顶部的搜索框（窄窗口先展开面板），Ctrl+F 聚焦。输入停顿 **500ms（防抖不能去掉）** 后下拉即时建议（前 8 首歌，选中即播放）；回车进入搜索页，用 `MetroTabRowStyle` 分歌曲 / 专辑 / 歌手三类，三类并发请求。点歌记入搜索历史（历史的展示入口待做） |
+| 搜索 | 导航面板顶部的搜索框（窄窗口先展开面板），Ctrl+F 聚焦。输入停顿 **500ms（防抖不能去掉）** 后下拉即时建议（前 8 首歌，选中即播放）；回车进入搜索页，用平台原生 `Pivot` 分歌曲 / 专辑 / 歌手三类（Groove「我的音乐」同款），三类并发请求。点歌记入搜索历史（历史的展示入口待做） |
 
 ### 快捷键
 
@@ -483,9 +485,24 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
   反过来，`Opacity=0` 的元素照样接收点击，隐藏时要一并关掉命中测试。
 - **Composition 动画参数的求值顺序**：`KanesumiEasing.Standard(_compositor)` 这类工厂在传参时就会执行；
   合成初始化失败（`_compositor == null`）的降级路径里要先判空再创建缓动。
-- **编辑工具会把 `\uXXXX` 转义写成私用区字符**：图标码点在源码里要保持 `""` 这样的转义，
+- **编辑工具会把 `\uXXXX` 转义写成私用区字符**：图标码点在源码里要保持 `"\uE768"` 这样的转义，
   提交前确认没有混进看不见的字符。
 - **快捷键 Space**：`KeyboardAccelerator` 会先于文本输入触发；焦点在 `TextBox` / `AutoSuggestBox` /
   按钮上时不要 `Handled`，否则打不了空格、按不了按钮。
+- **UI 线程上不许对异步调用 `.Wait()` / `.Result`**：`BitmapImage.SetSourceAsync` 这类要回到 UI 线程
+  完成的操作，在 UI 线程上同步等待会死锁 —— 实测打开登录层后整个应用无响应、WebView2 一片空白。
+- **字符串不能直接 `x:Bind` 到 `Image.Source`**：空串转 ImageSource 会抛
+  `ArgumentException: The value cannot be converted to type ImageSource` 并带崩进程（无封面的专辑 / 歌手）。
+  图片一律经 `DisplayFormat.Cover(url, decodePx)`（Core `CoverUrls` + 空值保护 + 按显示尺寸解码）。
+- **`BitmapImage` 只有挂到可视树里的 `Image` 上才会下载**：只 `new` 出来等 `ImageOpened` 永远等不到。
+  需要「解码完再替换」时用隐藏的预加载 `Image`（见 `PlayerHost.CoverPreloader`）。
+- **XAML 会跳过渲染 `Opacity="0"` 的元素**：想用 Composition 表达式驱动透明度的元素，XAML 里的
+  Opacity 要保持 1，初值交给表达式。
+- **XAML 命中测试不认 Composition 变换**：`Scale` / `Translation` 只改视觉，点击区域仍是布局位置。
+  用 Composition 缩放显示的大元素要关掉命中测试，另放点击区。
+- **应用运行时不能编译**：本地注册指向 `bin\Release\ilc`，应用开着时文件被占用，.NET Native 编译报
+  `ilc.exe` 退出码 3004。先关应用再构建。
+- **模拟键盘输入会被中文输入法转换**：截图脚本 `-Keys` 输入英文会变成拼音候选（"jay" → 「叫阿姨」）；
+  验证时用数字，或先切到英文输入。
 - **应用能力声明**：`internetClient`、`backgroundMediaPlayback`；M3 做 `QrPair` 时再加
   `privateNetworkClientServer`。
