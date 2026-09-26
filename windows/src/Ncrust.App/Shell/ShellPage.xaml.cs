@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Ncrust.Login;
 using Ncrust.Pages;
 using Ncrust.Playback;
@@ -36,6 +36,7 @@ namespace Ncrust.Shell
             KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
 
             LoginLauncher.LaunchRequested += ShowLogin;
+            AppServices.SessionChanged += UpdateAccountItem;
             Window.Current.CoreWindow.PointerPressed += OnCoreWindowPointerPressed;
             Loaded += OnLoaded;
 
@@ -60,16 +61,8 @@ namespace Ncrust.Shell
             ApplyTitleBarHeight(coreTitleBar.Height > 0 ? coreTitleBar.Height : 32);
             Window.Current.SetTitleBar(AppTitleBar);
 
-            // 系统标题栏按钮（最小化 / 最大化 / 关闭）：透明底，前景跟随深色主题。
-            var titleBar = ApplicationView.GetForCurrentView().TitleBar;
-            titleBar.ButtonBackgroundColor = Colors.Transparent;
-            titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-            titleBar.ButtonForegroundColor = Colors.White;
-            titleBar.ButtonInactiveForegroundColor = Color.FromArgb(0xFF, 0x80, 0x80, 0x80);
-            titleBar.ButtonHoverBackgroundColor = Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF);
-            titleBar.ButtonHoverForegroundColor = Colors.White;
-            titleBar.ButtonPressedBackgroundColor = Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF);
-            titleBar.ButtonPressedForegroundColor = Colors.White;
+            // 系统标题栏按钮（最小化 / 最大化 / 关闭）：透明底，前景随明暗主题（切换主题时 AppTheme 会再调一次）。
+            AppTheme.ApplyTitleBarColors();
 
             // SetPreferredMinSize 的上限是 500x500。
             ApplicationView.GetForCurrentView().SetPreferredMinSize(new Size(360, 500));
@@ -100,6 +93,12 @@ namespace Ncrust.Shell
 
         private void NavItemInvoked(muxc.NavigationView sender, muxc.NavigationViewItemInvokedEventArgs args)
         {
+            if (args.IsSettingsInvoked)
+            {
+                NavigateTo(typeof(SettingsPage));
+                return;
+            }
+
             var tag = (args.InvokedItemContainer as muxc.NavigationViewItem)?.Tag as string;
             switch (tag)
             {
@@ -110,9 +109,10 @@ namespace Ncrust.Shell
                     NavigateTo(typeof(LibraryPage));
                     break;
                 case "account":
+                    // 已登录：账户资料与退出登录在设置页顶部（与 Android「我的」页一致）。
                     if (AppServices.IsLoggedIn())
                     {
-                        NavigateTo(typeof(UserPage));
+                        NavigateTo(typeof(SettingsPage));
                     }
                     else
                     {
@@ -157,9 +157,9 @@ namespace Ncrust.Shell
             {
                 Nav.SelectedItem = LibraryItem;
             }
-            else if (e.SourcePageType == typeof(UserPage))
+            else if (e.SourcePageType == typeof(SettingsPage) || e.SourcePageType == typeof(EqualizerPage))
             {
-                Nav.SelectedItem = AccountItem;
+                Nav.SelectedItem = Nav.SettingsItem;
             }
             else
             {
@@ -255,7 +255,6 @@ namespace Ncrust.Shell
             var loggedIn = AppServices.IsLoggedIn();
 
             AccountItem.Content = loggedIn ? (profile?.Nickname ?? "我的") : "登录";
-            AccountItem.SelectsOnInvoked = loggedIn;
 
             if (loggedIn && !string.IsNullOrEmpty(profile?.AvatarUrl))
             {

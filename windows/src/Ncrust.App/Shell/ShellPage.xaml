@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:player="using:Ncrust.Player"
-    RequestedTheme="Dark"
     Background="{ThemeResource KBackgroundBrush}">
 
     <!--
@@ -33,7 +32,7 @@
             ExpandedModeThresholdWidth="1008"
             IsBackButtonVisible="Visible"
             IsBackEnabled="False"
-            IsSettingsVisible="False"
+            IsSettingsVisible="True"
             IsTitleBarAutoPaddingEnabled="True"
             ItemInvoked="NavItemInvoked"
             OpenPaneLength="240"

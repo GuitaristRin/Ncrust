@@ -1,8 +1,7 @@
 <UserControl
     x:Class="Ncrust.Player.PlayerHost"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    RequestedTheme="Dark">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
       播放器层：常驻覆盖层。Progress（0 迷你栏 → 1 展开卡片）、Fullscreen 两个标量放在

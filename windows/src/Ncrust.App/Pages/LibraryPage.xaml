@@ -2,7 +2,6 @@
     x:Class="Ncrust.Pages.LibraryPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    RequestedTheme="Dark"
     Background="{ThemeResource KBackgroundBrush}">
     <StackPanel Padding="24,16" Spacing="12">
         <TextBlock Style="{StaticResource PageHeadingTextStyle}" Text="音乐库" />

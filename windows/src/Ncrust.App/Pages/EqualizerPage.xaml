@@ -1,0 +1,77 @@
+<Page
+    x:Class="Ncrust.Pages.EqualizerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{ThemeResource KBackgroundBrush}">
+
+    <!--
+      均衡器（设置的子页面，Windows 端新增）：开关、预设（内置 + 我的预设）、保存为命名预设 / 删除 / 重置、
+      前级 + 10 段竖直滑块（±12 dB，步进 0.5）。拖动即时生效（参数直接写进音效组件共享的 PropertySet），
+      并立即保存；手动改动后预设显示为「自定义」。控件全部是平台原生的。
+    -->
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto">
+        <StackPanel Padding="24,16,24,32" Spacing="12">
+            <StackPanel>
+                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="设置" />
+                <TextBlock Style="{StaticResource PageHeadingTextStyle}" Text="均衡器" />
+            </StackPanel>
+
+            <TextBlock
+                x:Name="UnavailableText"
+                Style="{StaticResource CaptionTextStyle}"
+                Text="当前系统不支持挂载音效，均衡器不可用。"
+                Visibility="Collapsed" />
+
+            <ToggleSwitch
+                x:Name="EnabledSwitch"
+                Header="启用均衡器"
+                Toggled="EnabledToggled" />
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <ComboBox
+                    x:Name="PresetBox"
+                    MinWidth="200"
+                    Header="预设"
+                    PlaceholderText="自定义"
+                    SelectionChanged="PresetChanged" />
+                <Button
+                    VerticalAlignment="Bottom"
+                    Click="SaveClick"
+                    Content="保存为预设…"
+                    Style="{StaticResource MetroSecondaryButtonStyle}" />
+                <Button
+                    x:Name="DeleteButton"
+                    VerticalAlignment="Bottom"
+                    Click="DeleteClick"
+                    Content="删除预设"
+                    IsEnabled="False"
+                    Style="{StaticResource MetroSecondaryButtonStyle}" />
+                <Button
+                    VerticalAlignment="Bottom"
+                    Click="ResetClick"
+                    Content="重置"
+                    Style="{StaticResource MetroGhostButtonStyle}" />
+            </StackPanel>
+
+            <!-- 滑块区：前级 | 分隔线 | 10 段。列由代码生成（EqualizerPage.BuildSliders）。 -->
+            <Grid
+                x:Name="SliderGrid"
+                Margin="0,16,0,0"
+                HorizontalAlignment="Left"
+                ColumnSpacing="4">
+                <Rectangle
+                    Grid.Column="1"
+                    Grid.RowSpan="3"
+                    Width="1"
+                    Margin="8,0"
+                    Fill="{ThemeResource KDividerBrush}" />
+            </Grid>
+
+            <TextBlock
+                Style="{StaticResource CaptionTextStyle}"
+                Text="提升多个频段时适当降低前级增益，可以避免削波失真。"
+                TextWrapping="Wrap"
+                TextTrimming="None" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

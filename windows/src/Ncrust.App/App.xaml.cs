@@ -103,6 +103,9 @@ namespace Ncrust
                 rootFrame = new Frame();
                 rootFrame.NavigationFailed += OnNavigationFailed;
                 Window.Current.Content = rootFrame;
+
+                // 明暗主题设在根 Frame 上，所有页面继承（设置页可切换：跟随系统 / 深色 / 浅色）。
+                AppTheme.ApplySaved(rootFrame);
             }
 
             // 强调色跟随 Windows（读不到时用内置云杉绿），在第一个页面构建前同步好。
