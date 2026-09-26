@@ -105,6 +105,9 @@ namespace Ncrust
                 Window.Current.Content = rootFrame;
             }
 
+            // 强调色跟随 Windows（读不到时用内置云杉绿），在第一个页面构建前同步好。
+            Kanesumi.Xaml.KanesumiAccent.FollowSystem(Resources);
+
             Trace("OnLaunched: before Navigate");
             if (!e.PrelaunchActivated && rootFrame.Content == null)
             {

@@ -52,9 +52,10 @@
     </ResourceDictionary.ThemeDictionaries>
 
     <!--
-      强调色不随明暗变化，是单一共享的画刷实例：运行时切换主题色时直接改它的 Color，
-      所有引用处即时更新，不用重载资源。默认云杉 #1DB954（tokens.json accents.default = 0）。
-      onPrimary 在两种模式下都是白色，与 Android 现状一致。
+      强调色不随明暗变化，是单一共享的画刷实例：KanesumiAccent.FollowSystem 在启动时把它改成
+      Windows 的系统强调色，并在用户改色时实时跟随；所有引用处即时更新，不用重载资源。
+      这里写的云杉 #1DB954 只是读不到系统强调色时的内置兜底（tokens.json accents.default = 0）。
+      onPrimary 按强调色亮度在黑 / 白之间选（浅色强调色上白字看不清）。
     -->
     <SolidColorBrush x:Key="KPrimaryBrush" Color="#FF1DB954" />
     <SolidColorBrush x:Key="KOnPrimaryBrush" Color="#FFFFFFFF" />

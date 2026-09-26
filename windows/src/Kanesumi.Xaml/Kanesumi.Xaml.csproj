@@ -41,6 +41,7 @@
 
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="KanesumiAccent.cs" />
     <Compile Include="Motion\KanesumiEasing.cs" />
     <Compile Include="Motion\KanesumiMotion.cs" />
     <Compile Include="Controls\MetroProgressRing.cs" />

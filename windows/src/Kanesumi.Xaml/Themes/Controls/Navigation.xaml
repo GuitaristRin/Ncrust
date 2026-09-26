@@ -15,7 +15,7 @@
       - 面板纯色，不用亚克力：展开时与页面同为 background，浮出（紧凑 / 最小模式点开）时用
         surface，与内容区分层但不透明。
       - 内容区无边框、无圆角、透明背景（Version2 的中灰圆角面板就是这些键）。
-      - 悬停 / 按下用 pressTint（悬停 0.5 倍），不用 Reveal 光效；选中无底色，只有 primary 竖条。
+      - 悬停 / 按下用 pressTint（悬停 0.5 倍），不用 Reveal 光效；选中无底色，只有竖条（颜色是平台默认的系统强调色）。
       - 文字与图标用不透明 token 色（arc-deck 实测：半透明系统色压在材质上会看不见）。
 
       资源键名以 WinUI 2.8 为准；写了不存在的键不会报错，只会不生效。
@@ -55,7 +55,6 @@
             <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPressed" Color="#FFFFFFFF" />
             <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedDisabled" Color="#66FFFFFF" />
 
-            <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#FF1DB954" />
 
             <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="#11FFFFFF" />
             <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="#22FFFFFF" />
@@ -101,7 +100,6 @@
             <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedPressed" Color="#FF1C1A16" />
             <SolidColorBrush x:Key="NavigationViewItemForegroundSelectedDisabled" Color="#661C1A16" />
 
-            <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#FF1DB954" />
 
             <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="#0A000000" />
             <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="#14000000" />
