@@ -1,25 +1,37 @@
-using System.Threading.Tasks;
+using System;
 using Ncrust.Login;
-using Ncrust.Playback;
-using Windows.UI.Xaml;
+using Ncrust.Pages;
 using Windows.UI.Xaml.Controls;
 
 namespace Ncrust.Shell
 {
     public sealed partial class ShellPage : Page
     {
-        // 固定的测试曲（晴天），M0 播放验证用；正式页面接入后再替换。
-        private const long TestSongId = 186016;
+        private static readonly Type[] Pages =
+        {
+            typeof(HomePage), typeof(SearchPage), typeof(LibraryPage), typeof(UserPage),
+        };
 
         private LoginPage _login;
-        private PlaybackEngine _engine;
 
         public ShellPage()
         {
             InitializeComponent();
+            Sidebar.ItemsSource = new[] { "首页", "搜索", "音乐库", "我的" };
+            LoginLauncher.LaunchRequested += ShowLogin;
+            Sidebar.SelectedIndex = 0; // 触发 SelectionChanged → 进入首页
         }
 
-        private void LoginClick(object sender, RoutedEventArgs e)
+        private void SidebarSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var index = Sidebar.SelectedIndex;
+            if (index >= 0 && index < Pages.Length && ContentFrame.CurrentSourcePageType != Pages[index])
+            {
+                ContentFrame.Navigate(Pages[index]);
+            }
+        }
+
+        private void ShowLogin()
         {
             if (_login != null)
             {
@@ -51,53 +63,6 @@ namespace Ncrust.Shell
             _login.CloseRequested -= OnLoginClose;
             OverlayHost.Children.Remove(_login);
             _login = null;
-        }
-
-        private void EnsureEngine()
-        {
-            if (_engine != null)
-            {
-                return;
-            }
-
-            _engine = new PlaybackEngine(
-                AppServices.UrlResolver,
-                AppServices.Session,
-                AppServices.PlayPrefs,
-                AppServices.Network,
-                AppServices.Http);
-            _engine.Initialize();
-            _engine.CurrentSongChanged += song =>
-                CurrentText.Text = song.Name + " · " + (song.Artists.Count > 0 ? song.Artists[0].Name : string.Empty);
-            _engine.PlaybackError += _ => CurrentText.Text = "播放失败（无可用音质或缺登录）";
-        }
-
-        private async void PlayTestClick(object sender, RoutedEventArgs e)
-        {
-            EnsureEngine();
-            CurrentText.Text = "加载中…";
-
-            var songs = await AppServices.Songs.GetSongDetailAsync(new[] { TestSongId });
-            if (songs.Count == 0)
-            {
-                CurrentText.Text = "取歌曲信息失败";
-                return;
-            }
-
-            AppServices.Queue.ReplaceAll(songs);
-            _engine.PlayCurrent();
-        }
-
-        private void PlayPauseClick(object sender, RoutedEventArgs e)
-        {
-            EnsureEngine();
-            _engine.PlayPause();
-        }
-
-        private void NextClick(object sender, RoutedEventArgs e)
-        {
-            EnsureEngine();
-            _engine.Next();
         }
     }
 }

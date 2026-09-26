@@ -1,0 +1,11 @@
+<Page
+    x:Class="Ncrust.Pages.SearchPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark"
+    Background="{ThemeResource KBackgroundBrush}">
+    <StackPanel Padding="24,16" Spacing="12">
+        <TextBlock Style="{StaticResource PageHeadingTextStyle}" Text="搜索" />
+        <TextBlock Style="{StaticResource CaptionTextStyle}" Text="搜索页（M1 待实现）" />
+    </StackPanel>
+</Page>

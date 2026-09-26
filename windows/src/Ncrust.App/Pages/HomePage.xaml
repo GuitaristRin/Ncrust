@@ -1,0 +1,105 @@
+<Page
+    x:Class="Ncrust.Pages.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:api="using:Ncrust.Core.Api"
+    xmlns:controls="using:Kanesumi.Xaml.Controls"
+    RequestedTheme="Dark"
+    Background="{ThemeResource KBackgroundBrush}">
+
+    <Page.Resources>
+        <DataTemplate x:Key="SongTemplate" x:DataType="api:SongItem">
+            <Grid Height="72">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="72" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Image
+                    Grid.Column="0"
+                    Width="72"
+                    Height="72"
+                    Source="{x:Bind CoverUrl}"
+                    Stretch="UniformToFill" />
+                <StackPanel
+                    Grid.Column="1"
+                    Margin="12,0"
+                    VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource BodyTextStyle}" Text="{x:Bind Name}" />
+                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ArtistText}" />
+                </StackPanel>
+                <TextBlock
+                    Grid.Column="2"
+                    Margin="0,0,16,0"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource CaptionTextStyle}"
+                    Text="{x:Bind DurationText}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="PlaylistTemplate" x:DataType="api:PlaylistCard">
+            <StackPanel Width="160" Margin="0,0,10,10">
+                <Image
+                    Width="160"
+                    Height="160"
+                    Source="{x:Bind CoverUrl}"
+                    Stretch="UniformToFill" />
+                <TextBlock
+                    Margin="0,8,0,0"
+                    MaxLines="2"
+                    Text="{x:Bind Name}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid>
+        <ScrollViewer>
+            <StackPanel Padding="24,16,24,88" Spacing="16">
+                <TextBlock Style="{StaticResource PageHeadingTextStyle}" Text="首页" />
+
+                <TextBlock Style="{StaticResource TitleTextStyle}" Text="每日推荐" />
+                <ListView
+                    x:Name="DailyList"
+                    IsItemClickEnabled="True"
+                    ItemClick="SongItemClick"
+                    ItemTemplate="{StaticResource SongTemplate}"
+                    SelectionMode="None">
+                    <ListView.ItemContainerStyle>
+                        <Style BasedOn="{StaticResource MetroListRowStyle}" TargetType="ListViewItem" />
+                    </ListView.ItemContainerStyle>
+                </ListView>
+
+                <TextBlock Style="{StaticResource TitleTextStyle}" Text="推荐歌单" />
+                <GridView
+                    x:Name="PlaylistGrid"
+                    ItemTemplate="{StaticResource PlaylistTemplate}"
+                    SelectionMode="None">
+                    <GridView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="0" />
+                        </ItemsPanelTemplate>
+                    </GridView.ItemsPanel>
+                </GridView>
+
+                <TextBlock Style="{StaticResource TitleTextStyle}" Text="新歌速递" />
+                <ListView
+                    x:Name="NewList"
+                    IsItemClickEnabled="True"
+                    ItemClick="SongItemClick"
+                    ItemTemplate="{StaticResource SongTemplate}"
+                    SelectionMode="None">
+                    <ListView.ItemContainerStyle>
+                        <Style BasedOn="{StaticResource MetroListRowStyle}" TargetType="ListViewItem" />
+                    </ListView.ItemContainerStyle>
+                </ListView>
+            </StackPanel>
+        </ScrollViewer>
+
+        <controls:MetroProgressRing
+            x:Name="LoadingRing"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="Collapsed" />
+    </Grid>
+</Page>

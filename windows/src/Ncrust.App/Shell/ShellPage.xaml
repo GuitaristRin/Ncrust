@@ -6,25 +6,44 @@
     Background="{ThemeResource KBackgroundBrush}">
 
     <!--
-      外壳占位。按 windows/AGENTS.md「UI 与交互」，这里将是：
-      MetroSidebar（宽窗口）/ MetroBottomNav（窄窗口）+ 内容 Frame + 播放栏 + 全屏播放器层。
-      OverlayHost 承载登录层等临时覆盖层。背景显式使用 KBackgroundBrush，不依赖系统材质。
-      本阶段的按钮/文案只是 M0 播放验证入口。
+      外壳：标题栏 + 侧栏（MetroSidebarStyle）+ 内容 Frame + 覆盖层。
+      窄窗口的 MetroBottomNav 与播放栏/播放器层后续加入。背景显式使用 token 的 background。
     -->
-    <Grid>
-        <Grid Padding="24,32,24,0">
-            <StackPanel Spacing="16" VerticalAlignment="Top">
-                <TextBlock Text="Ncrust" Style="{StaticResource PageHeadingTextStyle}" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="LoginButton" Content="登录" Style="{StaticResource MetroButtonStyle}" Click="LoginClick" />
-                    <Button x:Name="PlayTestButton" Content="播放测试曲" Style="{StaticResource MetroSecondaryButtonStyle}" Click="PlayTestClick" />
-                    <Button x:Name="PlayPauseButton" Content="播放 / 暂停" Style="{StaticResource MetroSecondaryButtonStyle}" Click="PlayPauseClick" />
-                    <Button x:Name="NextButton" Content="下一首" Style="{StaticResource MetroGhostButtonStyle}" Click="NextClick" />
-                </StackPanel>
-                <TextBlock x:Name="CurrentText" Style="{StaticResource CaptionTextStyle}" Text="未播放" />
-            </StackPanel>
+    <Grid Background="{ThemeResource KBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            Grid.Row="0"
+            Margin="16,0"
+            VerticalAlignment="Center"
+            FontSize="13"
+            Foreground="{ThemeResource KOnBackgroundBrush}"
+            Text="Ncrust" />
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ListView
+                x:Name="Sidebar"
+                Grid.Column="0"
+                SelectionChanged="SidebarSelectionChanged"
+                Style="{StaticResource MetroSidebarStyle}">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <Frame x:Name="ContentFrame" Grid.Column="1" />
         </Grid>
 
-        <Grid x:Name="OverlayHost" />
+        <Grid x:Name="OverlayHost" Grid.RowSpan="2" />
     </Grid>
 </Page>

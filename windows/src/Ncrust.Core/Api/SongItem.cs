@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Ncrust.Core.Json;
 
 namespace Ncrust.Core.Api
@@ -37,6 +38,27 @@ namespace Ncrust.Core.Api
 
         /// <summary>毫秒；未知为 0。</summary>
         public long Duration { get; set; }
+
+        // 下面是给 XAML 绑定用的便捷属性（对应 Android SongCard 里的展示派生）。
+        public string ArtistText => Artists.Count == 0 ? string.Empty : string.Join("/", Artists.Select(a => a.Name));
+
+        public string CoverUrl => Album?.PicUrl ?? string.Empty;
+
+        public string DurationText
+        {
+            get
+            {
+                if (Duration <= 0)
+                {
+                    return string.Empty;
+                }
+
+                var totalSeconds = Duration / 1000;
+                var minutes = totalSeconds / 60;
+                var seconds = totalSeconds % 60;
+                return minutes + ":" + seconds.ToString("00");
+            }
+        }
 
         public static SongItem FromJson(JsonValue song)
         {
