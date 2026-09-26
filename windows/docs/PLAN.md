@@ -108,12 +108,13 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 阶段 6 · 播放器层（Composition）
 
-- [ ] `Player/PlayerHost` 覆盖层 + `PlayerProps`（`Progress` / `Fullscreen` / `LyricAnim` / `QueueSlide`）
-- [ ] **唯一封面元素** + `ExpressionAnimation` 形变（迷你栏 → 卡片 → 真全屏），`COVER_HOLD_MS = 400`
-- [ ] 展开 400ms `standard` / 收起 260ms `fastOutSlowIn`；触屏拖拽（25% 阈值）；鼠标点击
-- [ ] `Progress < 0.05` 重子树 `x:Load` 门控（歌词 / 队列 / 完整控件）
-- [ ] 真全屏专用按钮 + `F11`；`Esc` 逐层退出；控件闲置自动隐藏
-- [ ] `PlayerControls` / `SeekBar`（Composition 插值）/ `QueueView` / `LyricsView`（封装 `MetroLyricsPanel`）
+- [x] `Player/PlayerHost` 覆盖层 + `CompositionPropertySet`（`Progress` / `Fullscreen`）
+- [x] **唯一封面元素** + `ExpressionAnimation` 形变（迷你栏 → 卡片 → 真全屏）；换歌旧封面保留
+- [x] 展开 400ms `standard` / 收起 260ms `fastOutSlowIn`；鼠标点击封面/词按钮展开
+- [x] 真全屏专用按钮 + `F11`；`Esc` 逐层退出（全屏 → 卡片 → 收起）
+- [ ] `LyricAnim` / `QueueSlide` 标量 + 歌词 / 队列层
+- [ ] 触屏拖拽（25% 阈值）；`Progress < 0.05` 重子树 `x:Load` 门控；控件闲置自动隐藏
+- [ ] `SeekBar`（Composition 插值，可拖动）/ `QueueView` / `LyricsView`（封装 `MetroLyricsPanel`）
 - [ ] **M0 #1 实测**：Release 下展开收起无掉帧、拖拽跟手、收起后重子树卸载
 
 ## 阶段 7 · 页面（M1）
@@ -146,5 +147,6 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - **阶段 1（Ncrust.Core）全部完成**；阶段 2 平台层 + 独立登录窗口完成；阶段 3 PlaybackEngine 代码完成。
   Release|x64 + .NET Native 构建零警告、产出 MSIX；Core 测试 183 个通过。
 - 待设备验收：M0 #2（无缝两首）/ #3（UWP 内带 cookie 取链）。
-- 已可点播：Shell 侧栏 + 首页（每日推荐 / 歌单 / 新歌）→ 点歌经 `PlaybackHost` 起播。
-- 下一步：**播放栏与播放器层（阶段 6）** → 详情页 / 搜索 / 音乐库 → 窄窗布局。
+- 已可点播：Shell 侧栏 + 首页（每日推荐 / 歌单 / 新歌）→ 点歌经 `PlaybackHost` 起播；
+  底部播放栏 + 唯一封面形变（卡片 / 真全屏）已落地。
+- 下一步：**歌词 / 队列层 + SeekBar** → 详情页 / 搜索 / 音乐库 → 窄窗布局。
