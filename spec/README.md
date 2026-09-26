@@ -25,7 +25,7 @@ Ncrust 的三个端（Android `app/`、Windows `windows/`、以后的 Linux）**
 | 路径 | 内容 | 状态 |
 |---|---|---|
 | `design/tokens.json` | 颜色（6 强调色 × 明/暗）、字号、缓动曲线、动画时长、布局常量 | ✅ 已落地（取自 Android + Kanesumi-sec-a） |
-| `api/endpoints.md` | 端点目录：路径、加密方式（REST / eapi / weapi）、参数、所用 host | ⏳ Windows M1 |
+| `api/endpoints.md` | 端点目录：路径、加密方式（REST / eapi / weapi）、参数、所用 host | ✅ 已落地（Windows M1，覆盖 Android 现行端点） |
 | `fixtures/crypto/` | eapi / weapi 固定输入 → 固定输出（weapi 固定 16 位 secret 以保证可复现） | ✅ 已落地（Windows Core + 测试） |
 | `fixtures/quality/` | 7 级音质阶梯、各起点的降级序列、FLAC 门控规则 | ✅ 已落地（Windows Core + 测试） |
 | `fixtures/queue/` | 队列操作用例：初始队列 + 模式 + 操作 → 期望队列与索引 | ✅ 已落地（Windows Core + 测试） |
