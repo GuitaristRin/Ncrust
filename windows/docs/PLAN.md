@@ -47,7 +47,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] `Playback/QualityLadder`（`spec/fixtures/quality`）
 - [x] `Playback/SongUrlResolver`（含 FLAC 门控）
 - [x] `Playback/PlayReport` / `PlayReportPolicy`
-- [ ] `Playback/PlaybackSessionState`：把「队列 + 当前 + 模式 + 预载窗口（60s）」串成一个可观测状态层
+- [x] `Playback/PlaybackSessionState`：队列 + 模式 + 60s 预载窗口 + `PeekNext/PeekPrevious`；
+      `PlaybackPreferences`（设置键同 Android）、`PlaybackStateStore`（playback_state.json）
 
 ### 1.5 缓存与持久化
 
@@ -137,6 +138,7 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 当前状态速览
 
-- 阶段 1.1–1.5 全部完成：Api 端点齐全、Playback 完整、缓存 / 历史 / 歌词 / 云收藏库落地。
-  Core 测试 171 个通过。
-- 下一步：**1.4 `PlaybackSessionState` 状态层** → 阶段 2 App 平台层 → 阶段 3 PlaybackEngine。
+- **阶段 1（Ncrust.Core）全部完成**：网络 / 加密、JSON、登录、播放（队列 / 音质 / 取链 / 上报 /
+  状态层 / 偏好 / 持久化）、端点、缓存、云收藏库。Core 测试 183 个通过。
+- 下一步：**阶段 2 App 平台层**（LocalSettings / LocalFile / PasswordVault / CodecProbe / NetworkInfo
+  / 浏览器 Cookie 导入）→ 阶段 3 PlaybackEngine。
