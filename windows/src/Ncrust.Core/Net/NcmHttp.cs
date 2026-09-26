@@ -199,6 +199,20 @@ namespace Ncrust.Core.Net
             }
         }
 
+        /// <summary>REST 表单 POST（打 <see cref="BaseUrl"/>），用于搜索 / 歌曲详情 / 歌词等明文接口。</summary>
+        public async Task<HttpResponseMessage> PostFormAsync(
+            string path,
+            IEnumerable<KeyValuePair<string, string>> fields,
+            CancellationToken cancellationToken = default)
+        {
+            using (var content = new FormUrlEncodedContent(fields))
+            using (var request = new HttpRequestMessage(HttpMethod.Post, BaseUrl + path) { Content = content })
+            {
+                ApplyCommonHeaders(request, Ua);
+                return await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         /// <summary>播放上报（webLog）：普通表单 POST <c>logs=&lt;JSON&gt;</c>，不走 eapi/weapi 加密。</summary>
         public async Task<HttpResponseMessage> PostWeblogAsync(
             string weblogUrl,
