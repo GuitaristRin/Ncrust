@@ -10,8 +10,9 @@ Kanesumi 在 Android 上是「Compose 之上、Material 之下」的一层：文
 对应物**：文本、IME、滚动、虚拟化、键盘导航、UI 自动化交给 XAML 框架，
 Kanesumi.Xaml 负责 token、样式、少量自定义控件。
 
-目标是**从控件层面与 Android 端形成视觉统一**：同一个 Ncrust，两端的按钮、列表行、
-Tab、侧栏、开关、菜单、歌词面板长得一样、动得一样。
+目标是在**语言层面**与 Android 端同源（直角、token 色 / 字 / 动效、控件手感同一套），
+**但 Windows 允许做新设计**：桌面端以美观为先，布局与视觉可以明显不同于 Android 手机版，
+不追求逐像素对齐。Kanesumi.Xaml 提供 token 与基础控件，Windows 在其上自行演进。
 
 孵化位置：`windows/src/Kanesumi.Xaml/`（UWP 类库）。等 arc-deck 等其他 UWP 项目需要时，
 再抽到 Kanesumi 仓库 —— 与当年 Metro 组件先在 Ncrust 里长成、再迁入 Kanesumi-sec-a 的路径一致。
@@ -19,8 +20,9 @@ Tab、侧栏、开关、菜单、歌词面板长得一样、动得一样。
 
 ## 移植原则
 
-1. **数值照搬 sec-a。** dp / sp 与有效像素 1:1。改数值先改 sec-a 或 `tokens.json`，
-   不在 XAML 里另起一套。
+1. **优先照搬 sec-a / `tokens.json`**（dp / sp 与有效像素 1:1）。但 **Windows 专属的桌面数值
+   可以另设**，写进 `windows/` 自己的文档，不进 `tokens.json`（spec 只收录已落地值的原则不变）。
+   同一个控件如果要为桌面重新设计视觉，先改本文的对照表再写代码。
 2. **优先「平台控件 + 重写样式/模板」，其次才是自定义控件。** 平台控件自带键盘导航、
    UIA 模式、虚拟化、高对比度适配，重写模板保留这些；只有平台没有对应物时才写
    `Control` 派生类。

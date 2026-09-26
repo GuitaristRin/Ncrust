@@ -7,6 +7,9 @@
 
 依赖方向永远是：`spec/` → `Ncrust.Core` → `Ncrust.App`；`Kanesumi.Xaml` 独立于 Ncrust。
 
+**设计自由**：Windows 允许在 Kanesumi 语言之上做**新设计**，桌面端以美观为先，不追求与
+Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层可自行演进布局与视觉。
+
 ---
 
 ## 阶段 0 · 工程骨架（M0 配套）
@@ -25,8 +28,8 @@
 - [x] `Net/NcmHttp`（eapi / eapi-official / weapi / GET / weblog；`UseCookies=false`）
 - [x] `spec/api/endpoints.md` 端点目录
 - [x] `Api/`：搜索（三类）、歌曲详情、歌词、歌单详情（`SearchApi` / `SongApi` / `PlaylistApi`）
-- [ ] `Api/`：专辑详情、歌手详情 + 热门歌曲、用户资料
-- [x] 端点响应模型 + FakeHandler 单测（搜索 / 详情 / 歌词 / 歌单排序与补齐）
+- [x] `Api/`：专辑详情（`AlbumApi`）、歌手专辑（`ArtistApi`）、账号 / 用户歌单（`AccountApi`）
+- [x] 端点响应模型 + FakeHandler 单测（搜索 / 详情 / 歌词 / 歌单排序与补齐 / 专辑 / 歌手 / 账号）
 
 ### 1.2 JSON 与工具
 
@@ -133,6 +136,7 @@
 
 ## 当前状态速览
 
-- 阶段 1.1–1.4 主体完成；`Ncrust.Core.Playback` 完整；搜索 / 歌曲详情 / 歌词 / 歌单详情端点落地。
-  Core 测试 134 个通过。
-- 下一步：**1.1 剩余端点（专辑 / 歌手 / 用户）** → 1.5 缓存 → 1.4 状态层 → 阶段 2 平台层。
+- 阶段 1.1–1.4 主体完成；`Ncrust.Core.Playback` 完整；Api 端点（搜索 / 详情 / 歌词 / 歌单 /
+  专辑 / 歌手 / 账号）已铺齐。Core 测试 140 个通过。
+- 下一步：**1.5 缓存与持久化**（ContentCache / SearchHistory / LyricsCache / LibraryManager）
+  → 1.4 状态层 → 阶段 2 平台层。

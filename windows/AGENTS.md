@@ -8,10 +8,11 @@ Android 专属的章节不适用于这里。
 Release|x64 构建零警告并生成 MSIX；注册后能启动，显示纯黑底加 34px 页头（颜色和字号来自
 Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`NcmHttp`）、
 自研只读 `JsonValue`、登录层（`SessionCookie` / `QrLoginClient` / `IBrowserCookieSource`）、
-`DiscoveryApi`（首页）、`SearchApi` / `SongApi` / `PlaylistApi`（搜索 / 详情 / 歌词 / 歌单）、
-`QualityLadder`、`LrcParser` / `LyricMerger`、`PlaybackQueue`、`SongUrlResolver`、`PlayReport`。
+`DiscoveryApi`（首页）、`SearchApi` / `SongApi` / `PlaylistApi` / `AlbumApi` / `ArtistApi` /
+`AccountApi`（搜索 / 详情 / 歌词 / 歌单 / 专辑 / 歌手 / 账号）、`QualityLadder`、
+`LrcParser` / `LyricMerger`、`PlaybackQueue`、`SongUrlResolver`、`PlayReport`。
 `Ncrust.Core.Playback` 已完整，`spec/fixtures` 第一批（crypto / quality / queue / lrc）与
-`spec/api/endpoints.md` 已落地，Core 测试 134 个通过；施工单见 `windows/docs/PLAN.md`。
+`spec/api/endpoints.md` 已落地，Core 测试 140 个通过；施工单见 `windows/docs/PLAN.md`。
 M0 的 UWP 侧验证项还没开始。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
@@ -32,7 +33,7 @@ M0 的 UWP 侧验证项还没开始。
 | UI 框架 | **UWP + WinUI 2**（`Microsoft.UI.Xaml` 2.8.x） | arc-deck 已验证：平台免费提供文本、IME、滚动、虚拟化、无障碍，框架搭起来就成型 |
 | WinUI 3 / Windows App SDK | **短期内不考虑。不要引入，不要主动提议迁移** | 项目负责人的决定 |
 | 运行时 | .NET Native（`UseDotNetNativeToolchain`），C# `LangVersion` 10 | arc-deck 已在本机验证。「UWP on 现代 .NET」只在 M0 花半天评估，结论记入本文，不切换主线 |
-| 视觉 | 控件从 Kanesumi-sec-a 迁移为 **Kanesumi.Xaml**，不用 WinUI 默认的 Fluent 外观 | 与 Android 端在控件层面视觉统一 |
+| 视觉 | 控件从 Kanesumi-sec-a 迁移为 **Kanesumi.Xaml**，不用 WinUI 默认的 Fluent 外观；Windows 允许在 Kanesumi 语言之上做**新设计** | 与 Android 在语言 / 控件层同源，但**不逐像素对齐**；桌面端**以美观为先**，可另设布局与视觉 |
 | 底色 | 深色 `#000000`，与 Ncrust Android 一致 | 同一个产品两端一致；不跟 Ether 桌面扇区的 `#1A1A1A` |
 | 代码共享 | 不共享实现，共享 `spec/` 夹具 | 见 `spec/README.md` |
 | 业务核心 | `Ncrust.Core` 用 netstandard2.0，**不依赖 WinRT，也不依赖 UI** | 测试可以用普通 `dotnet test` 秒级跑完；以后换运行时也能原样复用 |
