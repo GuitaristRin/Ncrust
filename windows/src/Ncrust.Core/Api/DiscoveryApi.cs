@@ -84,6 +84,54 @@ namespace Ncrust.Core.Api
             return result;
         }
 
+        /// <summary>
+        /// 相似歌曲（INFINITY 续播的种子）。主路径 eapi <c>/eapi/v1/discovery/similarSong</c>，
+        /// 为空或失败时回退 weapi <c>/api/discovery/simiSong</c>；两路都失败返回空列表
+        /// （对应 Android <c>getSimilarSongs</c> 的两段 runCatching）。取消照常抛出。
+        /// </summary>
+        public async Task<IReadOnlyList<SongItem>> GetSimilarSongsAsync(
+            long songId,
+            int limit = 20,
+            CancellationToken cancellationToken = default)
+        {
+            var payload = new[]
+            {
+                new KeyValuePair<string, string>("songid", songId.ToString()),
+                new KeyValuePair<string, string>("limit", limit.ToString()),
+                new KeyValuePair<string, string>("offset", "0"),
+            };
+
+            try
+            {
+                using (var response = await _http.EapiPostAsync("/eapi/v1/discovery/similarSong", payload, false, cancellationToken).ConfigureAwait(false))
+                {
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var songs = ToSongList(JsonValue.Parse(body).GetArray("songs"));
+                    if (songs.Count > 0)
+                    {
+                        return songs;
+                    }
+                }
+            }
+            catch (Exception ex) when (!(ex is OperationCanceledException))
+            {
+                // 主路径失败：走 weapi 回退。
+            }
+
+            try
+            {
+                using (var response = await _http.WeapiPostAsync("/api/discovery/simiSong", JsonText.Object(payload), null, cancellationToken).ConfigureAwait(false))
+                {
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return ToSongList(JsonValue.Parse(body).GetArray("songs"));
+                }
+            }
+            catch (Exception ex) when (!(ex is OperationCanceledException))
+            {
+                return Array.Empty<SongItem>();
+            }
+        }
+
         private async Task<JsonValue> EapiJsonAsync(string path, CancellationToken cancellationToken)
         {
             using (var response = await _http.EapiPostAsync(path, null, false, cancellationToken).ConfigureAwait(false))
