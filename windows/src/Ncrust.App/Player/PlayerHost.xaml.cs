@@ -48,6 +48,7 @@ namespace Ncrust.Player
         private Rect _coverSlotRect;
         private bool _layoutMeasured;
         private bool _expressionsStarted;
+        private DateTimeOffset _animatingUntil;
 
         private LyricsController _lyrics;
         private QueuePresenter _queue;
@@ -292,7 +293,11 @@ namespace Ncrust.Player
                 return Rect.Empty;
             }
 
-            var origin = CoverSlot.TransformToVisual(Root).TransformPoint(new Point(0, 0));
+            // 相对卡片取位置，不相对 Root：TransformToVisual 会把卡片的合成 Translation（上滑动画）算进去
+            // （实测：收起时量到的 Y 是 576 而不是 48，展开途中逐步变小）。相对 Root 取的话，形变终点就是
+            // 「半路上的卡片里的封面位」，封面先落到右下、布局再量一次才跳回正确位置（负责人反馈的偶发跳变）。
+            // 卡片铺满播放器层（左上角即 Root 原点），所以卡片内坐标就是展开后的 Root 坐标。
+            var origin = CoverSlot.TransformToVisual(Card).TransformPoint(new Point(0, 0));
             return new Rect(origin.X, origin.Y, CoverSlot.ActualWidth, CoverSlot.ActualHeight);
         }
 
@@ -314,7 +319,21 @@ namespace Ncrust.Player
             _props.InsertScalar("Travel", height - BarHeight);
 
             // 卡片封面位（布局还没出来时先用左栏中央的估计值，LayoutUpdated 会再校正）。
+            var previousSlot = _coverSlotRect;
             _coverSlotRect = CoverSlotRect();
+            // 诊断：动画进行中封面位还在变，说明形变终点又不稳了（正常只在窗口缩放、布局变化时变）。
+            if (previousSlot != _coverSlotRect && DateTimeOffset.Now < _animatingUntil)
+            {
+                App.Trace(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "cover-slot {0} -> {1} expanded={2} animating={3} size={4}x{5}",
+                    Describe(previousSlot),
+                    Describe(_coverSlotRect),
+                    _expanded,
+                    DateTimeOffset.Now < _animatingUntil,
+                    width,
+                    height));
+            }
             var slot = _coverSlotRect;
             if (slot.IsEmpty)
             {
@@ -377,6 +396,10 @@ namespace Ncrust.Player
                 "props.MiniY + (props.CardY - props.MiniY) * props.Progress + (props.FullY - props.CardY) * props.Fullscreen, 0)");
         }
 
+        private static string Describe(Rect rect) => rect.IsEmpty
+            ? "empty"
+            : string.Format(CultureInfo.InvariantCulture, "({0:0.#},{1:0.#} {2:0.#})", rect.X, rect.Y, rect.Width);
+
         private void Bind(UIElement element, string property, string expression)
         {
             var animation = _compositor.CreateExpressionAnimation(expression);
@@ -398,8 +421,8 @@ namespace Ncrust.Player
                 CardTitle.Text = string.Empty;
                 CardArtist.Text = string.Empty;
                 CardAlbum.Text = string.Empty;
-                CardArtistLink.Visibility = Visibility.Collapsed;
-                CardAlbumLink.Visibility = Visibility.Collapsed;
+                CardArtistLink.IsEnabled = false;
+                CardAlbumLink.IsEnabled = false;
                 return;
             }
 
@@ -408,8 +431,11 @@ namespace Ncrust.Player
             CardTitle.Text = song.Name;
             CardArtist.Text = song.ArtistText;
             CardAlbum.Text = song.Album?.Name ?? string.Empty;
-            CardArtistLink.Visibility = string.IsNullOrEmpty(song.ArtistText) ? Visibility.Collapsed : Visibility.Visible;
-            CardAlbumLink.Visibility = string.IsNullOrEmpty(CardAlbum.Text) ? Visibility.Collapsed : Visibility.Visible;
+            // 歌手 / 专辑两行始终占位（空的时候禁用、不折叠）：左栏高度不随歌曲变化，封面位只取决于窗口尺寸。
+            // 原先无专辑名时折叠、歌名一行 / 两行，左栏高度一变整体重新居中，封面的形变终点跟着挪，
+            // 展开途中偶发先往右下落、布局完成后再跳回正确位置（负责人实测）。
+            CardArtistLink.IsEnabled = !string.IsNullOrEmpty(song.ArtistText);
+            CardAlbumLink.IsEnabled = !string.IsNullOrEmpty(CardAlbum.Text);
             SetCover(song.CoverUrl);
             OnProgressChanged(0, song.Duration);
         }
@@ -736,6 +762,7 @@ namespace Ncrust.Player
                 return; // 合成初始化失败时降级为无动画（缓动也要在判空之后才创建）。
             }
 
+            _animatingUntil = DateTimeOffset.Now + KanesumiMotion.PlayerDuration(expanding);
             var easing = expanding ? KanesumiEasing.Standard(_compositor) : KanesumiEasing.FastOutSlowIn(_compositor);
             _props.StartAnimation(property, KanesumiMotion.TweenScalar(_compositor, to, KanesumiMotion.PlayerDuration(expanding), easing));
         }

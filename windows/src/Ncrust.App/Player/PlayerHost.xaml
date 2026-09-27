@@ -117,10 +117,10 @@
                                 FontSize="20"
                                 FontWeight="SemiBold"
                                 LineHeight="26"
-                                MaxLines="2"
+                                MaxLines="1"
                                 Style="{StaticResource TitleLargeTextStyle}"
                                 TextTrimming="CharacterEllipsis"
-                                TextWrapping="Wrap" />
+                                TextWrapping="NoWrap" />
                             <HyperlinkButton
                                 x:Name="CardArtistLink"
                                 Margin="0,4,0,0"
