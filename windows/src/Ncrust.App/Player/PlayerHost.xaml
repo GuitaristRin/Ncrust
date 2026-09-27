@@ -215,16 +215,18 @@
                                         <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="20" Glyph="&#xE892;" />
                                     </AppBarButton.Icon>
                                 </AppBarButton>
-                                <Button
+                                <!-- 播放键只要图标本体，不要强调色底块（负责人：纯色块显得笨重），与两侧同为 AppBarButton。 -->
+                                <AppBarButton
                                     x:Name="CardPlayButton"
-                                    Width="48"
-                                    Height="48"
+                                    Width="56"
+                                    Height="56"
                                     Click="PlayPauseClick"
                                     ToolTipService.ToolTip="播放 / 暂停 (Space)"
-                                    Padding="0"
-                                    Style="{StaticResource AccentButtonStyle}">
-                                    <FontIcon x:Name="CardPlayIcon" FontFamily="Segoe MDL2 Assets" FontSize="20" Glyph="&#xE768;" />
-                                </Button>
+                                    LabelPosition="Collapsed">
+                                    <AppBarButton.Icon>
+                                        <FontIcon x:Name="CardPlayIcon" FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
                                 <AppBarButton
                                     Width="48"
                                     Height="48"
