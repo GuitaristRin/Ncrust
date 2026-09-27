@@ -47,6 +47,7 @@ namespace Ncrust.Player
         private bool _expanded;
         private Rect _coverSlotRect;
         private bool _layoutMeasured;
+        private bool _expressionsStarted;
 
         private LyricsController _lyrics;
         private QueuePresenter _queue;
@@ -308,10 +309,8 @@ namespace Ncrust.Player
                 return;
             }
 
-            // 卡片与迷你栏同步上滑：卡片顶边 = 迷你栏顶边 = (H - 72) × (1 - Progress)。
-            var travel = height - BarHeight;
-            Bind(Card, "Translation", Formattable("Vector3(0, {0} * (1 - props.Progress), 0)", travel));
-            Bind(MiniBar, "Translation", Formattable("Vector3(0, -{0} * props.Progress, 0)", travel));
+            // 卡片与迷你栏同步上滑：卡片顶边 = 迷你栏顶边 = Travel × (1 - Progress)，Travel = H - 72。
+            _props.InsertScalar("Travel", height - BarHeight);
 
             // 卡片封面位（布局还没出来时先用左栏中央的估计值，LayoutUpdated 会再校正）。
             _coverSlotRect = CoverSlotRect();
@@ -324,8 +323,6 @@ namespace Ncrust.Player
 
             // 真全屏：封面按窗口短边铺满、居中。
             var fullCover = Math.Min(width, height);
-            var fullLeft = (width - fullCover) / 2f;
-            var fullTop = (height - fullCover) / 2f;
 
             // 封面元素按最大尺寸（真全屏）布局，贴 Root 左下：top-left = (0, height - base)。
             // 三个状态都是「缩小 + 平移」：按最大尺寸渲染再缩小，任何状态下都清晰。
@@ -337,25 +334,46 @@ namespace Ncrust.Player
             }
 
             var baseTop = height - baseSize;
-            var miniScale = MiniCover / baseSize;
-            var cardScale = (float)slot.Width / baseSize;
-            const float fullScale = 1f;
-            var miniDy = (height - MiniCover) - baseTop;
-            var cardDx = (float)slot.X;
-            var cardDy = (float)slot.Y - baseTop;
-            var fullDy = fullTop - baseTop;
+            _props.InsertScalar("MiniScale", MiniCover / baseSize);
+            _props.InsertScalar("MiniY", (height - MiniCover) - baseTop);
+            _props.InsertScalar("CardScale", (float)slot.Width / baseSize);
+            _props.InsertScalar("CardX", (float)slot.X);
+            _props.InsertScalar("CardY", (float)slot.Y - baseTop);
+            _props.InsertScalar("FullScale", fullCover / baseSize);
+            _props.InsertScalar("FullX", (width - fullCover) / 2f);
+            _props.InsertScalar("FullY", (height - fullCover) / 2f - baseTop);
+
+            StartExpressionsOnce();
+        }
+
+        /// <summary>
+        /// 形变表达式只启动一次，随布局变化的数值（各状态的位置 / 缩放、上滑距离）都放在 PropertySet 里，
+        /// 重新测量时只改参数。原先每次重新测量都重新 StartAnimation：替换正在运行的表达式那一帧，
+        /// 属性会露出静态值（封面按原始大尺寸、布局原点显示），展开途中偶发一次闪变（负责人实测）。
+        /// </summary>
+        private void StartExpressionsOnce()
+        {
+            if (_expressionsStarted)
+            {
+                return;
+            }
+
+            _expressionsStarted = true;
+            Bind(Card, "Translation", "Vector3(0, props.Travel * (1 - props.Progress), 0)");
+            Bind(MiniBar, "Translation", "Vector3(0, -props.Travel * props.Progress, 0)");
 
             // 值 = 迷你 + (卡片 - 迷你) * Progress + (全屏 - 卡片) * Fullscreen。
             // 迷你端随迷你栏上移、卡片端随卡片上滑，两端都是 Progress 的线性函数，线性插值与两者同步。
             // Scale 是 Vector3：表达式必须返回 Vector3，标量会抛
             // 「expression output does not match animating property type」。
-            var scaleValue = Formattable(
-                "{0} + ({1} - {0}) * props.Progress + ({2} - {1}) * props.Fullscreen",
-                miniScale, cardScale, fullScale);
-            Bind(CoverImage, "Scale", "Vector3(" + scaleValue + ", " + scaleValue + ", 1)");
-            Bind(CoverImage, "Translation", Formattable(
-                "Vector3({0} * props.Progress + ({1} - {0}) * props.Fullscreen, {2} + ({3} - {2}) * props.Progress + ({4} - {3}) * props.Fullscreen, 0)",
-                cardDx, fullLeft, miniDy, cardDy, fullDy));
+            const string scale =
+                "props.MiniScale + (props.CardScale - props.MiniScale) * props.Progress + (props.FullScale - props.CardScale) * props.Fullscreen";
+            Bind(CoverImage, "Scale", "Vector3(" + scale + ", " + scale + ", 1)");
+            Bind(
+                CoverImage,
+                "Translation",
+                "Vector3(props.CardX * props.Progress + (props.FullX - props.CardX) * props.Fullscreen, " +
+                "props.MiniY + (props.CardY - props.MiniY) * props.Progress + (props.FullY - props.CardY) * props.Fullscreen, 0)");
         }
 
         private void Bind(UIElement element, string property, string expression)
@@ -363,17 +381,6 @@ namespace Ncrust.Player
             var animation = _compositor.CreateExpressionAnimation(expression);
             animation.SetReferenceParameter("props", _props);
             ElementCompositionPreview.GetElementVisual(element).StartAnimation(property, animation);
-        }
-
-        private static string Formattable(string template, params float[] values)
-        {
-            var args = new object[values.Length];
-            for (var i = 0; i < values.Length; i++)
-            {
-                args[i] = values[i].ToString("R", CultureInfo.InvariantCulture);
-            }
-
-            return string.Format(CultureInfo.InvariantCulture, template, args);
         }
 
         // ── 引擎回调（均在 UI 线程） ────────────────────────────────────────────
