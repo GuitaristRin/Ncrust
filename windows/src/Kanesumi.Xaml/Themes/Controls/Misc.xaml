@@ -21,11 +21,12 @@
     </Style>
 
     <!--
-      网格磁贴容器：间距 2（tokens.json layout.gridSpacing，对应 Android spacedBy(2.dp)），
-      去掉 GridViewItem 默认的外边距与内边距。
+      网格磁贴容器：横向 20、纵向 28，去掉 GridViewItem 默认的外边距与内边距。
+      桌面有意偏离 tokens.json 的 layout.gridSpacing = 2（Android 手机上 spacedBy(2.dp) 的拼贴感）：
+      桌面窗口里一整面墙挤在 2 的缝里显得太紧张（负责人反馈，2026-09-27），改为 Apple Music 式的留白。
     -->
     <Style x:Key="MetroGridTileStyle" TargetType="GridViewItem">
-        <Setter Property="Margin" Value="0,0,2,2" />
+        <Setter Property="Margin" Value="0,0,20,28" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="MinHeight" Value="0" />

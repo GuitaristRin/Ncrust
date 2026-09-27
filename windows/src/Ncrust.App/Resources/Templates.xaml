@@ -45,27 +45,28 @@
 
     <!-- 专辑磁贴：160 方形封面 + 两行文字（Groove / Apple Music 的专辑墙）。 -->
     <DataTemplate x:Key="AlbumTileTemplate" x:DataType="api:AlbumSearchItem">
-        <StackPanel Width="160">
+        <StackPanel Width="176">
             <Image
-                Width="160"
-                Height="160"
-                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 320)}"
+                Width="176"
+                Height="176"
+                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 352)}"
                 Stretch="UniformToFill" />
             <TextBlock
                 Margin="0,8,0,0"
                 Style="{StaticResource BodyTextStyle}"
-                Text="{x:Bind Name}" />
+                Text="{x:Bind Name}"
+                TextTrimming="CharacterEllipsis" />
             <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind Artist.Name}" />
         </StackPanel>
     </DataTemplate>
 
     <!-- 歌单磁贴：160 方形封面 + 最多两行标题。 -->
     <DataTemplate x:Key="PlaylistTileTemplate" x:DataType="api:PlaylistCard">
-        <StackPanel Width="160">
+        <StackPanel Width="176">
             <Image
-                Width="160"
-                Height="160"
-                Source="{x:Bind local:DisplayFormat.Cover(CoverUrl, 320)}"
+                Width="176"
+                Height="176"
+                Source="{x:Bind local:DisplayFormat.Cover(CoverUrl, 352)}"
                 Stretch="UniformToFill" />
             <TextBlock
                 Margin="0,8,0,0"
@@ -78,48 +79,51 @@
 
     <!-- 歌手页的专辑磁贴：封面 + 名称 + 年份与曲数（对应 Android ArtistAlbumGridItem）。 -->
     <DataTemplate x:Key="ArtistAlbumTileTemplate" x:DataType="api:ArtistAlbumItem">
-        <StackPanel Width="160">
+        <StackPanel Width="176">
             <Image
-                Width="160"
-                Height="160"
-                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 320)}"
+                Width="176"
+                Height="176"
+                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 352)}"
                 Stretch="UniformToFill" />
             <TextBlock
                 Margin="0,8,0,0"
                 Style="{StaticResource BodyTextStyle}"
-                Text="{x:Bind Name}" />
+                Text="{x:Bind Name}"
+                TextTrimming="CharacterEllipsis" />
             <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:DisplayFormat.AlbumYearAndCount(PublishTime, Size)}" />
         </StackPanel>
     </DataTemplate>
 
     <!-- 音乐库的专辑磁贴：封面 + 名称 + 歌手与曲数（对应 Android LibraryAlbumGridItem）。 -->
     <DataTemplate x:Key="CloudAlbumTileTemplate" x:DataType="api:CloudAlbum">
-        <StackPanel Width="160">
+        <StackPanel Width="176">
             <Image
-                Width="160"
-                Height="160"
-                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 320)}"
+                Width="176"
+                Height="176"
+                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 352)}"
                 Stretch="UniformToFill" />
             <TextBlock
                 Margin="0,8,0,0"
                 Style="{StaticResource BodyTextStyle}"
-                Text="{x:Bind Name}" />
+                Text="{x:Bind Name}"
+                TextTrimming="CharacterEllipsis" />
             <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:DisplayFormat.ArtistAndCount(Artist, SongCount)}" />
         </StackPanel>
     </DataTemplate>
 
     <!-- 音乐库的歌单磁贴：封面 + 名称 + 曲数（对应 Android PlaylistGridItem）。 -->
     <DataTemplate x:Key="UserPlaylistTileTemplate" x:DataType="api:UserPlaylistInfo">
-        <StackPanel Width="160">
+        <StackPanel Width="176">
             <Image
-                Width="160"
-                Height="160"
-                Source="{x:Bind local:DisplayFormat.Cover(CoverImgUrl, 320)}"
+                Width="176"
+                Height="176"
+                Source="{x:Bind local:DisplayFormat.Cover(CoverImgUrl, 352)}"
                 Stretch="UniformToFill" />
             <TextBlock
                 Margin="0,8,0,0"
                 Style="{StaticResource BodyTextStyle}"
-                Text="{x:Bind Name}" />
+                Text="{x:Bind Name}"
+                TextTrimming="CharacterEllipsis" />
             <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:DisplayFormat.TrackCount(TrackCount)}" />
         </StackPanel>
     </DataTemplate>
