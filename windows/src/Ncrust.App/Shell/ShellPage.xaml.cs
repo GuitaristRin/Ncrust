@@ -138,6 +138,10 @@ namespace Ncrust.Shell
             var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
             coreTitleBar.ExtendViewIntoTitleBar = true;
             coreTitleBar.LayoutMetricsChanged += (bar, _) => ApplyTitleBarHeight(bar.Height);
+
+            // 播放器的真全屏走系统全屏：标题栏隐藏，覆盖层不用再让出标题栏高度。
+            ApplicationView.GetForCurrentView().VisibleBoundsChanged += (_, __) =>
+                ApplyTitleBarHeight(coreTitleBar.Height > 0 ? coreTitleBar.Height : 32);
             ApplyTitleBarHeight(coreTitleBar.Height > 0 ? coreTitleBar.Height : 32);
             Window.Current.SetTitleBar(AppTitleBar);
 
@@ -154,6 +158,15 @@ namespace Ncrust.Shell
         private void ApplyTitleBarHeight(double height)
         {
             AppTitleBar.Height = height;
+
+            // 系统全屏（播放器真全屏）时标题栏隐藏：自绘的图标与标题一并隐藏，覆盖层不再让出高度。
+            var fullScreen = ApplicationView.GetForCurrentView().IsFullScreenMode;
+            AppTitleBar.Visibility = fullScreen ? Visibility.Collapsed : Visibility.Visible;
+            if (fullScreen)
+            {
+                height = 0;
+            }
+
 
             // 标题栏区域的输入被系统拿去拖动窗口：覆盖层让出这一条，否则里面的按钮点不到。
             Player.Margin = new Thickness(0, height, 0, 0);

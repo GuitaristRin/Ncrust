@@ -8,6 +8,7 @@ using Ncrust.Pages;
 using Ncrust.Playback;
 using Windows.Foundation;
 using Windows.UI.Composition;
+using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -45,6 +46,7 @@ namespace Ncrust.Player
         private bool _fullscreen;
         private bool _expanded;
         private Rect _coverSlotRect;
+        private bool _layoutMeasured;
 
         private LyricsController _lyrics;
         private QueuePresenter _queue;
@@ -64,14 +66,32 @@ namespace Ncrust.Player
             });
 
             // 卡片封面位的位置随布局变化（窗口缩放、歌名换行）：位置真的变了才重建表达式。
+            // 右栏跟随左栏等高：左栏实际高度出来后再对齐（歌名一行 / 两行会让左栏高度变化）。
             Card.LayoutUpdated += (_, __) => Guarded(() =>
             {
+                // 第一次布局后用实测的「信息 + 控件」高度再算一遍封面（之前是估计值）。
+                if (!_layoutMeasured && InfoText.ActualHeight > 0 && ControlsPanel.ActualHeight > 0)
+                {
+                    _layoutMeasured = true;
+                    ApplyCardLayout();
+                }
+
+                SyncSideHeight();
                 var rect = CoverSlotRect();
                 if (rect != _coverSlotRect)
                 {
                     RebuildExpressions();
                 }
             });
+
+            // 真全屏走系统全屏（F11 进）；用户从系统层面退出全屏（任务栏、Win+Shift+Enter）时跟着回卡片。
+            ApplicationView.GetForCurrentView().VisibleBoundsChanged += (view, __) =>
+            {
+                if (_fullscreen && !view.IsFullScreenMode)
+                {
+                    SetFullscreen(false);
+                }
+            };
 
             // 拖动进度条时只在松手后跳转，避免拖动过程中反复 seek 让流媒体卡顿。
             // Slider 自己会处理指针事件，所以要用 handledEventsToo 才收得到。
@@ -181,8 +201,10 @@ namespace Ncrust.Player
         private bool IsNarrow => Root.ActualWidth < 600;
 
         /// <summary>
-        /// 卡片封面位的尺寸：宽窗口按左栏宽度与剩余高度取较小者（给标题 / 链接 / 控件留出高度），
-        /// 信息与控件与封面同宽对齐；窄窗口是顶部 64 的小封面。
+        /// 卡片构图（参考 Apple Music / Groove 的「正在播放」）：
+        /// 宽窗口左右两栏作为整体居中，左栏以封面宽度为竖轴（信息与控件都与封面同宽），右栏歌词 / 队列
+        /// 与左栏等高。封面尽量大：受左右留白、栏间距与「信息 + 控件」所需高度约束。
+        /// 窄窗口是上中下三段：顶部 64 小封面 + 信息，中间歌词 / 队列，底部控件。
         /// </summary>
         private void ApplyCardLayout()
         {
@@ -196,19 +218,59 @@ namespace Ncrust.Player
             if (IsNarrow)
             {
                 SetSize(CoverSlot, NarrowCover);
-                InfoPanel.Width = double.NaN;
+                LeftColumn.Width = new GridLength(1, GridUnitType.Star);
+                RightColumn.Width = new GridLength(0);
+                SideTabs.Height = double.NaN;
+                Stage.Width = double.NaN;
                 ControlsPanel.Width = double.NaN;
+                InfoText.Width = double.NaN;
+                Lyrics.SetTypography(22, 30, 15, 21);
                 return;
             }
 
+            const double sideMargin = 56;
+            const double gap = 64;
             const double topBar = 48;
-            const double infoBlock = 130;
-            const double controlsBlock = 190;
-            var available = height - topBar - infoBlock - controlsBlock - 32;
-            var size = Math.Max(120, Math.Min(480, Math.Min(width / 2 - 96, available)));
-            SetSize(CoverSlot, size);
-            InfoPanel.Width = size;
-            ControlsPanel.Width = Math.Max(size, 360);
+            const double bottomMargin = 32;
+
+            // 「信息 + 控件」的高度：布局出来后用实测值，第一次用估计值。
+            var below = InfoText.ActualHeight > 0 && ControlsPanel.ActualHeight > 0
+                ? InfoText.ActualHeight + InfoText.Margin.Top + ControlsPanel.ActualHeight + ControlsPanel.Margin.Top
+                : 300;
+            var contentWidth = width - sideMargin * 2 - gap;
+            var cover = Math.Min(contentWidth * 0.45, height - topBar - bottomMargin - below);
+            cover = Math.Max(240, Math.Min(560, Math.Floor(cover)));
+            var right = Math.Max(280, Math.Min(560, contentWidth - cover));
+
+            SetSize(CoverSlot, cover);
+            LeftColumn.Width = new GridLength(cover);
+            RightColumn.Width = new GridLength(right);
+
+            // 舞台宽度显式给定再居中：交给子元素的期望宽度去算时，Pivot 会把舞台撑宽、整体偏左（实测）。
+            Stage.Width = cover + gap + right;
+            ControlsPanel.Width = cover;
+            InfoText.Width = cover;
+            Lyrics.SetTypography(28, 38, 17, 24);
+        }
+
+        /// <summary>宽窗口：右栏与左栏（封面 + 信息 + 控件）等高，上沿与封面上沿对齐。</summary>
+        private void SyncSideHeight()
+        {
+            if (IsNarrow)
+            {
+                return;
+            }
+
+            // 左栏两块都是顶端对齐，高度只取决于自身内容、不受行高影响；右栏的总占高（高度 + 上移的 -8）
+            // 取整后不超过左栏，不会把行撑高 —— 否则行变高 → 左栏变高 → 右栏再变高，形成布局循环
+            // （实测：LayoutCycleException，启动即崩）。
+            var left = Math.Floor(InfoPanel.ActualHeight + ControlsPanel.ActualHeight + ControlsPanel.Margin.Top);
+            var target = left + 8;
+            if (left > 0 && (double.IsNaN(SideTabs.Height) || Math.Abs(SideTabs.Height - target) >= 1))
+            {
+                // Pivot 上移了 8（Margin -8），让页签文字的上沿对齐封面上沿；高度补回这 8。
+                SideTabs.Height = target;
+            }
         }
 
         private static void SetSize(FrameworkElement element, double size)
@@ -582,6 +644,18 @@ namespace Ncrust.Player
             }
 
             _fullscreen = fullscreen;
+
+            // 纯封面只属于真全屏：进入时让窗口进系统全屏（隐藏任务栏与标题栏），退出时还原。
+            var view = ApplicationView.GetForCurrentView();
+            if (fullscreen && !view.IsFullScreenMode)
+            {
+                view.TryEnterFullScreenMode();
+            }
+            else if (!fullscreen && view.IsFullScreenMode)
+            {
+                view.ExitFullScreenMode();
+            }
+
             ApplyHitTesting();
             AnimateScalar("Fullscreen", fullscreen ? 1f : 0f, expanding: fullscreen);
             UpdateSideActivity();
@@ -635,7 +709,7 @@ namespace Ncrust.Player
             }
         }
 
-        /// <summary>卡片 ↔ 真全屏切换（F11 与卡片里的专用按钮都走这里）。</summary>
+        /// <summary>卡片 ↔ 真全屏切换（只有 F11 与全屏操作层的退出按钮走这里；卡片里不再放全屏按钮）。</summary>
         public void ToggleFullscreen()
         {
             if (!_expanded)
