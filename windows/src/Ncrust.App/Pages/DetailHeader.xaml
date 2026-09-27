@@ -82,7 +82,7 @@
                     x:Name="PlayAllButton"
                     Click="PlayAllClick"
                     IsEnabled="False"
-                    Style="{StaticResource MetroButtonStyle}"
+                    Style="{StaticResource AccentButtonStyle}"
                     ToolTipService.ToolTip="清空当前队列并开始播放">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE768;" />
@@ -94,14 +94,12 @@
                     Click="InsertNextClick"
                     Content="插播"
                     IsEnabled="False"
-                    Style="{StaticResource MetroSecondaryButtonStyle}"
                     ToolTipService.ToolTip="在当前曲目之后立即播放" />
                 <Button
                     x:Name="AppendButton"
                     Click="AppendClick"
                     Content="最后播放"
                     IsEnabled="False"
-                    Style="{StaticResource MetroSecondaryButtonStyle}"
                     ToolTipService.ToolTip="加到播放队列末尾" />
             </StackPanel>
         </StackPanel>

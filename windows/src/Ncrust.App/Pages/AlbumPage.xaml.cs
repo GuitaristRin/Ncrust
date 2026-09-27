@@ -23,7 +23,7 @@ namespace Ncrust.Pages
             InitializeComponent();
             SongActions.AttachContextMenu(SongList);
 
-            _saveButton = new Button { Style = (Style)Application.Current.Resources["MetroSecondaryButtonStyle"], Visibility = Visibility.Collapsed };
+            _saveButton = new Button { Visibility = Visibility.Collapsed };
             _saveButton.Click += (_, __) => _ = ToggleSavedAsync();
             Header.AddAction(_saveButton);
             Header.SubtitleInvoked += () =>

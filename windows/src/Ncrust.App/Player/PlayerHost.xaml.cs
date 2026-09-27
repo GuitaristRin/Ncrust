@@ -657,6 +657,9 @@ namespace Ncrust.Player
         {
             _expanded = true;
             ApplyHitTesting();
+
+            // 焦点移进卡片：否则焦点留在下面的页面（如汉堡按钮），键盘焦点框画在最上层，会透过卡片显示出来（实测）。
+            CardPlayButton.Focus(FocusState.Programmatic);
             AnimateScalar("Progress", 1f, expanding: true);
             UpdateSideActivity();
         }
@@ -666,6 +669,7 @@ namespace Ncrust.Player
             _expanded = false;
             SetFullscreen(false);
             ApplyHitTesting();
+            ExpandButton.Focus(FocusState.Programmatic);
             AnimateScalar("Progress", 0f, expanding: false);
             UpdateSideActivity();
         }
@@ -874,6 +878,8 @@ namespace Ncrust.Player
         // ── 其余点击 ──────────────────────────────────────────────────────────
 
         private void ExpandClick(object sender, RoutedEventArgs e) => Expand();
+
+        private void VolumeClick(object sender, RoutedEventArgs e) => FlyoutBase.ShowAttachedFlyout(VolumeButton);
 
         private void CollapseClick(object sender, RoutedEventArgs e) => Collapse();
 

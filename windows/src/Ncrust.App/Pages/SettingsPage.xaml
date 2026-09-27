@@ -40,8 +40,7 @@
                     Grid.Column="2"
                     VerticalAlignment="Center"
                     Click="LogoutClick"
-                    Content="退出登录"
-                    Style="{StaticResource MetroSecondaryButtonStyle}" />
+                    Content="退出登录" />
             </Grid>
             <Grid x:Name="AccountLoggedOut" ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
@@ -57,7 +56,7 @@
                     VerticalAlignment="Center"
                     Click="LoginClick"
                     Content="登录"
-                    Style="{StaticResource MetroButtonStyle}" />
+                    Style="{StaticResource AccentButtonStyle}" />
             </Grid>
 
             <!-- 音质偏好 -->
@@ -100,8 +99,7 @@
             <Button
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
-                Click="EqualizerClick"
-                Style="{StaticResource MetroGhostButtonStyle}">
+                Click="EqualizerClick">
                 <Grid>
                     <StackPanel>
                         <TextBlock Style="{StaticResource BodyTextStyle}" Text="均衡器" />
@@ -172,8 +170,7 @@
                     x:Name="ClearCacheButton"
                     Grid.Column="1"
                     Click="ClearCacheClick"
-                    Content="清除缓存"
-                    Style="{StaticResource MetroSecondaryButtonStyle}" />
+                    Content="清除缓存" />
             </Grid>
             <TextBlock
                 Style="{StaticResource CaptionTextStyle}"

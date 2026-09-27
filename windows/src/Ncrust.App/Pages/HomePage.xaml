@@ -39,7 +39,7 @@
                         VerticalAlignment="Center"
                         Click="LoginClick"
                         Content="登录"
-                        Style="{StaticResource MetroButtonStyle}" />
+                        Style="{StaticResource AccentButtonStyle}" />
                 </Grid>
 
                 <!-- 每日推荐 -->
@@ -48,8 +48,7 @@
                         <TextBlock VerticalAlignment="Center" Style="{StaticResource TitleTextStyle}" Text="每日推荐" />
                         <Button
                             HorizontalAlignment="Right"
-                            Click="PlayDailyClick"
-                            Style="{StaticResource MetroSecondaryButtonStyle}">
+                            Click="PlayDailyClick">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE768;" />
                                 <TextBlock Text="全部播放" />
@@ -74,7 +73,6 @@
                         HorizontalAlignment="Left"
                         HorizontalContentAlignment="Stretch"
                         Click="FmClick"
-                        Style="{StaticResource MetroGhostButtonStyle}"
                         ToolTipService.ToolTip="私人 FM：无限播放为你推荐的歌曲"
                         Visibility="Collapsed">
                         <Grid

@@ -37,20 +37,17 @@
                 <Button
                     VerticalAlignment="Bottom"
                     Click="SaveClick"
-                    Content="保存为预设…"
-                    Style="{StaticResource MetroSecondaryButtonStyle}" />
+                    Content="保存为预设…" />
                 <Button
                     x:Name="DeleteButton"
                     VerticalAlignment="Bottom"
                     Click="DeleteClick"
                     Content="删除预设"
-                    IsEnabled="False"
-                    Style="{StaticResource MetroSecondaryButtonStyle}" />
+                    IsEnabled="False" />
                 <Button
                     VerticalAlignment="Bottom"
                     Click="ResetClick"
-                    Content="重置"
-                    Style="{StaticResource MetroGhostButtonStyle}" />
+                    Content="重置" />
             </StackPanel>
 
             <!-- 滑块区：前级 | 分隔线 | 10 段。列由代码生成（EqualizerPage.BuildSliders）。 -->

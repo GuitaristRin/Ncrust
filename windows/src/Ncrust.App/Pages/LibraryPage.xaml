@@ -47,8 +47,7 @@
                         <Button
                             HorizontalAlignment="Right"
                             Click="RetrySyncClick"
-                            Content="重试同步"
-                            Style="{StaticResource MetroGhostButtonStyle}" />
+                            Content="重试同步" />
                     </Grid>
 
                     <StackPanel
@@ -58,7 +57,7 @@
                         Orientation="Horizontal"
                         Spacing="12"
                         Visibility="Collapsed">
-                        <Button Click="PlayAllSongsClick" Style="{StaticResource MetroSecondaryButtonStyle}">
+                        <Button Click="PlayAllSongsClick">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE768;" />
                                 <TextBlock Text="全部播放" />
@@ -131,8 +130,7 @@
                             TextWrapping="Wrap" />
                         <Button
                             x:Name="PlaylistActionButton"
-                            Click="PlaylistActionClick"
-                            Style="{StaticResource MetroSecondaryButtonStyle}" />
+                            Click="PlaylistActionClick" />
                     </StackPanel>
                     <controls:MetroProgressRing
                         x:Name="PlaylistRing"

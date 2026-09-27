@@ -193,17 +193,19 @@
                     Text="{x:Bind Song.ArtistText}"
                     TextTrimming="CharacterEllipsis" />
             </StackPanel>
-            <Button
+            <AppBarButton
                 Grid.Column="2"
                 Width="40"
                 Height="40"
                 Margin="0,0,4,0"
                 Click="QueueRemoveClick"
-                Style="{StaticResource MetroIconButtonStyle}"
                 Tag="{x:Bind QueueIndex}"
-                ToolTipService.ToolTip="从队列移除">
-                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="12" Glyph="&#xE711;" />
-            </Button>
+                ToolTipService.ToolTip="从队列移除"
+                LabelPosition="Collapsed">
+                <AppBarButton.Icon>
+                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="12" Glyph="&#xE711;" />
+                </AppBarButton.Icon>
+            </AppBarButton>
         </Grid>
     </DataTemplate>
 

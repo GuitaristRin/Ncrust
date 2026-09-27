@@ -77,15 +77,17 @@
             Background="{ThemeResource KBackgroundBrush}"
             IsHitTestVisible="False">
             <Grid x:Name="CardContent">
-                <Button
+                <AppBarButton
                     Margin="8,4,0,0"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top"
                     Click="CollapseClick"
-                    Style="{StaticResource MetroIconButtonStyle}"
-                    ToolTipService.ToolTip="收起 (Esc)">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE70D;" />
-                </Button>
+                    ToolTipService.ToolTip="收起 (Esc)"
+                    LabelPosition="Collapsed">
+                    <AppBarButton.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE70D;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
 
                 <Grid
                     x:Name="Stage"
@@ -176,56 +178,66 @@
                         </Grid>
 
                         <Grid Margin="0,8,0,0">
-                            <Button
+                            <AppBarButton
                                 x:Name="CardModeButton"
                                 Width="40"
                                 Height="40"
                                 Margin="-8,0,0,0"
                                 HorizontalAlignment="Left"
                                 Click="ModeClick"
-                                Style="{StaticResource MetroIconButtonStyle}">
-                                <FontIcon x:Name="CardModeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE8EE;" />
-                            </Button>
+                                LabelPosition="Collapsed">
+                                <AppBarButton.Icon>
+                                    <FontIcon x:Name="CardModeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE8EE;" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
                             <StackPanel
                                 HorizontalAlignment="Center"
                                 Orientation="Horizontal"
                                 Spacing="12">
-                                <Button
+                                <AppBarButton
                                     Width="48"
                                     Height="48"
                                     Click="PreviousClick"
-                                    Style="{StaticResource MetroIconButtonStyle}"
-                                    ToolTipService.ToolTip="上一首 (Ctrl+←)">
-                                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="20" Glyph="&#xE892;" />
-                                </Button>
+                                    ToolTipService.ToolTip="上一首 (Ctrl+←)"
+                                    LabelPosition="Collapsed">
+                                    <AppBarButton.Icon>
+                                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="20" Glyph="&#xE892;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
                                 <Button
-                                    Width="56"
-                                    Height="56"
+                                    x:Name="CardPlayButton"
+                                    Width="48"
+                                    Height="48"
                                     Click="PlayPauseClick"
-                                    Style="{StaticResource MetroIconButtonStyle}"
-                                    ToolTipService.ToolTip="播放 / 暂停 (Space)">
-                                    <FontIcon x:Name="CardPlayIcon" FontFamily="Segoe MDL2 Assets" FontSize="30" Glyph="&#xE768;" />
+                                    ToolTipService.ToolTip="播放 / 暂停 (Space)"
+                                    Padding="0"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                    <FontIcon x:Name="CardPlayIcon" FontFamily="Segoe MDL2 Assets" FontSize="20" Glyph="&#xE768;" />
                                 </Button>
-                                <Button
+                                <AppBarButton
                                     Width="48"
                                     Height="48"
                                     Click="NextClick"
-                                    Style="{StaticResource MetroIconButtonStyle}"
-                                    ToolTipService.ToolTip="下一首 (Ctrl+→)">
-                                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="20" Glyph="&#xE893;" />
-                                </Button>
+                                    ToolTipService.ToolTip="下一首 (Ctrl+→)"
+                                    LabelPosition="Collapsed">
+                                    <AppBarButton.Icon>
+                                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="20" Glyph="&#xE893;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
                             </StackPanel>
-                            <Button
+                            <AppBarButton
                                 x:Name="LikeButton"
                                 Width="40"
                                 Height="40"
                                 Margin="0,0,-8,0"
                                 HorizontalAlignment="Right"
                                 Click="LikeClick"
-                                Style="{StaticResource MetroIconButtonStyle}"
-                                ToolTipService.ToolTip="加入库">
-                                <FontIcon x:Name="LikeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xEB51;" />
-                            </Button>
+                                ToolTipService.ToolTip="加入库"
+                                LabelPosition="Collapsed">
+                                <AppBarButton.Icon>
+                                    <FontIcon x:Name="LikeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xEB51;" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
                         </Grid>
 
                         <Grid x:Name="VolumeRow" Margin="0,8,0,0">
@@ -233,15 +245,17 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Button
+                            <AppBarButton
                                 Width="32"
                                 Height="32"
                                 Margin="-6,0,4,0"
                                 Click="MuteClick"
-                                Style="{StaticResource MetroIconButtonStyle}"
-                                ToolTipService.ToolTip="静音">
-                                <FontIcon x:Name="CardVolumeIcon" FontFamily="Segoe MDL2 Assets" FontSize="13" Glyph="&#xE767;" />
-                            </Button>
+                                ToolTipService.ToolTip="静音"
+                                LabelPosition="Collapsed">
+                                <AppBarButton.Icon>
+                                    <FontIcon x:Name="CardVolumeIcon" FontFamily="Segoe MDL2 Assets" FontSize="13" Glyph="&#xE767;" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
                             <Slider
                                 x:Name="CardVolumeSlider"
                                 Grid.Column="1"
@@ -286,8 +300,7 @@
                                 <Button
                                     HorizontalAlignment="Right"
                                     Click="ClearQueueClick"
-                                    Content="清空播放内容"
-                                    Style="{StaticResource MetroGhostButtonStyle}" />
+                                    Content="清空播放内容" />
                                 <ListView
                                     x:Name="QueueList"
                                     Grid.Row="1"
@@ -377,41 +390,49 @@
                     HorizontalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="4">
-                    <Button
+                    <AppBarButton
                         x:Name="ModeButton"
                         Width="36"
                         Height="36"
                         Click="ModeClick"
-                        Style="{StaticResource MetroIconButtonStyle}">
-                        <FontIcon x:Name="ModeIcon" FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE8EE;" />
-                    </Button>
-                    <Button
+                        LabelPosition="Collapsed">
+                        <AppBarButton.Icon>
+                            <FontIcon x:Name="ModeIcon" FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE8EE;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton
                         x:Name="PreviousButton"
                         Width="36"
                         Height="36"
                         Click="PreviousClick"
-                        Style="{StaticResource MetroIconButtonStyle}"
-                        ToolTipService.ToolTip="上一首 (Ctrl+←)">
-                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE892;" />
-                    </Button>
-                    <Button
+                        ToolTipService.ToolTip="上一首 (Ctrl+←)"
+                        LabelPosition="Collapsed">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE892;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton
                         x:Name="PlayButton"
                         Width="40"
                         Height="36"
                         Click="PlayPauseClick"
-                        Style="{StaticResource MetroIconButtonStyle}"
-                        ToolTipService.ToolTip="播放 / 暂停 (Space)">
-                        <FontIcon x:Name="MiniPlayIcon" FontFamily="Segoe MDL2 Assets" FontSize="18" Glyph="&#xE768;" />
-                    </Button>
-                    <Button
+                        ToolTipService.ToolTip="播放 / 暂停 (Space)"
+                        LabelPosition="Collapsed">
+                        <AppBarButton.Icon>
+                            <FontIcon x:Name="MiniPlayIcon" FontFamily="Segoe MDL2 Assets" FontSize="18" Glyph="&#xE768;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton
                         x:Name="NextButton"
                         Width="36"
                         Height="36"
                         Click="NextClick"
-                        Style="{StaticResource MetroIconButtonStyle}"
-                        ToolTipService.ToolTip="下一首 (Ctrl+→)">
-                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE893;" />
-                    </Button>
+                        ToolTipService.ToolTip="下一首 (Ctrl+→)"
+                        LabelPosition="Collapsed">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE893;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
                 </StackPanel>
 
                 <Grid
@@ -457,24 +478,29 @@
                 Margin="0,0,8,0"
                 VerticalAlignment="Center"
                 Orientation="Horizontal">
-                <Button
+                <AppBarButton
                     x:Name="VolumeButton"
                     Width="40"
                     Height="40"
-                    Style="{StaticResource MetroIconButtonStyle}"
-                    ToolTipService.ToolTip="音量">
-                    <FontIcon x:Name="VolumeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE767;" />
-                    <Button.Flyout>
+                    Click="VolumeClick"
+                    ToolTipService.ToolTip="音量"
+                    LabelPosition="Collapsed">
+                    <AppBarButton.Icon>
+                        <FontIcon x:Name="VolumeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE767;" />
+                    </AppBarButton.Icon>
+                    <FlyoutBase.AttachedFlyout>
                         <Flyout Placement="Top">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button
+                                <AppBarButton
                                     Width="40"
                                     Height="40"
                                     Click="MuteClick"
-                                    Style="{StaticResource MetroIconButtonStyle}"
-                                    ToolTipService.ToolTip="静音">
-                                    <FontIcon x:Name="MuteIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE767;" />
-                                </Button>
+                                    ToolTipService.ToolTip="静音"
+                                    LabelPosition="Collapsed">
+                                    <AppBarButton.Icon>
+                                        <FontIcon x:Name="MuteIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE767;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
                                 <Slider
                                     x:Name="VolumeSlider"
                                     Width="160"
@@ -489,35 +515,41 @@
                                     Style="{StaticResource CaptionTextStyle}" />
                             </StackPanel>
                         </Flyout>
-                    </Button.Flyout>
-                </Button>
-                <Button
+                    </FlyoutBase.AttachedFlyout>
+                </AppBarButton>
+                <AppBarButton
                     x:Name="LyricsButton"
                     Width="40"
                     Height="40"
                     Click="LyricsClick"
-                    Style="{StaticResource MetroIconButtonStyle}"
-                    ToolTipService.ToolTip="歌词 (Ctrl+L)">
-                    <TextBlock FontSize="15" Text="词" />
-                </Button>
-                <Button
+                    ToolTipService.ToolTip="歌词 (Ctrl+L)"
+                    LabelPosition="Collapsed">
+                    <AppBarButton.Icon>
+                        <FontIcon FontFamily="Microsoft YaHei UI" Glyph="词" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton
                     x:Name="QueueButton"
                     Width="40"
                     Height="40"
                     Click="QueueClick"
-                    Style="{StaticResource MetroIconButtonStyle}"
-                    ToolTipService.ToolTip="播放队列">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE8FD;" />
-                </Button>
-                <Button
+                    ToolTipService.ToolTip="播放队列"
+                    LabelPosition="Collapsed">
+                    <AppBarButton.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE8FD;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton
                     x:Name="ExpandButton"
                     Width="40"
                     Height="40"
                     Click="ExpandClick"
-                    Style="{StaticResource MetroIconButtonStyle}"
-                    ToolTipService.ToolTip="正在播放">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE70E;" />
-                </Button>
+                    ToolTipService.ToolTip="正在播放"
+                    LabelPosition="Collapsed">
+                    <AppBarButton.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE70E;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
             </StackPanel>
         </Grid>
 
@@ -554,15 +586,17 @@
             Background="Transparent"
             DoubleTapped="FullscreenDoubleTapped"
             IsHitTestVisible="False">
-            <Button
+            <AppBarButton
                 Margin="0,8,8,0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Click="FullscreenClick"
-                Style="{StaticResource MetroIconButtonStyle}"
-                ToolTipService.ToolTip="退出全屏 (Esc / F11)">
-                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE73F;" />
-            </Button>
+                ToolTipService.ToolTip="退出全屏 (Esc / F11)"
+                LabelPosition="Collapsed">
+                <AppBarButton.Icon>
+                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE73F;" />
+                </AppBarButton.Icon>
+            </AppBarButton>
         </Grid>
     </Grid>
 </UserControl>

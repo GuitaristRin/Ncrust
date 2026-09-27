@@ -65,7 +65,7 @@
             Spacing="12"
             Visibility="Collapsed">
             <TextBlock x:Name="ErrorText" Style="{StaticResource CaptionTextStyle}" TextAlignment="Center" TextWrapping="Wrap" />
-            <Button HorizontalAlignment="Center" Click="RetryClick" Content="重试" Style="{StaticResource MetroSecondaryButtonStyle}" />
+            <Button HorizontalAlignment="Center" Click="RetryClick" Content="重试" />
         </StackPanel>
     </Grid>
 </Page>
