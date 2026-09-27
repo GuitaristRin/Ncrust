@@ -59,6 +59,7 @@ namespace Ncrust.Player
         public PlayerHost()
         {
             InitializeComponent();
+            Lyrics.LineFontWeight = Windows.UI.Text.FontWeights.SemiBold;
             Loaded += OnLoaded;
             Root.SizeChanged += (_, __) => Guarded(() =>
             {
@@ -225,7 +226,7 @@ namespace Ncrust.Player
                 Stage.Width = double.NaN;
                 ControlsPanel.Width = double.NaN;
                 InfoText.Width = double.NaN;
-                Lyrics.SetTypography(22, 30, 15, 21);
+                Lyrics.SetTypography(20, 28, 14, 19);
                 return;
             }
 
@@ -251,7 +252,7 @@ namespace Ncrust.Player
             Stage.Width = cover + gap + right;
             ControlsPanel.Width = cover;
             InfoText.Width = cover;
-            Lyrics.SetTypography(28, 38, 17, 24);
+            Lyrics.SetTypography(24, 34, 15, 21);
         }
 
         /// <summary>宽窗口：右栏与左栏（封面 + 信息 + 控件）等高，上沿与封面上沿对齐。</summary>

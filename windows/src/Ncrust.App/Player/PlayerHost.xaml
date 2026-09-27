@@ -114,7 +114,9 @@
                         <StackPanel x:Name="InfoText" Margin="0,24,0,0">
                             <TextBlock
                                 x:Name="CardTitle"
+                                FontSize="20"
                                 FontWeight="SemiBold"
+                                LineHeight="26"
                                 MaxLines="2"
                                 Style="{StaticResource TitleLargeTextStyle}"
                                 TextTrimming="CharacterEllipsis"
@@ -258,6 +260,10 @@
                         Margin="-12,-8,0,0"
                         VerticalAlignment="Top"
                         SelectionChanged="SideTabsChanged">
+                        <!-- 页签默认 24，比歌名还大、压过左栏：降到 18。 -->
+                        <Pivot.Resources>
+                            <x:Double x:Key="PivotHeaderItemFontSize">18</x:Double>
+                        </Pivot.Resources>
                         <PivotItem Header="歌词">
                             <Grid>
                                 <kc:MetroLyricsPanel x:Name="Lyrics" />

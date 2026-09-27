@@ -106,6 +106,9 @@ namespace Kanesumi.Xaml.Controls
 
         public double TranslationLineHeight { get; set; } = 26;
 
+        /// <summary>主行字重（默认粗体，同 sec-a；桌面卡片里用半粗，字号降下来后更轻）。只影响之后新建的行。</summary>
+        public FontWeight LineFontWeight { get; set; } = FontWeights.Bold;
+
         /// <summary>
         /// 改字号（宿主按窗口宽度切换：宽窗口与窄窗口的字号不同）。已有的行就地更新，
         /// 然后把当前行重新定位到锚点（行高变了，滚动位置要跟着变）。
@@ -226,7 +229,7 @@ namespace Kanesumi.Xaml.Controls
                 Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
             };
 
-            var main = CreateText(line.Text, LineFontSize, LineHeightValue, FontWeights.Bold);
+            var main = CreateText(line.Text, LineFontSize, LineHeightValue, LineFontWeight);
             row.Children.Add(main);
             TextBlock translation = null;
             if (line.Translation.Length > 0)
