@@ -54,17 +54,25 @@ namespace Ncrust.Playback
         // 均衡器参数：与音效组件按引用共享，改值即生效（见 EqualizerEffectKeys）。
         private readonly PropertySet _equalizer = new PropertySet();
 
+        private readonly InfinityFeeder _infinity;
+
         private CoreDispatcher _dispatcher;
         private long _currentSongId = -1;
         private int _consecutiveFailures;
+
+        // INFINITY 续播：同一时刻只取一批；取回时若已经停在队尾（播完 / 用户按了下一首），接着播。
+        private bool _infinityInFlight;
+        private bool _advanceWhenFed;
 
         public PlaybackEngine(
             SongUrlResolver resolver,
             PlaybackSessionState session,
             PlaybackPreferences preferences,
             INetworkInfo network,
-            NcmHttp http)
+            NcmHttp http,
+            InfinityFeeder infinity)
         {
+            _infinity = infinity;
             _resolver = resolver;
             _session = session;
             _preferences = preferences;
@@ -87,6 +95,15 @@ namespace Ncrust.Playback
 
         /// <summary>播放模式变化（按钮切换后）。</summary>
         public event Action<PlaybackMode> ModeChanged;
+
+        /// <summary>队列内容或当前位置变化（队列视图据此刷新）。</summary>
+        public event Action QueueChanged;
+
+        /// <summary>
+        /// 私人 FM 入口进来的 INFINITY：队尾续播拉 FM 流而不是相似歌曲（对应 Android fmMode）。
+        /// 手动切换播放模式或整队替换时清掉。
+        /// </summary>
+        public bool FmMode { get; set; }
 
         public long CurrentSongId => _currentSongId;
 
@@ -181,6 +198,18 @@ namespace Ncrust.Playback
             SetCurrentSong(current);
             AppendNextIfMissing();
             _player.Play();
+            QueueChanged?.Invoke();
+        }
+
+        /// <summary>清空队列后调用：停止播放、清空窗口。</summary>
+        public void Stop()
+        {
+            _player.Pause();
+            ResetWindow();
+            _advanceWhenFed = false;
+            _currentSongId = -1;
+            CurrentSongChanged?.Invoke(null);
+            QueueChanged?.Invoke();
         }
 
         public void PlayPause()
@@ -225,6 +254,14 @@ namespace Ncrust.Playback
             if (_session.Queue.MoveNext() != null)
             {
                 PlayCurrent();
+                return;
+            }
+
+            // INFINITY 停在队尾：等续播取回后接着播。
+            if (_session.Queue.Mode == PlaybackMode.Infinity)
+            {
+                _advanceWhenFed = true;
+                LaunchInfinity();
             }
         }
 
@@ -247,6 +284,7 @@ namespace Ncrust.Playback
         /// <summary>切换播放模式，并按新模式重排窗口里的「下一首」。</summary>
         public void SetMode(PlaybackMode mode)
         {
+            FmMode = false;
             _session.Queue.SetMode(mode);
             RefreshNext();
             ModeChanged?.Invoke(mode);
@@ -259,6 +297,8 @@ namespace Ncrust.Playback
             var index = CurrentItemIndex();
             if (index < 0)
             {
+                // 窗口是空的（恢复了队列但还没开播）：没有要补的，只通知队列视图。
+                QueueChanged?.Invoke();
                 return;
             }
 
@@ -269,6 +309,13 @@ namespace Ncrust.Playback
             }
 
             AppendNextIfMissing();
+            QueueChanged?.Invoke();
+        }
+
+        /// <summary>队列在外部被改动（排序 / 删除 / 插入）后由调用方触发保存。</summary>
+        public void SaveState()
+        {
+            _ = SaveStateAsync();
         }
 
         private string RequestedLevel() => _preferences.QualityForNetwork(_network.IsMetered);
@@ -380,6 +427,62 @@ namespace Ncrust.Playback
             if (next != null)
             {
                 _list.Items.Add(CreateItem(next, RequestedLevel()));
+                return;
+            }
+
+            // INFINITY 到了队尾：提前续播（对应 Android needsPreload 分支里的 launchInfinity），
+            // 等到自然播完才请求的话，网络往返会让衔接出现空档。
+            if (_session.Queue.Mode == PlaybackMode.Infinity && _session.Queue.Current != null)
+            {
+                LaunchInfinity();
+            }
+        }
+
+        /// <summary>队尾续播：取一批 FM / 相似歌曲追加到队尾，并补进窗口。</summary>
+        private async void LaunchInfinity()
+        {
+            var seed = _session.Queue.Current;
+            if (_infinityInFlight || seed == null)
+            {
+                return;
+            }
+
+            _infinityInFlight = true;
+            try
+            {
+                var existing = _session.Queue.Songs.Select(song => song.Id).ToList();
+                var continuation = await _infinity.FetchAsync(FmMode, seed.Id, existing);
+
+                // 取数期间用户可能切了模式或换了队列：只在仍是 INFINITY 时追加。
+                if (continuation.Count == 0 || _session.Queue.Mode != PlaybackMode.Infinity)
+                {
+                    _advanceWhenFed = false;
+                    return;
+                }
+
+                _session.Queue.AppendAll(continuation);
+                SaveState();
+
+                if (_advanceWhenFed)
+                {
+                    _advanceWhenFed = false;
+                    if (_session.Queue.MoveNext() != null)
+                    {
+                        PlayCurrent();
+                        return;
+                    }
+                }
+
+                AppendNextIfMissing();
+                QueueChanged?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+            finally
+            {
+                _infinityInFlight = false;
             }
         }
 
@@ -423,6 +526,7 @@ namespace Ncrust.Playback
             TrimBefore(newItem);
             AppendNextIfMissing();
             SaveState();
+            QueueChanged?.Invoke();
         }
 
         private void OnPlaybackStateChanged()
@@ -516,6 +620,14 @@ namespace Ncrust.Playback
         private void OnMediaEnded()
         {
             ReportCurrent(ended: true);
+
+            // 整个窗口播完（队尾、没有下一项）：INFINITY 等续播取回后接着播。
+            if (!HasItemAfterCurrent() && _session.Queue.Mode == PlaybackMode.Infinity)
+            {
+                _advanceWhenFed = true;
+                LaunchInfinity();
+            }
+
             PlaybackEnded?.Invoke();
         }
 
@@ -557,11 +669,6 @@ namespace Ncrust.Playback
             var url = PlayReport.WeblogUrl(csrf);
             var logs = PlayReport.BuildLogs(songId, playedMs, "playend", null, isWifi: !_network.IsMetered);
             _ = _http.PostWeblogAsync(url, logs);
-        }
-
-        private void SaveState()
-        {
-            _ = SaveStateAsync();
         }
 
         private async System.Threading.Tasks.Task SaveStateAsync()

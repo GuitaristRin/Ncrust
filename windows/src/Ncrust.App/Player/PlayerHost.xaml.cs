@@ -24,12 +24,10 @@ namespace Ncrust.Player
         private const float MiniCover = 72f;
         private const float BarHeight = 72f;
         private const string VolumeKey = "volume";
-        private const string PlayModeKey = "play_mode";
-
-        /// <summary>模式按钮的切换顺序。INFINITY（FM / 相似歌曲续播）落地后再加入。</summary>
+        /// <summary>模式按钮的切换顺序（与 Android onTogglePlayMode 相同：循环 → 单曲 → 随机 → 顺序 → 相似无限）。</summary>
         private static readonly PlaybackMode[] ModeCycle =
         {
-            PlaybackMode.Cycle, PlaybackMode.Single, PlaybackMode.Shuffle, PlaybackMode.Line,
+            PlaybackMode.Cycle, PlaybackMode.Single, PlaybackMode.Shuffle, PlaybackMode.Line, PlaybackMode.Infinity,
         };
 
         private Compositor _compositor;
@@ -125,7 +123,7 @@ namespace Ncrust.Player
             SetVolumeSlider(volume);
             UpdateVolumeIcons();
 
-            var mode = (PlaybackMode)AppServices.Settings.GetInt(PlayModeKey, (int)PlaybackMode.Cycle);
+            var mode = (PlaybackMode)AppServices.Settings.GetInt(PlaybackHost.PlayModeKey, (int)PlaybackMode.Cycle);
             if (Array.IndexOf(ModeCycle, mode) < 0)
             {
                 mode = PlaybackMode.Cycle;
@@ -331,7 +329,7 @@ namespace Ncrust.Player
             var index = Array.IndexOf(ModeCycle, engine.Mode);
             var next = ModeCycle[(index + 1) % ModeCycle.Length];
             engine.SetMode(next);
-            AppServices.Settings.SetInt(PlayModeKey, (int)next);
+            AppServices.Settings.SetInt(PlaybackHost.PlayModeKey, (int)next);
         }
 
         private void UpdateModeButton(PlaybackMode mode)
@@ -354,7 +352,7 @@ namespace Ncrust.Player
                     break;
                 case PlaybackMode.Infinity:
                     glyph = "\uE895";
-                    tip = "无限续播";
+                    tip = "相似无限（队尾自动续播相似歌曲）";
                     break;
                 default:
                     glyph = "\uE8EE";
