@@ -62,6 +62,10 @@ namespace Ncrust.Playback
 
         // INFINITY 续播：同一时刻只取一批；取回时若已经停在队尾（播完 / 用户按了下一首），接着播。
         private bool _infinityInFlight;
+
+        // 上次会话恢复完（或已经开始播放）之前不落盘：启动时恢复播放模式会调 SetMode，
+        // 那时队列还是空的，存下去就把上次保存的队列覆盖成空（实测：重启后队列丢失）。
+        private bool _stateReady;
         private bool _advanceWhenFed;
 
         public PlaybackEngine(
@@ -185,6 +189,7 @@ namespace Ncrust.Playback
         /// <summary>按当前队列与模式从当前曲开始播放（替换队列、跳转、后退后调用）。</summary>
         public void PlayCurrent()
         {
+            _stateReady = true;
             ResetWindow();
             var current = _session.Queue.Current;
             if (current == null)
@@ -232,6 +237,7 @@ namespace Ncrust.Playback
         /// <summary>启动时恢复了上次的队列：只把当前曲显示出来，不自动播放。</summary>
         public void ShowRestored()
         {
+            _stateReady = true;
             var current = _session.Queue.Current;
             if (current != null)
             {
@@ -315,7 +321,10 @@ namespace Ncrust.Playback
         /// <summary>队列在外部被改动（排序 / 删除 / 插入）后由调用方触发保存。</summary>
         public void SaveState()
         {
-            _ = SaveStateAsync();
+            if (_stateReady)
+            {
+                _ = SaveStateAsync();
+            }
         }
 
         private string RequestedLevel() => _preferences.QualityForNetwork(_network.IsMetered);
