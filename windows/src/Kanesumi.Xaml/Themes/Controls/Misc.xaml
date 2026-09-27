@@ -43,4 +43,19 @@
         <Setter Property="MinHeight" Value="0" />
     </Style>
 
+    <!--
+      歌词行颜色（MetroLyricsPanel 按行状态切换样式）：当前行 primary；已唱行 onBackground、
+      未唱行 onSurfaceVariant（透明度 0.6 / 0.4 由面板设置）。用 ThemeResource，明暗主题下都可读 ——
+      sec-a 默认写死白色，浅色底上看不见（Ncrust LyricsView 同样改用了语义色）。
+    -->
+    <Style x:Key="MetroLyricCurrentTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource KPrimaryBrush}" />
+    </Style>
+    <Style x:Key="MetroLyricPastTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource KOnBackgroundBrush}" />
+    </Style>
+    <Style x:Key="MetroLyricFutureTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource KOnSurfaceVariantBrush}" />
+    </Style>
+
 </ResourceDictionary>

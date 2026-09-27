@@ -45,6 +45,7 @@
     <Compile Include="Motion\KanesumiEasing.cs" />
     <Compile Include="Motion\KanesumiMotion.cs" />
     <Compile Include="Controls\MetroProgressRing.cs" />
+    <Compile Include="Controls\MetroLyricsPanel.cs" />
   </ItemGroup>
 
   <ItemGroup>
