@@ -60,7 +60,9 @@ namespace Ncrust.Player
         public PlayerHost()
         {
             InitializeComponent();
-            Lyrics.LineFontWeight = Windows.UI.Text.FontWeights.SemiBold;
+            // 歌词：微软雅黑粗体、大字号（负责人要求）。
+            Lyrics.LineFontFamily = new Windows.UI.Xaml.Media.FontFamily("Microsoft YaHei UI");
+            Lyrics.LineFontWeight = Windows.UI.Text.FontWeights.Bold;
             Loaded += OnLoaded;
             Root.SizeChanged += (_, __) => Guarded(() =>
             {
@@ -227,7 +229,7 @@ namespace Ncrust.Player
                 Stage.Width = double.NaN;
                 ControlsPanel.Width = double.NaN;
                 InfoText.Width = double.NaN;
-                Lyrics.SetTypography(20, 28, 14, 19);
+                Lyrics.SetTypography(26, 36, 16, 22);
                 return;
             }
 
@@ -253,7 +255,7 @@ namespace Ncrust.Player
             Stage.Width = cover + gap + right;
             ControlsPanel.Width = cover;
             InfoText.Width = cover;
-            Lyrics.SetTypography(24, 34, 15, 21);
+            Lyrics.SetTypography(34, 46, 18, 26);
         }
 
         /// <summary>宽窗口：右栏与左栏（封面 + 信息 + 控件）等高，上沿与封面上沿对齐。</summary>

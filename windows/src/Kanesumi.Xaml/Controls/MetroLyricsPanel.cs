@@ -109,6 +109,9 @@ namespace Kanesumi.Xaml.Controls
         /// <summary>主行字重（默认粗体，同 sec-a；桌面卡片里用半粗，字号降下来后更轻）。只影响之后新建的行。</summary>
         public FontWeight LineFontWeight { get; set; } = FontWeights.Bold;
 
+        /// <summary>主行与译文的字体族；null 时沿用继承的字体。只影响之后新建的行。</summary>
+        public FontFamily LineFontFamily { get; set; }
+
         /// <summary>
         /// 改字号（宿主按窗口宽度切换：宽窗口与窄窗口的字号不同）。已有的行就地更新，
         /// 然后把当前行重新定位到锚点（行高变了，滚动位置要跟着变）。
@@ -267,7 +270,18 @@ namespace Kanesumi.Xaml.Controls
             _stack.Children.Add(row);
         }
 
-        private static TextBlock CreateText(string text, double size, double lineHeight, FontWeight weight) => new TextBlock
+        private TextBlock CreateText(string text, double size, double lineHeight, FontWeight weight)
+        {
+            var block = NewText(text, size, lineHeight, weight);
+            if (LineFontFamily != null)
+            {
+                block.FontFamily = LineFontFamily;
+            }
+
+            return block;
+        }
+
+        private static TextBlock NewText(string text, double size, double lineHeight, FontWeight weight) => new TextBlock
         {
             Text = text,
             FontSize = size,
