@@ -205,6 +205,21 @@ namespace Ncrust.Pages
             }
         }
 
+        /// <summary>手动刷新每日推荐（对应 Android 每日推荐区的刷新键，#26）。</summary>
+        private async void RefreshDailyClick(object sender, RoutedEventArgs e)
+        {
+            RefreshDailyButton.IsEnabled = false;
+            try
+            {
+                await RefreshDailyAsync();
+                UpdateSections();
+            }
+            finally
+            {
+                RefreshDailyButton.IsEnabled = true;
+            }
+        }
+
         private void PlayDailyClick(object sender, RoutedEventArgs e)
         {
             // 「全部播放」才是显式替换队列。

@@ -46,14 +46,30 @@
                 <StackPanel x:Name="DailySection" Spacing="8" Visibility="Collapsed">
                     <Grid>
                         <TextBlock VerticalAlignment="Center" Style="{StaticResource TitleTextStyle}" Text="每日推荐" />
-                        <Button
+                        <StackPanel
                             HorizontalAlignment="Right"
-                            Click="PlayDailyClick">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE768;" />
-                                <TextBlock Text="全部播放" />
-                            </StackPanel>
-                        </Button>
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <AppBarButton
+                                x:Name="RefreshDailyButton"
+                                Width="40"
+                                Height="40"
+                                Click="RefreshDailyClick"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="刷新每日推荐">
+                                <AppBarButton.Icon>
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE72C;" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+                            <Button
+                                VerticalAlignment="Center"
+                                Click="PlayDailyClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE768;" />
+                                    <TextBlock Text="全部播放" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </Grid>
                     <ListView
                         x:Name="DailyList"
