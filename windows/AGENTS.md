@@ -47,6 +47,7 @@ Android 专属的章节不适用于这里。
 | 强调色 | **跟随 Windows 系统强调色**（设置 → 个性化 → 颜色，Windows 10 / 11 都有）；读不到时回落内置云杉 `#1DB954`。平台控件直接用 SystemAccentColor，Kanesumi 的 `KPrimaryBrush` 由 `KanesumiAccent.FollowSystem` 同步并实时跟随；`KOnPrimaryBrush` 按亮度选黑 / 白 | 负责人要求。应用图标的绿色是品牌色，不随强调色变 |
 | 外壳导航 | **标准汉堡菜单**：WinUI 2 `NavigationView`（自适应展开 / 紧凑 / 最小），不用自绘 ListView 侧栏或窄窗底部导航 | 负责人要求标准汉堡菜单；参考 Groove Music。平台控件自带自适应、返回按钮、键盘与 UIA |
 | WinUI 2 样式版本 | `XamlControlsResources ControlsResourcesVersion="Version1"` | Windows 10 / Groove 一代的直角样式；Version2 是 Windows 11 圆角 + 中灰圆角内容面板，与 Kanesumi 冲突 |
+| 按钮 | **微软原生样式**：主操作 `AccentButtonStyle`，次要操作平台默认 `Button`，图标按钮 `AppBarButton`（`LabelPosition=Collapsed`，同 Groove 播放栏），播放卡片的播放键是强调色按钮。Kanesumi 的 `Metro*ButtonStyle` 不再使用 | 负责人（2026-09-27）：按钮不用 Ncrust Android 的设计，用微软的 |
 | 磁贴间距 | 桌面横向 20 / 纵向 28、磁贴 176（`MetroGridTileStyle`），**有意偏离** tokens 的 `gridSpacing = 2` | 2 的拼贴缝在手机上是 Kanesumi 的拼贴感，桌面一整面墙显得太紧张（负责人反馈，2026-09-27） |
 | 图标 | 界面图标用 **Segoe MDL2 Assets**（显式指定 `FontFamily`）；应用图标是整块绿底唱片纹 | Groove 同源的原生图标字体；不打包 Material Icons（原 KANESUMI_XAML 的设想已撤回） |
 | DI / MVVM 框架 | 不用。与 Android 一样用单例充当服务定位器；`INotifyPropertyChanged` 手写；只用 `x:Bind` | 依赖越少，.NET Native 的反射问题越少；`x:Bind` 是编译期绑定 |
@@ -544,6 +545,13 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
   需要「解码完再替换」时用隐藏的预加载 `Image`（见 `PlayerHost.CoverPreloader`）。
 - **XAML 会跳过渲染 `Opacity="0"` 的元素**：想用 Composition 表达式驱动透明度的元素，XAML 里的
   Opacity 要保持 1，初值交给表达式。
+- **`TransformToVisual` 会把 Composition `Translation` 算进去**（开了 `SetIsTranslationEnabled` 的元素）：
+  播放卡片相对 Root 量封面位，收起时量到的是「平移到屏幕外的卡片里」的位置，形变终点跟着错，
+  展开时封面先落到右下再跳回（实测）。量「动画终点」时相对不受该平移影响的祖先（卡片自身）取。
+- **`AppBarButton.Flyout` 会自带子菜单箭头**：独立的图标键挂浮层时被挤成小图标 +「›」。改用
+  `FlyoutBase.AttachedFlyout`，点击时 `ShowAttachedFlyout`。
+- **键盘焦点框画在最上层**：覆盖层（播放卡片）展开时焦点若留在下面的页面，焦点框会透过覆盖层显示。
+  展开时把焦点移进覆盖层，收起时移回。
 - **XAML 命中测试不认 Composition 变换**：`Scale` / `Translation` 只改视觉，点击区域仍是布局位置。
   用 Composition 缩放显示的大元素要关掉命中测试，另放点击区。
 - **应用运行时不能编译**：本地注册指向 `bin\Release\ilc`，应用开着时文件被占用，.NET Native 编译报
