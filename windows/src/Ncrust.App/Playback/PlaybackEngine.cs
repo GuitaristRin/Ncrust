@@ -435,7 +435,13 @@ namespace Ncrust.Playback
             var next = _session.Queue.PeekNext();
             if (next != null)
             {
-                _list.Items.Add(CreateItem(next, RequestedLevel()));
+                // 关掉「无缝播放」时不预载下一首（同 Android：gapless_playback 为 false 时不进 ExoPlayer 队列），
+                // 当前曲播完后由 OnMediaEnded 再起下一首。设置页的开关即时生效：下一次补窗口时按新值。
+                if (_preferences.GaplessEnabled)
+                {
+                    _list.Items.Add(CreateItem(next, RequestedLevel()));
+                }
+
                 return;
             }
 
@@ -630,11 +636,19 @@ namespace Ncrust.Playback
         {
             ReportCurrent(ended: true);
 
-            // 整个窗口播完（队尾、没有下一项）：INFINITY 等续播取回后接着播。
-            if (!HasItemAfterCurrent() && _session.Queue.Mode == PlaybackMode.Infinity)
+            if (!HasItemAfterCurrent())
             {
-                _advanceWhenFed = true;
-                LaunchInfinity();
+                if (_session.Queue.Mode == PlaybackMode.Infinity && _session.Queue.PeekNext() == null)
+                {
+                    // 整个窗口播完且队列到了尾：INFINITY 等续播取回后接着播。
+                    _advanceWhenFed = true;
+                    LaunchInfinity();
+                }
+                else if (!_preferences.GaplessEnabled && _session.Queue.MoveNext() != null)
+                {
+                    // 非无缝模式：窗口里本来就没预载下一首，播完由队列决定下一首再起播。
+                    PlayCurrent();
+                }
             }
 
             PlaybackEnded?.Invoke();
