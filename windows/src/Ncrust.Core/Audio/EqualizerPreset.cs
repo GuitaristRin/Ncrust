@@ -61,6 +61,8 @@ namespace Ncrust.Core.Audio
     /// <summary>
     /// 内置预设。前级增益取「最大提升量的一半」左右的负值，给提升留出余量、减少削波。
     /// 顺序即界面顺序；「平直」必须第一个（重置用它）。
+    /// EXTENSION-20 是刻意的例外：前级 +1（正增益），靠 125/250 Hz 的坑腾出余量，
+    /// 让低频更「顶」，不是笔误。
     /// </summary>
     public static class EqualizerPresets
     {
@@ -77,6 +79,7 @@ namespace Ncrust.Core.Audio
             Preset("人声", -2, -2, -2, -1, 1, 3, 4, 3, 1, 0, -1),
             Preset("低音增强", -4, 7, 6, 5, 3, 1, 0, 0, 0, 0, 0),
             Preset("高音增强", -4, 0, 0, 0, 0, 0, 1, 3, 5, 6, 7),
+            Preset("EXTENSION-20", 1, 3, 6, -6, -4, -2, -1, -1, -1, 1, 1),
         };
 
         public static EqualizerPreset Flat => BuiltIn[0];

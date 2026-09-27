@@ -245,4 +245,14 @@ public class EqualizerStoreTests
         });
         Assert.True(EqualizerPresets.Flat.Matches(0, new double[10]));
     }
+
+    [Fact]
+    public void Extension20_KeepsItsSignatureCurve()
+    {
+        // 签名预设：62 Hz 的峰 + 125/250 的坑 + 正前级，锁定曲线防止被误改。
+        var preset = EqualizerPresets.FindBuiltIn("EXTENSION-20");
+        Assert.NotNull(preset);
+        Assert.Equal(1, preset.PreampDb);
+        Assert.Equal(new[] { 3d, 6, -6, -4, -2, -1, -1, -1, 1, 1 }, preset.GainsDb);
+    }
 }
