@@ -231,6 +231,56 @@ public class SearchHistoryTests
         Assert.Single(await history.GetSongsAsync());
     }
 
+    [Fact]
+    public async Task ConcurrentWrites_DoNotLoseEntries()
+    {
+        // 模拟 UWP 的写法：先截断成空文件，过一会儿才写入内容。不串行的话，另一路恰好读到空文件就把记录全冲掉。
+        var store = new TruncateThenWriteFileStore();
+        var history = new SearchHistory(store);
+        await history.AddSongAsync(Song(1));
+
+        await Task.WhenAll(
+            history.AddQueryAsync("q"),
+            history.AddSongAsync(Song(2)),
+            history.AddAlbumAsync(new AlbumSearchItem { Id = 3, Name = "a" }),
+            history.GetSongsAsync());
+
+        Assert.Equal(new long[] { 2, 1 }, (await history.GetSongsAsync()).Select(i => i.Id));
+        Assert.Single(await history.GetQueriesAsync());
+        Assert.Single(await history.GetAlbumsAsync());
+    }
+
+    [Fact]
+    public async Task RemoveById_RejectsQueries()
+    {
+        var history = new SearchHistory(new InMemoryFileStore());
+        await Assert.ThrowsAsync<ArgumentException>(() => history.RemoveAsync(SearchHistoryType.Query, 0));
+    }
+
+    private sealed class TruncateThenWriteFileStore : IFileStore
+    {
+        private readonly Dictionary<string, string> _files = new();
+
+        public async Task<string?> ReadTextAsync(string name)
+        {
+            await Task.Yield();
+            return _files.TryGetValue(name, out var value) ? value : null;
+        }
+
+        public async Task WriteTextAsync(string name, string content)
+        {
+            _files[name] = string.Empty;
+            await Task.Delay(5);
+            _files[name] = content;
+        }
+
+        public Task DeleteAsync(string name)
+        {
+            _files.Remove(name);
+            return Task.CompletedTask;
+        }
+    }
+
     private static SongItem Song(long id) => new SongItem { Id = id, Name = "s" + id };
 }
 

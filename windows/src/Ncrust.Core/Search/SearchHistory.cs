@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -49,6 +50,7 @@ namespace Ncrust.Core.Search
 
         private readonly IFileStore _files;
         private readonly Func<long> _clock;
+        private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
 
         public SearchHistory(IFileStore files, Func<long>? clock = null)
         {
@@ -75,97 +77,128 @@ namespace Ncrust.Core.Search
                 : AddAsync(SearchHistoryType.Query, 0, trimmed, string.Empty, null, cancellationToken);
         }
 
-        public async Task<IReadOnlyList<HistoryItem>> GetQueriesAsync(CancellationToken cancellationToken = default) =>
-            await GetAllAsync(SearchHistoryType.Query, cancellationToken).ConfigureAwait(false);
+        public Task<IReadOnlyList<HistoryItem>> GetQueriesAsync(CancellationToken cancellationToken = default) =>
+            GetAllAsync(SearchHistoryType.Query, cancellationToken);
 
-        public async Task RemoveQueryAsync(string query, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<HistoryItem>> GetSongsAsync(CancellationToken cancellationToken = default) =>
+            GetAllAsync(SearchHistoryType.Song, cancellationToken);
+
+        public Task<IReadOnlyList<HistoryItem>> GetAlbumsAsync(CancellationToken cancellationToken = default) =>
+            GetAllAsync(SearchHistoryType.Album, cancellationToken);
+
+        public Task<IReadOnlyList<HistoryItem>> GetArtistsAsync(CancellationToken cancellationToken = default) =>
+            GetAllAsync(SearchHistoryType.Artist, cancellationToken);
+
+        public Task RemoveQueryAsync(string query, CancellationToken cancellationToken = default) =>
+            UpdateAsync(all => all[SearchHistoryType.Query].RemoveAll(item => SameQuery(item.Title, query)) > 0, cancellationToken);
+
+        /// <summary>按 id 删除一条。关键词没有 id（都是 0），要用 <see cref="RemoveQueryAsync"/>。</summary>
+        public Task RemoveAsync(SearchHistoryType type, long id, CancellationToken cancellationToken = default)
         {
-            var all = await LoadAsync(cancellationToken).ConfigureAwait(false);
-            all[SearchHistoryType.Query].RemoveAll(item => SameQuery(item.Title, query));
-            await SaveAsync(all, cancellationToken).ConfigureAwait(false);
+            if (type == SearchHistoryType.Query)
+            {
+                throw new ArgumentException("关键词没有 id，请用 RemoveQueryAsync", nameof(type));
+            }
+
+            return UpdateAsync(all => all[type].RemoveAll(item => item.Id == id) > 0, cancellationToken);
         }
+
+        public Task ClearSectionAsync(SearchHistoryType type, CancellationToken cancellationToken = default) =>
+            UpdateAsync(all =>
+            {
+                all[type].Clear();
+                return true;
+            }, cancellationToken);
 
         /// <summary>清空全部四类（搜索框下拉里的「清除搜索记录」）。</summary>
-        public async Task ClearAllAsync(CancellationToken cancellationToken = default)
-        {
-            await SaveAsync(NewEmpty(), cancellationToken).ConfigureAwait(false);
-        }
+        public Task ClearAllAsync(CancellationToken cancellationToken = default) =>
+            UpdateAsync(all =>
+            {
+                foreach (var list in all.Values)
+                {
+                    list.Clear();
+                }
+
+                return true;
+            }, cancellationToken);
 
         private static bool SameQuery(string a, string b) =>
             string.Equals((a ?? string.Empty).Trim(), (b ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase);
 
-        public async Task<IReadOnlyList<HistoryItem>> GetSongsAsync(CancellationToken cancellationToken = default) =>
-            await GetAllAsync(SearchHistoryType.Song, cancellationToken).ConfigureAwait(false);
-
-        public async Task<IReadOnlyList<HistoryItem>> GetAlbumsAsync(CancellationToken cancellationToken = default) =>
-            await GetAllAsync(SearchHistoryType.Album, cancellationToken).ConfigureAwait(false);
-
-        public async Task<IReadOnlyList<HistoryItem>> GetArtistsAsync(CancellationToken cancellationToken = default) =>
-            await GetAllAsync(SearchHistoryType.Artist, cancellationToken).ConfigureAwait(false);
-
-        public async Task RemoveAsync(SearchHistoryType type, long id, CancellationToken cancellationToken = default)
-        {
-            var all = await LoadAsync(cancellationToken).ConfigureAwait(false);
-            all[type].RemoveAll(item => item.Id == id);
-            await SaveAsync(all, cancellationToken).ConfigureAwait(false);
-        }
-
-        public async Task ClearSectionAsync(SearchHistoryType type, CancellationToken cancellationToken = default)
-        {
-            var all = await LoadAsync(cancellationToken).ConfigureAwait(false);
-            all[type].Clear();
-            await SaveAsync(all, cancellationToken).ConfigureAwait(false);
-        }
-
-        private async Task AddAsync(
+        private Task AddAsync(
             SearchHistoryType type,
             long id,
             string title,
             string coverUrl,
             string? subtitle,
-            CancellationToken cancellationToken)
-        {
-            var all = await LoadAsync(cancellationToken).ConfigureAwait(false);
-            var list = all[type];
-            var now = _clock();
-            list.RemoveAll(item => now - item.Timestamp > TtlMs);
-            if (type == SearchHistoryType.Query)
+            CancellationToken cancellationToken) =>
+            UpdateAsync(all =>
             {
-                list.RemoveAll(item => SameQuery(item.Title, title));
-            }
-            else
-            {
-                list.RemoveAll(item => item.Id == id);
-            }
-            list.Insert(0, new HistoryItem
-            {
-                Id = id,
-                Title = title,
-                CoverUrl = coverUrl,
-                Subtitle = subtitle,
-                Timestamp = now,
-            });
+                var list = all[type];
+                var now = _clock();
+                list.RemoveAll(item => now - item.Timestamp > TtlMs);
+                if (type == SearchHistoryType.Query)
+                {
+                    list.RemoveAll(item => SameQuery(item.Title, title));
+                }
+                else
+                {
+                    list.RemoveAll(item => item.Id == id);
+                }
 
-            if (list.Count > MaxItems)
-            {
-                list.RemoveRange(MaxItems, list.Count - MaxItems);
-            }
+                list.Insert(0, new HistoryItem
+                {
+                    Id = id,
+                    Title = title,
+                    CoverUrl = coverUrl,
+                    Subtitle = subtitle,
+                    Timestamp = now,
+                });
 
-            await SaveAsync(all, cancellationToken).ConfigureAwait(false);
-        }
+                if (list.Count > MaxItems)
+                {
+                    list.RemoveRange(MaxItems, list.Count - MaxItems);
+                }
+
+                return true;
+            }, cancellationToken);
 
         private async Task<IReadOnlyList<HistoryItem>> GetAllAsync(SearchHistoryType type, CancellationToken cancellationToken)
         {
-            var all = await LoadAsync(cancellationToken).ConfigureAwait(false);
-            var list = all[type];
-            var now = _clock();
-            var removed = list.RemoveAll(item => now - item.Timestamp > TtlMs);
-            if (removed > 0)
+            IReadOnlyList<HistoryItem> result = Array.Empty<HistoryItem>();
+            await UpdateAsync(all =>
             {
-                await SaveAsync(all, cancellationToken).ConfigureAwait(false);
-            }
+                var list = all[type];
+                var now = _clock();
+                var removed = list.RemoveAll(item => now - item.Timestamp > TtlMs);
+                result = list.ToArray();
+                return removed > 0;
+            }, cancellationToken).ConfigureAwait(false);
+            return result;
+        }
 
-            return list;
+        /// <summary>
+        /// 所有读改写都串行：整份文件读出来、改、整份写回。并发时（回车记关键词的同时点了一首歌、
+        /// 下拉读记录的同时清掉过期项）后写的会覆盖先写的；更糟的是 UWP 写文件是先截断再写，
+        /// 另一路恰好在截断后读到空文件，就把全部记录存成空的。
+        /// </summary>
+        private async Task UpdateAsync(
+            Func<Dictionary<SearchHistoryType, List<HistoryItem>>, bool> mutate,
+            CancellationToken cancellationToken)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var all = await LoadAsync(cancellationToken).ConfigureAwait(false);
+                if (mutate(all))
+                {
+                    await SaveAsync(all, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         private async Task<Dictionary<SearchHistoryType, List<HistoryItem>>> LoadAsync(CancellationToken cancellationToken)
