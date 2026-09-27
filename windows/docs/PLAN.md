@@ -121,7 +121,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] NavigationView 资源覆盖（`Themes/Controls/Navigation.xaml`）；`MetroGridTileStyle`
 - [x] 平台控件优先：搜索页 Tab 改原生 `Pivot`，删除自绘 `MetroSidebarStyle` / `MetroTabRowStyle`（Lists.xaml）
 - [x] 强调色跟随 Windows（`KanesumiAccent`），不再覆盖 `SystemAccentColor`
-- [ ] M1 剩余：`MetroDetailScaffold` / `MetroLyricsPanel`（跨项滑动指示条与 Composition 指示条待补）
+- [x] `MetroLyricsPanel`（SmoothIndex 合成缩放、36% 锚点、手动滚动暂停 5s、淡入、LiveRegion）
+- [ ] `MetroDetailScaffold`（详情页目前用 App 侧的 `DetailHeader` + ListView.Header，三态交叉淡化待补）
 - [ ] M2：`MetroToggleSwitch` / `MetroComboBox` / `MetroMenuFlyout` / `MetroContentDialog`
       （`MetroBottomNav` 不再需要：窄窗口由 NavigationView 最小模式覆盖）
 - [ ] 每个控件：深浅 × 两强调色截图对比 + `Contrast.ps1` + `ResourceAudit.ps1` 零未定义键
@@ -135,9 +136,11 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] Groove 式传输栏：模式按钮（循环 / 单曲 / 随机 / 顺序）、上一首 / 播放 / 下一首、可拖动进度条
       （松手才 seek）+ 时长、音量浮层（静音）、歌词 / 展开；音量与模式持久化；窄窗口退化为迷你栏
 - [x] 卡片不再重复传输控件；封面落在左栏；全屏时传输栏关闭命中测试
-- [ ] `LyricAnim` / `QueueSlide` 标量 + 歌词 / 队列层
+- [x] 卡片右栏歌词 / 播放队列（原生 Pivot 切换，代替 `QueueSlide` 标量）：`LyricsController` + `MetroLyricsPanel`、
+      `QueuePresenter`（三分区、点播、移除、将要播放区内拖动排序、清空）；收藏按钮；传输栏「词」/ 队列按钮
+- [ ] 窄窗口（< 600）的歌词 / 队列（目前卡片只有封面）
 - [ ] 触屏拖拽（25% 阈值）；`Progress < 0.05` 重子树 `x:Load` 门控；全屏控件闲置自动隐藏
-- [ ] 进度条两次 tick 之间的 Composition 插值（目前是 2Hz 跳动）/ `QueueView` / `LyricsView`
+- [ ] 进度条两次 tick 之间的 Composition 插值（目前是 2Hz 跳动）
 - [ ] **M0 #1 实测**：Release 下展开收起无掉帧、拖拽跟手、收起后重子树卸载
 
 ## 阶段 7 · 页面（M1）
@@ -148,16 +151,19 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] `Login/LoginPage`：WebView2（主）+ 二维码（辅），独立登录层
 - [x] Search：面板搜索框即时建议（500ms 防抖，选中即播）+ 搜索页三类 Tab、并发请求、取消过期查询、
       点歌记历史；共享模板字典 `Resources/Templates.xaml`
-- [ ] 搜索历史的展示入口（空查询时显示历史）；专辑 / 歌手结果可点（依赖详情页）
+- [x] 专辑 / 歌手结果可点进详情页（并记入搜索历史）
+- [ ] 搜索历史的展示入口（空查询时显示历史）
 - [x] 设置页（移植 Android「我的」+ About：账户 / 音质 / 播放 / 音效 / 外观 / 缓存 / 关于）
 - [x] 均衡器子页面（开关、预设、前级 + 10 段、命名保存 / 删除 / 重置）
-- [ ] Playlist 详情、Library
+- [x] 专辑 / 歌手 / 歌单详情页（共用 `DetailHeader`：全部播放 / 插播 / 最后播放；专辑可收藏整张）
+- [x] 音乐库（单曲分页 + 待同步提示与重试 / 专辑 / 歌单）
+- [x] 歌曲右键菜单（`SongActions`）与专辑 / 歌单磁贴菜单；底部轻提示（`AppShell.Notice`）
 - [ ] 页面加载态沿用「缓存优先 + 后台刷新」模式，不整屏替换加载器
 
 ## 阶段 8 · M2 对齐 Android 主干
 
-- [ ] 音乐库云同步 UI、专辑 / 歌手页
-- [ ] 私人 FM + INFINITY（相似 / FM 续播、去重、防重入）
+- [x] 音乐库云同步 UI、专辑 / 歌手页
+- [x] 私人 FM + INFINITY（`InfinityFeeder` 相似 / FM 续播、去重兜底每日推荐；引擎防重入、队尾提前续播）
 - [x] 音质设置（7 档，不计费 / 计费两档默认 3 / 1）、歌词翻译开关、gapless 开关（设置页）
 - [x] 主题：强调色跟随 Windows 系统强调色（`KanesumiAccent`，不再做 6 色预设）；
       明暗 3 模式（`AppTheme`，键 `theme_mode` 同 Android）
@@ -205,10 +211,24 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 | 4 | 清除缓存（大小归零，登录态与队列不受影响） | ⏳ |
 | 5 | 音质下拉改动后下一首生效；登出确认后首页回到登录提示 | ⏳ |
 
+## 设备验收（2026-09-27，对齐 Android 主干）
+
+负责人确认均衡器音效正常。本轮（详情页 / 音乐库 / 歌词与队列）上机截图走查：
+
+| # | 项目 | 结果 |
+|---|---|---|
+| 1 | 启动、首页 | ✅ 无崩溃；传输栏新增队列按钮 |
+| 2 | 卡片歌词 | ✅ 双语、当前行强调色、其余行缩小、当前行停在 36% |
+| 3 | 卡片播放队列 | ✅ 三分区、当前曲竖条、移除按钮 |
+| 4 | 音乐库 | ✅ 单曲（120 首计数）、专辑墙 |
+| 5 | 专辑页 → 歌手页 | ✅ 页头、操作按钮、「取消收藏」、歌手链接、专辑墙 |
+| 6 | 右键菜单、拖动排序、私人 FM、INFINITY 续播、歌单页 | ⏳ 需要负责人配合（截图工具只能左键点击） |
+
 ## 当前状态速览
 
-- **阶段 1（Ncrust.Core）全部完成**，Core 测试 222 个通过（含均衡器）；阶段 2 平台层 + 独立登录窗口完成；
+- **阶段 1（Ncrust.Core）全部完成**，Core 测试 230 个通过（含均衡器、INFINITY 续播）；阶段 2 平台层 + 独立登录窗口完成；
   阶段 3 PlaybackEngine 经 review 修正并上机验证可播放。Release|x64 + .NET Native 构建零警告。
 - 外壳（标准汉堡菜单 + 自定义标题栏）、Groove 式传输栏、搜索页（原生 Pivot）、首页均已上机验证（见上节）。
-- 设置页与 10 段均衡器已落地（包版本 0.1.2.0），待验收见上节。
-- 下一步：**歌词 / 队列层** → 歌单 / 专辑 / 歌手详情页 → 音乐库页。
+- 设置页与 10 段均衡器已落地（包版本 0.1.2.0），均衡器负责人已验。
+- 歌词 / 队列、详情页、音乐库、右键菜单、私人 FM / INFINITY 已落地，与 Android 主干基本对齐。
+- 下一步：搜索历史入口 → 窄窗口歌词 / 队列 → 多选批量 → i18n。

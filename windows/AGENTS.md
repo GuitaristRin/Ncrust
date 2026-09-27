@@ -6,17 +6,18 @@ Android 专属的章节不适用于这里。
 
 **状态**（2026-09-27）：**M1 进行中，已可日常点播。** 包版本 0.1.2.0。
 
-- `Ncrust.Core`：协议、加密、全部端点、队列状态机、音质阶梯、缓存与持久化、云收藏库、
-  10 段均衡器（DSP + 预设），Core 测试 222 个通过。
+- `Ncrust.Core`：协议、加密、全部端点（含相似歌曲）、队列状态机、INFINITY 续播取数（`InfinityFeeder`）、
+  音质阶梯、缓存与持久化、云收藏库、10 段均衡器（DSP + 预设），Core 测试 230 个通过。
 - `Ncrust.App`：标准汉堡菜单外壳（`NavigationView`）+ 自定义标题栏、独立登录层（WebView2 + 二维码）、
-  `PlaybackEngine`（滑动窗口 / MediaBinder / 降级 / 上报 / 均衡器）、Groove 式传输栏与 Composition 播放器层、
-  首页、搜索页（原生 `Pivot`）、设置页（移植 Android「我的」页）与 10 段均衡器子页面。
+  `PlaybackEngine`（滑动窗口 / MediaBinder / 降级 / 上报 / 均衡器 / INFINITY 与私人 FM 续播）、
+  Groove 式传输栏与 Composition 播放器层（卡片右栏：歌词 / 播放队列）、首页（含私人 FM 卡）、搜索页、
+  专辑 / 歌手 / 歌单详情页、音乐库页、设置页与 10 段均衡器子页面；歌曲与专辑 / 歌单磁贴的右键菜单。
 - `Ncrust.Audio`：均衡器音效组件（`IBasicAudioEffect`，挂在 `MediaPlayer` 上）。
-- `Kanesumi.Xaml`：token、缓动、按钮 / 列表 / 进度环样式、NavigationView 资源覆盖、`KanesumiAccent`（强调色跟随系统）。
+- `Kanesumi.Xaml`：token、缓动、按钮 / 列表 / 进度环样式、NavigationView 资源覆盖、`KanesumiAccent`（强调色跟随系统）、
+  `MetroLyricsPanel`。
 
-2026-09-26 上机验收了外壳、登录、首页、搜索、播放与播放器层（结果见 `docs/PLAN.md`「设备验收」）；
-设置页与均衡器只验过界面渲染，**音效是否可闻、预设保存 / 删除、浅色主题、清除缓存待验**。
-下一步：歌词 / 队列层 → 歌单 / 专辑 / 歌手详情页 → 音乐库页。施工单见 `docs/PLAN.md`。
+与 Android 主干功能已基本对齐（见「Android → Windows 映射」）；验收记录见 `docs/PLAN.md`。
+下一步：搜索历史入口、窄窗口的歌词 / 队列、多选批量操作、8 种语言。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
@@ -156,8 +157,8 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 | 目录 | 内容 |
 |---|---|
 | `Shell/` | `ShellPage`（`NavigationView` + 内容 Frame + 播放栏 + 播放器层 + 登录层）、自定义标题栏、全局快捷键；`AppTheme`（明暗模式 + 标题栏按钮配色） |
-| `Pages/` | Home、Search、Settings（账户 / 音质 / 播放 / 音效 / 外观 / 缓存 / 关于，对应 Android 的「我的」页与 About）、Equalizer；待做 Library、Album、Artist、Playlist |
-| `Player/` | `PlayerHost`（Composition 驱动的展开层）、`PlayerControls`、`SeekBar`、`QueueView`、`LyricsView`（封装 `MetroLyricsPanel`） |
+| `Pages/` | Home、Search、Library、Album、Artist、Playlist（后三者共用 `DetailHeader`）、Settings（账户 / 音质 / 播放 / 音效 / 外观 / 缓存 / 关于，对应 Android 的「我的」页与 About）、Equalizer；`SongActions`（歌曲 / 磁贴右键菜单、收藏、转到歌手 / 专辑） |
+| `Player/` | `PlayerHost`（Composition 驱动的展开层 + 传输栏）、`LyricsController`（取词、2Hz 之间的位置外推，喂 `MetroLyricsPanel`）、`QueuePresenter`（三分区队列视图） |
 | `Playback/` | `PlaybackEngine`：把 `PlaybackQueue` 的决定落到 `MediaPlaybackList` 上；`MediaBinder` 的绑定处理 |
 | `Login/` | `LoginWindow`（独立登录层）：内嵌 WebView2 登录 + 二维码（`QrLoginClient` + 本地渲染） |
 | `Platform/` | Core 平台接口的实现 |
@@ -185,8 +186,9 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 | 电池白名单、屏幕方向策略 | 不移植 | —— |
 | 剪贴板链接检测 | M3：`ncrust://` 协议激活；搜索框粘贴 NetEase 链接时识别 | 桌面上自动读剪贴板太打扰 |
 | `SongDetailScreen` | 不移植 | Android 上本来就进不去 |
-| `SongMenuSheet` | 右键 / 长按 `MenuFlyout` | 菜单项与 Android 一致 |
-| `PlayAllDialog` | `MetroContentDialogStyle` | |
+| `SongMenuSheet` | 右键 / 长按 / Shift+F10 `MenuFlyout`（`SongActions`） | 菜单项与 Android 一致；「分享」在桌面上是复制链接 |
+| `PlayAllDialog` | 详情页页头的「全部播放 / 插播 / 最后播放」按钮；磁贴右键菜单 | 桌面上不弹对话框，少一次点击 |
+| `startFm` / `launchInfinity` | `PlaybackHost.StartFmAsync` / 引擎队尾续播（`InfinityFeeder`） | 队尾提前续播，停在队尾时取回后接着播 |
 | `ThemeManager`（6 色 × 3 模式） | 强调色跟随系统（`KanesumiAccent`）+ 3 种明暗模式（`AppTheme`） | 不做 6 色预设 |
 | `UserScreen`（「我的」）+ `AboutScreen` | `SettingsPage` | 见「设置页与均衡器」 |
 | `LocalStrings` + `Strings.kt` | `Strings` 类，属性与 `Strings.kt` 一一对应 | 带参数的文案用 `Func<int, string>` |
@@ -343,7 +345,9 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 | 操作 | 方式 |
 |---|---|
 | 播放一首歌 | 单击（当前实现）；双击 / 悬停 ▶ 待做。「替换队列并播放」还是「插入播放」，以 Android 对应页面的现行行为为准：首页、搜索、音乐库都是 `playSongItem`（`PlaybackHost.PlaySong`，插到当前曲之后播放，不替换队列）；「全部播放」按钮才替换队列（`PlaybackHost.PlayAll`） |
-| 歌曲菜单 | 右键、触屏长按、Shift+F10 或菜单键 → `MenuFlyout`（与 `SongMenuSheet` 项目一致） |
+| 歌曲菜单 | 右键、触屏长按、Shift+F10 或菜单键 → `MenuFlyout`：播放、插播、最后播放、加入库 / 移除收藏、转到歌手、转到专辑、复制链接（与 `SongMenuSheet` 一致）；音乐库另有「重试同步」，队列里另有「从队列移除」 |
+| 专辑 / 歌单磁贴菜单 | 右键 → 播放（替换队列）/ 插播 / 最后播放；音乐库专辑另有「取消收藏」 |
+| 轻提示 | 插播、收藏、复制链接等操作后在播放栏上方显示约 2 秒（`AppShell.Notice`，对应 Android Toast） |
 | 多选 | Ctrl / Shift 多选，批量「下一首播放 / 加入队列」（M2） |
 | 返回 | 详情页左上角悬浮箭头；Alt+←、鼠标侧键、焦点不在输入框时的 Backspace |
 | 搜索 | 导航面板顶部的搜索框（窄窗口先展开面板），Ctrl+F 聚焦。输入停顿 **500ms（防抖不能去掉）** 后下拉即时建议（前 8 首歌，选中即播放）；回车进入搜索页，用平台原生 `Pivot` 分歌曲 / 专辑 / 歌手三类（Groove「我的音乐」同款），三类并发请求。点歌记入搜索历史（历史的展示入口待做） |

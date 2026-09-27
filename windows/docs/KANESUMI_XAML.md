@@ -140,7 +140,7 @@ XAML：可点击控件的模板里放一个铺满的 `Rectangle x:Name="PressTin
 | `MetroDropdownMenu` | `MetroMenuFlyoutPresenterStyle` + `MetroMenuFlyoutItemStyle` | 样式 · `MenuFlyout` | `surfaceVariant` 底，最大宽 220，项内边距 16×12，前后元素间距 12；直角、无阴影。打开动画（sec-a：180ms 淡入 + scaleY 0.92→1）平台自带，M2 评估能否替换，不能就接受平台动画 | M2 |
 | `MetroDialog` | `MetroContentDialogStyle` | 样式 · `ContentDialog` | 宽 280，`surface` 底，直角，默认无按钮行（菜单列式：一列直角行 + 分隔线）。保留 ContentDialog 的遮罩层、焦点陷阱与 Esc 关闭 | M2 |
 | `MetroBottomSheet` | **不移植** | — | 桌面的歌曲菜单用右键 / 长按 `MenuFlyout`，与窗口宽度无关 | — |
-| `MetroLyricsPanel` | `MetroLyricsPanel` | 自定义 | 见下节 | M1 |
+| `MetroLyricsPanel` | `MetroLyricsPanel`（`Controls/MetroLyricsPanel.cs`） | 自定义 | 见下节 | M1 ✅ |
 | `MetroDrawer` / `MetroChatInputBar` | **不移植** | — | Ncrust 用不到 | — |
 
 **现状（2026-09-27）**：设置页与均衡器页直接用平台原生的 `ToggleSwitch` / `ComboBox` / `RadioButton` /
