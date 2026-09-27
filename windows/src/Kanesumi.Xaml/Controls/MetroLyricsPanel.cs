@@ -106,6 +106,37 @@ namespace Kanesumi.Xaml.Controls
 
         public double TranslationLineHeight { get; set; } = 26;
 
+        /// <summary>
+        /// 改字号（宿主按窗口宽度切换：宽窗口与窄窗口的字号不同）。已有的行就地更新，
+        /// 然后把当前行重新定位到锚点（行高变了，滚动位置要跟着变）。
+        /// </summary>
+        public void SetTypography(double lineFontSize, double lineHeight, double translationFontSize, double translationLineHeight)
+        {
+            if (LineFontSize == lineFontSize && LineHeightValue == lineHeight &&
+                TranslationFontSize == translationFontSize && TranslationLineHeight == translationLineHeight)
+            {
+                return;
+            }
+
+            LineFontSize = lineFontSize;
+            LineHeightValue = lineHeight;
+            TranslationFontSize = translationFontSize;
+            TranslationLineHeight = translationLineHeight;
+
+            foreach (var texts in _texts)
+            {
+                texts[0].FontSize = lineFontSize;
+                texts[0].LineHeight = lineHeight;
+                if (texts.Length > 1)
+                {
+                    texts[1].FontSize = translationFontSize;
+                    texts[1].LineHeight = translationLineHeight;
+                }
+            }
+
+            _jumpNext = true;
+        }
+
         public int LineCount => _rows.Count;
 
         /// <summary>换一组歌词（切歌 / 翻译开关）。面板淡入，下一次定位直接跳到当前行不做滚动动画。</summary>
