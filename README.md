@@ -13,6 +13,7 @@
 [![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.24-purple?style=flat-square&logo=kotlin)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Compose-BOM%202024.12-blue?style=flat-square&logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
+[![Windows](https://img.shields.io/badge/Windows-1.0.0-0078D4?style=flat-square&logo=windows11)](https://github.com/GuitaristRin/Ncrust/releases)
 [![License](https://img.shields.io/badge/license-MIT-yellow?style=flat-square)](LICENSE)
 
 [**下载安装**](https://github.com/GuitaristRin/Ncrust/releases) · [**Wiki 文档**](https://github.com/GuitaristRin/Ncrust/wiki) · [**问题反馈**](https://github.com/GuitaristRin/Ncrust/issues) · [**Kanesumi 设计库**](https://github.com/GuitaristRin/Kanesumi-sec-a)
@@ -188,12 +189,22 @@ app/src/main/java/com/takahashirinta/ncrust/
 
 ---
 
-## 🪟 Windows 版（开发中）
+## 🪟 Windows 版
 
 Windows 客户端在本仓库的 [`windows/`](windows/) 目录，用 **C# + UWP + WinUI 2** 编写，与 Android 版不共享实现代码：
 控件从 Kanesumi-sec-a 移植，保证两端视觉一致；协议、音质阶梯、队列行为等由 [`spec/`](spec/) 里的共享规格与测试夹具约束。
 
-目前处于骨架阶段：解决方案能构建、能启动，功能尚未开始。架构与路线见 [windows/AGENTS.md](windows/AGENTS.md)。
+**当前版本 1.0.0**，功能已与 Android 主干基本对齐：首页（含私人 FM）/ 搜索 / 专辑·歌手·歌单详情 / 音乐库 /
+播放卡片与歌词·队列 / 5 种播放模式与 INFINITY 续播 / 7 级音质自动降档 / 播放上报 / 10 段均衡器（桌面独有）。
+
+### 📥 下载安装（Windows 10 1809+ / x64）
+
+1. 打开 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 里的 **Windows 1.0.0**（tag `win-v1.0.0`）
+2. 下载 `Ncrust.appinstaller`（推荐：经它安装后**自动更新**），或 `Ncrust_1.0.0.0_x64.msix`（手动安装，不自动更新）
+3. 首次安装需先信任随附的自签证书 `Ncrust.cer`：右键 → 安装证书 → 本地计算机 → 受信任的根证书颁发机构
+4. 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（登录窗口使用）
+
+> 各平台最新版索引见 [`docs/RELEASES.md`](docs/RELEASES.md)（GitHub 只有一个 Latest 徽章，不代表各平台最新版）。
 
 ---
 
@@ -211,6 +222,7 @@ Windows 客户端在本仓库的 [`windows/`](windows/) 目录，用 **C# + UWP 
 | v1.2.2 | 2026-08-04 | 全页面 Kanesumi 统一、底部导航与迷你条衔接、登录统一为浏览器方式 |
 | v1.3.0 | 2026-09-10 | 平板 / 大屏 Sidebar 与宽屏两栏、唯一封面、弱网缓冲、AudioSink 降档兜底、歌词竞态与定位修复、队列拖拽重排、私人 FM 续播 |
 | **v1.3.1** | **2026-09-11** | **车机（Android Auto / AAOS）媒体源与浏览树、浅色模式与主题模式切换、扫码登录重构（平板扫码 + 手机扫码授权平板 + weapi 加密修正）、冷启动与歌词性能优化、播放卡与浅色修复** |
+| Windows v1.0.0 | 2026-09-27 | Windows 端首个正式版（UWP + WinUI 2）：与 Android 主干功能对齐、`.appinstaller` 自动更新、10 段均衡器 |
 
 ---
 
