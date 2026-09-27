@@ -1,11 +1,12 @@
 <#
-  Generate the Windows app icons: full-bleed green square with a vinyl record
-  (grooves + white outer ring + label + play notch). Geometry follows the
-  Android ic_launcher.xml 192-unit viewport; colour is the default accent #1DB954.
+  Generate the Windows app icons: full-bleed green square with the Ncrust mark
+  (white outer ring + inner circle + centre hole + play notch). Geometry follows
+  the Android ic_launcher.xml 192-unit viewport; the mark is drawn without the
+  record grooves the Windows script used to add on its own. Colour is the
+  default accent #1DB954.
 
   Every asset is a full square/rectangle of green -- no transparent corners,
-  no round plate. Grooves are only drawn when they stay >= ~3px apart, so small
-  sizes (taskbar 16/24/32) show a clean ring instead of noise.
+  no round plate.
 
   Usage (run once, commit the PNGs; the build does not regenerate them):
     powershell -ExecutionPolicy Bypass -File MakeIcons.ps1 -OutDir ..\..\src\Ncrust.App\Assets
@@ -18,20 +19,6 @@ $white = [System.Drawing.Color]::White
 
 function Draw-Record($g, [double]$cx, [double]$cy, [double]$k) {
     # k = pixels per viewport unit; (cx, cy) = centre of the 192-unit record.
-    # Grooves: concentric thin rings between the label (r=20) and the outer ring (r=64).
-    $step = [Math]::Max(5.0, 3.0 / $k)
-    if ($k * 64 -ge 20) {
-        $r = 28.0
-        $i = 0
-        while ($r -le 57.0) {
-            $alpha = if ($i % 2 -eq 0) { 110 } else { 60 }
-            $pen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb($alpha, 255, 255, 255)), ([float][Math]::Max(1.0, 1.4 * $k))
-            $g.DrawEllipse($pen, [float]($cx - $r*$k), [float]($cy - $r*$k), [float](2*$r*$k), [float](2*$r*$k))
-            $pen.Dispose()
-            $r += $step
-            $i++
-        }
-    }
 
     # Outer ring (Android: r=64, stroke 12).
     $ring = New-Object System.Drawing.Pen $white, ([float](12*$k))
