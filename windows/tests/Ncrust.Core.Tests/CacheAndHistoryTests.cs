@@ -176,6 +176,61 @@ public class SearchHistoryTests
         Assert.Empty(await new SearchHistory(store).GetSongsAsync());
     }
 
+    [Fact]
+    public async Task Queries_TrimDedupeIgnoringCase_AndCap()
+    {
+        var now = 0L;
+        var history = new SearchHistory(new InMemoryFileStore(), () => now);
+
+        await history.AddQueryAsync("  Jay  ");
+        now = 1;
+        await history.AddQueryAsync("周杰伦");
+        now = 2;
+        await history.AddQueryAsync("jay");
+        await history.AddQueryAsync("   ");
+
+        var queries = await history.GetQueriesAsync();
+        Assert.Equal(new[] { "jay", "周杰伦" }, queries.Select(q => q.Title));
+
+        for (var i = 0; i < 12; i++)
+        {
+            await history.AddQueryAsync("q" + i);
+        }
+
+        Assert.Equal(SearchHistory.MaxItems, (await history.GetQueriesAsync()).Count);
+    }
+
+    [Fact]
+    public async Task Queries_PersistRemoveAndClearAll()
+    {
+        var store = new InMemoryFileStore();
+        var history = new SearchHistory(store);
+        await history.AddQueryAsync("a");
+        await history.AddQueryAsync("b");
+        await history.AddSongAsync(Song(1));
+
+        var reloaded = new SearchHistory(store);
+        Assert.Equal(new[] { "b", "a" }, (await reloaded.GetQueriesAsync()).Select(q => q.Title));
+
+        await reloaded.RemoveQueryAsync("B");
+        Assert.Equal(new[] { "a" }, (await reloaded.GetQueriesAsync()).Select(q => q.Title));
+
+        await reloaded.ClearAllAsync();
+        Assert.Empty(await reloaded.GetQueriesAsync());
+        Assert.Empty(await reloaded.GetSongsAsync());
+    }
+
+    [Fact]
+    public async Task OldFileWithoutQueries_StillLoads()
+    {
+        var store = new InMemoryFileStore();
+        await store.WriteTextAsync("search_history.json", "{\"songs\":[{\"id\":3,\"title\":\"t\",\"coverUrl\":\"c\",\"timestamp\":0}],\"albums\":[],\"artists\":[]}");
+        var history = new SearchHistory(store, () => 0);
+
+        Assert.Empty(await history.GetQueriesAsync());
+        Assert.Single(await history.GetSongsAsync());
+    }
+
     private static SongItem Song(long id) => new SongItem { Id = id, Name = "s" + id };
 }
 

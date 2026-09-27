@@ -10,9 +10,13 @@ using Ncrust.Core.Platform;
 
 namespace Ncrust.Core.Search
 {
-    /// <summary>搜索历史的三类（取值与 Android 的 type 一致）。</summary>
+    /// <summary>
+    /// 搜索历史的分类。歌曲 / 专辑 / 歌手的取值与 Android 的 type 一致；<see cref="Query"/>（搜过的关键词）
+    /// 是桌面端新增的：Android 只记点过的条目，搜了没点就什么都不留，桌面上负责人要求保留搜索记录。
+    /// </summary>
     public enum SearchHistoryType
     {
+        Query = 0,
         Song = 1,
         Album = 10,
         Artist = 100,
@@ -62,6 +66,34 @@ namespace Ncrust.Core.Search
         public Task AddArtistAsync(ArtistSearchItem artist, CancellationToken cancellationToken = default) =>
             AddAsync(SearchHistoryType.Artist, artist.Id, artist.Name, artist.PicUrl, null, cancellationToken);
 
+        /// <summary>记一次搜索关键词（首尾空白去掉；忽略大小写去重，新的置顶）。空串忽略。</summary>
+        public Task AddQueryAsync(string query, CancellationToken cancellationToken = default)
+        {
+            var trimmed = (query ?? string.Empty).Trim();
+            return trimmed.Length == 0
+                ? Task.CompletedTask
+                : AddAsync(SearchHistoryType.Query, 0, trimmed, string.Empty, null, cancellationToken);
+        }
+
+        public async Task<IReadOnlyList<HistoryItem>> GetQueriesAsync(CancellationToken cancellationToken = default) =>
+            await GetAllAsync(SearchHistoryType.Query, cancellationToken).ConfigureAwait(false);
+
+        public async Task RemoveQueryAsync(string query, CancellationToken cancellationToken = default)
+        {
+            var all = await LoadAsync(cancellationToken).ConfigureAwait(false);
+            all[SearchHistoryType.Query].RemoveAll(item => SameQuery(item.Title, query));
+            await SaveAsync(all, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>清空全部四类（搜索框下拉里的「清除搜索记录」）。</summary>
+        public async Task ClearAllAsync(CancellationToken cancellationToken = default)
+        {
+            await SaveAsync(NewEmpty(), cancellationToken).ConfigureAwait(false);
+        }
+
+        private static bool SameQuery(string a, string b) =>
+            string.Equals((a ?? string.Empty).Trim(), (b ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase);
+
         public async Task<IReadOnlyList<HistoryItem>> GetSongsAsync(CancellationToken cancellationToken = default) =>
             await GetAllAsync(SearchHistoryType.Song, cancellationToken).ConfigureAwait(false);
 
@@ -97,7 +129,14 @@ namespace Ncrust.Core.Search
             var list = all[type];
             var now = _clock();
             list.RemoveAll(item => now - item.Timestamp > TtlMs);
-            list.RemoveAll(item => item.Id == id);
+            if (type == SearchHistoryType.Query)
+            {
+                list.RemoveAll(item => SameQuery(item.Title, title));
+            }
+            else
+            {
+                list.RemoveAll(item => item.Id == id);
+            }
             list.Insert(0, new HistoryItem
             {
                 Id = id,
@@ -215,12 +254,14 @@ namespace Ncrust.Core.Search
 
         private static readonly SearchHistoryType[] AllTypes =
         {
+            SearchHistoryType.Query,
             SearchHistoryType.Song, SearchHistoryType.Album, SearchHistoryType.Artist,
         };
 
         private static Dictionary<SearchHistoryType, List<HistoryItem>> NewEmpty() =>
             new Dictionary<SearchHistoryType, List<HistoryItem>>
             {
+                [SearchHistoryType.Query] = new List<HistoryItem>(),
                 [SearchHistoryType.Song] = new List<HistoryItem>(),
                 [SearchHistoryType.Album] = new List<HistoryItem>(),
                 [SearchHistoryType.Artist] = new List<HistoryItem>(),
@@ -228,6 +269,7 @@ namespace Ncrust.Core.Search
 
         private static string KeyFor(SearchHistoryType type) => type switch
         {
+            SearchHistoryType.Query => "queries",
             SearchHistoryType.Song => "songs",
             SearchHistoryType.Album => "albums",
             _ => "artists",
