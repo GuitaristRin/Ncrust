@@ -3,7 +3,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:api="using:Ncrust.Core.Api"
-    xmlns:local="using:Ncrust.Resources">
+    xmlns:local="using:Ncrust.Resources"
+    xmlns:player="using:Ncrust.Player">
 
     <!--
       全应用共用的列表项模板（x:Bind 编译绑定，所以本字典带 x:Class 与代码隐藏）。
@@ -144,6 +145,76 @@
             </StackPanel>
         </Grid>
     </DataTemplate>
+
+    <!-- 播放队列：分区标题（过去播放 / 现在播放 / 将要播放）。 -->
+    <DataTemplate x:Key="QueueHeaderTemplate" x:DataType="player:QueueRow">
+        <TextBlock
+            Margin="0,16,0,6"
+            Style="{StaticResource CaptionTextStyle}"
+            Text="{x:Bind Title}" />
+    </DataTemplate>
+
+    <!--
+      播放队列的歌曲行：56 封面、标题 / 歌手、当前曲左侧 3px 强调色竖条、行尾移除。
+      根元素的 DataContext 设成歌曲本身，歌曲右键菜单（按 DataContext 找 SongItem）才能认出这一行。
+    -->
+    <DataTemplate x:Key="QueueSongTemplate" x:DataType="player:QueueRow">
+        <Grid Height="56" DataContext="{x:Bind Song}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="56" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Image
+                Width="56"
+                Height="56"
+                Source="{x:Bind local:DisplayFormat.Cover(Song.CoverUrl, 112)}"
+                Stretch="UniformToFill" />
+            <Rectangle
+                Width="3"
+                HorizontalAlignment="Left"
+                Fill="{ThemeResource KPrimaryBrush}"
+                Visibility="{x:Bind CurrentMarkVisibility}" />
+            <StackPanel
+                Grid.Column="1"
+                Margin="12,0"
+                VerticalAlignment="Center">
+                <TextBlock
+                    Style="{StaticResource BodyTextStyle}"
+                    Text="{x:Bind Song.Name}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Style="{StaticResource CaptionTextStyle}"
+                    Text="{x:Bind Song.ArtistText}"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <Button
+                Grid.Column="2"
+                Width="40"
+                Height="40"
+                Margin="0,0,4,0"
+                Click="QueueRemoveClick"
+                Style="{StaticResource MetroIconButtonStyle}"
+                Tag="{x:Bind QueueIndex}"
+                ToolTipService.ToolTip="从队列移除">
+                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="12" Glyph="&#xE711;" />
+            </Button>
+        </Grid>
+    </DataTemplate>
+
+    <!-- INFINITY 模式的续播占位（对应 Android queueInfinityPlaceholder）。 -->
+    <DataTemplate x:Key="QueuePlaceholderTemplate" x:DataType="player:QueueRow">
+        <TextBlock
+            Margin="0,12"
+            Style="{StaticResource CaptionTextStyle}"
+            Text="{x:Bind Title}" />
+    </DataTemplate>
+
+    <player:QueueRowTemplateSelector
+        x:Key="QueueRowTemplateSelector"
+        HeaderTemplate="{StaticResource QueueHeaderTemplate}"
+        PlaceholderTemplate="{StaticResource QueuePlaceholderTemplate}"
+        SongTemplate="{StaticResource QueueSongTemplate}" />
 
     <!-- 搜索框建议项：歌名 + 歌手一行（Groove 的即时建议）。 -->
     <DataTemplate x:Key="SongSuggestionTemplate" x:DataType="api:SongItem">

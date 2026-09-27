@@ -4,6 +4,7 @@ using System.Numerics;
 using Kanesumi.Xaml.Motion;
 using Ncrust.Core.Api;
 using Ncrust.Core.Playback;
+using Ncrust.Pages;
 using Ncrust.Playback;
 using Windows.UI.Composition;
 using Windows.UI.Xaml;
@@ -37,6 +38,12 @@ namespace Ncrust.Player
         private bool _initialized;
         private bool _fullscreen;
         private bool _expanded;
+
+        private const int LyricsTab = 0;
+        private const int QueueTab = 1;
+
+        private LyricsController _lyrics;
+        private QueuePresenter _queue;
 
         private bool _seekDragging;
         private bool _seekProgrammatic;
@@ -105,11 +112,18 @@ namespace Ncrust.Player
                 CardLayer.Visibility = Visibility.Collapsed;
             }
 
+            _lyrics = new LyricsController(Lyrics, LyricsStatus);
+            _queue = new QueuePresenter(QueueList, QueueEmpty);
+            LyricsSettingsChanged += _lyrics.Reload;
+            SongActions.LibraryChanged += UpdateLikeButton;
+
             var engine = PlaybackHost.Engine;
             engine.CurrentSongChanged += OnSongChanged;
             engine.IsPlayingChanged += OnIsPlayingChanged;
             engine.ProgressChanged += OnProgressChanged;
             engine.ModeChanged += UpdateModeButton;
+            engine.ModeChanged += _ => _queue.MarkDirty();
+            engine.QueueChanged += _queue.MarkDirty;
 
             RestorePreferences(engine);
             OnSongChanged(AppServices.Queue.Current);
@@ -217,6 +231,9 @@ namespace Ncrust.Player
 
         private void OnSongChanged(SongItem song)
         {
+            _lyrics?.OnSongChanged(song);
+            UpdateLikeButton();
+
             if (song == null)
             {
                 MiniTitle.Text = "未在播放";
@@ -260,10 +277,13 @@ namespace Ncrust.Player
         private void OnIsPlayingChanged(bool playing)
         {
             MiniPlayIcon.Glyph = playing ? "\uE769" : "\uE768";
+            _lyrics?.OnPlayingChanged(playing);
         }
 
         private void OnProgressChanged(long positionMs, long durationMs)
         {
+            _lyrics?.OnProgress(positionMs);
+
             var fraction = durationMs > 0 ? (double)positionMs / durationMs : 0;
             SlimProgress.Value = fraction;
             DurationText.Text = FormatTime(durationMs);
@@ -433,6 +453,7 @@ namespace Ncrust.Player
             CardLayer.IsHitTestVisible = true;
             ExpandIcon.Glyph = "\uE70D";
             AnimateScalar("Progress", 1f, expanding: true);
+            UpdateSideActivity();
         }
 
         private void Collapse()
@@ -442,6 +463,96 @@ namespace Ncrust.Player
             CardLayer.IsHitTestVisible = false;
             ExpandIcon.Glyph = "\uE70E";
             AnimateScalar("Progress", 0f, expanding: false);
+            UpdateSideActivity();
+        }
+
+        // ── 歌词 / 队列 / 收藏 ─────────────────────────────────────────────────
+
+        /// <summary>设置页切换「歌词翻译」后触发：重新合并当前歌的歌词。</summary>
+        internal static event Action LyricsSettingsChanged;
+
+        internal static void NotifyLyricsSettingsChanged() => LyricsSettingsChanged?.Invoke();
+
+        /// <summary>
+        /// 只有看得见的那一页才干活（对应 Android progress &lt; 0.05 时卸载重子树的思路）：
+        /// 歌词外推定时器、队列重建都只在卡片展开、非全屏、对应页选中时进行。
+        /// </summary>
+        private void UpdateSideActivity()
+        {
+            if (_lyrics == null)
+            {
+                return;
+            }
+
+            var sideVisible = _expanded && !_fullscreen && SideTabs.Visibility == Visibility.Visible;
+            _lyrics.Active = sideVisible && SideTabs.SelectedIndex == LyricsTab;
+            _queue.Visible = sideVisible && SideTabs.SelectedIndex == QueueTab;
+        }
+
+        private void SideTabsChanged(object sender, SelectionChangedEventArgs e) => UpdateSideActivity();
+
+        /// <summary>播放栏的「词」/ 队列按钮：展开卡片并切到对应页；已经停在那一页就收起。</summary>
+        private void ShowSide(int tab)
+        {
+            if (_expanded && !_fullscreen && SideTabs.SelectedIndex == tab)
+            {
+                Collapse();
+                return;
+            }
+
+            SideTabs.SelectedIndex = tab;
+            if (!_expanded)
+            {
+                Expand();
+            }
+            else
+            {
+                SetFullscreen(false);
+                UpdateSideActivity();
+            }
+        }
+
+        private void LyricsClick(object sender, RoutedEventArgs e) => ShowSide(LyricsTab);
+
+        private void QueueClick(object sender, RoutedEventArgs e) => ShowSide(QueueTab);
+
+        private async void ClearQueueClick(object sender, RoutedEventArgs e)
+        {
+            if (AppServices.Queue.Songs.Count == 0)
+            {
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = "清空播放内容",
+                Content = "停止播放并清空播放队列？",
+                PrimaryButtonText = "清空",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Close,
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                _queue.Clear();
+            }
+        }
+
+        private void UpdateLikeButton()
+        {
+            var song = AppServices.Queue.Current;
+            var saved = song != null && AppServices.Library.IsSongSaved(song.Id);
+            LikeButton.IsEnabled = song != null;
+            LikeIcon.Glyph = saved ? Glyphs.HeartFill : Glyphs.Heart;
+            ToolTipService.SetToolTip(LikeButton, saved ? "移除收藏" : "加入库");
+        }
+
+        private void LikeClick(object sender, RoutedEventArgs e)
+        {
+            var song = AppServices.Queue.Current;
+            if (song != null)
+            {
+                _ = SongActions.SetSavedAsync(song, !AppServices.Library.IsSongSaved(song.Id));
+            }
         }
 
         private void SetFullscreen(bool fullscreen)
@@ -456,6 +567,7 @@ namespace Ncrust.Player
             // 全屏时传输栏透明度为 0，但透明元素照样接收点击：一并关掉命中测试。
             MiniBar.IsHitTestVisible = !fullscreen;
             AnimateScalar("Fullscreen", fullscreen ? 1f : 0f, expanding: fullscreen);
+            UpdateSideActivity();
         }
 
         /// <summary>Esc 逐层退出：全屏 → 回卡片；卡片 → 收起。返回是否处理了。</summary>

@@ -14,6 +14,15 @@ namespace Ncrust.Resources
         {
             InitializeComponent();
         }
+
+        /// <summary>队列行尾的 ✕：Tag 是该行的队列索引。</summary>
+        private void QueueRemoveClick(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is int index)
+            {
+                Player.QueuePresenter.RemoveAt(index);
+            }
+        }
     }
 
     /// <summary>模板里 x:Bind 函数绑定用的显示格式。界面文案集中在这里，i18n 落地时替换。</summary>

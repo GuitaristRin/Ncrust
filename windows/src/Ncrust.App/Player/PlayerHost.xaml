@@ -1,7 +1,8 @@
 <UserControl
     x:Class="Ncrust.Player.PlayerHost"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:kc="using:Kanesumi.Xaml.Controls">
 
     <!--
       播放器层：常驻覆盖层。Progress（0 迷你栏 → 1 展开卡片）、Fullscreen 两个标量放在
@@ -31,6 +32,8 @@
                         <Setter Target="PreviousButton.Visibility" Value="Collapsed" />
                         <Setter Target="VolumeButton.Visibility" Value="Collapsed" />
                         <Setter Target="LyricsButton.Visibility" Value="Collapsed" />
+                        <Setter Target="QueueButton.Visibility" Value="Collapsed" />
+                        <Setter Target="SideTabs.Visibility" Value="Collapsed" />
                         <Setter Target="SlimProgress.Visibility" Value="Visible" />
                         <Setter Target="TransportColumn.Width" Value="Auto" />
                     </VisualState.Setters>
@@ -62,13 +65,59 @@
                 <TextBlock x:Name="CardArtist" Style="{StaticResource BodyLargeTextStyle}" Foreground="{ThemeResource KOnSurfaceVariantBrush}" />
             </StackPanel>
 
-            <!-- 右栏：歌词 / 队列（占位，后续接 MetroLyricsPanel / QueueView） -->
-            <TextBlock
+            <!--
+              右栏：歌词 / 播放队列（对应 Android 宽屏双栏的 LyricsView / QueueView），用原生 Pivot 切换。
+              底部让出传输栏（72）。窄窗口（< 600）卡片只有封面，右栏隐藏。
+            -->
+            <Pivot
+                x:Name="SideTabs"
                 Grid.Column="1"
-                Margin="24"
-                VerticalAlignment="Top"
-                Style="{StaticResource CaptionTextStyle}"
-                Text="歌词 / 队列（待实现）" />
+                Margin="0,4,0,72"
+                SelectionChanged="SideTabsChanged">
+                <PivotItem Header="歌词">
+                    <Grid>
+                        <kc:MetroLyricsPanel x:Name="Lyrics" Margin="0,0,24,0" />
+                        <TextBlock
+                            x:Name="LyricsStatus"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                            Style="{StaticResource BodyLargeTextStyle}"
+                            Text="暂无歌词"
+                            Visibility="Collapsed" />
+                    </Grid>
+                </PivotItem>
+                <PivotItem Header="播放队列">
+                    <Grid Margin="0,0,16,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Button
+                            HorizontalAlignment="Right"
+                            Click="ClearQueueClick"
+                            Content="清空播放内容"
+                            Style="{StaticResource MetroGhostButtonStyle}" />
+                        <ListView
+                            x:Name="QueueList"
+                            Grid.Row="1"
+                            AllowDrop="True"
+                            CanDragItems="True"
+                            CanReorderItems="True"
+                            IsItemClickEnabled="True"
+                            ItemContainerStyle="{StaticResource MetroListRowStyle}"
+                            ItemTemplateSelector="{StaticResource QueueRowTemplateSelector}"
+                            SelectionMode="None" />
+                        <TextBlock
+                            x:Name="QueueEmpty"
+                            Grid.Row="1"
+                            Margin="0,24,0,0"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="播放队列为空"
+                            Visibility="Collapsed" />
+                    </Grid>
+                </PivotItem>
+            </Pivot>
 
             <StackPanel
                 Grid.Column="1"
@@ -76,6 +125,13 @@
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Orientation="Horizontal">
+                <Button
+                    x:Name="LikeButton"
+                    Click="LikeClick"
+                    Style="{StaticResource MetroIconButtonStyle}"
+                    ToolTipService.ToolTip="加入库">
+                    <FontIcon x:Name="LikeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xEB51;" />
+                </Button>
                 <Button Style="{StaticResource MetroIconButtonStyle}" Click="FullscreenClick" ToolTipService.ToolTip="全屏 (F11)">
                     <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE740;" FontSize="16" />
                 </Button>
@@ -261,10 +317,19 @@
                     x:Name="LyricsButton"
                     Width="40"
                     Height="40"
-                    Click="ExpandClick"
+                    Click="LyricsClick"
                     Style="{StaticResource MetroIconButtonStyle}"
                     ToolTipService.ToolTip="歌词 (Ctrl+L)">
                     <TextBlock FontSize="15" Text="词" />
+                </Button>
+                <Button
+                    x:Name="QueueButton"
+                    Width="40"
+                    Height="40"
+                    Click="QueueClick"
+                    Style="{StaticResource MetroIconButtonStyle}"
+                    ToolTipService.ToolTip="播放队列">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE8FD;" />
                 </Button>
                 <Button
                     x:Name="ExpandButton"

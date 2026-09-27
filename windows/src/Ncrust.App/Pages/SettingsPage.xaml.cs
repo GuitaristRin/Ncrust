@@ -130,6 +130,7 @@ namespace Ncrust.Pages
             if (!_loading)
             {
                 AppServices.PlayPrefs.LyricsTranslation = TranslationSwitch.IsOn;
+                Player.PlayerHost.NotifyLyricsSettingsChanged();
             }
         }
 

@@ -57,6 +57,8 @@
     <Compile Include="AppServices.cs" />
     <Compile Include="Playback\PlaybackEngine.cs" />
     <Compile Include="Playback\PlaybackHost.cs" />
+    <Compile Include="Player\LyricsController.cs" />
+    <Compile Include="Player\QueuePresenter.cs" />
     <Compile Include="Player\PlayerHost.xaml.cs">
       <DependentUpon>PlayerHost.xaml</DependentUpon>
     </Compile>
