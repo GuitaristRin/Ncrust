@@ -65,9 +65,42 @@
                         SelectionMode="None" />
                 </StackPanel>
 
-                <!-- 推荐歌单 -->
+                <!-- 推荐歌单；登录后首位是私人 FM 电台卡（对应 Android 常驻首位的 FmRadioTile）。 -->
                 <StackPanel x:Name="PlaylistSection" Spacing="8" Visibility="Collapsed">
                     <TextBlock Style="{StaticResource TitleTextStyle}" Text="推荐歌单" />
+                    <Button
+                        x:Name="FmCard"
+                        Padding="0"
+                        HorizontalAlignment="Left"
+                        HorizontalContentAlignment="Stretch"
+                        Click="FmClick"
+                        Style="{StaticResource MetroGhostButtonStyle}"
+                        ToolTipService.ToolTip="私人 FM：无限播放为你推荐的歌曲"
+                        Visibility="Collapsed">
+                        <Grid
+                            Width="328"
+                            Height="72"
+                            Background="{ThemeResource KSurfaceBrush}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="72" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Background="{ThemeResource KPrimaryBrush}">
+                                <FontIcon
+                                    FontFamily="Segoe MDL2 Assets"
+                                    FontSize="28"
+                                    Foreground="{ThemeResource KOnPrimaryBrush}"
+                                    Glyph="&#xE8D6;" />
+                            </Grid>
+                            <StackPanel
+                                Grid.Column="1"
+                                Margin="12,0"
+                                VerticalAlignment="Center">
+                                <TextBlock x:Name="FmTitle" Style="{StaticResource BodyTextStyle}" Text="私人 FM" />
+                                <TextBlock x:Name="FmSubtitle" Style="{StaticResource CaptionTextStyle}" Text="无限播放" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
                     <GridView
                         x:Name="PlaylistGrid"
                         IsItemClickEnabled="True"

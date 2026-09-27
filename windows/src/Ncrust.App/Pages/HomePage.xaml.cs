@@ -157,7 +157,13 @@ namespace Ncrust.Pages
             var loggedIn = AppServices.IsLoggedIn();
             LoginPrompt.Visibility = loggedIn ? Visibility.Collapsed : Visibility.Visible;
             DailySection.Visibility = loggedIn && HasItems(DailyList.ItemsSource) ? Visibility.Visible : Visibility.Collapsed;
-            PlaylistSection.Visibility = HasItems(PlaylistGrid.ItemsSource) ? Visibility.Visible : Visibility.Collapsed;
+
+            // 私人 FM 需要登录；有昵称时叫「某某的电台」（同 Android fmRadioTitle）。
+            FmCard.Visibility = loggedIn ? Visibility.Visible : Visibility.Collapsed;
+            var nickname = AppServices.Cache.UserProfile?.Nickname;
+            FmTitle.Text = string.IsNullOrEmpty(nickname) ? "私人 FM" : nickname + "的电台";
+
+            PlaylistSection.Visibility = loggedIn || HasItems(PlaylistGrid.ItemsSource) ? Visibility.Visible : Visibility.Collapsed;
             NewSection.Visibility = HasItems(NewList.ItemsSource) ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -170,6 +176,24 @@ namespace Ncrust.Pages
             if (e.ClickedItem is SongItem song)
             {
                 PlaybackHost.PlaySong(song);
+            }
+        }
+
+        private async void FmClick(object sender, RoutedEventArgs e)
+        {
+            FmCard.IsEnabled = false;
+            FmSubtitle.Text = "正在调频…";
+            try
+            {
+                if (!await PlaybackHost.StartFmAsync())
+                {
+                    Shell.AppShell.Notice("私人 FM 暂时不可用，请稍后再试");
+                }
+            }
+            finally
+            {
+                FmSubtitle.Text = "无限播放";
+                FmCard.IsEnabled = true;
             }
         }
 
