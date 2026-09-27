@@ -55,6 +55,41 @@ namespace Ncrust.Core.Audio
             return new BiquadCoefficients(b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0);
         }
 
+        /// <summary>
+        /// 低架（low shelf）滤波器，公式取自 Robert Bristow-Johnson《Audio EQ Cookbook》：
+        /// <paramref name="frequency"/> 以下整体抬 <paramref name="gainDb"/>，以上保持 0 dB。
+        /// <paramref name="slope"/> 是架斜率 S（1 为常见值）。0 dB 时返回恒等滤波器。
+        /// </summary>
+        public static BiquadCoefficients LowShelf(double frequency, double slope, double gainDb, double sampleRate)
+        {
+            if (Math.Abs(gainDb) < 1e-6 || sampleRate <= 0 || frequency <= 0 || frequency >= sampleRate / 2)
+            {
+                return Identity;
+            }
+
+            if (slope <= 0)
+            {
+                slope = 1;
+            }
+
+            var a = Math.Pow(10, gainDb / 40);
+            var w0 = 2 * Math.PI * frequency / sampleRate;
+            var cos = Math.Cos(w0);
+            var sin = Math.Sin(w0);
+            var sqrtA = Math.Sqrt(a);
+            var alpha = sin / 2 * Math.Sqrt((a + 1 / a) * (1 / slope - 1) + 2);
+            var twoSqrtAAlpha = 2 * sqrtA * alpha;
+
+            var b0 = a * ((a + 1) - (a - 1) * cos + twoSqrtAAlpha);
+            var b1 = 2 * a * ((a - 1) - (a + 1) * cos);
+            var b2 = a * ((a + 1) - (a - 1) * cos - twoSqrtAAlpha);
+            var a0 = (a + 1) + (a - 1) * cos + twoSqrtAAlpha;
+            var a1 = -2 * ((a - 1) + (a + 1) * cos);
+            var a2 = (a + 1) + (a - 1) * cos - twoSqrtAAlpha;
+
+            return new BiquadCoefficients(b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0);
+        }
+
         /// <summary>频率 f 处的幅度响应（线性倍数），用于测试与界面曲线。</summary>
         public double MagnitudeAt(double frequency, double sampleRate)
         {
