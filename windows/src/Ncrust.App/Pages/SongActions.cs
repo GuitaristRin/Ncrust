@@ -331,6 +331,7 @@ namespace Ncrust.Pages
         public static readonly string List = G(0xE8FD);
         public static readonly string Lyrics = G(0xE8D2);
         public static readonly string Clear = G(0xE894);
+        public static readonly string History = G(0xE81C);
 
         private static string G(int codePoint) => ((char)codePoint).ToString();
     }

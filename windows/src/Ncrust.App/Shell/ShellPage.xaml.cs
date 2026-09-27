@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Ncrust.Login;
 using Ncrust.Pages;
 using Ncrust.Playback;
@@ -278,7 +280,8 @@ namespace Ncrust.Shell
             var text = sender.Text.Trim();
             if (text.Length == 0)
             {
-                sender.ItemsSource = null;
+                // 清空了输入：回到搜索记录。
+                await ShowHistoryAsync(version);
                 return;
             }
 
@@ -293,7 +296,7 @@ namespace Ncrust.Shell
                 var songs = await AppServices.Search.SearchSongsAsync(text, 8);
                 if (version == _suggestVersion)
                 {
-                    sender.ItemsSource = songs;
+                    sender.ItemsSource = songs.Select(SearchSuggestion.FromSong).ToList();
                 }
             }
             catch
@@ -307,20 +310,45 @@ namespace Ncrust.Shell
             _suggestVersion++;
             sender.ItemsSource = null;
 
-            // 选了建议里的歌：直接播放（与搜索结果点歌相同：插到当前曲之后）。
-            if (args.ChosenSuggestion is Core.Api.SongItem song)
+            string query;
+            if (args.ChosenSuggestion is SearchSuggestion suggestion)
             {
-                PlaybackHost.PlaySong(song);
-                _ = AppServices.SearchHistory.AddSongAsync(song);
-                return;
+                switch (suggestion.Kind)
+                {
+                    case SearchSuggestionKind.Song:
+                    case SearchSuggestionKind.HistorySong:
+                        // 选了歌：直接播放（与搜索结果点歌相同：插到当前曲之后），并记入搜索记录。
+                        PlaybackHost.PlaySong(suggestion.Song);
+                        _ = AppServices.SearchHistory.AddSongAsync(suggestion.Song);
+                        return;
+                    case SearchSuggestionKind.HistoryAlbum:
+                        AppShell.ToAlbum(suggestion.Id);
+                        return;
+                    case SearchSuggestionKind.HistoryArtist:
+                        AppShell.ToArtist(suggestion.Id);
+                        return;
+                    case SearchSuggestionKind.ClearHistory:
+                        sender.Text = string.Empty;
+                        _ = AppServices.SearchHistory.ClearAllAsync();
+                        AppShell.Notice("搜索记录已清除");
+                        return;
+                    default:
+                        query = suggestion.Title;
+                        sender.Text = query;
+                        break;
+                }
+            }
+            else
+            {
+                query = (args.QueryText ?? string.Empty).Trim();
             }
 
-            var query = (args.QueryText ?? string.Empty).Trim();
             if (query.Length == 0)
             {
                 return;
             }
 
+            _ = AppServices.SearchHistory.AddQueryAsync(query);
             NavigateTo(typeof(SearchPage), query);
 
             // 最小 / 紧凑模式下搜索框在浮出的面板里：提交后收起面板，让结果露出来。
@@ -328,6 +356,42 @@ namespace Ncrust.Shell
             {
                 Nav.IsPaneOpen = false;
             }
+        }
+
+        /// <summary>搜索框获得焦点且为空时，下拉显示搜索记录（对应 Android 搜索页空查询时的历史区）。</summary>
+        private async void SearchGotFocus(object sender, RoutedEventArgs e)
+        {
+            if (SearchBox.Text.Trim().Length == 0)
+            {
+                await ShowHistoryAsync(++_suggestVersion);
+            }
+        }
+
+        private async System.Threading.Tasks.Task ShowHistoryAsync(int version)
+        {
+            IReadOnlyList<SearchSuggestion> items;
+            try
+            {
+                var history = AppServices.SearchHistory;
+                items = SearchSuggestion.FromHistory(
+                    await history.GetQueriesAsync(),
+                    await history.GetSongsAsync(),
+                    await history.GetAlbumsAsync(),
+                    await history.GetArtistsAsync());
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+                return;
+            }
+
+            if (version != _suggestVersion || SearchBox.Text.Trim().Length > 0)
+            {
+                return; // 期间开始输入了：以即时建议为准。
+            }
+
+            SearchBox.ItemsSource = items;
+            SearchBox.IsSuggestionListOpen = items.Count > 0;
         }
 
         private void FocusSearch()

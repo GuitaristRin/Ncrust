@@ -92,6 +92,7 @@
     </Compile>
     <Compile Include="Shell\AppTheme.cs" />
     <Compile Include="Shell\AppShell.cs" />
+    <Compile Include="Shell\SearchSuggestion.cs" />
     <Compile Include="Pages\SongActions.cs" />
     <Compile Include="Resources\Templates.xaml.cs">
       <DependentUpon>Templates.xaml</DependentUpon>

@@ -4,7 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:api="using:Ncrust.Core.Api"
     xmlns:local="using:Ncrust.Resources"
-    xmlns:player="using:Ncrust.Player">
+    xmlns:player="using:Ncrust.Player"
+    xmlns:shell="using:Ncrust.Shell">
 
     <!--
       全应用共用的列表项模板（x:Bind 编译绑定，所以本字典带 x:Class 与代码隐藏）。
@@ -216,12 +217,42 @@
         PlaceholderTemplate="{StaticResource QueuePlaceholderTemplate}"
         SongTemplate="{StaticResource QueueSongTemplate}" />
 
-    <!-- 搜索框建议项：歌名 + 歌手一行（Groove 的即时建议）。 -->
-    <DataTemplate x:Key="SongSuggestionTemplate" x:DataType="api:SongItem">
-        <StackPanel Padding="0,6">
-            <TextBlock Style="{StaticResource BodyTextStyle}" Text="{x:Bind Name}" />
-            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ArtistText}" />
-        </StackPanel>
+    <!--
+      搜索框下拉项：左侧 40 小封面（搜过的关键词、「清除搜索记录」没有封面，显示图标），
+      右侧标题 + 副标题（歌手 / 「专辑 · 歌手」等）。
+    -->
+    <DataTemplate x:Key="SearchSuggestionTemplate" x:DataType="shell:SearchSuggestion">
+        <Grid Padding="0,6" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid
+                Width="40"
+                Height="40"
+                Background="{ThemeResource KSurfaceVariantBrush}"
+                Visibility="{x:Bind CoverVisibility}">
+                <Image Source="{x:Bind local:DisplayFormat.Cover(CoverUrl, 80)}" Stretch="UniformToFill" />
+            </Grid>
+            <FontIcon
+                Width="40"
+                FontFamily="Segoe MDL2 Assets"
+                FontSize="16"
+                Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                Glyph="{x:Bind Glyph}"
+                Visibility="{x:Bind GlyphVisibility}" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock
+                    Style="{StaticResource BodyTextStyle}"
+                    Text="{x:Bind Title}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Style="{StaticResource CaptionTextStyle}"
+                    Text="{x:Bind Subtitle}"
+                    TextTrimming="CharacterEllipsis"
+                    Visibility="{x:Bind SubtitleVisibility}" />
+            </StackPanel>
+        </Grid>
     </DataTemplate>
 
 </ResourceDictionary>
