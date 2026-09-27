@@ -41,7 +41,8 @@
                 <GridView
                     x:Name="AlbumGrid"
                     Padding="0,0,12,24"
-                    IsItemClickEnabled="False"
+                    IsItemClickEnabled="True"
+                    ItemClick="AlbumItemClick"
                     ItemContainerStyle="{StaticResource MetroGridTileStyle}"
                     ItemTemplate="{StaticResource AlbumTileTemplate}"
                     SelectionMode="None" />
@@ -50,7 +51,8 @@
                 <ListView
                     x:Name="ArtistList"
                     Padding="0,0,0,24"
-                    IsItemClickEnabled="False"
+                    IsItemClickEnabled="True"
+                    ItemClick="ArtistItemClick"
                     ItemContainerStyle="{StaticResource MetroListRowStyle}"
                     ItemTemplate="{StaticResource ArtistRowTemplate}"
                     SelectionMode="None" />

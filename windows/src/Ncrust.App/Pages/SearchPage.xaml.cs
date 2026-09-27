@@ -27,6 +27,7 @@ namespace Ncrust.Pages
         {
             InitializeComponent();
             Tabs.SelectedIndex = 0;
+            SongActions.AttachContextMenu(SongList);
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -148,6 +149,24 @@ namespace Ncrust.Pages
             // 与 Android 一致：搜索结果点歌是「插到当前曲之后并播放」，不替换整个队列；并记入搜索历史。
             PlaybackHost.PlaySong(song);
             _ = AppServices.SearchHistory.AddSongAsync(song);
+        }
+
+        private void AlbumItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is AlbumSearchItem album)
+            {
+                _ = AppServices.SearchHistory.AddAlbumAsync(album);
+                Shell.AppShell.ToAlbum(album.Id);
+            }
+        }
+
+        private void ArtistItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is ArtistSearchItem artist)
+            {
+                _ = AppServices.SearchHistory.AddArtistAsync(artist);
+                Shell.AppShell.ToArtist(artist.Id);
+            }
         }
     }
 }

@@ -1,0 +1,43 @@
+<Page
+    x:Class="Ncrust.Pages.PlaylistPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Kanesumi.Xaml.Controls"
+    xmlns:local="using:Ncrust.Pages"
+    Background="{ThemeResource KBackgroundBrush}">
+
+    <!--
+      歌单详情（对应 Android PlaylistDetailScreen）：页头随列表一起滚动（ListView.Header），歌曲行保持虚拟化。
+      先读 ContentCache 直接渲染，再后台刷新写回；没有缓存时才转圈。
+    -->
+    <Grid>
+        <ListView
+            x:Name="SongList"
+            Padding="24,0,24,24"
+            IsItemClickEnabled="True"
+            ItemClick="SongItemClick"
+            ItemContainerStyle="{StaticResource MetroListRowStyle}"
+            ItemTemplate="{StaticResource SongRowTemplate}"
+            SelectionMode="None">
+            <ListView.Header>
+                <local:DetailHeader x:Name="Header" Margin="0,16,0,24" />
+            </ListView.Header>
+        </ListView>
+
+        <controls:MetroProgressRing
+            x:Name="LoadingRing"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="Collapsed" />
+
+        <StackPanel
+            x:Name="ErrorPanel"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="12"
+            Visibility="Collapsed">
+            <TextBlock x:Name="ErrorText" Style="{StaticResource CaptionTextStyle}" TextAlignment="Center" TextWrapping="Wrap" />
+            <Button HorizontalAlignment="Center" Click="RetryClick" Content="重试" Style="{StaticResource MetroSecondaryButtonStyle}" />
+        </StackPanel>
+    </Grid>
+</Page>

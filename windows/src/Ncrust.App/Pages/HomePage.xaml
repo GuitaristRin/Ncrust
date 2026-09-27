@@ -70,6 +70,8 @@
                     <TextBlock Style="{StaticResource TitleTextStyle}" Text="推荐歌单" />
                     <GridView
                         x:Name="PlaylistGrid"
+                        IsItemClickEnabled="True"
+                        ItemClick="PlaylistItemClick"
                         ItemContainerStyle="{StaticResource MetroGridTileStyle}"
                         ItemTemplate="{StaticResource PlaylistTileTemplate}"
                         SelectionMode="None">

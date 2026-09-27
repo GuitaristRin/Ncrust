@@ -22,6 +22,50 @@ namespace Ncrust.Resources
         public static string ArtistCounts(int albumSize, int musicSize) =>
             string.Format(CultureInfo.InvariantCulture, "{0} 张专辑 · {1} 首歌曲", albumSize, musicSize);
 
+        /// <summary>「12 首」（对应 Android trackCount）。</summary>
+        public static string TrackCount(int count) => count.ToString(CultureInfo.InvariantCulture) + " 首";
+
+        /// <summary>「12 首歌曲」（对应 Android trackCountSongs）。</summary>
+        public static string SongCount(int count) => count.ToString(CultureInfo.InvariantCulture) + " 首歌曲";
+
+        /// <summary>发行年份；未知（0）为空串。</summary>
+        public static string Year(long publishTimeMs) =>
+            publishTimeMs > 0 ? FromEpoch(publishTimeMs).Year.ToString(CultureInfo.InvariantCulture) : string.Empty;
+
+        /// <summary>发行日期 yyyy-MM-dd；未知为空串。</summary>
+        public static string Date(long publishTimeMs) =>
+            publishTimeMs > 0 ? FromEpoch(publishTimeMs).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : string.Empty;
+
+        /// <summary>歌手页专辑磁贴：「2020 · 12 首」（对应 Android ArtistAlbumGridItem）。</summary>
+        public static string AlbumYearAndCount(long publishTimeMs, int size)
+        {
+            var year = Year(publishTimeMs);
+            return year.Length == 0 ? TrackCount(size) : year + " · " + TrackCount(size);
+        }
+
+        /// <summary>音乐库专辑磁贴：「歌手 · 12 首」（对应 Android albumArtistAndCount）。</summary>
+        public static string ArtistAndCount(string artist, int count) =>
+            string.IsNullOrEmpty(artist) ? TrackCount(count) : artist + " · " + TrackCount(count);
+
+        /// <summary>用「 · 」连接非空的几段。</summary>
+        public static string Join(params string[] parts)
+        {
+            var result = string.Empty;
+            foreach (var part in parts)
+            {
+                if (string.IsNullOrEmpty(part))
+                {
+                    continue;
+                }
+
+                result = result.Length == 0 ? part : result + " · " + part;
+            }
+
+            return result;
+        }
+
+        private static DateTimeOffset FromEpoch(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).ToLocalTime();
+
         /// <summary>
         /// 列表 / 磁贴封面。**图片一律经这里绑定，不要把字符串直接 x:Bind 到 Image.Source**：
         /// 没有封面的专辑 / 歌手 URL 是空串，空串转 ImageSource 会抛 ArgumentException

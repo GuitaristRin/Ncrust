@@ -107,6 +107,25 @@
 
         <player:PlayerHost x:Name="Player" Grid.RowSpan="2" />
 
+        <!-- 轻提示（对应 Android Toast）：播放栏上方居中，约 2 秒后淡出；不接收点击。 -->
+        <Border
+            x:Name="NoticeHost"
+            Grid.Row="0"
+            MaxWidth="480"
+            Margin="24,0,24,16"
+            Padding="16,10"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            Background="{ThemeResource KSurfaceVariantBrush}"
+            IsHitTestVisible="False"
+            Opacity="0"
+            Visibility="Collapsed">
+            <TextBlock
+                x:Name="NoticeText"
+                Style="{StaticResource BodyTextStyle}"
+                TextWrapping="Wrap" />
+        </Border>
+
         <Grid x:Name="OverlayHost" Grid.RowSpan="2" />
     </Grid>
 </Page>

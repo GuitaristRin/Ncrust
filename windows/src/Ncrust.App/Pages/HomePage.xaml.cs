@@ -20,6 +20,8 @@ namespace Ncrust.Pages
         public HomePage()
         {
             InitializeComponent();
+            SongActions.AttachContextMenu(DailyList);
+            SongActions.AttachContextMenu(NewList);
 
             // 登录 / 退出后每日推荐的可见性变了：页面是缓存的，要主动刷新。
             AppServices.SessionChanged += () => _ = LoadAsync();
@@ -167,6 +169,14 @@ namespace Ncrust.Pages
             if (e.ClickedItem is SongItem song)
             {
                 PlaybackHost.PlaySong(song);
+            }
+        }
+
+        private void PlaylistItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is PlaylistCard playlist)
+            {
+                Shell.AppShell.ToPlaylist(playlist);
             }
         }
 

@@ -23,6 +23,8 @@ namespace Ncrust.Shell
     /// </summary>
     public sealed partial class ShellPage : Page
     {
+        private readonly DispatcherTimer _noticeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+
         private LoginPage _login;
         private int _suggestVersion;
 
@@ -34,6 +36,10 @@ namespace Ncrust.Shell
 
             // 快捷键不在页面上弹出按键提示。
             KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
+
+            AppShell.NavigateHandler = (page, parameter) => NavigateTo(page, parameter);
+            AppShell.NoticeHandler = ShowNotice;
+            _noticeTimer.Tick += (_, __) => HideNotice();
 
             LoginLauncher.LaunchRequested += ShowLogin;
             AppServices.SessionChanged += UpdateAccountItem;
@@ -48,7 +54,81 @@ namespace Ncrust.Shell
         {
             UpdateAccountItem();
             await PlaybackHost.RestoreAsync();
+
+            // 收藏库先读本地（菜单里的「加入库 / 移除收藏」要靠它判断），云端刷新放到后台。
+            try
+            {
+                await AppServices.Library.PreloadAsync();
+                SongActions.NotifyLibraryChanged();
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+
             await RefreshProfileAsync();
+            _ = RefreshLibraryAsync();
+        }
+
+        private static async System.Threading.Tasks.Task RefreshLibraryAsync()
+        {
+            if (!AppServices.IsLoggedIn())
+            {
+                return;
+            }
+
+            try
+            {
+                await AppServices.Library.RefreshFromCloudAsync();
+                SongActions.NotifyLibraryChanged();
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+        }
+
+        // ── 轻提示 ────────────────────────────────────────────────────────────
+
+        private void ShowNotice(string text)
+        {
+            NoticeText.Text = text;
+            NoticeHost.Visibility = Visibility.Visible;
+            FadeNotice(1);
+            _noticeTimer.Stop();
+            _noticeTimer.Start();
+        }
+
+        private void HideNotice()
+        {
+            _noticeTimer.Stop();
+            FadeNotice(0);
+        }
+
+        /// <summary>Opacity 是独立动画（合成线程执行），不违反「禁止依赖动画」。</summary>
+        private void FadeNotice(double to)
+        {
+            var animation = new Windows.UI.Xaml.Media.Animation.DoubleAnimation
+            {
+                To = to,
+                Duration = TimeSpan.FromMilliseconds(to > 0 ? 150 : 250),
+            };
+            Windows.UI.Xaml.Media.Animation.Storyboard.SetTarget(animation, NoticeHost);
+            Windows.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(animation, "Opacity");
+            var storyboard = new Windows.UI.Xaml.Media.Animation.Storyboard();
+            storyboard.Children.Add(animation);
+            if (to <= 0)
+            {
+                storyboard.Completed += (_, __) =>
+                {
+                    if (!_noticeTimer.IsEnabled)
+                    {
+                        NoticeHost.Visibility = Visibility.Collapsed;
+                    }
+                };
+            }
+
+            storyboard.Begin();
         }
 
         // ── 标题栏 ────────────────────────────────────────────────────────────
@@ -315,14 +395,7 @@ namespace Ncrust.Shell
             CloseLogin();
             await RefreshProfileAsync();
 
-            try
-            {
-                await AppServices.Library.RefreshFromCloudAsync();
-            }
-            catch (Exception ex)
-            {
-                App.WriteCrashLog(ex);
-            }
+            await RefreshLibraryAsync();
         }
 
         private void OnLoginClose() => CloseLogin();

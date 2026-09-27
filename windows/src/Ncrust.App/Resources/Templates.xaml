@@ -74,6 +74,54 @@
         </StackPanel>
     </DataTemplate>
 
+    <!-- 歌手页的专辑磁贴：封面 + 名称 + 年份与曲数（对应 Android ArtistAlbumGridItem）。 -->
+    <DataTemplate x:Key="ArtistAlbumTileTemplate" x:DataType="api:ArtistAlbumItem">
+        <StackPanel Width="160">
+            <Image
+                Width="160"
+                Height="160"
+                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 320)}"
+                Stretch="UniformToFill" />
+            <TextBlock
+                Margin="0,8,0,0"
+                Style="{StaticResource BodyTextStyle}"
+                Text="{x:Bind Name}" />
+            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:DisplayFormat.AlbumYearAndCount(PublishTime, Size)}" />
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- 音乐库的专辑磁贴：封面 + 名称 + 歌手与曲数（对应 Android LibraryAlbumGridItem）。 -->
+    <DataTemplate x:Key="CloudAlbumTileTemplate" x:DataType="api:CloudAlbum">
+        <StackPanel Width="160">
+            <Image
+                Width="160"
+                Height="160"
+                Source="{x:Bind local:DisplayFormat.Cover(PicUrl, 320)}"
+                Stretch="UniformToFill" />
+            <TextBlock
+                Margin="0,8,0,0"
+                Style="{StaticResource BodyTextStyle}"
+                Text="{x:Bind Name}" />
+            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:DisplayFormat.ArtistAndCount(Artist, SongCount)}" />
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- 音乐库的歌单磁贴：封面 + 名称 + 曲数（对应 Android PlaylistGridItem）。 -->
+    <DataTemplate x:Key="UserPlaylistTileTemplate" x:DataType="api:UserPlaylistInfo">
+        <StackPanel Width="160">
+            <Image
+                Width="160"
+                Height="160"
+                Source="{x:Bind local:DisplayFormat.Cover(CoverImgUrl, 320)}"
+                Stretch="UniformToFill" />
+            <TextBlock
+                Margin="0,8,0,0"
+                Style="{StaticResource BodyTextStyle}"
+                Text="{x:Bind Name}" />
+            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:DisplayFormat.TrackCount(TrackCount)}" />
+        </StackPanel>
+    </DataTemplate>
+
     <!-- 歌手行：72 头像贴左边，名字 / 专辑与歌曲数。 -->
     <DataTemplate x:Key="ArtistRowTemplate" x:DataType="api:ArtistSearchItem">
         <Grid Height="72">
