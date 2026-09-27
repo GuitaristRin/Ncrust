@@ -5,23 +5,30 @@
     xmlns:kc="using:Kanesumi.Xaml.Controls">
 
     <!--
-      播放器层：常驻覆盖层。Progress（0 迷你栏 → 1 展开卡片）、Fullscreen 两个标量放在
-      CompositionPropertySet 里；封面是全应用唯一的一个元素，尺寸/位移由 ExpressionAnimation
-      从 Progress/Fullscreen 算出（迷你栏缩略图 → 卡片大图 → 真全屏），不复制第二张。
+      播放器层（对应 Android PlayerCardOverlay + PlayerCard）：常驻覆盖层，两个标量驱动全部形变 ——
+      Progress（0 迷你栏 → 1 展开卡片）、Fullscreen（0 卡片 → 1 真全屏），都在 CompositionPropertySet 里。
 
-      Root 不设背景（null）而不是 Transparent：null 背景的空白处不接收命中，点击会穿透到下面的页面；
-      也不能设 IsHitTestVisible="False" —— 那会连同迷你栏、封面在内整棵子树都点不到。
+      - 展开：整张卡片从底部上滑（Translation.Y = (H - 72) × (1 - Progress)），迷你栏随动上移并淡出
+        （与 Android 卡片整体上滑、迷你栏在卡片顶部淡出一致）。
+      - 卡片有自己的一套信息与控件（大标题、歌手 / 专辑、进度条、播放按钮、收藏、音量），不沿用迷你栏。
+      - 卡片里没有「只有封面」的状态：宽窗口左栏封面 + 信息 + 控件、右栏歌词 / 队列；窄窗口顶部小封面，
+        中间歌词 / 队列，底部控件。只有真全屏才是封面铺满。
+      - 封面仍是全应用唯一的元素：从迷你栏缩略图形变到卡片的封面位（CoverSlot）再到全屏。
+
+      命中测试不认 Composition 变换，所以两个会动的层都按「静止时的位置」布局：迷你栏布局在底部
+      （上移只是视觉），卡片布局铺满（下移只是视觉），收起时卡片关掉命中测试。
+      Root 不设背景（null）：空白处点击穿透到下面的页面。
     -->
     <Grid x:Name="Root" Background="{x:Null}">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="WidthStates">
-                <!-- 宽窗口：Groove 式传输栏（中间是模式 / 上一首 / 播放 / 下一首 + 可拖动进度条）。 -->
+                <!-- 宽窗口：Groove 式传输栏；卡片左栏正在播放 + 右栏歌词 / 队列。 -->
                 <VisualState x:Name="Wide">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="600" />
                     </VisualState.StateTriggers>
                 </VisualState>
-                <!-- 窄窗口：退化为 Android 迷你栏（顶边细进度条 + 播放 / 下一首）。 -->
+                <!-- 窄窗口：迷你栏退化为 Android 迷你栏；卡片改为上中下三段。 -->
                 <VisualState x:Name="Narrow">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="0" />
@@ -33,115 +40,285 @@
                         <Setter Target="VolumeButton.Visibility" Value="Collapsed" />
                         <Setter Target="LyricsButton.Visibility" Value="Collapsed" />
                         <Setter Target="QueueButton.Visibility" Value="Collapsed" />
-                        <Setter Target="SideTabs.Visibility" Value="Collapsed" />
                         <Setter Target="SlimProgress.Visibility" Value="Visible" />
                         <Setter Target="TransportColumn.Width" Value="Auto" />
+
+                        <Setter Target="BodyRow0.Height" Value="Auto" />
+                        <Setter Target="BodyRow1.Height" Value="*" />
+                        <Setter Target="BodyRow2.Height" Value="Auto" />
+                        <Setter Target="BodyRow3.Height" Value="0" />
+                        <Setter Target="RightColumn.Width" Value="0" />
+                        <Setter Target="InfoPanel.(Grid.Row)" Value="0" />
+                        <Setter Target="InfoPanel.Orientation" Value="Horizontal" />
+                        <Setter Target="InfoPanel.HorizontalAlignment" Value="Stretch" />
+                        <Setter Target="InfoPanel.Margin" Value="16,0,16,8" />
+                        <Setter Target="InfoText.Margin" Value="12,0,0,0" />
+                        <Setter Target="InfoText.VerticalAlignment" Value="Center" />
+                        <Setter Target="CardTitle.Style" Value="{StaticResource TitleTextStyle}" />
+                        <Setter Target="SideTabs.(Grid.Row)" Value="1" />
+                        <Setter Target="SideTabs.(Grid.RowSpan)" Value="1" />
+                        <Setter Target="SideTabs.(Grid.Column)" Value="0" />
+                        <Setter Target="SideTabs.Margin" Value="4,0,0,0" />
+                        <Setter Target="ControlsPanel.(Grid.Row)" Value="2" />
+                        <Setter Target="ControlsPanel.Margin" Value="16,8,16,16" />
+                        <Setter Target="ControlsPanel.HorizontalAlignment" Value="Stretch" />
+                        <Setter Target="CardVolumePanel.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <!--
-          展开卡片层：透明度完全由合成表达式 props.Progress 驱动；收起时不参与命中测试。
-          播放控制沿用底部传输栏。注意 XAML 的 Opacity 不能写 0：XAML 会跳过渲染 Opacity=0 的元素，
-          挂在它合成 Visual 上的透明度动画就永远显示不出来（实测：展开后卡片背景不出现）。
-        -->
+        <!-- ── 展开卡片：铺满布局，收起时由合成平移到只剩顶边 72（被迷你栏盖住） ── -->
         <Grid
-            x:Name="CardLayer"
+            x:Name="Card"
             Background="{ThemeResource KBackgroundBrush}"
             IsHitTestVisible="False">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+            <Grid x:Name="CardContent">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="48" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-            <!-- 左栏：封面在其上方由 Composition 摆放；这里只放曲目信息，贴在传输栏上方。 -->
-            <StackPanel
-                Grid.Column="0"
-                Margin="48,24,24,104"
-                VerticalAlignment="Bottom"
-                Spacing="4">
-                <TextBlock x:Name="CardTitle" Style="{StaticResource HeadlineMediumTextStyle}" />
-                <TextBlock x:Name="CardArtist" Style="{StaticResource BodyLargeTextStyle}" Foreground="{ThemeResource KOnSurfaceVariantBrush}" />
-            </StackPanel>
-
-            <!--
-              右栏：歌词 / 播放队列（对应 Android 宽屏双栏的 LyricsView / QueueView），用原生 Pivot 切换。
-              底部让出传输栏（72）。窄窗口（< 600）卡片只有封面，右栏隐藏。
-            -->
-            <Pivot
-                x:Name="SideTabs"
-                Grid.Column="1"
-                Margin="0,4,0,72"
-                SelectionChanged="SideTabsChanged">
-                <PivotItem Header="歌词">
-                    <Grid>
-                        <kc:MetroLyricsPanel x:Name="Lyrics" Margin="0,0,24,0" />
-                        <TextBlock
-                            x:Name="LyricsStatus"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Foreground="{ThemeResource KOnSurfaceVariantBrush}"
-                            Style="{StaticResource BodyLargeTextStyle}"
-                            Text="暂无歌词"
-                            Visibility="Collapsed" />
-                    </Grid>
-                </PivotItem>
-                <PivotItem Header="播放队列">
-                    <Grid Margin="0,0,16,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <Button
-                            HorizontalAlignment="Right"
-                            Click="ClearQueueClick"
-                            Content="清空播放内容"
-                            Style="{StaticResource MetroGhostButtonStyle}" />
-                        <ListView
-                            x:Name="QueueList"
-                            Grid.Row="1"
-                            AllowDrop="True"
-                            CanDragItems="True"
-                            CanReorderItems="True"
-                            IsItemClickEnabled="True"
-                            ItemContainerStyle="{StaticResource MetroListRowStyle}"
-                            ItemTemplateSelector="{StaticResource QueueRowTemplateSelector}"
-                            SelectionMode="None" />
-                        <TextBlock
-                            x:Name="QueueEmpty"
-                            Grid.Row="1"
-                            Margin="0,24,0,0"
-                            Style="{StaticResource CaptionTextStyle}"
-                            Text="播放队列为空"
-                            Visibility="Collapsed" />
-                    </Grid>
-                </PivotItem>
-            </Pivot>
-
-            <StackPanel
-                Grid.Column="1"
-                Margin="0,8,8,0"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Orientation="Horizontal">
+                <!-- 顶栏：收起（左）/ 全屏（右）。 -->
                 <Button
-                    x:Name="LikeButton"
-                    Click="LikeClick"
+                    Margin="8,4,0,0"
+                    HorizontalAlignment="Left"
+                    Click="CollapseClick"
                     Style="{StaticResource MetroIconButtonStyle}"
-                    ToolTipService.ToolTip="加入库">
-                    <FontIcon x:Name="LikeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xEB51;" />
+                    ToolTipService.ToolTip="收起 (Esc)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE70D;" />
                 </Button>
-                <Button Style="{StaticResource MetroIconButtonStyle}" Click="FullscreenClick" ToolTipService.ToolTip="全屏 (F11)">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE740;" FontSize="16" />
+                <Button
+                    Margin="0,4,8,0"
+                    HorizontalAlignment="Right"
+                    Click="FullscreenClick"
+                    Style="{StaticResource MetroIconButtonStyle}"
+                    ToolTipService.ToolTip="全屏 (F11)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE740;" />
                 </Button>
-                <Button Style="{StaticResource MetroIconButtonStyle}" Click="ExpandClick" ToolTipService.ToolTip="收起 (Esc)">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70D;" FontSize="16" />
-                </Button>
-            </StackPanel>
+
+                <Grid x:Name="CardBody" Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition x:Name="BodyRow0" Height="*" />
+                        <RowDefinition x:Name="BodyRow1" Height="Auto" />
+                        <RowDefinition x:Name="BodyRow2" Height="Auto" />
+                        <RowDefinition x:Name="BodyRow3" Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="LeftColumn" Width="*" />
+                        <ColumnDefinition x:Name="RightColumn" Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 正在播放：封面位 + 标题 / 歌手 / 专辑。封面本身是层外那张唯一的 CoverImage，这里只占位。 -->
+                    <StackPanel
+                        x:Name="InfoPanel"
+                        Grid.Row="1"
+                        HorizontalAlignment="Center">
+                        <Border
+                            x:Name="CoverSlot"
+                            Width="240"
+                            Height="240"
+                            HorizontalAlignment="Left" />
+                        <StackPanel
+                            x:Name="InfoText"
+                            Margin="0,20,0,0"
+                            Spacing="2">
+                            <TextBlock
+                                x:Name="CardTitle"
+                                MaxLines="2"
+                                Style="{StaticResource HeadlineMediumTextStyle}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="Wrap" />
+                            <HyperlinkButton
+                                x:Name="CardArtistLink"
+                                Padding="0"
+                                Click="CardArtistClick"
+                                ToolTipService.ToolTip="转到歌手">
+                                <TextBlock
+                                    x:Name="CardArtist"
+                                    Foreground="{ThemeResource SystemControlForegroundAccentBrush}"
+                                    Style="{StaticResource BodyLargeTextStyle}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </HyperlinkButton>
+                            <HyperlinkButton
+                                x:Name="CardAlbumLink"
+                                Padding="0"
+                                Click="CardAlbumClick"
+                                ToolTipService.ToolTip="转到专辑">
+                                <TextBlock
+                                    x:Name="CardAlbum"
+                                    Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </HyperlinkButton>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 卡片自己的控件（对应 Android FullPlayerControls）：进度条 + 模式 / 上一首 / 播放 / 下一首 / 收藏 + 音量。 -->
+                    <StackPanel
+                        x:Name="ControlsPanel"
+                        Grid.Row="2"
+                        Margin="0,16,0,0"
+                        HorizontalAlignment="Center"
+                        Spacing="4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="44" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                x:Name="CardPositionText"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                                Style="{StaticResource LabelTextStyle}"
+                                Text="0:00" />
+                            <Slider
+                                x:Name="CardSeekSlider"
+                                Grid.Column="1"
+                                Margin="8,0"
+                                VerticalAlignment="Center"
+                                IsThumbToolTipEnabled="False"
+                                Maximum="1"
+                                Minimum="0"
+                                StepFrequency="1"
+                                ValueChanged="SeekValueChanged" />
+                            <TextBlock
+                                x:Name="CardDurationText"
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                                Style="{StaticResource LabelTextStyle}"
+                                Text="0:00"
+                                TextAlignment="Right" />
+                        </Grid>
+
+                        <StackPanel
+                            HorizontalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                x:Name="CardModeButton"
+                                Width="44"
+                                Height="44"
+                                Click="ModeClick"
+                                Style="{StaticResource MetroIconButtonStyle}">
+                                <FontIcon x:Name="CardModeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE8EE;" />
+                            </Button>
+                            <Button
+                                Width="44"
+                                Height="44"
+                                Click="PreviousClick"
+                                Style="{StaticResource MetroIconButtonStyle}"
+                                ToolTipService.ToolTip="上一首 (Ctrl+←)">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="18" Glyph="&#xE892;" />
+                            </Button>
+                            <Button
+                                Width="56"
+                                Height="56"
+                                Click="PlayPauseClick"
+                                Style="{StaticResource MetroIconButtonStyle}"
+                                ToolTipService.ToolTip="播放 / 暂停 (Space)">
+                                <FontIcon x:Name="CardPlayIcon" FontFamily="Segoe MDL2 Assets" FontSize="28" Glyph="&#xE768;" />
+                            </Button>
+                            <Button
+                                Width="44"
+                                Height="44"
+                                Click="NextClick"
+                                Style="{StaticResource MetroIconButtonStyle}"
+                                ToolTipService.ToolTip="下一首 (Ctrl+→)">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="18" Glyph="&#xE893;" />
+                            </Button>
+                            <Button
+                                x:Name="LikeButton"
+                                Width="44"
+                                Height="44"
+                                Click="LikeClick"
+                                Style="{StaticResource MetroIconButtonStyle}"
+                                ToolTipService.ToolTip="加入库">
+                                <FontIcon x:Name="LikeIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xEB51;" />
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel
+                            x:Name="CardVolumePanel"
+                            HorizontalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="4">
+                            <Button
+                                Width="36"
+                                Height="36"
+                                Click="MuteClick"
+                                Style="{StaticResource MetroIconButtonStyle}"
+                                ToolTipService.ToolTip="静音">
+                                <FontIcon x:Name="CardVolumeIcon" FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE767;" />
+                            </Button>
+                            <Slider
+                                x:Name="CardVolumeSlider"
+                                Width="160"
+                                VerticalAlignment="Center"
+                                Maximum="100"
+                                Minimum="0"
+                                ValueChanged="VolumeValueChanged" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 歌词 / 播放队列（对应 Android LyricsView / QueueView），原生 Pivot 切换。 -->
+                    <Pivot
+                        x:Name="SideTabs"
+                        Grid.RowSpan="4"
+                        Grid.Column="1"
+                        Margin="0,0,0,24"
+                        SelectionChanged="SideTabsChanged">
+                        <PivotItem Header="歌词">
+                            <Grid>
+                                <kc:MetroLyricsPanel x:Name="Lyrics" Margin="0,0,24,0" />
+                                <TextBlock
+                                    x:Name="LyricsStatus"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                                    Style="{StaticResource BodyLargeTextStyle}"
+                                    Text="暂无歌词"
+                                    Visibility="Collapsed" />
+                            </Grid>
+                        </PivotItem>
+                        <PivotItem Header="播放队列">
+                            <Grid Margin="0,0,16,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Button
+                                    HorizontalAlignment="Right"
+                                    Click="ClearQueueClick"
+                                    Content="清空播放内容"
+                                    Style="{StaticResource MetroGhostButtonStyle}" />
+                                <ListView
+                                    x:Name="QueueList"
+                                    Grid.Row="1"
+                                    AllowDrop="True"
+                                    CanDragItems="True"
+                                    CanReorderItems="True"
+                                    IsItemClickEnabled="True"
+                                    ItemContainerStyle="{StaticResource MetroListRowStyle}"
+                                    ItemTemplateSelector="{StaticResource QueueRowTemplateSelector}"
+                                    SelectionMode="None" />
+                                <TextBlock
+                                    x:Name="QueueEmpty"
+                                    Grid.Row="1"
+                                    Margin="0,24,0,0"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="播放队列为空"
+                                    Visibility="Collapsed" />
+                            </Grid>
+                        </PivotItem>
+                    </Pivot>
+                </Grid>
+            </Grid>
         </Grid>
 
-        <!-- 传输栏（高 72）。左侧 72 是封面的位置（封面是本层最后一个元素，浮在其上）。 -->
+        <!-- ── 迷你栏 / 传输栏（高 72）：布局在底部，展开时由合成随卡片上移并淡出 ── -->
         <Grid
             x:Name="MiniBar"
             Height="72"
@@ -181,8 +358,15 @@
                 Background="Transparent"
                 Tapped="InfoTapped">
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock x:Name="MiniTitle" Style="{StaticResource BodyTextStyle}" Text="未在播放" />
-                    <TextBlock x:Name="MiniArtist" Style="{StaticResource CaptionTextStyle}" />
+                    <TextBlock
+                        x:Name="MiniTitle"
+                        Style="{StaticResource BodyTextStyle}"
+                        Text="未在播放"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        x:Name="MiniArtist"
+                        Style="{StaticResource CaptionTextStyle}"
+                        TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Grid>
 
@@ -250,8 +434,8 @@
                         x:Name="PositionText"
                         Grid.Column="0"
                         VerticalAlignment="Center"
-                        Style="{StaticResource LabelTextStyle}"
                         Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                        Style="{StaticResource LabelTextStyle}"
                         Text="0:00"
                         TextAlignment="Right" />
                     <Slider
@@ -268,8 +452,8 @@
                         x:Name="DurationText"
                         Grid.Column="2"
                         VerticalAlignment="Center"
-                        Style="{StaticResource LabelTextStyle}"
                         Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                        Style="{StaticResource LabelTextStyle}"
                         Text="0:00" />
                 </Grid>
             </Grid>
@@ -338,7 +522,7 @@
                     Click="ExpandClick"
                     Style="{StaticResource MetroIconButtonStyle}"
                     ToolTipService.ToolTip="正在播放">
-                    <FontIcon x:Name="ExpandIcon" FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE70E;" />
+                    <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE70E;" />
                 </Button>
             </StackPanel>
         </Grid>
@@ -358,8 +542,8 @@
 
         <!--
           唯一封面：对齐到 Root 左下，布局尺寸 = 真全屏尺寸（代码里随窗口设置），由 Composition
-          缩小到卡片 / 迷你栏。按最大尺寸布局再缩小，封面在任何状态下都清晰（原先按 72 布局再放大 6 倍，
-          卡片里是糊的）。不接收点击，点击区在迷你栏第 0 列。
+          缩小到卡片封面位 / 迷你栏缩略图。按最大尺寸布局再缩小，封面在任何状态下都清晰。
+          不接收点击，点击区在迷你栏第 0 列。
         -->
         <Image
             x:Name="CoverImage"
@@ -369,5 +553,22 @@
             VerticalAlignment="Bottom"
             IsHitTestVisible="False"
             Stretch="UniformToFill" />
+
+        <!-- 真全屏的操作层：双击任意处或右上角按钮退出；只在全屏时接收点击。 -->
+        <Grid
+            x:Name="FullscreenLayer"
+            Background="Transparent"
+            DoubleTapped="FullscreenDoubleTapped"
+            IsHitTestVisible="False">
+            <Button
+                Margin="0,8,8,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Click="FullscreenClick"
+                Style="{StaticResource MetroIconButtonStyle}"
+                ToolTipService.ToolTip="退出全屏 (Esc)">
+                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="16" Glyph="&#xE73F;" />
+            </Button>
+        </Grid>
     </Grid>
 </UserControl>
