@@ -470,11 +470,36 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 
 ## 版本与发布
 
-- 版本号的唯一来源是 `Package.appxmanifest` 里的 `Identity Version`（`X.Y.Z.0`）。
-  About 页读取 `Package.Current.Id.Version`，**不要写死版本常量**。
-- Tag 用 `win-vX.Y.Z`；Android 保持现有的 `vX.Y.Z`。
-- 发布流程（M3 定稿）：升版本号 → commit `build(windows): 升级至 vX.Y.Z` → Release 打包
-  → `gh release create win-vX.Y.Z --draft <msix>` → 负责人冒烟测试后手动发布。
+**多平台版本线相互独立**，跨平台最新版以仓库根 `docs/RELEASES.md` 为准（GitHub 一个仓库只有一个
+「Latest」徽章，不要靠它判断某平台最新版）。
+
+- 每个平台一条独立版本线，tag 前缀区分：`android-vX.Y.Z` / `win-vX.Y.Z` / `wp-vX.Y.Z` /
+  `linux-vX.Y.Z` / `macos-vX.Y.Z`。已发布的 Android 旧 tag（`v1.3.1` 等）保持不动，下一个版本起改用
+  `android-vX.Y.Z`。
+- 版本号唯一来源是 `Package.appxmanifest` 里的 `Identity Version`
+  （`Major.Minor.Build.Revision`）。About 页读取 `Package.Current.Id.Version`，**不要写死版本常量**。
+  - 发布用 `X.Y.Z.0`；第 4 段（Revision）留作**开发构建号**，开发期自增即可，避免同版本不同内容
+    被拒装（`0x80073CFB`）。Windows 发布线从 `1.0.0` 起。
+- Release 标题带平台名（`Windows 1.0.0` / `Android 1.3.2`）；创建时一律 `--latest=false`，
+  不让任意一端霸占 Latest 徽章。
+
+### Windows 产物与更新
+
+每个 `win-vX.Y.Z` 发布三样：**签名 MSIX**、**`.appinstaller`**、**公开证书 `.cer`**。
+
+- **`.appinstaller` 是主入口**：只有经它安装的包，系统的 App Installer 才会按 `<UpdateSettings>`
+  自动更新；直接装 `.msix` 的没有更新源，永远不会自动更新。所以 README / `docs/RELEASES.md` 的下载
+  一律指向 `.appinstaller`。
+- 应用内**只做版本检查 + 通知**：查 GitHub Releases API 的 `win-v*` 最新 tag，与
+  `Package.Current.Id.Version` 比较，有新版时提示并用 `Launcher` 打开 `.appinstaller`。
+  UWP 应用**不能静默自装**（AppContainer 装不了包；`packageManagement` 是受限能力，不值得）。
+- **包身份永不变**：`Identity Name` + `Publisher`（`CN=TakahashiRinta`）锁定；改 Publisher 会改
+  PackageFamilyName，老版本无法升级，只能卸载重装。自签证书 Subject 必须与 Publisher 一字不差。
+- **签名**：自签代码签名证书（免费；用户需先把 `.cer` 装进「受信任人」）。`.pfx`（私钥）**不入库**，
+  `.gitignore` 排除 `*.pfx` / `*.pvk`；发布附 `.cer` 与信任说明；私钥与口令存密码管理器 / CI secret。
+- 发布流程：升版本号 → commit `build(windows): 升级至 vX.Y.Z` → Release 打包 → 签名 →
+  `gh release create win-vX.Y.Z --draft --latest=false <msix> <appinstaller> <cer>` →
+  负责人冒烟测试后手动发布。（自动化脚本 `windows/tools/release` 待做。）
 
 ## 提交规范
 
