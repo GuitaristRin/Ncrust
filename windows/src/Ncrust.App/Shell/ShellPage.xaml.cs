@@ -443,20 +443,8 @@ namespace Ncrust.Shell
             var profile = AppServices.Cache.UserProfile;
             var loggedIn = AppServices.IsLoggedIn();
 
+            // 账户图标固定用 XAML 里声明的系统联系人剪影（Segoe MDL2 E77B），真实头像只在设置页显示。
             AccountItem.Content = loggedIn ? (profile?.Nickname ?? "我的") : "登录";
-
-            if (loggedIn && !string.IsNullOrEmpty(profile?.AvatarUrl))
-            {
-                AccountItem.Icon = new BitmapIcon
-                {
-                    UriSource = new Uri(profile.AvatarUrl + "?param=64y64"),
-                    ShowAsMonochrome = false,
-                };
-            }
-            else
-            {
-                AccountItem.Icon = new FontIcon { FontFamily = new Windows.UI.Xaml.Media.FontFamily("Segoe MDL2 Assets"), Glyph = "\uE77B" };
-            }
         }
 
         private async System.Threading.Tasks.Task RefreshProfileAsync()
