@@ -23,6 +23,7 @@ namespace Ncrust.Pages
         {
             InitializeComponent();
             SongActions.AttachContextMenu(SongList);
+            SongActions.AttachCollectionMenu<ArtistAlbumItem>(AlbumGrid, album => SongActions.AlbumSongsAsync(album.Id));
             Tabs.SelectionChanged += (_, __) => UpdateEmpty();
         }
 

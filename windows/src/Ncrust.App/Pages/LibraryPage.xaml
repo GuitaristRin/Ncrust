@@ -2,9 +2,145 @@
     x:Class="Ncrust.Pages.LibraryPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Kanesumi.Xaml.Controls"
+    NavigationCacheMode="Enabled"
     Background="{ThemeResource KBackgroundBrush}">
-    <StackPanel Padding="24,16" Spacing="12">
-        <TextBlock Style="{StaticResource PageHeadingTextStyle}" Text="音乐库" />
-        <TextBlock Style="{StaticResource CaptionTextStyle}" Text="音乐库（M1 待实现）" />
-    </StackPanel>
+
+    <!--
+      音乐库（对应 Android LibraryScreen）：单曲 / 专辑 / 歌单三类，用原生 Pivot 切换（Groove「我的音乐」同款）。
+      - 单曲：收藏（红心）歌曲，本地先渲染、进页后台拉云端；滚到末尾分页加载；有未同步的收藏时顶部提示并可重试。
+      - 专辑：云端收藏的专辑；点进专辑页，右键可直接播放 / 插播 / 最后播放 / 取消收藏。
+      - 歌单：账号的歌单（需登录），切到这一页才请求。
+    -->
+    <Grid Padding="12,16,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            Margin="12,0,24,0"
+            Style="{StaticResource PageHeadingTextStyle}"
+            Text="音乐库" />
+
+        <Pivot
+            x:Name="Tabs"
+            Grid.Row="1"
+            SelectionChanged="TabSelectionChanged">
+            <PivotItem Header="单曲">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 仅本地 / 待重试提示：不冒充已同步（对应 Android PendingSyncNotice）。 -->
+                    <Grid
+                        x:Name="PendingNotice"
+                        Margin="0,0,24,8"
+                        Visibility="Collapsed">
+                        <TextBlock
+                            x:Name="PendingText"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource CaptionTextStyle}" />
+                        <Button
+                            HorizontalAlignment="Right"
+                            Click="RetrySyncClick"
+                            Content="重试同步"
+                            Style="{StaticResource MetroGhostButtonStyle}" />
+                    </Grid>
+
+                    <StackPanel
+                        x:Name="SongActionsRow"
+                        Grid.Row="1"
+                        Margin="0,0,24,8"
+                        Orientation="Horizontal"
+                        Spacing="12"
+                        Visibility="Collapsed">
+                        <Button Click="PlayAllSongsClick" Style="{StaticResource MetroSecondaryButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE768;" />
+                                <TextBlock Text="全部播放" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock
+                            x:Name="SongCountText"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource CaptionTextStyle}" />
+                    </StackPanel>
+
+                    <ListView
+                        x:Name="SongList"
+                        Grid.Row="2"
+                        Padding="0,0,12,24"
+                        ContainerContentChanging="SongContainerContentChanging"
+                        IsItemClickEnabled="True"
+                        ItemClick="SongItemClick"
+                        ItemContainerStyle="{StaticResource MetroListRowStyle}"
+                        ItemTemplate="{StaticResource SongRowTemplate}"
+                        SelectionMode="None" />
+                    <TextBlock
+                        x:Name="SongEmpty"
+                        Grid.Row="2"
+                        Margin="0,48,24,0"
+                        Style="{StaticResource CaptionTextStyle}"
+                        Text="暂无收藏歌曲"
+                        Visibility="Collapsed" />
+                </Grid>
+            </PivotItem>
+
+            <PivotItem Header="专辑">
+                <Grid>
+                    <GridView
+                        x:Name="AlbumGrid"
+                        Padding="0,0,12,24"
+                        IsItemClickEnabled="True"
+                        ItemClick="AlbumItemClick"
+                        ItemContainerStyle="{StaticResource MetroGridTileStyle}"
+                        ItemTemplate="{StaticResource CloudAlbumTileTemplate}"
+                        SelectionMode="None" />
+                    <TextBlock
+                        x:Name="AlbumEmpty"
+                        Margin="0,48,24,0"
+                        Style="{StaticResource CaptionTextStyle}"
+                        Text="暂无收藏专辑"
+                        Visibility="Collapsed" />
+                </Grid>
+            </PivotItem>
+
+            <PivotItem Header="歌单">
+                <Grid>
+                    <GridView
+                        x:Name="PlaylistGrid"
+                        Padding="0,0,12,24"
+                        IsItemClickEnabled="True"
+                        ItemClick="PlaylistItemClick"
+                        ItemContainerStyle="{StaticResource MetroGridTileStyle}"
+                        ItemTemplate="{StaticResource UserPlaylistTileTemplate}"
+                        SelectionMode="None" />
+                    <StackPanel
+                        x:Name="PlaylistMessage"
+                        Margin="0,48,24,0"
+                        HorizontalAlignment="Left"
+                        Spacing="12"
+                        Visibility="Collapsed">
+                        <TextBlock
+                            x:Name="PlaylistMessageText"
+                            Style="{StaticResource CaptionTextStyle}"
+                            TextWrapping="Wrap" />
+                        <Button
+                            x:Name="PlaylistActionButton"
+                            Click="PlaylistActionClick"
+                            Style="{StaticResource MetroSecondaryButtonStyle}" />
+                    </StackPanel>
+                    <controls:MetroProgressRing
+                        x:Name="PlaylistRing"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Visibility="Collapsed" />
+                </Grid>
+            </PivotItem>
+        </Pivot>
+    </Grid>
 </Page>

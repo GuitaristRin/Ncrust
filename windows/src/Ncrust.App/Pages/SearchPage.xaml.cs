@@ -28,6 +28,7 @@ namespace Ncrust.Pages
             InitializeComponent();
             Tabs.SelectedIndex = 0;
             SongActions.AttachContextMenu(SongList);
+            SongActions.AttachCollectionMenu<AlbumSearchItem>(AlbumGrid, album => SongActions.AlbumSongsAsync(album.Id));
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

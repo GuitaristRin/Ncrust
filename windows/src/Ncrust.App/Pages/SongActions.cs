@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ncrust.Core.Api;
 using Ncrust.Playback;
+using Ncrust.Resources;
 using Ncrust.Shell;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
@@ -31,18 +32,108 @@ namespace Ncrust.Pages
         /// 给歌曲列表挂上下文菜单。列表项的 DataContext 必须是 <see cref="SongItem"/>。
         /// <paramref name="extra"/> 返回页面自己的附加项（插在「分享」一组之前），可为 null。
         /// </summary>
-        public static void AttachContextMenu(ListViewBase list, Func<SongItem, IEnumerable<MenuFlyoutItemBase>> extra = null)
+        public static void AttachContextMenu(ListViewBase list, Func<SongItem, IEnumerable<MenuFlyoutItemBase>> extra = null) =>
+            AttachMenu<SongItem>(list, song => BuildMenu(song, extra?.Invoke(song)));
+
+        /// <summary>
+        /// 给专辑 / 歌单磁贴挂上下文菜单：播放（替换队列）/ 插播 / 最后播放（对应 Android 磁贴上的
+        /// 全部播放按钮与搜索页的 onAlbumBatch）。<paramref name="loadSongs"/> 取这张专辑 / 歌单的曲目。
+        /// </summary>
+        public static void AttachCollectionMenu<T>(
+            ListViewBase grid,
+            Func<T, Task<IReadOnlyList<SongItem>>> loadSongs,
+            Func<T, IEnumerable<MenuFlyoutItemBase>> extra = null)
+            where T : class
+        {
+            AttachMenu<T>(grid, item =>
+            {
+                var menu = new MenuFlyout();
+                menu.Items.Add(Item("播放", Glyphs.Play, () => _ = WithSongsAsync(loadSongs(item), songs => PlaybackHost.PlayAll(songs))));
+                menu.Items.Add(Item("插播", Glyphs.PlayNext, () => _ = WithSongsAsync(loadSongs(item), songs =>
+                {
+                    PlaybackHost.InsertAllNext(songs);
+                    AppShell.Notice(DisplayFormat.SongCount(songs.Count) + "将在当前曲目之后播放");
+                })));
+                menu.Items.Add(Item("最后播放", Glyphs.Add, () => _ = WithSongsAsync(loadSongs(item), songs =>
+                {
+                    PlaybackHost.AppendAll(songs);
+                    AppShell.Notice(DisplayFormat.SongCount(songs.Count) + "已加入播放队列末尾");
+                })));
+
+                var more = extra?.Invoke(item);
+                if (more != null)
+                {
+                    foreach (var entry in more)
+                    {
+                        menu.Items.Add(entry);
+                    }
+                }
+
+                return menu;
+            });
+        }
+
+        /// <summary>专辑曲目：先读 ContentCache，没有再请求并写回。</summary>
+        public static async Task<IReadOnlyList<SongItem>> AlbumSongsAsync(long albumId)
+        {
+            var cached = AppServices.Cache.GetAlbum(albumId);
+            if (cached != null)
+            {
+                return cached.Songs;
+            }
+
+            var fresh = await AppServices.Albums.GetAlbumDetailAsync(albumId);
+            AppServices.Cache.PutAlbum(albumId, fresh);
+            return fresh.Songs;
+        }
+
+        /// <summary>歌单曲目：先读 ContentCache，没有再请求并写回。</summary>
+        public static async Task<IReadOnlyList<SongItem>> PlaylistSongsAsync(long playlistId)
+        {
+            var cached = AppServices.Cache.GetPlaylistSongs(playlistId);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            var fresh = await AppServices.Playlists.GetPlaylistDetailAsync(playlistId);
+            AppServices.Cache.PutPlaylistSongs(playlistId, fresh);
+            return fresh;
+        }
+
+        private static async Task WithSongsAsync(Task<IReadOnlyList<SongItem>> load, Action<IReadOnlyList<SongItem>> use)
+        {
+            try
+            {
+                var songs = await load;
+                if (songs.Count > 0)
+                {
+                    use(songs);
+                }
+                else
+                {
+                    AppShell.Notice("没有可播放的歌曲");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppShell.Notice("加载失败：" + ex.Message);
+            }
+        }
+
+        private static void AttachMenu<T>(ListViewBase list, Func<T, MenuFlyout> build)
+            where T : class
         {
             list.ContextRequested += (sender, args) =>
             {
-                var song = FindSong(args.OriginalSource as DependencyObject);
-                if (song == null)
+                var item = FindItem<T>(args.OriginalSource as DependencyObject);
+                if (item == null)
                 {
                     return;
                 }
 
                 args.Handled = true;
-                var menu = BuildMenu(song, extra?.Invoke(song));
+                var menu = build(item);
                 var target = (FrameworkElement)sender;
                 if (args.TryGetPosition(target, out var point))
                 {
@@ -198,14 +289,15 @@ namespace Ncrust.Pages
             }
         }
 
-        private static SongItem FindSong(DependencyObject source)
+        private static T FindItem<T>(DependencyObject source)
+            where T : class
         {
-            // 从命中的元素往上找，直到遇到数据上下文是歌曲的那一层（行模板根或 ListViewItem）。
+            // 从命中的元素往上找，直到遇到数据上下文是该类型的那一层（项模板根或 ListViewItem）。
             for (var node = source; node != null; node = VisualTreeHelper.GetParent(node))
             {
-                if (node is FrameworkElement element && element.DataContext is SongItem song)
+                if (node is FrameworkElement element && element.DataContext is T item)
                 {
-                    return song;
+                    return item;
                 }
 
                 if (node is ListViewBase)

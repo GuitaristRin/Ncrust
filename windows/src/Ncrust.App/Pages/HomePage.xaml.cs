@@ -22,6 +22,7 @@ namespace Ncrust.Pages
             InitializeComponent();
             SongActions.AttachContextMenu(DailyList);
             SongActions.AttachContextMenu(NewList);
+            SongActions.AttachCollectionMenu<PlaylistCard>(PlaylistGrid, playlist => SongActions.PlaylistSongsAsync(playlist.Id));
 
             // 登录 / 退出后每日推荐的可见性变了：页面是缓存的，要主动刷新。
             AppServices.SessionChanged += () => _ = LoadAsync();
