@@ -104,6 +104,15 @@ namespace Ncrust.Playback
         public event Action QueueChanged;
 
         /// <summary>
+        /// 当前曲实际在播的音质档位变化（对应 Android 播放器的音质标签 currentQualityIndex）：
+        /// 起播时是请求档位，取到 URL 后换成取链实际落到的档位，解码失败降档后再更新。参数为 null 表示没有在播。
+        /// </summary>
+        public event Action<string> QualityChanged;
+
+        /// <summary>当前曲实际在播的档位（API 名，如 lossless）；没有在播为 null。</summary>
+        public string CurrentLevel => CurrentInfo()?.DisplayLevel;
+
+        /// <summary>
         /// 私人 FM 入口进来的 INFINITY：队尾续播拉 FM 流而不是相似歌曲（对应 Android fmMode）。
         /// 手动切换播放模式或整队替换时清掉。
         /// </summary>
@@ -204,6 +213,7 @@ namespace Ncrust.Playback
             AppendNextIfMissing();
             _player.Play();
             QueueChanged?.Invoke();
+            QualityChanged?.Invoke(CurrentLevel);
         }
 
         /// <summary>清空队列后调用：停止播放、清空窗口。</summary>
@@ -214,6 +224,7 @@ namespace Ncrust.Playback
             _advanceWhenFed = false;
             _currentSongId = -1;
             CurrentSongChanged?.Invoke(null);
+            QualityChanged?.Invoke(null);
             QueueChanged?.Invoke();
         }
 
@@ -362,6 +373,7 @@ namespace Ncrust.Playback
         private MediaPlaybackItem CreateItem(SongItem song, string level)
         {
             var binder = new MediaBinder { Token = song.Id + "@" + level };
+            var info = new ItemInfo(song, level);
 
             // Binding 在后台线程触发：只用闭包捕获的 song / level，不读共享字典。
             binder.Binding += async (sender, args) =>
@@ -373,6 +385,16 @@ namespace Ncrust.Playback
                     if (result != null)
                     {
                         args.SetUri(new Uri(result.Url));
+
+                        // 取链可能已沿阶梯降档（例如请求无损、只拿到极高）：记下实际档位，是当前曲就刷新音质标签。
+                        info.ActualLevel = result.ActualLevel;
+                        OnUi(() =>
+                        {
+                            if (ReferenceEquals(CurrentInfo(), info))
+                            {
+                                QualityChanged?.Invoke(CurrentLevel);
+                            }
+                        });
                     }
                 }
                 catch
@@ -405,8 +427,15 @@ namespace Ncrust.Playback
             }
 
             item.ApplyDisplayProperties(props);
-            _infoByItem[item] = new ItemInfo(song, level);
+            _infoByItem[item] = info;
             return item;
+        }
+
+        /// <summary>当前项（列表还没开始播时是第一项）的条目信息。</summary>
+        private ItemInfo CurrentInfo()
+        {
+            var index = CurrentItemIndex();
+            return index >= 0 && _infoByItem.TryGetValue(_list.Items[index], out var info) ? info : null;
         }
 
         private int CurrentItemIndex()
@@ -542,6 +571,7 @@ namespace Ncrust.Playback
             AppendNextIfMissing();
             SaveState();
             QueueChanged?.Invoke();
+            QualityChanged?.Invoke(CurrentLevel);
         }
 
         private void OnPlaybackStateChanged()
@@ -740,7 +770,13 @@ namespace Ncrust.Playback
 
             public SongItem Song { get; }
 
+            /// <summary>请求的档位（降档重试会用更低的档位新建条目）。</summary>
             public string Level { get; }
+
+            /// <summary>取链实际落到的档位；Binding 在后台线程写入，只是一个引用赋值。</summary>
+            public string ActualLevel { get; set; }
+
+            public string DisplayLevel => ActualLevel ?? Level;
         }
     }
 }

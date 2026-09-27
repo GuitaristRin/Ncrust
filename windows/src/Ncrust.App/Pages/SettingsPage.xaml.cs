@@ -22,7 +22,7 @@ namespace Ncrust.Pages
     public sealed partial class SettingsPage : Page
     {
         /// <summary>与 Android strings.qualityOptions 一致，下标即持久化值（0..6）。</summary>
-        private static readonly string[] QualityOptions = { "压缩", "较好", "更好", "无损", "高解析", "高清环绕声", "杜比全景声" };
+        private static readonly string[] QualityOptions = Ncrust.Resources.DisplayFormat.QualityLabels;
 
         private bool _loading;
 

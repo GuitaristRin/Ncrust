@@ -174,10 +174,25 @@ namespace Ncrust.Player
             engine.ModeChanged += UpdateModeButton;
             engine.ModeChanged += _ => _queue.MarkDirty();
             engine.QueueChanged += _queue.MarkDirty;
+            engine.QualityChanged += OnQualityChanged;
 
             RestorePreferences(engine);
             OnSongChanged(AppServices.Queue.Current);
             OnIsPlayingChanged(engine.IsPlaying);
+            OnQualityChanged(engine.CurrentLevel);
+        }
+
+        private void OnQualityChanged(string level)
+        {
+            var label = Ncrust.Resources.DisplayFormat.QualityLabel(level);
+            QualityText.Text = label;
+            QualityBadge.Visibility = label.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void QualityBadgeClick(object sender, RoutedEventArgs e)
+        {
+            Collapse();
+            Shell.AppShell.Navigate(typeof(SettingsPage));
         }
 
         private void RestorePreferences(PlaybackEngine engine)

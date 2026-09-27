@@ -31,6 +31,23 @@ namespace Ncrust.Resources
         public static string ArtistCounts(int albumSize, int musicSize) =>
             string.Format(CultureInfo.InvariantCulture, "{0} 张专辑 · {1} 首歌曲", albumSize, musicSize);
 
+        /// <summary>7 档音质的显示名，下标即偏好索引（与 Android qualityOptions、QualityLadder.ApiLevels 一一对应）。</summary>
+        public static readonly string[] QualityLabels = { "压缩", "较好", "更好", "无损", "高解析", "高清环绕声", "杜比全景声" };
+
+        /// <summary>档位 API 名 → 显示名（如 lossless → 无损）；未知档位返回空串。</summary>
+        public static string QualityLabel(string level)
+        {
+            for (var i = 0; i < Core.Playback.QualityLadder.ApiLevels.Count; i++)
+            {
+                if (Core.Playback.QualityLadder.ApiLevels[i] == level)
+                {
+                    return QualityLabels[i];
+                }
+            }
+
+            return string.Empty;
+        }
+
         /// <summary>「12 首」（对应 Android trackCount）。</summary>
         public static string TrackCount(int count) => count.ToString(CultureInfo.InvariantCulture) + " 首";
 
