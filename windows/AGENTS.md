@@ -47,6 +47,7 @@ Android 专属的章节不适用于这里。
 | 强调色 | **跟随 Windows 系统强调色**（设置 → 个性化 → 颜色，Windows 10 / 11 都有）；读不到时回落内置云杉 `#1DB954`。平台控件直接用 SystemAccentColor，Kanesumi 的 `KPrimaryBrush` 由 `KanesumiAccent.FollowSystem` 同步并实时跟随；`KOnPrimaryBrush` 按亮度选黑 / 白 | 负责人要求。应用图标的绿色是品牌色，不随强调色变 |
 | 外壳导航 | **标准汉堡菜单**：WinUI 2 `NavigationView`（自适应展开 / 紧凑 / 最小），不用自绘 ListView 侧栏或窄窗底部导航 | 负责人要求标准汉堡菜单；参考 Groove Music。平台控件自带自适应、返回按钮、键盘与 UIA |
 | WinUI 2 样式版本 | `XamlControlsResources ControlsResourcesVersion="Version1"` | Windows 10 / Groove 一代的直角样式；Version2 是 Windows 11 圆角 + 中灰圆角内容面板，与 Kanesumi 冲突 |
+| 磁贴间距 | 桌面横向 20 / 纵向 28、磁贴 176（`MetroGridTileStyle`），**有意偏离** tokens 的 `gridSpacing = 2` | 2 的拼贴缝在手机上是 Kanesumi 的拼贴感，桌面一整面墙显得太紧张（负责人反馈，2026-09-27） |
 | 图标 | 界面图标用 **Segoe MDL2 Assets**（显式指定 `FontFamily`）；应用图标是整块绿底唱片纹 | Groove 同源的原生图标字体；不打包 Material Icons（原 KANESUMI_XAML 的设想已撤回） |
 | DI / MVVM 框架 | 不用。与 Android 一样用单例充当服务定位器；`INotifyPropertyChanged` 手写；只用 `x:Bind` | 依赖越少，.NET Native 的反射问题越少；`x:Bind` 是编译期绑定 |
 
@@ -363,7 +364,7 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 | 轻提示 | 插播、收藏、复制链接等操作后在播放栏上方显示约 2 秒（`AppShell.Notice`，对应 Android Toast） |
 | 多选 | Ctrl / Shift 多选，批量「下一首播放 / 加入队列」（M2） |
 | 返回 | 详情页左上角悬浮箭头；Alt+←、鼠标侧键、焦点不在输入框时的 Backspace |
-| 搜索 | 导航面板顶部的搜索框（窄窗口先展开面板），Ctrl+F 聚焦。输入停顿 **500ms（防抖不能去掉）** 后下拉即时建议（前 8 首歌，选中即播放）；回车进入搜索页，用平台原生 `Pivot` 分歌曲 / 专辑 / 歌手三类（Groove「我的音乐」同款），三类并发请求。点歌记入搜索历史（历史的展示入口待做） |
+| 搜索 | 导航面板顶部的搜索框（窄窗口先展开面板），Ctrl+F 聚焦。输入停顿 **500ms（防抖不能去掉）** 后下拉即时建议（前 8 首歌，选中即播放）；回车进入搜索页，用平台原生 `Pivot` 分歌曲 / 专辑 / 歌手三类（Groove「我的音乐」同款），三类并发请求。下拉项带 40 小封面。搜索框为空时下拉显示搜索记录：搜过的关键词（桌面新增，Android 只记条目）+ 从搜索里点过的歌曲 / 专辑 / 歌手，末尾「清除搜索记录」 |
 
 ### 快捷键
 
@@ -561,6 +562,9 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 - **跟随另一块元素高度时小心布局循环**：播放卡片右栏要与左栏等高，若左栏元素是拉伸对齐、右栏跨行，
   给右栏设高度会撑高行 → 左栏跟着变高 → 右栏再变高，抛 `LayoutCycleException`（启动即崩，实测）。
   左栏元素改为顶端对齐（高度只看自身内容），右栏总占高取整后不超过左栏。
+- **不要重新 `StartAnimation` 正在运行的表达式来「更新参数」**：替换那一帧属性会露出静态值
+  （播放卡片的封面按原始大尺寸、布局原点闪一下，实测）。表达式只启动一次，随布局变化的数值放进
+  `CompositionPropertySet` 当参数，改参数即可。
 - **启动恢复期间不能落盘会话**：恢复播放模式会调 `SetMode`，那时 `RestoreAsync` 还没读文件、队列是空的，
   存下去就把上次的队列覆盖成空。引擎在 `ShowRestored` / `PlayCurrent` 之前忽略 `SaveState`。
 - **Write 工具仍会把 `\uXXXX` 转成私用区字符**：C# 里写图标码点后用脚本扫一遍 U+E000–U+F8FF
