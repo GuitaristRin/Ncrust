@@ -4,33 +4,19 @@
 仓库级约定（提交规范、「一个逻辑单元一个 commit」等）见根目录 `AGENTS.md`；根文件里
 Android 专属的章节不适用于这里。
 
-**状态**（2026-09-26）：**M0 实施中，功能未开始。** 解决方案的四个项目都已建好，
-Release|x64 构建零警告并生成 MSIX；注册后能启动，显示纯黑底加 34px 页头（颜色和字号来自
-Kanesumi.Xaml）。`Ncrust.Core` 已落地网络与加密层（eapi / weapi、`NcmHttp`）、
-自研只读 `JsonValue`、登录层（`SessionCookie` / `QrLoginClient`）、
-`DiscoveryApi`（首页）、`SearchApi` / `SongApi` / `PlaylistApi` / `AlbumApi` / `ArtistApi` /
-`AccountApi`（搜索 / 详情 / 歌词 / 歌单 / 专辑 / 歌手 / 账号）、`QualityLadder`、
-`LrcParser` / `LyricMerger`、`PlaybackQueue`、`SongUrlResolver`、`PlayReport`、
-缓存与持久化（`ContentCache` / `SearchHistory` / `LyricsCache`）、云收藏库
-（`LibraryManager` / `LibraryApi` / `ApiLibraryCloud`）、登录层（`SessionCookie` / `QrLoginClient`）、播放状态层
-（`PlaybackSessionState` / `PlaybackPreferences` / `PlaybackStateStore`）。
-**`Ncrust.Core` 的阶段 1 已全部完成**，`spec/fixtures` 第一批（crypto / quality / queue / lrc）与
-`spec/api/endpoints.md` 已落地，Core 测试 183 个通过。App 侧平台层已实现
-（`LocalSettingsStore` / `LocalFileStore` / `PasswordVaultCredentialStore` / `WindowsCodecProbe` /
-`ConnectionProfileNetworkInfo`），Release|x64 + .NET Native 构建零警告。施工单见 `windows/docs/PLAN.md`。
-App 侧已实现平台层、独立登录窗口（WebView2 + 二维码）与 `PlaybackEngine`（滑动窗口 /
-MediaBinder / 降级 / 上报），Shell 有 M0 播放验证入口；Kanesumi.Xaml 已起步
-（`KanesumiEasing` / `KanesumiMotion` + 按钮 / 分隔线 / 列表行样式）。
-已可点播：Shell 侧栏 + 首页 → `PlaybackHost` 起播；底部播放栏 + `PlayerHost` 唯一封面形变
-（卡片 / 真全屏）已落地；Kanesumi.Xaml 动效与按钮 / 列表 / 侧栏 / Tab / 进度环样式已落地。
+**状态**（2026-09-27）：**M1 进行中，已可日常点播。** 包版本 0.1.2.0。
 
-**2026-09-26 第二轮（参考 Groove Music / Apple Music，负责人暂不便开应用，只做了代码走查与构建）**：
-外壳改为标准汉堡菜单（WinUI 2 `NavigationView`，`ControlsResourcesVersion="Version1"` + Kanesumi 资源覆盖）
-与自定义标题栏；Groove 式传输栏（模式 / 进度拖动 / 音量）；搜索页 + 即时建议；首页登录提示与空分区隐藏；
-图标改为整块绿底唱片纹。review 修掉了 `PlaybackEngine` 的跨线程改 UI（首次播放即崩）、窗口续播停止、
-随机模式不前进、上一首无效、降级重试不切回，以及 `PlayerHost` 整棵子树点不到等问题。
-**以上全部只经构建验证，运行期待验收**，清单见 `docs/PLAN.md`「待设备验收」。
-下一步：歌词 / 队列层、歌单 / 专辑 / 歌手详情页、音乐库页。
+- `Ncrust.Core`：协议、加密、全部端点、队列状态机、音质阶梯、缓存与持久化、云收藏库、
+  10 段均衡器（DSP + 预设），Core 测试 222 个通过。
+- `Ncrust.App`：标准汉堡菜单外壳（`NavigationView`）+ 自定义标题栏、独立登录层（WebView2 + 二维码）、
+  `PlaybackEngine`（滑动窗口 / MediaBinder / 降级 / 上报 / 均衡器）、Groove 式传输栏与 Composition 播放器层、
+  首页、搜索页（原生 `Pivot`）、设置页（移植 Android「我的」页）与 10 段均衡器子页面。
+- `Ncrust.Audio`：均衡器音效组件（`IBasicAudioEffect`，挂在 `MediaPlayer` 上）。
+- `Kanesumi.Xaml`：token、缓动、按钮 / 列表 / 进度环样式、NavigationView 资源覆盖、`KanesumiAccent`（强调色跟随系统）。
+
+2026-09-26 上机验收了外壳、登录、首页、搜索、播放与播放器层（结果见 `docs/PLAN.md`「设备验收」）；
+设置页与均衡器只验过界面渲染，**音效是否可闻、预设保存 / 删除、浅色主题、清除缓存待验**。
+下一步：歌词 / 队列层 → 歌单 / 专辑 / 歌手详情页 → 音乐库页。施工单见 `docs/PLAN.md`。
 
 本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
@@ -95,7 +81,9 @@ Get-Content "$env:LOCALAPPDATA\Packages\TakahashiRinta.Ncrust_98kk3q0vty278\Loca
 Get-AppxPackage TakahashiRinta.Ncrust | Remove-AppxPackage
 ```
 
-覆盖安装前先提高 `Package.appxmanifest` 的版本号；卸载重装会清掉 LocalSettings。
+**改了 `Package.appxmanifest`（包括构建自动写入的音效类注册）就要提高版本号**，否则重新注册报
+`0x80073CFB`；卸载重装可以绕过，但会清掉 LocalSettings（登录态、音量、均衡器设置都没了）。
+注册后第一次启动偶尔没反应，再启动一次即可。
 
 界面验证工具：M0 时从 arc-deck `uwp/tools/shot/` 移植到 `windows/tools/shot/`
 （`ShotWindow`、`Uia`、`Verify`、`Contrast`、`ResourceAudit` 等）。移植时注意「已知的坑」里
@@ -108,10 +96,12 @@ windows/
 ├── AGENTS.md
 ├── Ncrust.Windows.sln          # 手写维护（dotnet sln 无法添加 UWP 项目），仅 Release|x64
 ├── docs/
-│   └── KANESUMI_XAML.md
+│   ├── KANESUMI_XAML.md
+│   └── PLAN.md                 # 施工单与设备验收记录
 ├── src/
 │   ├── Ncrust.Core/            # netstandard2.0 —— 协议与业务，不依赖 WinRT 和 UI
 │   ├── Kanesumi.Xaml/          # UWP 类库 —— token、样式、自定义控件；不依赖 Ncrust
+│   ├── Ncrust.Audio/           # Windows 运行时组件 —— 音效（均衡器），只引用 Ncrust.Core
 │   └── Ncrust.App/             # UWP 应用 —— 页面、播放引擎、平台集成
 ├── tests/
 │   └── Ncrust.Core.Tests/      # net9.0 + xUnit，直接读取 ../../spec/
@@ -133,8 +123,14 @@ Kanesumi 必须排在 WinUI 之后，否则覆盖不生效；模板字典排最�
 ```
 Ncrust.App ──► Kanesumi.Xaml
     │
-    └────────► Ncrust.Core ◄── Ncrust.Core.Tests ──► spec/fixtures
+    ├────────► Ncrust.Audio ──┐
+    │                         ▼
+    └────────────────► Ncrust.Core ◄── Ncrust.Core.Tests ──► spec/fixtures
 ```
+
+`Ncrust.Audio` 必须是独立的 Windows 运行时组件（winmdobj）：`MediaPlayer.AddAudioEffect` 按
+activatable class id 激活音效，类要在 winmd 里可见。构建会自动把类注册进应用清单
+（`Ncrust.Audio.EqualizerEffect`，宿主 `Ncrust.dll`），不用手写 `Extensions`。
 
 ### Ncrust.Core
 
@@ -150,6 +146,7 @@ Ncrust.App ──► Kanesumi.Xaml
 | `Lyrics/` | `LrcParser`、双语歌词合并、`LyricsCache`（200 条） | `lyric/` |
 | `Cache/` | `ContentCache`：首页快照（15s 新鲜期）+ 专辑 / 歌单 / 歌手的 LRU-32 | `cache/` |
 | `Search/` | 搜索历史（每类最多 10 条，14 天过期） | `SearchHistoryManager` |
+| `Audio/` | 10 段均衡器：`EqualizerBands`（31 Hz ~ 16 kHz，Q 1.41，±12 dB）、`BiquadCoefficients`（RBJ peaking）、`EqualizerProcessor`（原地处理、参数快照无锁切换）、内置 / 命名预设、`EqualizerStore`（设置键 `eq_*` + `eq_presets.json`） | —— Android 没有 |
 | `Platform/` | 接口：`ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo` | —— |
 
 规则：Core 里的 `await` 一律 `ConfigureAwait(false)`，不假设有 UI 线程；由 App 负责切回 Dispatcher。
@@ -158,8 +155,8 @@ Ncrust.App ──► Kanesumi.Xaml
 
 | 目录 | 内容 |
 |---|---|
-| `Shell/` | `ShellPage`（侧栏 / 底部导航 + 内容 Frame + 播放栏 + 播放器层）、自定义标题栏、全局快捷键 |
-| `Pages/` | Home、Search、Library、User（账户与设置）、Album、Artist、Playlist、About |
+| `Shell/` | `ShellPage`（`NavigationView` + 内容 Frame + 播放栏 + 播放器层 + 登录层）、自定义标题栏、全局快捷键；`AppTheme`（明暗模式 + 标题栏按钮配色） |
+| `Pages/` | Home、Search、Settings（账户 / 音质 / 播放 / 音效 / 外观 / 缓存 / 关于，对应 Android 的「我的」页与 About）、Equalizer；待做 Library、Album、Artist、Playlist |
 | `Player/` | `PlayerHost`（Composition 驱动的展开层）、`PlayerControls`、`SeekBar`、`QueueView`、`LyricsView`（封装 `MetroLyricsPanel`） |
 | `Playback/` | `PlaybackEngine`：把 `PlaybackQueue` 的决定落到 `MediaPlaybackList` 上；`MediaBinder` 的绑定处理 |
 | `Login/` | `LoginWindow`（独立登录层）：内嵌 WebView2 登录 + 二维码（`QrLoginClient` + 本地渲染） |
@@ -190,6 +187,8 @@ Ncrust.App ──► Kanesumi.Xaml
 | `SongDetailScreen` | 不移植 | Android 上本来就进不去 |
 | `SongMenuSheet` | 右键 / 长按 `MenuFlyout` | 菜单项与 Android 一致 |
 | `PlayAllDialog` | `MetroContentDialogStyle` | |
+| `ThemeManager`（6 色 × 3 模式） | 强调色跟随系统（`KanesumiAccent`）+ 3 种明暗模式（`AppTheme`） | 不做 6 色预设 |
+| `UserScreen`（「我的」）+ `AboutScreen` | `SettingsPage` | 见「设置页与均衡器」 |
 | `LocalStrings` + `Strings.kt` | `Strings` 类，属性与 `Strings.kt` 一一对应 | 带参数的文案用 `Func<int, string>` |
 
 ## 播放架构
@@ -290,7 +289,8 @@ Ncrust.App ──► Kanesumi.Xaml
 - **导航**：WinUI 2 `NavigationView`（标准汉堡菜单），按窗口宽度自适应：
   ≥ 1008 展开（面板宽 240）、600 ~ 1008 紧凑（只剩图标）、< 600 最小（只剩汉堡按钮，点开浮出面板）。
   面板：顶部搜索框（Groove）→ 首页 → 分组标题「我的音乐」（Apple Music 的资料库分组）→ 音乐库；
-  底部账户项：未登录显示「登录」并打开登录层，登录后显示昵称与头像、进入「我的」。
+  底部账户项：未登录显示「登录」并打开登录层，登录后显示昵称与头像、进入设置页；
+  面板最下方是 NavigationView 自带的「设置」。
   返回按钮常驻，随 `Frame.CanGoBack` 启用；返回后菜单高亮与当前页同步，
   搜索结果 / 详情页等不对应菜单项的页面清掉高亮。
 - **播放栏**：外壳第二行固定 72，页面内容区在它上方，**不会被播放栏遮挡**，
@@ -364,6 +364,34 @@ Ncrust.App ──► Kanesumi.Xaml
 
 快捷键挂在 `ShellPage.KeyboardAccelerators` 上，`KeyboardAcceleratorPlacementMode = Hidden`（不弹按键提示）。
 
+### 设置页与均衡器
+
+设置页（`Pages/SettingsPage`）移植 Android `UserScreen` 的内容，按 Windows 设置应用的分组排版，
+用平台原生控件（`ComboBox` / `ToggleSwitch` / `RadioButton` / `ContentDialog`）：
+
+| 分组 | 内容 | 键 / 来源 |
+|---|---|---|
+| 账户 | 头像、昵称、UID；登出（确认）/ 登录 | `AppServices.SignOut` → `SessionChanged` |
+| 音质 | 不计费网络 / 按流量计费的网络，各 7 档 | `wifi_quality` / `mobile_quality`（同 Android） |
+| 播放 | 无缝播放、歌词翻译 | `gapless_playback` / `lyrics_translation` |
+| 音效 | 均衡器入口，显示当前预设名（手动调过显示「自定义」） | → `EqualizerPage` |
+| 外观 | 跟随系统 / 深色 / 浅色；强调色色块 + 打开 `ms-settings:colors` | `theme_mode`（`SYSTEM` / `DARK` / `LIGHT`，同 Android） |
+| 存储与缓存 | 占用大小；清除（确认）：`LocalCache`、`TempState`、`AC\INetCache` 与歌词缓存 | 不动登录态与队列 |
+| 关于 | 版本号（`Package.Current.Id.Version`）、GitHub | —— |
+
+明暗模式设在根 `Frame.RequestedTheme` 上（`AppTheme`），切换即时生效，同时重设标题栏按钮配色。
+强调色不提供应用内选择：Windows 已有全局强调色，应用跟随它（见「立项决策」）。
+
+**均衡器**（`Pages/EqualizerPage`，桌面独有）：开关、预设下拉、前级 + 10 个竖向滑块（±12 dB，步进 0.5）。
+
+- 内置预设 9 个（平直、流行、摇滚、爵士、古典、电子、人声、低音增强、高音增强），不可删；
+  用户预设可命名保存（≤ 24 字，不能与内置同名，同名用户预设直接覆盖）与删除，存 `eq_presets.json`。
+- 手动拖动滑块后，只要仍与所选预设一致就保留预设名，否则显示「自定义」；选预设会顺手打开均衡器。
+- 改动即时生效：页面写 `EqualizerStore` 并调 `PlaybackEngine.ApplyEqualizer`，引擎把参数写进
+  与音效共享的 `PropertySet`，`EqualizerEffect` 在 `MapChanged` 里重算系数（快照整体替换，音频线程不加锁）。
+- `AddAudioEffect` 以 `optional: true` 挂载：音效加载失败时照常播放，设置页与均衡器页提示「当前系统不支持挂载音效」。
+- 音效只接受 32 位浮点 PCM（44.1 / 48 / 88.2 / 96 / 192 kHz，单 / 双声道）；Q 值与频点见 `EqualizerBands`。
+
 ### 登录
 
 **M0 #4 实测：浏览器 Cookie 导入不可行**（Chrome / Edge 的 App-Bound Encryption，前缀 `v20`；
@@ -414,7 +442,7 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 
 ### M2 · 与 Android 主干功能对齐
 
-音乐库云同步、专辑与歌手页、私人 FM 与 INFINITY、音质设置、主题（6 色 × 3 模式）、
+音乐库云同步、专辑与歌手页、私人 FM 与 INFINITY、音质设置（✅）、明暗 3 模式（✅，强调色跟随系统）、
 多选、窄窗口细节（导航已由 NavigationView 最小模式覆盖）、Kanesumi.Xaml 的 M2 控件、dolby / jyeffect 解码实测。
 
 ### M3 · 收尾
@@ -504,5 +532,14 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
   `ilc.exe` 退出码 3004。先关应用再构建。
 - **模拟键盘输入会被中文输入法转换**：截图脚本 `-Keys` 输入英文会变成拼音候选（"jay" → 「叫阿姨」）；
   验证时用数字，或先切到英文输入。
+- **包清单变了而版本号没变，`Add-AppxPackage -Register` 报 `0x80073CFB`**（同版本包已存在且内容不同）。
+  新增 Windows 运行时组件时构建会改清单（写入 activatable class），同样要升版本。见「构建、测试与运行」。
+- **音效组件的缓冲区**：`AudioFrame.LockBuffer` 拿到的内存要经 `IMemoryBufferByteAccess`（COM 接口，
+  `unsafe` + `AllowUnsafeBlocks`）取指针；`EqualizerEffect` 先 `Marshal.Copy` 到 float 数组、处理完再拷回。
+  `DiscardQueuedFrames`（seek / 换歌）时要清掉滤波器历史，否则上一段的尾音会带进新位置。
+- **`git rm` 暂存的删除会混进下一个 commit**：分多个 commit 提交时，先确认 `git status` 里没有不属于
+  本单元的已暂存删除；混进去了用 `git reset --soft` 拆开重提。
+- **Bash 工具的 heredoc 会吞掉反斜杠**：写含 `\` 的脚本（正则、Windows 路径、`\uXXXX`）用编辑工具，
+  或写成文件再执行。
 - **应用能力声明**：`internetClient`、`backgroundMediaPlayback`；M3 做 `QrPair` 时再加
   `privateNetworkClientServer`。

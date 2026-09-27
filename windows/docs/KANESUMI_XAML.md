@@ -143,6 +143,11 @@ XAML：可点击控件的模板里放一个铺满的 `Rectangle x:Name="PressTin
 | `MetroLyricsPanel` | `MetroLyricsPanel` | 自定义 | 见下节 | M1 |
 | `MetroDrawer` / `MetroChatInputBar` | **不移植** | — | Ncrust 用不到 | — |
 
+**现状（2026-09-27）**：设置页与均衡器页直接用平台原生的 `ToggleSwitch` / `ComboBox` / `RadioButton` /
+`ContentDialog` / 竖向 `Slider`（Version1 直角样式，强调色跟随系统），**还没有**上表 M2 的四个样式。
+按「平台控件优先」，M2 做这几项时只做资源键级覆盖（颜色、圆角、尺寸），不重写模板；
+若原生外观已经与 Kanesumi 协调，可以不做，并在本表注明。
+
 ### 层 2 · structure
 
 | sec-a | Kanesumi.Xaml | 基底 | 关键数值 / 行为 | 阶段 |

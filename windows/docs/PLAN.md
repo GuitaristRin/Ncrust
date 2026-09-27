@@ -14,7 +14,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 ## 阶段 0 · 工程骨架（M0 配套）
 
-- [x] 解决方案四项目：`Ncrust.Core` / `Kanesumi.Xaml` / `Ncrust.App` / `Ncrust.Core.Tests`
+- [x] 解决方案四项目：`Ncrust.Core` / `Kanesumi.Xaml` / `Ncrust.App` / `Ncrust.Core.Tests`；
+      第五个 `Ncrust.Audio`（Windows 运行时组件，音效）
 - [x] Release|x64 构建、.NET Native、MSIX、图标
 - [x] Kanesumi.Xaml 的 `Colors` / `Typography` / `Overrides`
 - [~] `windows/tools/shot`：`Shot.ps1`（固定尺寸截图 + 点击 / 按键）已落地；UIA / Contrast / ResourceAudit 未移植
@@ -59,7 +60,12 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] `Library/LibraryManager`：喜欢的歌曲 / 收藏专辑云同步，**云端读失败不覆盖本地**、待同步表；
       `LibraryApi` / `ApiLibraryCloud` + 红心 ids / 收藏专辑 / like / sub album 端点已补
 
-### 1.6 平台接口
+### 1.6 音效
+
+- [x] `Audio/`：10 段均衡器 DSP（RBJ peaking biquad、前级、原地处理、参数快照无锁切换）、
+      9 个内置预设、命名用户预设（`eq_presets.json`）、状态存取（`eq_*` 设置键）；`EqualizerTests` 21 个
+
+### 1.7 平台接口
 
 - [x] `Platform/ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo`
 
@@ -86,6 +92,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
       有没有条目」（原先 CYCLE 回绕会停播）；队列推进用 `PlaybackQueue.MoveNext`（随机模式推进打乱位置）；
       上一首由队列后退并重建窗口；启动恢复上次队列（`PlaybackHost.RestoreAsync`）；
       `SetMode` / `RefreshNext` / 音量 / 静音
+- [x] 均衡器：`Ncrust.Audio.EqualizerEffect`（`IBasicAudioEffect`）经 `AddAudioEffect(optional)` 挂载，
+      参数走共享 `PropertySet` 即时生效（`AttachEqualizer` / `ApplyEqualizer`）
 - [ ] 引擎接线单测（MediaPlayer 不可注入，靠设备实测）
 - [ ] **M0 #2 实测**：真实 URL 连播两首无空隙、第二首 URL 在 Binding 里才取、SMTC 元数据正确
 - [ ] **M0 #3 实测**：UWP 进程内带 cookie 取每日推荐（`UseCookies=false` 生效）
@@ -141,15 +149,18 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] Search：面板搜索框即时建议（500ms 防抖，选中即播）+ 搜索页三类 Tab、并发请求、取消过期查询、
       点歌记历史；共享模板字典 `Resources/Templates.xaml`
 - [ ] 搜索历史的展示入口（空查询时显示历史）；专辑 / 歌手结果可点（依赖详情页）
-- [ ] Playlist 详情、Library、User（设置 / 账户）、About
+- [x] 设置页（移植 Android「我的」+ About：账户 / 音质 / 播放 / 音效 / 外观 / 缓存 / 关于）
+- [x] 均衡器子页面（开关、预设、前级 + 10 段、命名保存 / 删除 / 重置）
+- [ ] Playlist 详情、Library
 - [ ] 页面加载态沿用「缓存优先 + 后台刷新」模式，不整屏替换加载器
 
 ## 阶段 8 · M2 对齐 Android 主干
 
 - [ ] 音乐库云同步 UI、专辑 / 歌手页
 - [ ] 私人 FM + INFINITY（相似 / FM 续播、去重、防重入）
-- [ ] 音质设置（6 档偏好 + Wi-Fi / 计费两档默认 3 / 1）、歌词翻译开关、gapless 开关
-- [~] 主题：强调色已跟随 Windows 系统强调色（`KanesumiAccent`，不再做 6 色预设）；明暗 3 模式待做
+- [x] 音质设置（7 档，不计费 / 计费两档默认 3 / 1）、歌词翻译开关、gapless 开关（设置页）
+- [x] 主题：强调色跟随 Windows 系统强调色（`KanesumiAccent`，不再做 6 色预设）；
+      明暗 3 模式（`AppTheme`，键 `theme_mode` 同 Android）
 - [ ] 多选批量操作、窄窗口细节（导航已由 NavigationView 最小模式覆盖）
 - [ ] dolby / jyeffect 在 Windows 上的解码实测（解不了靠自动降级兜底）
 
@@ -182,9 +193,22 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 
 仍待验：紧凑 / 最小导航态、自动续播与随机模式长时间播放、SMTC 媒体键、音量与模式持久化、各快捷键。
 
+## 待验收（2026-09-27，设置页与均衡器）
+
+界面已上机渲染；以下需要负责人配合（要听、要点对话框），未验：
+
+| # | 项目 | 结果 |
+|---|---|---|
+| 1 | 均衡器音效可闻（低音增强 / 高音增强对比平直；关掉开关立即恢复） | ⏳ |
+| 2 | 预设命名保存 / 同名覆盖提示 / 删除确认 / 重置 | ⏳ |
+| 3 | 浅色 / 深色 / 跟随系统切换即时生效，标题栏按钮配色跟着变 | ⏳ |
+| 4 | 清除缓存（大小归零，登录态与队列不受影响） | ⏳ |
+| 5 | 音质下拉改动后下一首生效；登出确认后首页回到登录提示 | ⏳ |
+
 ## 当前状态速览
 
-- **阶段 1（Ncrust.Core）全部完成**，Core 测试 200 个通过；阶段 2 平台层 + 独立登录窗口完成；
+- **阶段 1（Ncrust.Core）全部完成**，Core 测试 222 个通过（含均衡器）；阶段 2 平台层 + 独立登录窗口完成；
   阶段 3 PlaybackEngine 经 review 修正并上机验证可播放。Release|x64 + .NET Native 构建零警告。
 - 外壳（标准汉堡菜单 + 自定义标题栏）、Groove 式传输栏、搜索页（原生 Pivot）、首页均已上机验证（见上节）。
-- 下一步：**歌词 / 队列层** → 歌单 / 专辑 / 歌手详情页 → 音乐库页 → 设置页。
+- 设置页与 10 段均衡器已落地（包版本 0.1.2.0），待验收见上节。
+- 下一步：**歌词 / 队列层** → 歌单 / 专辑 / 歌手详情页 → 音乐库页。
