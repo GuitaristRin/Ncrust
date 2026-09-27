@@ -232,7 +232,21 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="40" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+            <AppBarButton
+                Grid.Column="2"
+                Width="32"
+                Height="32"
+                VerticalAlignment="Center"
+                Click="SuggestionDeleteClick"
+                LabelPosition="Collapsed"
+                ToolTipService.ToolTip="删除记录"
+                Visibility="{x:Bind DeleteVisibility}">
+                <AppBarButton.Icon>
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE711;" />
+                </AppBarButton.Icon>
+            </AppBarButton>
             <Grid
                 Width="40"
                 Height="40"

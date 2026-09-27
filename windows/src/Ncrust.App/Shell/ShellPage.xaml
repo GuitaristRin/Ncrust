@@ -48,7 +48,14 @@
                     QuerySubmitted="SearchQuerySubmitted"
                     TextChanged="SearchTextChanged"
                     TextMemberPath="Title"
-                    UpdateTextOnSelect="False" />
+                    UpdateTextOnSelect="False">
+                    <!-- 下拉项横向拉伸：搜索记录行尾的删除键才能贴右边。 -->
+                    <AutoSuggestBox.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </AutoSuggestBox.ItemContainerStyle>
+                </AutoSuggestBox>
             </muxc:NavigationView.AutoSuggestBox>
 
             <muxc:NavigationView.MenuItems>

@@ -43,6 +43,7 @@ namespace Ncrust.Shell
             AppShell.NoticeHandler = ShowNotice;
             _noticeTimer.Tick += (_, __) => HideNotice();
 
+            SearchSuggestion.RemoveRequested += RemoveHistoryAsync;
             LoginLauncher.LaunchRequested += ShowLogin;
             AppServices.SessionChanged += UpdateAccountItem;
             Window.Current.CoreWindow.PointerPressed += OnCoreWindowPointerPressed;
@@ -365,6 +366,37 @@ namespace Ncrust.Shell
             {
                 await ShowHistoryAsync(++_suggestVersion);
             }
+        }
+
+        private async void RemoveHistoryAsync(SearchSuggestion suggestion)
+        {
+            var history = AppServices.SearchHistory;
+            try
+            {
+                switch (suggestion.Kind)
+                {
+                    case SearchSuggestionKind.Query:
+                        await history.RemoveQueryAsync(suggestion.Title);
+                        break;
+                    case SearchSuggestionKind.HistorySong:
+                        await history.RemoveAsync(Core.Search.SearchHistoryType.Song, suggestion.Id);
+                        break;
+                    case SearchSuggestionKind.HistoryAlbum:
+                        await history.RemoveAsync(Core.Search.SearchHistoryType.Album, suggestion.Id);
+                        break;
+                    case SearchSuggestionKind.HistoryArtist:
+                        await history.RemoveAsync(Core.Search.SearchHistoryType.Artist, suggestion.Id);
+                        break;
+                    default:
+                        return;
+                }
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+
+            await ShowHistoryAsync(++_suggestVersion);
         }
 
         private async System.Threading.Tasks.Task ShowHistoryAsync(int version)

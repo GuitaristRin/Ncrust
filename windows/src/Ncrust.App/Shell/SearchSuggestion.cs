@@ -53,6 +53,15 @@ namespace Ncrust.Shell
 
         public Visibility SubtitleVisibility => string.IsNullOrEmpty(Subtitle) ? Visibility.Collapsed : Visibility.Visible;
 
+        /// <summary>搜索记录项行尾的删除键（即时建议与「清除」没有）。</summary>
+        public Visibility DeleteVisibility =>
+            Kind == SearchSuggestionKind.Song || Kind == SearchSuggestionKind.ClearHistory ? Visibility.Collapsed : Visibility.Visible;
+
+        /// <summary>行尾删除键被点：外壳删掉这条记录并刷新下拉。</summary>
+        internal static event Action<SearchSuggestion> RemoveRequested;
+
+        internal static void RequestRemove(SearchSuggestion suggestion) => RemoveRequested?.Invoke(suggestion);
+
         internal static SearchSuggestion FromSong(SongItem song) => new SearchSuggestion
         {
             Kind = SearchSuggestionKind.Song,

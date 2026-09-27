@@ -15,6 +15,15 @@ namespace Ncrust.Resources
             InitializeComponent();
         }
 
+        /// <summary>搜索记录行尾的删除键：DataContext 是那条记录。</summary>
+        private void SuggestionDeleteClick(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is Shell.SearchSuggestion suggestion)
+            {
+                Shell.SearchSuggestion.RequestRemove(suggestion);
+            }
+        }
+
         /// <summary>队列行尾的 ✕：Tag 是该行的队列索引。</summary>
         private void QueueRemoveClick(object sender, RoutedEventArgs e)
         {
