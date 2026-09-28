@@ -251,7 +251,7 @@ Defaults: Wi-Fi = 3 (lossless), Mobile = 1 (higher). The selected label shows as
 
 All queue operations live in `MainScreen` (not `PlayerViewModel`): `replaceQueueAndPlay`, `playSongItem`, `insertNext`, `appendToQueue`, `insertAllNext`, `appendAllToQueue`, `removeFromQueue`, `moveInQueue`, `playFromQueue`, `playNext`, `playPrevious`, `generateShuffledIndices`, `launchInfinity`, `startFm`.
 
-**Critical invariant:** `playbackQueue[currentQueueIndex]` must always equal the currently playing song. When deduping a queue mutation, record the current song's id first, filter, then re-locate the index — a naive `.filter` can drop an earlier duplicate and point `currentQueueIndex` at the wrong item. Every mutation calls `PlaybackStateManager.saveQueue(...)`, and any mutation in SHUFFLE mode regenerates the shuffled-index list.
+**Critical invariant:** `playbackQueue[currentQueueIndex]` must always equal the currently playing song. When deduping a queue mutation, record the current song's id first, filter, then re-locate the index — a naive `.filter` can drop an earlier duplicate and point `currentQueueIndex` at the wrong item. Every mutation calls `PlaybackStateManager.saveSession(...)`, which atomically persists the whole `PlaybackSession` (queue + index + mode + FM + shuffled indices); any mutation in SHUFFLE mode regenerates the shuffled-index list.
 
 5 playback modes (`QueueModes`): `CYCLE` (0), `SINGLE` (1), `SHUFFLE` (2), `LINE` (3, stops at tail), `INFINITY` (4, FM radio / similar-song continuation). `launchInfinity()` appends at the tail from `getPersonalFm` (FM mode) or `getSimilarSongs(seed)`, falling back to `getDailyRecommendSongs`, deduped and in-flight guarded.
 
@@ -280,7 +280,7 @@ SharedPreferences files:
 | `ncrust_prefs` | `CookieManager` | `user_cookie` |
 | `ncrust_settings` | `ThemeManager`, `LanguageManager`, `PlayerViewModel`, `UserScreen`, `MainActivity` | theme index/mode, language, quality, gapless, lyrics translation, `battery_prompt_done` |
 | `ncrust_library` | `LibraryManager` | `saved_songs`, `saved_albums`, `liked_ids` |
-| `ncrust_playback_state` | `PlaybackStateManager` | last song + `queue` / `queue_index` |
+| `ncrust_playback_state` | `PlaybackStateManager` | last song + `session` (explicit-key envelope: queue + index + mode + FM + shuffled indices, one atomic write; pre-1.3.2-fix payloads under obfuscated keys `a`–`f` are read back once via the legacy branch) |
 | `ncrust_lyrics_cache` | `LyricsCache` | `entries` (≤ 200) |
 | `search_history` | `SearchHistoryManager` | `songs`, `albums`, `artists` (≤ 10 each, 14-day TTL) |
 
@@ -325,6 +325,7 @@ To add a locale: create `xx_XX.kt` with a `Strings(...)` and add a `LanguagePres
 - **System-bar compensation**: `collapsedOffsetY = contentHeightPx - sysNavPx - navBarHeightPx(56/0) - miniBarHeightPx(56) - sysStatusPx`. `sysStatusPx` cancels the `.statusBarsPadding()` applied inside `PlayerCard` to the mini-bar overlay. **Automotive (AAOS) caveat**: CarSystemUI does not deliver WindowInsets, so on `UI_MODE_TYPE_CAR` the content height comes from the measured root height (`rootHeightPx`), not `screenHeightDp`; phone/tablet keep `screenHeightDp` so car changes don't leak. Touch any of these values carefully.
 - **Search debounce**: 500 ms in `SearchViewModel` — do not remove.
 - **No explicit coroutines dependency**: coroutines ship with the Kotlin stdlib configuration here.
+- **Gson 反射 vs R8（v1.3.2 首版启动闪退的根因）**: R8 会剪掉未被 `-keep` 的类的字段 `Signature` 注解，Gson 反序列化时泛型字段退化为裸 `List`，元素全部变成 `LinkedTreeMap`，第一次按真实类型访问元素就 `ClassCastException`。含泛型字段的持久化模型，元素类型必须由「匿名 `TypeToken`」显式携带（`PlaybackStateManager` 的 `songListType`、`LibraryManager` 的各 `*Type` 同此），或把模型加进 `-keep` 规则；**绝不让 Gson 反射整个未 keep 的 data class**。播放会话落盘用显式键信封（`PlaybackStateManager.serializeSession`/`parseSession`，键名写死在代码里），`PlaybackSessionStoreTest` 锁住该格式。
 - **`ContentCache` is not persisted**; `LibraryManager` is the persistence layer.
 - **Stale comments**: some comments say "last 20 s" for the gapless preload window (actual 60 s) and "4 Hz" for progress ticks (actual 2 Hz). Trust the code.
 - **`SongDetailScreen` / `NavRoutes.song(...)` are registered but unreachable** — clipboard song links load into the player instead.
