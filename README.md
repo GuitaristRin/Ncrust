@@ -6,7 +6,7 @@
 
 **Kanesumi Design · GPU 零重组动画 · 无缝播放 · 7 级音质 · 车机适配 · 8 语言**
 
-纯 Kotlin / Jetpack Compose · Media3 播放引擎 · eapi 加密直连 · 无中间服务器
+Android · Kotlin + Jetpack Compose + Media3 ｜ Windows · C# + UWP + WinUI 2 ｜ eapi 加密直连 · 无中间服务器
 
 [![Version](https://img.shields.io/badge/version-1.3.2-brightgreen?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
 [![APK](https://img.shields.io/badge/APK-3.9%20MB-blue?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
@@ -43,6 +43,7 @@
 | 🔀 **5 种播放模式** | 顺序循环 / 单曲循环 / 乱序 / 顺序线性 / 相似无限（私人 FM 电台） |
 | 🚗 **车机就绪** | Android Auto / Automotive 媒体源与浏览树，车机系统栏 inset 专项适配 |
 | 🪶 **3.9 MB** | R8 全量混淆 + 资源 shrink，冷启动预热，进程被杀也能恢复队列 |
+| 🪟 **跨平台** | Monorepo 内含 Windows 客户端（UWP + WinUI 2），协议与行为由共享的 `spec/` 规格与测试夹具约束 |
 | 🌐 **8 语言** | 运行时切换，不依赖系统 locale |
 | 🔐 **登录无忧** | 浏览器登录 + 二维码登录 + 手机扫码授权平板，全程无需手动粘贴 Cookie |
 
@@ -54,7 +55,7 @@
 
 - **每日推荐**、**推荐歌单**、**新歌速递**，懒加载分页，缓存命中秒开
 - **私人 FM**：首页电台入口，持续拉取私人 FM 流无限续播
-- **剪贴板识别**：复制 `music.163.com` / `163cn.tv` 分享链接回到 App 自动打开（单曲只载入不自动播放）
+- **分享与链接接收**：歌曲菜单一键分享（系统分享面板发送标准网易云链接）；复制 `music.163.com` / `163cn.tv` 分享链接、或从其他 App 分享 / 打开链接（`ACTION_SEND` / `ACTION_VIEW`）回到 App 自动识别 —— 三个入口共用同一解析器，单曲只载入不自动播放
 
 ### 🔍 搜索
 
@@ -158,9 +159,32 @@ cd Ncrust
 benchmark/run_benchmark.sh all     # Macrobenchmark：冷启动 / 滚动 / 播放器展开
 ```
 
+### 🪟 构建 Windows 版
+
+UWP 项目**只能在 Windows 上用 MSBuild 构建**（不支持 `dotnet build`），且只有 `Release|x64` 一种配置
+（Debug 版 .NET Native 依赖默认不预装的调试运行时）。环境：VS 2022 Build Tools + UWP 工作负载
+（Windows SDK 10.0.22621）+ .NET 9 SDK。
+
+```powershell
+$msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+
+& $msbuild windows\Ncrust.Windows.sln /t:Restore /p:Configuration=Release /p:Platform=x64
+& $msbuild windows\Ncrust.Windows.sln /p:Configuration=Release /p:Platform=x64
+# 产物：windows\src\Ncrust.App\AppPackages\Ncrust.App_<版本>_x64_Test\*.msix
+
+# 协议与业务核心的单元测试（net9.0，无需部署 UWP；同时校验 spec/design/tokens.json）
+dotnet test windows\tests\Ncrust.Core.Tests
+```
+
+Windows 端的构建细节、本地注册运行与已知坑见 [`windows/AGENTS.md`](windows/AGENTS.md)。
+
 ---
 
 ## 🧭 技术架构
+
+本仓库是 **monorepo**：`app/`（Android）、`windows/`（Windows 客户端）、`spec/`（跨平台规格与测试夹具）。
+协议或业务行为变更**先改 `spec/`，再改各端实现**。下表为 Android 端架构；Windows 端见
+[`windows/AGENTS.md`](windows/AGENTS.md)，跨平台规格见 [`spec/README.md`](spec/README.md)。
 
 | 主题 | 说明 |
 |---|---|
