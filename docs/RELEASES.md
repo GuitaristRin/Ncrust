@@ -7,7 +7,7 @@ Ncrust 在同一个仓库里发布多个平台，各平台**版本线独立**。
 
 | 平台 | 版本 | Tag | 下载 | 日期 |
 |---|---|---|---|---|
-| Android | 1.3.1 | [`v1.3.1`](https://github.com/GuitaristRin/Ncrust/releases/tag/v1.3.1) | APK | 2026-09-11 |
+| Android | 1.3.2 | [`android-v1.3.2`](https://github.com/GuitaristRin/Ncrust/releases/tag/android-v1.3.2) | APK | 2026-09-28 |
 | Windows（UWP，x64） | 1.0.0 | [`win-v1.0.0`](https://github.com/GuitaristRin/Ncrust/releases/tag/win-v1.0.0) | [`.appinstaller`](https://github.com/GuitaristRin/Ncrust/releases/download/win-v1.0.0/Ncrust.appinstaller) · `.msix` · `.cer` | 2026-09-27 |
 | Windows Phone（Lumia 950 等） | — | `wp-vX.Y.Z` | — | 计划中 |
 | Linux | — | `linux-vX.Y.Z` | — | 计划中 |
@@ -19,7 +19,7 @@ Ncrust 在同一个仓库里发布多个平台，各平台**版本线独立**。
 
 - 各平台独立版本线，tag 前缀区分：`android-vX.Y.Z`、`win-vX.Y.Z`、`wp-vX.Y.Z`、
   `linux-vX.Y.Z`、`macos-vX.Y.Z`。
-- 已发布的 Android 旧 tag（`v1.3.1` 等）保持不动；从下一个版本起改用 `android-vX.Y.Z`。
+- 已发布的 Android 旧 tag（`v1.3.1` 及更早）保持不动；自 `v1.3.2` 起改用 `android-vX.Y.Z`。
 - Release 标题带平台名（`Windows 1.0.0` / `Android 1.3.2`）；创建时一律 `--latest=false`，
   不让任意一端霸占 Latest 徽章。
 - 各平台版本号字段各自维护。Windows 的唯一来源是 `Package.appxmanifest` 的

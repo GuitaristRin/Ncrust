@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working in this repository. It is a mirror of **`AGENTS.md`** — that file is the canonical agent guide and the single source of truth. **When the two disagree, `AGENTS.md` wins** (or just re-copy it). Reflects the code as of **v1.3.1** (`versionCode = 6`). When in doubt, the source wins — update `AGENTS.md` first, then sync this file.
+This file provides guidance to Claude Code when working in this repository. It is a mirror of **`AGENTS.md`** — that file is the canonical agent guide and the single source of truth. **When the two disagree, `AGENTS.md` wins** (or just re-copy it). Reflects the code as of **v1.3.2** (`versionCode = 7`). When in doubt, the source wins — update `AGENTS.md` first, then sync this file.
 
 **Monorepo.** This repository now hosts more than the Android app: `windows/` (the Windows client, UWP + WinUI 2) and `spec/` (cross-platform spec + test fixtures). Everything below except *Repository Layout* and *Commit Convention* describes the **Android app** only. Working in `windows/`? Read **`windows/AGENTS.md`** — it is canonical there.
 
@@ -60,8 +60,8 @@ Ncrust/
 Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` / `versionCode`.
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
-- Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → `gh release create vX.Y.Z --draft <apk>` → user smoke-tests and publishes manually.
-- Current: `versionName = "1.3.1"`, `versionCode = 6`. Latest release: `v1.3.1` (2026-09-11).
+- Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → `gh release create android-vX.Y.Z --draft --latest=false -t "Android X.Y.Z" <apk>` → user smoke-tests and publishes manually. Tag 方案见 `docs/RELEASES.md`。
+- Current: `versionName = "1.3.2"`, `versionCode = 7`. Latest release: `android-v1.3.2` (2026-09-28).
 
 ## Commit Convention
 
@@ -84,7 +84,7 @@ Conventional Commits, lowercase type prefix, Chinese subject:
 - **One logical section = one commit, committed proactively without waiting to be asked.** Don't batch unrelated changes (e.g. "extract txt + fix color + update docs") into one commit. Split by logical unit, not by file count: changes that must compile together are one section; independently revertable changes are separate.
 - Multiple related fixes may share a commit only when they are the same logical change; pick the dominant type by user impact.
 - **Scopes (monorepo):** Android commits stay unscoped (matches existing history). Changes under `windows/` use `(windows)`, e.g. `feat(windows): …`; changes under `spec/` use `docs(spec): …`. A commit touching `spec/` plus one platform takes that platform's scope and states the other platform's follow-up status in the body.
-- **Tags:** Android keeps `vX.Y.Z`; Windows uses `win-vX.Y.Z`.
+- **Tags:** Android uses `android-vX.Y.Z` from v1.3.2 on (earlier releases keep their bare `vX.Y.Z` tags); Windows uses `win-vX.Y.Z`.
 
 ## What This App Is
 
@@ -94,7 +94,7 @@ Ncrust is a third-party NetEase Cloud Music (网易云音乐) Android client bui
 2. **GPU zero-recomposition** — animations driven by a single `progress: Float` through `graphicsLayer`, not state-driven recomposition.
 3. **Three-layer graphics architecture** — main page / player card / navigation bar are independent composable layers, enabling gesture transitions without interference.
 
-Feature surface at v1.3.1: home discovery (daily songs / recommended playlists / new songs / private FM), three-type search with 500 ms debounce + history, cloud-synced library (liked songs / subscribed albums / user playlists), full-screen player with gapless playback and a 7-level quality ladder, 5 playback modes, bilingual lyrics, system media controls + Android Auto / Automotive, WebView + QR login, runtime theming (6 colors × 3 modes), and 8 runtime languages.
+Feature surface at v1.3.2: home discovery (daily songs / recommended playlists / new songs / private FM), three-type search with 500 ms debounce + history, cloud-synced library (liked songs / subscribed albums / user playlists), song share + external link receiving, full-screen player with gapless playback and a 7-level quality ladder, 5 playback modes, bilingual lyrics, system media controls + Android Auto / Automotive, WebView + QR login, runtime theming (6 colors × 3 modes), and 8 runtime languages.
 
 ## Terminology: Kanesumi Design
 
