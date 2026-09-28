@@ -60,7 +60,7 @@ Ncrust/
 Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` / `versionCode`.
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
-- Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → `gh release create android-vX.Y.Z --draft --latest=false -t "Android X.Y.Z" <apk>` → user smoke-tests and publishes manually. Tag 方案见 `docs/RELEASES.md`。
+- Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → upload `ncrust-android-universal-X.Y.Z.apk` to the current rolling release train (`CrateStack-*`), or open a new one if none exists today (`gh release create CrateStack-YYYYMMDD<A> --latest=false`) → user smoke-tests and publishes manually. Train/tag scheme and asset naming live in `docs/RELEASES.md`. Hotfixes may swap same-name assets in place without a version bump, provided the release notes say so.
 - Current: `versionName = "1.3.2"`, `versionCode = 7`. Latest release: `android-v1.3.2` (2026-09-28).
 
 ## Commit Convention
@@ -84,7 +84,7 @@ Conventional Commits, lowercase type prefix, Chinese subject:
 - **One logical section = one commit, committed proactively without waiting to be asked.** Don't batch unrelated changes (e.g. "extract txt + fix color + update docs") into one commit. Split by logical unit, not by file count: changes that must compile together are one section; independently revertable changes are separate.
 - Multiple related fixes may share a commit only when they are the same logical change; pick the dominant type by user impact.
 - **Scopes (monorepo):** Android commits stay unscoped (matches existing history). Changes under `windows/` use `(windows)`, e.g. `feat(windows): …`; changes under `spec/` use `docs(spec): …`. A commit touching `spec/` plus one platform takes that platform's scope and states the other platform's follow-up status in the body.
-- **Tags:** Android uses `android-vX.Y.Z` from v1.3.2 on (earlier releases keep their bare `vX.Y.Z` tags); Windows uses `win-vX.Y.Z`.
+- **Tags:** releases ride a rolling multi-platform train tagged `CrateStack-YYYYMMDD<A..Z>` (assets named `ncrust-[platform]-[arch]-[version]`, indexed by the train's `manifest.json`); legacy per-platform tags (`v1.3.1`, `win-v1.0.0`, …) stay untouched for history.
 
 ## What This App Is
 

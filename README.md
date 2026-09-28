@@ -114,7 +114,7 @@ Android · Kotlin + Jetpack Compose + Media3 ｜ Windows · C# + UWP + WinUI 2 �
 
 ## 📦 安装
 
-1. 打开 [Releases](https://github.com/GuitaristRin/Ncrust/releases)，下载最新的 `app-release.apk`（约 **3.9 MB**）
+1. 打开 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 的最新一班（Latest），下载 Android 通用包 `ncrust-android-universal-*.apk`（约 **3.9 MB**）
 2. 允许「未知来源」安装
 3. 打开 App，在用户页登录（见下）
 
@@ -246,7 +246,7 @@ Windows 客户端在本仓库的 [`windows/`](windows/) 目录，用 **C# + UWP 
 | v1.2.2 | 2026-08-04 | 全页面 Kanesumi 统一、底部导航与迷你条衔接、登录统一为浏览器方式 |
 | v1.3.0 | 2026-09-10 | 平板 / 大屏 Sidebar 与宽屏两栏、唯一封面、弱网缓冲、AudioSink 降档兜底、歌词竞态与定位修复、队列拖拽重排、私人 FM 续播 |
 | v1.3.1 | 2026-09-11 | 车机（Android Auto / AAOS）媒体源与浏览树、浅色模式与主题模式切换、扫码登录重构（平板扫码 + 手机扫码授权平板 + weapi 加密修正）、冷启动与歌词性能优化、播放卡与浅色修复 |
-| **v1.3.2** | **2026-09-28** | **无缝播放元数据串歌修复（以 MediaItem 身份为准）、收藏同步可观测化（云端读失败不再清空本地、点赞待同步状态）、歌曲分享出口与外部链接 / 分享接收** |
+| **v1.3.2** | **2026-09-28** | **无缝播放元数据串歌修复（以 MediaItem 身份为准）、收藏同步可观测化（云端读失败不再清空本地、点赞待同步状态）、歌曲分享出口与外部链接 / 分享接收；当日晚间原地更换资产，追加 release 冷启动闪退修复（会话改显式键信封落盘）** |
 | Windows v1.0.0 | 2026-09-27 | Windows 端首个正式版（UWP + WinUI 2）：与 Android 主干功能对齐、`.appinstaller` 自动更新、10 段均衡器 |
 
 ---
