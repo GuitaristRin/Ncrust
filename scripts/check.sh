@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # check.sh - 按目录统计 Kotlin 源文件行数与占比
-# 用法：在 ncrust 源码根目录执行 ./check.sh
+# 用法：在仓库任意位置执行 bash scripts/check.sh
 
 set -euo pipefail
 
@@ -10,7 +10,8 @@ GREEN="\033[32m"
 YELLOW="\033[33m"
 RESET="\033[0m"
 
-BASE_DIR="/home/rain/AndroidStudioProjects/Ncrust/app/src/main/java/com/takahashirinta/ncrust"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+BASE_DIR="$ROOT/app/src/main/java/com/takahashirinta/ncrust"
 cd "$BASE_DIR" || exit 1
 
 echo ""
