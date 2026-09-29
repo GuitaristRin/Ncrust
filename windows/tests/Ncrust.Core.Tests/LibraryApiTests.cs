@@ -25,6 +25,34 @@ public class LibraryApiTests
     }
 
     [Fact]
+    public async Task LikeSong_PrefersCanonicalWeapi()
+    {
+        var seen = new List<string>();
+        var api = new LibraryApi(new NcmHttp(new Handler(path =>
+        {
+            seen.Add(path);
+            return Json(path == "/weapi/radio/like" ? "{\"code\":200}" : "{\"code\":500}");
+        })));
+
+        Assert.True(await api.LikeSongAsync(123, like: true));
+        Assert.Equal(new[] { "/weapi/radio/like" }, seen);
+    }
+
+    [Fact]
+    public async Task LikeSong_FallsBackToEapiWhenWeapiRejected()
+    {
+        var seen = new List<string>();
+        var api = new LibraryApi(new NcmHttp(new Handler(path =>
+        {
+            seen.Add(path);
+            return Json(path == "/eapi/radio/like" ? "{\"code\":200}" : "{\"code\":-460}");
+        })));
+
+        Assert.True(await api.LikeSongAsync(123, like: true));
+        Assert.Equal(new[] { "/weapi/radio/like", "/eapi/radio/like" }, seen);
+    }
+
+    [Fact]
     public async Task SubscribeAlbum_UsesSubAndUnsubPaths()
     {
         var seen = new List<string>();
@@ -55,6 +83,16 @@ public class LibraryApiTests
     public async Task PlaylistTrackIds_Non200_Throws()
     {
         var api = new PlaylistApi(Router("/eapi/v6/playlist/detail", "{\"code\":404}"));
+
+        await Assert.ThrowsAsync<NcmApiException>(() => api.GetPlaylistTrackIdsAsync(9));
+    }
+
+    [Theory]
+    [InlineData("{\"code\":200}")]
+    [InlineData("{\"code\":200,\"playlist\":{}}")]
+    public async Task PlaylistTrackIds_MissingStructure_Throws(string body)
+    {
+        var api = new PlaylistApi(Router("/eapi/v6/playlist/detail", body));
 
         await Assert.ThrowsAsync<NcmApiException>(() => api.GetPlaylistTrackIdsAsync(9));
     }

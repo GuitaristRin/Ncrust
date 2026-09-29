@@ -27,29 +27,71 @@ namespace Ncrust.Core.Api
         }
 
         /// <summary>
-        /// 收藏 / 取消收藏单曲。走官方客户端指纹的 eapi 写接口，响应可能是 AES-ECB 加密 JSON，
-        /// 先尝试解密再用明文兜底。
+        /// 收藏 / 取消收藏单曲。
+        ///
+        /// 主通道走与官方网页 / 参考实现完全一致的 canonical weapi <c>/api/radio/like</c>：
+        /// <c>alg=itembased&amp;trackId=&lt;id&gt;&amp;like=&lt;bool&gt;&amp;time=3</c>——<c>time</c> 是
+        /// 试听秒数（官方固定 3）。旧实现把它当成 Unix 秒级时间戳（约 1.7e9）发送，服务端风控会先
+        /// 接受、随后在例行审核里把该 like 判为异常并回滚，表现为「当天可见、隔天消失」。weapi 被
+        /// 账号级风控（-460 等）拦截时才回退到 eapi 客户端协议，回退同样使用 <c>time=3</c>。
         /// </summary>
         public async Task<bool> LikeSongAsync(long songId, bool like, CancellationToken cancellationToken = default)
+        {
+            if (await TryWeapiLikeAsync(songId, like, cancellationToken).ConfigureAwait(false) == 200)
+            {
+                return true;
+            }
+
+            return await TryEapiLikeAsync(songId, like, cancellationToken).ConfigureAwait(false) == 200;
+        }
+
+        private async Task<int> TryWeapiLikeAsync(long songId, bool like, CancellationToken cancellationToken)
+        {
+            var payload = "{\"alg\":\"itembased\",\"trackId\":" + songId +
+                          ",\"like\":" + (like ? "true" : "false") + ",\"time\":\"3\"}";
+            try
+            {
+                using (var response = await _http
+                    .WeapiPostAsync("/api/radio/like", payload, null, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return ReadCode(body);
+                }
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        private async Task<int> TryEapiLikeAsync(long songId, bool like, CancellationToken cancellationToken)
         {
             var payload = new[]
             {
                 new KeyValuePair<string, string>("alg", "itembased"),
                 new KeyValuePair<string, string>("trackId", songId.ToString()),
                 new KeyValuePair<string, string>("like", like ? "true" : "false"),
-                new KeyValuePair<string, string>("time", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
+                new KeyValuePair<string, string>("time", "3"),
                 new KeyValuePair<string, string>("e_r", "TRUE"),
                 new KeyValuePair<string, string>("csrf_token", _http.GetCsrfToken() ?? string.Empty),
             };
 
-            using (var response = await _http
-                .EapiPostOfficialAsync(LikePath, payload, cancellationToken)
-                .ConfigureAwait(false))
+            try
             {
-                var raw = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                var decrypted = EapiCrypto.DecryptResponse(Convert.ToBase64String(raw));
-                var text = string.IsNullOrEmpty(decrypted) ? Encoding.UTF8.GetString(raw) : decrypted;
-                return ReadCode(text) == 200;
+                using (var response = await _http
+                    .EapiPostOfficialAsync(LikePath, payload, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    var raw = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                    var decrypted = EapiCrypto.DecryptResponse(Convert.ToBase64String(raw));
+                    var text = string.IsNullOrEmpty(decrypted) ? Encoding.UTF8.GetString(raw) : decrypted;
+                    return ReadCode(text);
+                }
+            }
+            catch
+            {
+                return -1;
             }
         }
 

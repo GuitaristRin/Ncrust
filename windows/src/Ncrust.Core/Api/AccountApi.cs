@@ -95,13 +95,20 @@ namespace Ncrust.Core.Api
             }
         }
 
-        /// <summary>「我喜欢的音乐」歌单 id：优先 specialType != 0，其次按名字兜底。</summary>
+        /// <summary>
+        /// 「我喜欢的音乐」（红心歌单）的 playlist id。必须精确命中它——旧实现取「第一个
+        /// <c>specialType != 0</c>」，账号里若有其它特殊歌单会读到错误的歌单，导致收藏页读到的
+        /// 单曲集合与 like 写入的目标不一致，表现为「收藏后隔天消失」。依次按名称、<c>specialType == 5</c>、
+        /// 任意特殊歌单三级兜底。
+        /// </summary>
         public async Task<long?> GetLikedPlaylistIdAsync(long uid, CancellationToken cancellationToken = default)
         {
             var playlists = await GetUserPlaylistsAsync(uid, 200, 0, cancellationToken).ConfigureAwait(false);
+
+            // 名称最可靠：「我喜欢的音乐」不可被用户改名。
             foreach (var playlist in playlists)
             {
-                if (playlist.SpecialType != 0)
+                if (playlist.Name.Contains("我喜欢的音乐") || playlist.Name.Contains("喜欢的音乐"))
                 {
                     return playlist.Id;
                 }
@@ -109,7 +116,16 @@ namespace Ncrust.Core.Api
 
             foreach (var playlist in playlists)
             {
-                if (playlist.Name.Contains("我喜欢的音乐"))
+                if (playlist.SpecialType == 5)
+                {
+                    return playlist.Id;
+                }
+            }
+
+            // 最后兜底：任意特殊歌单（个别老账号 specialType 取值不同）。
+            foreach (var playlist in playlists)
+            {
+                if (playlist.SpecialType != 0)
                 {
                     return playlist.Id;
                 }

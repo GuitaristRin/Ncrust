@@ -25,8 +25,9 @@ namespace Ncrust.Core.Api
         }
 
         /// <summary>
-        /// 只取歌单的有序单曲 id 列表（红心歌单的分页底表）。业务码非 200 抛
-        /// <see cref="NcmApiException"/>。
+        /// 只取歌单的有序单曲 id 列表（红心歌单的分页底表）。业务码非 200、或响应缺少
+        /// <c>playlist</c> / <c>trackIds</c> 结构时抛 <see cref="NcmApiException"/>：调用方据此
+        /// 判定为「读取失败」而保留本地收藏，绝不用一次抖动的空列表覆盖用户数据。
         /// </summary>
         public async Task<IReadOnlyList<long>> GetPlaylistTrackIdsAsync(
             long playlistId,
@@ -47,10 +48,16 @@ namespace Ncrust.Core.Api
                     throw new NcmApiException($"playlist trackIds code={code}");
                 }
 
-                var trackIds = json.GetObject("playlist")?.GetArray("trackIds");
+                var playlist = json.GetObject("playlist");
+                if (playlist == null)
+                {
+                    throw new NcmApiException("playlist trackIds missing playlist object");
+                }
+
+                var trackIds = playlist.GetArray("trackIds");
                 if (trackIds == null)
                 {
-                    return Array.Empty<long>();
+                    throw new NcmApiException("playlist trackIds missing trackIds");
                 }
 
                 var ids = new List<long>(trackIds.Count);

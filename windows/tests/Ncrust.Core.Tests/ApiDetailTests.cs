@@ -79,6 +79,28 @@ public class ApiDetailTests
     }
 
     [Fact]
+    public async Task LikedPlaylist_PrefersNameOverOtherSpecialPlaylists()
+    {
+        var api = new AccountApi(Router("/eapi/user/playlist",
+            "{\"code\":200,\"playlist\":[" +
+            "{\"id\":7,\"name\":\"漫游\",\"specialType\":1}," +
+            "{\"id\":2,\"name\":\"我喜欢的音乐\",\"trackCount\":5,\"specialType\":5}]}"));
+
+        Assert.Equal(2, await api.GetLikedPlaylistIdAsync(9));
+    }
+
+    [Fact]
+    public async Task LikedPlaylist_FallsBackToSpecialType5()
+    {
+        var api = new AccountApi(Router("/eapi/user/playlist",
+            "{\"code\":200,\"playlist\":[" +
+            "{\"id\":7,\"name\":\"My Favorites\",\"specialType\":1}," +
+            "{\"id\":3,\"name\":\"Liked\",\"specialType\":5}]}"));
+
+        Assert.Equal(3, await api.GetLikedPlaylistIdAsync(9));
+    }
+
+    [Fact]
     public async Task UserPlaylists_Non200_Throws()
     {
         var api = new AccountApi(Router("/eapi/user/playlist", "{\"code\":301}"));
