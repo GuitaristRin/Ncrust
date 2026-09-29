@@ -175,7 +175,10 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [ ] 8 种语言（`Strings` 一一对应英文；运行时切换 + `Bindings.Update()`）
 - [ ] `QrPair` 被扫端、`ncrust://` 协议、剪贴板链接
 - [ ] Android 端接入 `spec/fixtures` 测试
-- [ ] MSIX 发布流程（`Package.appxmanifest` 版本 → tag `win-vX.Y.Z` → `gh release --draft`）
+- [x] 应用内更新：`Ncrust.Core.Update`（版本比较 + GitHub Releases 资产扫描，单测覆盖）+
+      `Ncrust.App.Update.UpdateService`（启动静默检查 6h 缓存 + 设置页「检查更新」+ 下载 `.appinstaller`
+      交 App Installer）；`tools/release/` 提供 `release.ps1` / `make-appinstaller.ps1` / `install-cert.ps1`
+- [x] MSIX 发布流程脚本化（`Package.appxmanifest` 版本 → `CrateStack-*` 班次 → `gh release --draft`）
 
 ---
 

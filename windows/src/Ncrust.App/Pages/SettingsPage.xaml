@@ -181,6 +181,23 @@
             <!-- 关于 -->
             <TextBlock Margin="0,24,0,0" Style="{StaticResource TitleTextStyle}" Text="关于" />
             <TextBlock x:Name="VersionText" Style="{StaticResource BodyTextStyle}" />
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    x:Name="CheckUpdateButton"
+                    Click="CheckUpdateClick"
+                    Content="检查更新" />
+                <TextBlock
+                    x:Name="UpdateStatusText"
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource CaptionTextStyle}"
+                    TextWrapping="Wrap"
+                    TextTrimming="None" />
+            </Grid>
             <TextBlock
                 Style="{StaticResource CaptionTextStyle}"
                 Text="网易云音乐第三方客户端。仅供学习交流使用，请支持正版音乐。"

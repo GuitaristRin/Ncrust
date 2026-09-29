@@ -170,6 +170,54 @@ namespace Ncrust.Pages
         private async void OpenColorSettingsClick(object sender, RoutedEventArgs e) =>
             await Launcher.LaunchUriAsync(new Uri("ms-settings:colors"));
 
+        // ── 更新 ──────────────────────────────────────────────────────────────
+
+        private async void CheckUpdateClick(object sender, RoutedEventArgs e)
+        {
+            CheckUpdateButton.IsEnabled = false;
+            UpdateStatusText.Text = "正在检查更新…";
+            try
+            {
+                var info = await Ncrust.Update.UpdateService.CheckAsync(force: true);
+                if (info == null)
+                {
+                    UpdateStatusText.Text = "已是最新版本（" + Ncrust.Update.UpdateService.CurrentVersion + "）";
+                    return;
+                }
+
+                UpdateStatusText.Text = "发现新版本 " + info.Version;
+                var dialog = new ContentDialog
+                {
+                    Title = "发现新版本",
+                    Content = "当前 " + Ncrust.Update.UpdateService.CurrentVersion + "，最新 " + info.Version +
+                              "。是否下载并安装？（会交由系统的 App Installer 完成）",
+                    PrimaryButtonText = "下载并安装",
+                    CloseButtonText = "以后再说",
+                    DefaultButton = ContentDialogButton.Primary,
+                };
+
+                if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+                {
+                    return;
+                }
+
+                UpdateStatusText.Text = "正在下载更新…";
+                var launched = await Ncrust.Update.UpdateService.DownloadAndLaunchAsync(info);
+                UpdateStatusText.Text = launched
+                    ? "已交给 App Installer，按提示完成即可"
+                    : "下载失败，请到 GitHub Releases 手动下载";
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+                UpdateStatusText.Text = "检查更新失败";
+            }
+            finally
+            {
+                CheckUpdateButton.IsEnabled = true;
+            }
+        }
+
         // ── 存储与缓存 ────────────────────────────────────────────────────────
 
         private async Task UpdateCacheSizeAsync()

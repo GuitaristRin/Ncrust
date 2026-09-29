@@ -103,6 +103,7 @@
     <Compile Include="Platform\PasswordVaultCredentialStore.cs" />
     <Compile Include="Platform\WindowsCodecProbe.cs" />
     <Compile Include="Platform\ConnectionProfileNetworkInfo.cs" />
+    <Compile Include="Update\UpdateService.cs" />
     <Content Include="Properties\Default.rd.xml" />
   </ItemGroup>
 

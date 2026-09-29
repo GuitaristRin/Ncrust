@@ -42,8 +42,11 @@ Ncrust 在同一个仓库里发布多个平台，各平台**版本线独立**。
 - 首次安装需要信任自签证书：把 `.cer` 导入「受信任人」（`install-cert.ps1`，或右键 →
   安装证书 → 本地计算机 → 受信任的根证书颁发机构 / 受信任人）。若日后换成正规代码签名证书，
   这一步就不需要了。
-- 应用内只做「版本检查 + 通知」：发现新版会提示并打开 `.appinstaller`，实际安装由系统的
-  App Installer 完成（UWP 应用无法静默自装）。
+- 应用内提供「**检查更新 + 一键安装**」：启动静默检查（6 小时缓存），或在「设置 → 关于」手动检查；
+  发现新版会**下载 `.appinstaller` 并交给系统的 App Installer** 完成安装。UWP 无法静默自装，
+  真正在后台自动更新的是 `.appinstaller` 的 `<UpdateSettings>`（所以务必用 `.appinstaller` 安装）。
+- 发布脚本：`windows/tools/release/release.ps1`（编译 + 签名 + 生成 `.appinstaller` + 导出 `.cer`）；
+  证书信任：`windows/tools/release/install-cert.ps1`。
 - 包身份（`Identity Name` + `Publisher = CN=TakahashiRinta`）永不改变；改了会导致老版本无法升级。
 
 详细规则见 `windows/AGENTS.md` 的「版本与发布」。

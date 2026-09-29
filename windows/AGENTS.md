@@ -4,7 +4,7 @@
 仓库级约定（提交规范、「一个逻辑单元一个 commit」等）见根目录 `AGENTS.md`；根文件里
 Android 专属的章节不适用于这里。
 
-**状态**（2026-09-27）：**M1 进行中，已可日常点播。** 包版本 0.1.2.0。
+**状态**（2026-09-27）：**M1 进行中，已可日常点播。** 包版本 1.0.1.0。
 
 - `Ncrust.Core`：协议、加密、全部端点（含相似歌曲）、队列状态机、INFINITY 续播取数（`InfinityFeeder`）、
   音质阶梯、缓存与持久化、云收藏库、10 段均衡器（DSP + 预设），Core 测试 230 个通过。
@@ -110,7 +110,8 @@ windows/
 │   └── Ncrust.Core.Tests/      # net9.0 + xUnit，直接读取 ../../spec/
 └── tools/
     ├── shot/Shot.ps1           # 按固定尺寸截 Ncrust 窗口，可先点击 / 按键（DPI aware）
-    └── icons/MakeIcons.ps1     # 生成应用图标（整块绿底唱片纹，33 张 scale / targetsize 资源）
+    ├── icons/MakeIcons.ps1     # 生成应用图标（整块绿底唱片纹，33 张 scale / targetsize 资源）
+    └── release/                # 发布三件套：make-appinstaller.ps1 / install-cert.ps1 / release.ps1
 ```
 
 应用资源的合并顺序（`App.xaml`，顺序不能反）：
@@ -149,6 +150,7 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 | `Lyrics/` | `LrcParser`、双语歌词合并、`LyricsCache`（200 条） | `lyric/` |
 | `Cache/` | `ContentCache`：首页快照（15s 新鲜期）+ 专辑 / 歌单 / 歌手的 LRU-32 | `cache/` |
 | `Search/` | 搜索历史（每类最多 10 条，14 天过期） | `SearchHistoryManager` |
+| `Update/` | `AppVersion`（版本比较）+ `UpdateChecker`（从 GitHub Releases JSON 里按 `ncrust-[平台]-[架构]-[版本]` 命名找更新，纯函数零反射） | —— Android 没有 |
 | `Audio/` | 10 段均衡器：`EqualizerBands`（31 Hz ~ 16 kHz，Q 1.41，±12 dB）、`BiquadCoefficients`（RBJ peaking）、`EqualizerProcessor`（原地处理、参数快照无锁切换）、内置 / 命名预设、`EqualizerStore`（设置键 `eq_*` + `eq_presets.json`） | —— Android 没有 |
 | `Platform/` | 接口：`ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo` | —— |
 
@@ -490,16 +492,22 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 - **`.appinstaller` 是主入口**：只有经它安装的包，系统的 App Installer 才会按 `<UpdateSettings>`
   自动更新；直接装 `.msix` 的没有更新源，永远不会自动更新。所以 README / `docs/RELEASES.md` 的下载
   一律指向 `.appinstaller`。
-- 应用内**只做版本检查 + 通知**：查 GitHub Releases API 的 `win-v*` 最新 tag，与
-  `Package.Current.Id.Version` 比较，有新版时提示并用 `Launcher` 打开 `.appinstaller`。
-  UWP 应用**不能静默自装**（AppContainer 装不了包；`packageManagement` 是受限能力，不值得）。
+- 应用内**检查更新 + 一键安装**（`Ncrust.Core.Update` + `Ncrust.App.Update.UpdateService`）：查 GitHub Releases API，
+  用 `UpdateChecker` 按资产名 `ncrust-windows-x86_64-<版本>` 找比本机高的版本（不依赖 Latest 徽章）；
+  启动时静默查一次（命中 6 小时缓存），有新版轻提示；「设置 → 关于 → 检查更新」可手动查并
+  **下载 `.appinstaller` 到临时目录、`Launcher.LaunchFileAsync` 交给 App Installer** 完成安装
+  （下载失败退回用系统默认程序打开资产 URL）。UWP 应用**不能静默自装**（AppContainer 装不了包；
+  `packageManagement` 是受限能力，不值得），真正的后台自动更新仍由 `.appinstaller` 的
+  `<UpdateSettings><OnLaunch/></UpdateSettings>` 承担。
 - **包身份永不变**：`Identity Name` + `Publisher`（`CN=TakahashiRinta`）锁定；改 Publisher 会改
   PackageFamilyName，老版本无法升级，只能卸载重装。自签证书 Subject 必须与 Publisher 一字不差。
 - **签名**：自签代码签名证书（免费；用户需先把 `.cer` 装进「受信任人」）。`.pfx`（私钥）**不入库**，
   `.gitignore` 排除 `*.pfx` / `*.pvk`；发布附 `.cer` 与信任说明；私钥与口令存密码管理器 / CI secret。
-- 发布流程：升版本号 → commit `build(windows): 升级至 vX.Y.Z` → Release 打包 → 签名 →
-  `gh release create win-vX.Y.Z --draft --latest=false <msix> <appinstaller> <cer>` →
-  负责人冒烟测试后手动发布。（自动化脚本 `windows/tools/release` 待做。）
+- 发布流程：升版本号 → commit `build(windows): 升级至 vX.Y.Z` → 打包 → 签名 →
+  `gh release create <CrateStack-YYYYMMDDA> --draft --latest=false <msix> <appinstaller> <cer>` →
+  负责人冒烟测试后手动发布。自动化脚本见 `windows/tools/release/`：
+  `release.ps1`（编译 + 重命名 + 签名 + 生成 appinstaller + 导出 cer）、
+  `make-appinstaller.ps1`（单独生成 `.appinstaller`）、`install-cert.ps1`（用户首次信任证书）。
 
 ## 提交规范
 

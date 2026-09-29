@@ -71,6 +71,24 @@ namespace Ncrust.Shell
 
             await RefreshProfileAsync();
             _ = RefreshLibraryAsync();
+            _ = CheckForUpdatesQuietlyAsync();
+        }
+
+        /// <summary>启动静默查更新（命中 6 小时缓存），有新版就轻提示，具体更新在「设置 → 关于」。</summary>
+        private static async System.Threading.Tasks.Task CheckForUpdatesQuietlyAsync()
+        {
+            try
+            {
+                var info = await Ncrust.Update.UpdateService.CheckAsync(force: false);
+                if (info != null)
+                {
+                    AppShell.Notice("发现新版本 " + info.Version + "，可在「设置 → 关于」更新");
+                }
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
         }
 
         private static async System.Threading.Tasks.Task RefreshLibraryAsync()

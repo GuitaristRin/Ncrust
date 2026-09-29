@@ -23,6 +23,9 @@ keystore.properties
 *.pfx
 *.pvk
 
+# Windows 打包产物（windows/tools/release 输出）
+windows/dist/
+
 # Benchmark 构建产物、登录态与 pull 下来的性能 trace(个人账号凭证, 禁止入库)
 benchmark/build/
 benchmark/cookie.secret
