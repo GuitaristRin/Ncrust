@@ -42,6 +42,8 @@ import com.takahashirinta.ncrust.power.BackgroundActivity
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.components.QrAuthorizeScreen
 import com.takahashirinta.ncrust.ui.components.QrLoginDialog
+import com.takahashirinta.ncrust.ui.components.UpdateAvailableBanner
+import com.takahashirinta.ncrust.ui.components.rememberManualUpdateCheck
 import com.takahashirinta.ncrust.ui.components.vipStatusText
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.i18n.LanguagePreset
@@ -51,6 +53,7 @@ import com.takahashirinta.ncrust.ui.theme.ThemeColorSelector
 import com.takahashirinta.ncrust.ui.theme.ThemeMode
 import com.takahashirinta.ncrust.ui.theme.themeColorPresets
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
+import com.takahashirinta.ncrust.update.UpdateService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,6 +61,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun UserScreen(
     onOpenAbout: () -> Unit = {},
+    onOpenUpdate: () -> Unit = {},
     themeIndex: Int = 0,
     onThemeChange: (Int) -> Unit = {},
     themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -93,6 +97,11 @@ fun UserScreen(
     var lyricsTranslation by remember { mutableStateOf(prefs.getBoolean("lyrics_translation", true)) }
     // 设置项「非会员遇到 VIP 歌曲」：true = 播放试听片段（默认），false = 直接跳过。
     var trialPlayback by remember { mutableStateOf(prefs.getBoolean("vip_trial_playback", true)) }
+
+    // 更新：状态在 UpdateService 单例里（检查可能在本页挂载之前就跑完了）。
+    val updateState by UpdateService.state.collectAsState()
+    var autoCheckUpdate by remember { mutableStateOf(updateState.autoCheckEnabled) }
+    val manualUpdateCheck = rememberManualUpdateCheck(onFound = onOpenUpdate)
 
     // 会话/VIP 状态：会员文案只在这里显示（接口失败显示为未知，绝不显示「未开通」）。
     val sessionState by SessionMonitor.state.collectAsState()
@@ -225,6 +234,18 @@ fun UserScreen(
                 )
             }
             Spacer(Modifier.height(12.dp))
+        }
+
+        // 发现新版本：用户页顶部一行（不弹窗、不发通知的落点）。「稍后」过的版本不再出现，
+        // 直到有更高的版本 —— 判定在 UpdateState.shouldNotify。
+        if (updateState.shouldNotify) {
+            item {
+                UpdateAvailableBanner(
+                    version = updateState.available?.version?.toString().orEmpty(),
+                    onOpen = onOpenUpdate
+                )
+                Spacer(Modifier.height(8.dp))
+            }
         }
 
         // Profile 块。整块可点：已登录 → 账户管理；未登录 → 直接进 WebView 登录。
@@ -415,6 +436,40 @@ fun UserScreen(
                     strings.clearCache,
                     color = LocalMetroColors.current.primary,
                     style = TextStyle(fontSize = 15.sp)
+                )
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+
+        // 更新：自动检查开关（默认开）+ 手动检查入口（手动不受 24 小时限制）。
+        item {
+            SectionTitle(strings.updateSectionTitle)
+            SettingSwitchRow(
+                title = strings.updateAutoCheckTitle,
+                description = strings.updateAutoCheckDescription,
+                checked = autoCheckUpdate,
+                onCheckedChange = {
+                    autoCheckUpdate = it
+                    UpdateService.setAutoCheckEnabled(context, it)
+                }
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !updateState.checking, onClick = manualUpdateCheck)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MetroText(
+                    strings.updateCheckNow,
+                    color = LocalMetroColors.current.onBackground,
+                    style = TextStyle(fontSize = 15.sp),
+                    modifier = Modifier.weight(1f)
+                )
+                MetroText(
+                    if (updateState.checking) strings.updateChecking else "",
+                    color = LocalMetroColors.current.onSurfaceVariant,
+                    style = TextStyle(fontSize = 13.sp)
                 )
             }
             Spacer(Modifier.height(32.dp))

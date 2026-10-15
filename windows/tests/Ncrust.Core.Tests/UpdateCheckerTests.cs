@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Ncrust.Core.Update;
 using Xunit;
 
@@ -5,6 +6,83 @@ namespace Ncrust.Core.Tests;
 
 public class UpdateCheckerTests
 {
+    /// <summary>
+    /// spec/fixtures/update/releases.json 是两端共用的「挑更新」规则答案（schema 见该目录 README）。
+    /// 这里把夹具用例逐条喂给 Windows 的 UpdateChecker，锁住跨班次取最高、draft 忽略、
+    /// 资产命名规范、平台/架构不互相误命中这些两端必须一致的行为。
+    ///
+    /// 夹具里标了 "platforms": ["android"] 的用例（prerelease 规则）Windows 侧**尚未实现**
+    /// ——`UpdateChecker` 只过滤 draft。这里显式跳过并把它记在 skipped 列表里断言出来，
+    /// 不假装覆盖；期望值本身不动（原因见夹具 README「已知的两端差异」）。
+    /// </summary>
+    [Fact]
+    public void Find_MatchesUpdateFixture()
+    {
+        using var doc = Spec.LoadJson("fixtures", "update", "releases.json");
+        var cases = doc.RootElement;
+        Assert.Equal(JsonValueKind.Array, cases.ValueKind);
+
+        var checkedCases = 0;
+        var skippedForWindows = new List<string>();
+
+        foreach (var testCase in cases.EnumerateArray())
+        {
+            var id = testCase.GetProperty("id").GetString()!;
+            if (!AppliesToWindows(testCase))
+            {
+                skippedForWindows.Add(id);
+                continue;
+            }
+
+            var input = testCase.GetProperty("input");
+            var current = AppVersion.Parse(input.GetProperty("currentVersion").GetString()!);
+            var platform = input.GetProperty("platform").GetString()!;
+            var arch = input.GetProperty("arch").GetString()!;
+            // 夹具里存的是结构化 JSON，UpdateChecker 收的是 API 原文，所以取原始文本。
+            var releasesJson = input.GetProperty("releases").GetRawText();
+
+            var info = UpdateChecker.Find(releasesJson, current, platform, arch);
+
+            var expect = testCase.GetProperty("expect");
+            if (expect.ValueKind == JsonValueKind.Null)
+            {
+                Assert.Null(info);
+            }
+            else
+            {
+                Assert.NotNull(info);
+                Assert.Equal(AppVersion.Parse(expect.GetProperty("version").GetString()!), info!.Version);
+                Assert.Equal(expect.GetProperty("releaseTag").GetString(), info.ReleaseTag);
+                Assert.Equal(expect.GetProperty("releasePageUrl").GetString(), info.ReleasePageUrl);
+                if (expect.TryGetProperty("windowsAssets", out var assets))
+                {
+                    Assert.Equal(OptionalString(assets, "appInstallerUrl"), info.AppInstallerUrl);
+                    Assert.Equal(OptionalString(assets, "msixUrl"), info.MsixUrl);
+                    Assert.Equal(OptionalString(assets, "cerUrl"), info.CerUrl);
+                }
+            }
+
+            checkedCases++;
+        }
+
+        // 夹具被清空、或平台标记写错导致大量用例被跳过时，测试必须红，否则等于没有对照。
+        Assert.Equal(cases.GetArrayLength(), checkedCases + skippedForWindows.Count);
+        Assert.True(checkedCases >= 12, $"跑到的 Windows 用例太少：{checkedCases}");
+        Assert.Equal(
+            new[] { "update.prerelease.ignored", "update.asset.wrong-extension" },
+            skippedForWindows);
+    }
+
+    /// <summary>夹具用例默认两端都适用；显式写了 platforms 的按它判断。</summary>
+    private static bool AppliesToWindows(JsonElement testCase) =>
+        !testCase.TryGetProperty("platforms", out var platforms) ||
+        platforms.EnumerateArray().Any(p => p.GetString() == "windows");
+
+    private static string? OptionalString(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
     [Theory]
     [InlineData("1.0.1", true, 1, 0, 1, 0)]
     [InlineData("v1.0.1", true, 1, 0, 1, 0)]

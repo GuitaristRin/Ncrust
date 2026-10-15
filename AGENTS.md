@@ -130,6 +130,7 @@ Under `com.takahashirinta.ncrust/`:
 | `player/` | `PlaybackService` (MediaLibraryService + ExoPlayer), `PlaybackStateManager`, `SongUrlFetcher`, `PlayReporter` |
 | `auth/` | `CookieManager` (SharedPreferences), `QrPair` / `QrPairClient` / `QrPairServer` (LAN QR handoff) |
 | `library/` | `LibraryManager` (cloud-synced liked songs + subscribed albums), `SearchHistoryManager` |
+| `update/` | In-app update from GitHub Releases: version/asset resolution (same rules as Windows, fixtures `spec/fixtures/update/`), resumable download, APK signature/version check, install via `FileProvider` |
 | `cache/` | `ContentCache` — in-memory network snapshot (home + LRU detail caches + user profile) |
 | `lyric/` | `LrcParser` (`[MM:SS.mm]` → `LrcLine.timeMs`), `LyricsCache` (200-entry persistent cache) |
 | `warmup/` | `AppWarmup` — cold-start preload singleton |
@@ -278,7 +279,7 @@ SharedPreferences files:
 | File | Owner(s) | Contents |
 |---|---|---|
 | `ncrust_prefs` | `CookieManager` | `user_cookie` |
-| `ncrust_settings` | `ThemeManager`, `LanguageManager`, `PlayerViewModel`, `UserScreen`, `MainActivity` | theme index/mode, language, quality, gapless, lyrics translation, `battery_prompt_done` |
+| `ncrust_settings` | `ThemeManager`, `LanguageManager`, `PlayerViewModel`, `UserScreen`, `MainActivity` | theme index/mode, language, quality, gapless, lyrics translation, `battery_prompt_done`, update: `update_auto_check` / `update_last_check_at` / `update_dismissed_version` / `update_found_*` |
 | `ncrust_library` | `LibraryManager` | `saved_songs`, `saved_albums`, `liked_ids` |
 | `ncrust_playback_state` | `PlaybackStateManager` | last song + `session` (explicit-key envelope: queue + index + mode + FM + shuffled indices, one atomic write; pre-1.3.2-fix payloads under obfuscated keys `a`–`f` are read back once via the legacy branch) |
 | `ncrust_lyrics_cache` | `LyricsCache` | `entries` (≤ 200) |

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 可共享的路径。只暴露 cacheDir/updates/（应用内更新下载的 APK），
+  别的缓存目录一律不给——安装器只需要读这一个文件。
+-->
+<paths>
+    <cache-path name="updates" path="updates/" />
+</paths>
