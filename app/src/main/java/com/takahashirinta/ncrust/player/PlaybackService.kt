@@ -52,13 +52,18 @@ import kotlinx.coroutines.*
  * 一次「当前播放曲目」的完整快照。元数据与音频同源于 ExoPlayer 的当前 MediaItem，
  * 不再靠单独的 pending 标量槽对位——这样 UI/通知显示的标题、封面、音质档位
  * 永远与真正在响的那一首一致，不会出现「元数据跳了音源没跳」。
+ *
+ * [auto] = 本次是 ExoPlayer 自己的自然衔接（MEDIA_ITEM_TRANSITION_REASON_AUTO）。
+ * 手动 setMediaItem / 系统媒体控件与车机经 media3 会话 seek 过来的过渡不是 AUTO，
+ * 那时应用队列并没有跟着推进，UI 层只能按身份回查索引。
  */
 data class NowPlaying(
     val songId: Long,
     val title: String,
     val artist: String,
     val artwork: String,
-    val actualLevel: String
+    val actualLevel: String,
+    val auto: Boolean = false
 )
 
 @OptIn(UnstableApi::class)
@@ -176,7 +181,7 @@ class PlaybackService : MediaLibraryService() {
                         MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
             )
             setCallback(object : MediaSessionCompat.Callback() {
-                override fun onPlay() { player.play() }
+                override fun onPlay() { resumePlayback() }
                 override fun onPause() { player.pause() }
                 override fun onSkipToNext() { onPlaybackEnded?.invoke() }
                 override fun onSkipToPrevious() { onPlaybackPrevious?.invoke() }
@@ -188,6 +193,15 @@ class PlaybackService : MediaLibraryService() {
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) {
+                    // #29 观测点：走到末尾时播放器里还剩几项、当前是哪一首。若这里
+                    // count==1（没有下一首预载项），说明"预载没成功/数据源没给歌"，
+                    // 而不是"回调没到 UI 层"——配套看 MainScreen 的 songEnded /
+                    // infinity continuation 两条日志即可区分。
+                    Log.d(
+                        "PlaybackService",
+                        "STATE_ENDED count=${player.mediaItemCount} " +
+                            "index=${player.currentMediaItemIndex} songId=${currentSongIdFromPlayer()}"
+                    )
                     onPlaybackEnded?.invoke()
                 }
                 onBufferingChanged?.invoke(state == Player.STATE_BUFFERING)
@@ -218,21 +232,32 @@ class PlaybackService : MediaLibraryService() {
                 if (mediaItem == null) return
                 // 当前项一变就以它为准刷新标题/封面/音质——元数据与音频同一个对象，
                 // 不可能再出现"元数据跳了音源没跳"。applyNowPlaying 内部已负责
-                // updatePlaybackState()/updateNotify()，两条分支共用，不再重复调用。
+                // updatePlaybackState()/updateNotify()，不再重复调用。
                 applyNowPlaying(mediaItem)
-                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                    val songId = mediaItem.mediaId.toLongOrNull() ?: -1L
-                    val extras = mediaItem.mediaMetadata.extras
-                    val actualLevel = extras?.getString(EXTRA_ACTUAL_LEVEL).orEmpty()
-                    val artwork = extras?.getString(EXTRA_ARTWORK).orEmpty()
-                    // 清掉已播项，保持队列紧凑。
-                    if (player.currentMediaItemIndex > 0) {
-                        player.removeMediaItem(0)
-                    }
-                    onSongTransitioned?.invoke(
-                        NowPlaying(songId, mediaTitle, mediaArtist, artwork, actualLevel)
-                    )
+                val auto = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
+                Log.d(
+                    "PlaybackService",
+                    "mediaItemTransition reason=$reason auto=$auto mediaId=${mediaItem.mediaId} " +
+                        "count=${player.mediaItemCount} index=${player.currentMediaItemIndex}"
+                )
+                // 清掉已播项，保持"当前项 + 至多一首预载项"的紧凑队列。只有自然衔接才需要清：
+                // 手动 setMediaItem 是整表替换，列表里本来就只有一项。
+                if (auto && player.currentMediaItemIndex > 0) {
+                    player.removeMediaItem(0)
                 }
+                val extras = mediaItem.mediaMetadata.extras
+                // 非 AUTO 的过渡（手动切歌、系统媒体控件/车机 seek）也要上报：否则 UI 的
+                // currentSongId 停在上一首上，应用队列索引再也无法按音频事实回查（#32）。
+                onSongTransitioned?.invoke(
+                    NowPlaying(
+                        songId = songIdOf(mediaItem),
+                        title = mediaTitle,
+                        artist = mediaArtist,
+                        artwork = extras?.getString(EXTRA_ARTWORK).orEmpty(),
+                        actualLevel = extras?.getString(EXTRA_ACTUAL_LEVEL).orEmpty(),
+                        auto = auto
+                    )
+                )
             }
         })
         // 音频输出层故障（听感"哒哒哒"爆鸣，严重时 AudioTrack 死掉、进度照跑但没声）
@@ -282,11 +307,11 @@ class PlaybackService : MediaLibraryService() {
                 // 不再出现"新歌标题 + 上一首封面"的过渡窗口
                 if (artwork.isNotEmpty()) preloadArtwork(artwork, nextSongId)
                 player.addMediaItem(buildMediaItem(nextUrl, nextSongId, title, artist, artwork, actualLevel))
-                Log.d("PlaybackService", "Queued next: $title songId=$nextSongId url=$nextUrl")
+                Log.d("PlaybackService", "Queued next: $title songId=$nextSongId")
                 return START_NOT_STICKY
             }
             "pause" -> { player.pause() }
-            "resume" -> { player.play() }
+            "resume" -> { resumePlayback() }
             "stop" -> {
                 PlaybackStateManager.clearState(this)
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -435,8 +460,26 @@ class PlaybackService : MediaLibraryService() {
         return levels.getOrElse(prefs.getInt("wifi_quality", 3)) { "lossless" }
     }
 
+    /**
+     * "播放 / 继续"。ExoPlayer 的 `play()` 只把 playWhenReady 置 true：内部实现
+     * （media3 1.4.1 的 setPlayWhenReadyInternal）只在 READY/BUFFERING 时启动渲染器，
+     * STATE_ENDED 没有分支——所以队尾播完后再点播放键**什么都不会发生**（issue #29 的
+     * "点击播放键没有反应"），必须先 seekTo(0)+prepare 把播放器拉回可播状态。
+     * STATE_IDLE 同理（取流失败后停在 IDLE 时，prepare 才是真正的重试）。
+     * 判断本身抽成纯函数 PlaybackQueueLogic.needsRestartBeforePlay，已有 JVM 单测。
+     */
+    private fun resumePlayback() {
+        if (PlaybackQueueLogic.needsRestartBeforePlay(player.playbackState, player.currentMediaItem != null)) {
+            Log.d("PlaybackService", "resume: player state=${player.playbackState}, restarting from 0")
+            player.seekTo(0)
+            player.prepare()
+        }
+        player.play()
+    }
+
     private fun playUrl(url: String, songId: Long, title: String, artist: String, artwork: String) {
-        Log.d("PlaybackService", "Playing: $url")
+        // 只记 songId/标题：取链 URL 带签名参数，不能进 logcat（即便 release 也会打）。
+        Log.d("PlaybackService", "Playing: songId=$songId title=$title")
         // 手动切歌顶掉无缝队列，预载的下一首封面一并作废。
         preloadedArtworkBitmaps.clear()
         val mediaItem = buildMediaItem(url, songId, title, artist, artwork, "")
@@ -477,7 +520,17 @@ class PlaybackService : MediaLibraryService() {
 
     /** 当前真正在响的歌曲 id（来自 ExoPlayer 当前 item，而非任何缓存槽）。 */
     private fun currentSongIdFromPlayer(): Long =
-        player.currentMediaItem?.mediaId?.toLongOrNull()?.takeIf { it > 0 } ?: (mediaSongId ?: -1L)
+        player.currentMediaItem?.let { songIdOf(it) }?.takeIf { it > 0 } ?: (mediaSongId ?: -1L)
+
+    /**
+     * 播放项的 songId。车机浏览树的 id 形如 "song:<id>"，播放项 id 形如 "<id>"，两种都解析。
+     * 之前 onMediaItemTransition 只认裸数字 id，车机播进来的项会上报 songId=-1，
+     * UI 便无法把"正在响的歌"对回应用队列。
+     */
+    private fun songIdOf(item: MediaItem): Long =
+        item.mediaId.toLongOrNull()
+            ?: item.mediaId.removePrefix("song:").toLongOrNull()
+            ?: -1L
 
     /**
      * 当前播放曲目快照（来自 ExoPlayer 当前 item）。供 UI 层在 Activity 重建后与
@@ -507,10 +560,7 @@ class PlaybackService : MediaLibraryService() {
 
     /** 以当前 MediaItem 为准刷新通知栏/锁屏的标题、歌手、封面与音质。 */
     private fun applyNowPlaying(item: MediaItem) {
-        // 车机浏览树的 id 形如 "song:<id>"，播放项 id 形如 "<id>"，两种都解析。
-        val songId = item.mediaId.toLongOrNull()
-            ?: item.mediaId.removePrefix("song:").toLongOrNull()
-            ?: -1L
+        val songId = songIdOf(item)
         val md = item.mediaMetadata
         mediaTitle = md.title?.toString() ?: "Ncrust"
         mediaArtist = md.artist?.toString() ?: ""

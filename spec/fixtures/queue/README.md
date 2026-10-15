@@ -1,7 +1,7 @@
 # fixtures/queue —— 队列状态机
 
 队列操作后「队列内容 + 当前索引」的标准答案（见 `spec/README.md`）。语义基线是 Android
-`MainScreen` 的队列函数，**除 remove 外逐条对照**；remove 的偏差见文末。
+`MainScreen` 的队列函数，逐条对照（remove 曾有偏差，已修正，见文末）。
 
 ## 关键不变量
 
@@ -39,7 +39,7 @@ expect: { "queue": [id...], "current": <int>, "shuffleValid": <bool, 仅 SHUFFLE
 Android `removeFromQueue` 只做 `currentIndex >= size` 的 clamp：删掉当前曲**之前**的歌后，
 `currentIndex` 数值不变，于是指向了原来当前曲的**后一首**，破坏上述不变量。本夹具按正确的
 行为定义：**删除后按歌曲身份重新定位当前索引**（删除当前曲本身时，落到它原本所在槽位的下一项，
-队尾则前移一格）。Android 侧在 M3 接入本夹具时同步修正。
+队尾则前移一格）。Android 侧已按本夹具修正（`PlaybackQueueLogic.removeAt`，由 `PlaybackQueueSpecFixtureTest` 锁定；曾是 issue #32「播错歌」的一条路径）。
 
 ## 来源
 
