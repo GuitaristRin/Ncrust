@@ -1,0 +1,9 @@
+# walkman/.gitignore
+
+# 这是独立 Gradle 构建，与仓库根的 .gitignore 各管各的：根里的 `/build` 是锚定根目录的，
+# 在 walkman/ 下不生效。这份让 `walkman/` 单独拷出去也能直接 git init 而不带产物。
+build/
+.gradle/
+local.properties
+*.iml
+.idea/

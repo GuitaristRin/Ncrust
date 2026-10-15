@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 播放期间保持唤醒由 W2 的播放服务负责；W0 只做前台冒烟。 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:name=".WalkmanApp"
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="false"
+        android:usesCleartextTraffic="true">
+        <!--
+            usesCleartextTraffic 是给音频 CDN 用的：song/enhance/player/url/v1 回的 URL 是
+            http://m7xx.music.126.net/...。API 16 上明文本来就允许（该属性 API 23 才存在，
+            更老的平台忽略未知属性），写在这里是为了日后抬 targetSdk 时不至于突然全哑。
+        -->
+
+        <activity
+            android:name=".smoke.SmokeActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

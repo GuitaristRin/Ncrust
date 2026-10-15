@@ -48,3 +48,17 @@ Git Bash 下给 adb 传设备路径要 `export MSYS_NO_PATHCONV=1`。4.1 的 `in
 walkman\gradlew.bat -p walkman testDebugUnitTest
 walkman\gradlew.bat -p walkman assembleDebug
 ```
+
+## 本阶段验收结果（2026-10-15）
+
+实现位于 `dsh/ncrust-walkman-w0` 的独立工作区，尚未合入 master。
+
+- 上述两条命令通过；额外运行 `lintDebug`，0 错误、9 警告（仅禁用侧载工程不适用的
+  `ExpiredTargetSdkVersion`，未全局忽略 lint 错误）。
+- 22 个 JUnit 测试方法全部通过，其中逐条执行共享夹具 54 条：eapi 4、weapi 2、xeapi 13、
+  quality 23、entitlement 12。另有 JSON 严格解析、网络错误与不可播权益保留、降级顺序、
+  试听与 CSRF 注入回归测试。
+- NW-F885 真机匿名歌曲 5257138 取链成功：TLS 1.2、128001 bps MP3，MediaPlayer 播放
+  20 s，位置推进至 19995 ms。设备上的 AES-GCM 往返和 X25519 协商通过。
+- 验证后已卸载本应用，`pm path` 无包；设备系统设置与调试属性未改动。
+- 工具链、产物与后续验证边界见 `walkman/AGENTS.md` 的「W0 验证状态」。

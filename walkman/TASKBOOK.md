@@ -42,6 +42,10 @@
 | **W3 界面** | 首页 / 我喜欢 / 搜索 / 播放器（歌词）/ 设置，320×521 dp 小屏布局，方向键可操作 | W1、W2 |
 | **W4 收尾** | 设备实测性能与内存、FLAC（登录 VIP 后）、发布打包与签名、`docs/RELEASES.md` 增加 Walkman 行 | W3 |
 
+当前进度（2026-10-15）：W0 已在 `dsh/ncrust-walkman-w0` 实现并通过构建、夹具测试、lint 与
+NW-F885 匿名取链 / 系统 MediaPlayer 播放冒烟；验证后已卸载应用。尚未合入 master，
+W1–W4 未开始。具体证据与验证边界见 `AGENTS.md`、`tasks/w0-foundation.md`。
+
 ### W0 地基（详见 `tasks/w0-foundation.md`）
 
 - 建 `walkman/` 独立工程，复制根目录 Gradle wrapper，能 `walkman\gradlew.bat -p walkman assembleDebug` 出 APK。

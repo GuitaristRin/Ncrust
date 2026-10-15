@@ -31,5 +31,12 @@ benchmark/build/
 benchmark/cookie.secret
 benchmark/output/
 
+# Ncrust for Walkman：独立 Gradle 构建，产物与本地配置不随仓库走
+# （根 .gitignore 里的 `/build` 是锚定根目录的，管不到 walkman/ 下面）
+walkman/build/
+walkman/app/build/
+walkman/.gradle/
+walkman/local.properties
+
 .sh
 CLAUDE.md
