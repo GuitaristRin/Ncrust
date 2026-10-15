@@ -90,7 +90,8 @@ object SongUrlFetcher {
                 val payload = buildPayload(songId, tryLevel)
                 val response = RetrofitClient.eapiPost(SONG_URL_PATH, payload, useInterface = true)
                 val body = response.body?.string() ?: continue
-                Log.d(TAG, "eapi response ($tryLevel): $body")
+                // 不打印响应体：里面是带签名的音频 URL 与 authSecret，且整段格式化在弱机上也不便宜。
+                Log.d(TAG, "eapi response ($tryLevel): ${body.length} chars")
                 val json = JSONObject(body)
                 val data = json.optJSONArray("data") ?: continue
                 if (data.length() > 0) {

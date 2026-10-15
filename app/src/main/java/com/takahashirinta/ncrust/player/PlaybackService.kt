@@ -21,6 +21,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -166,6 +167,20 @@ class PlaybackService : MediaLibraryService() {
                         /* bufferForPlaybackMs = */ 2_500,
                         /* bufferForPlaybackAfterRebufferMs = */ 15_000
                     )
+                    .build()
+            )
+            // 动态调度：缓冲充足时播放线程按需唤醒，而不是固定每 10ms 跑一次 doSomeWork。
+            // 实测（Xperia 10 VII，熄屏放 MP3）播放线程 + 解码线程约占一个核的 10%，是熄屏耗电的大头。
+            .experimentalSetDynamicSchedulingEnabled(true)
+            .build()
+
+        // 音频 offload：把 MP3/AAC 解码交给硬件 DSP，熄屏长听时 CPU 可以真正睡下去。
+        // 要求设备支持 offload 下的无缝衔接，不支持就自动退回软件解码——无缝播放不能为省电让路。
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setAudioOffloadPreferences(
+                AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                    .setIsGaplessSupportRequired(true)
                     .build()
             )
             .build()
