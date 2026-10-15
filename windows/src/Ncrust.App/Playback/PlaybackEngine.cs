@@ -29,7 +29,8 @@ namespace Ncrust.Playback
     ///   元数据在创建时挂到 <see cref="MediaPlaybackItem"/> 上，换歌不会串元数据。
     /// - 质量降级：ItemFailed → <see cref="QualityLadder.NextRetryLevel"/> 在原位置重建条目
     ///   （同一 songId@level 3 秒内只重试一次）；失败的是当前曲则切回重建的条目继续播。
-    /// - 进度：500ms ticker 读位置/时长（约 2Hz）；播放上报按 <see cref="PlayReportPolicy"/>。
+    /// - 进度：500ms ticker 读位置/时长（约 2Hz）；播放上报（听歌打卡）按 <see cref="PlayReportPolicy"/>
+    ///   去重后发两条 eapi 上报：起播时 startplay、听完（或 ≥80%）时 play。
     /// - SMTC：由 MediaPlayer + DisplayProperties 自动接管（媒体键、系统浮窗）。
     /// </summary>
     internal sealed class PlaybackEngine
@@ -212,6 +213,7 @@ namespace Ncrust.Playback
             SetCurrentSong(current);
             AppendNextIfMissing();
             _player.Play();
+            FireStartReport(_currentSongId);
             QueueChanged?.Invoke();
             QualityChanged?.Invoke(CurrentLevel);
         }
@@ -570,6 +572,7 @@ namespace Ncrust.Playback
             TrimBefore(newItem);
             AppendNextIfMissing();
             SaveState();
+            FireStartReport(_currentSongId);
             QueueChanged?.Invoke();
             QualityChanged?.Invoke(CurrentLevel);
         }
@@ -691,37 +694,65 @@ namespace Ncrust.Playback
             _session.UpdateProgress(position, duration);
             ProgressChanged?.Invoke(position, duration);
 
-            if (_reportPolicy.TryAcquire(_currentSongId, position, duration, ended: false))
-            {
-                FireReport(_currentSongId, position);
-            }
+            FirePlayReport(ended: false, position, duration);
         }
 
         private void ReportCurrent(bool ended)
         {
             var duration = DurationMs;
-            if (_reportPolicy.TryAcquire(_currentSongId, duration, duration, ended))
-            {
-                FireReport(_currentSongId, duration);
-            }
+            FirePlayReport(ended, duration, duration);
         }
 
-        private void FireReport(long songId, long playedMs)
+        /// <summary>
+        /// 开始播一首就把 startplay 发出去（听歌打卡第一步，进「最近播放」）。挂点与
+        /// <see cref="SetCurrentSong"/> 同源：<see cref="PlayCurrent"/>（起播 / 手动切歌）与
+        /// <see cref="OnCurrentItemChanged"/>（无缝衔接）都算「真的开始播了」，重复调用由
+        /// <see cref="PlayReportPolicy.TryAcquireStart"/> 去重；恢复上次会话不播，因此不发。
+        ///
+        /// <paramref name="isTrial"/> 预留给权益判定（试听片段不发）：Windows 的试听标记还没落到
+        /// 引擎上，接上时在调用处传即可，默认按完整播放处理。
+        /// </summary>
+        private void FireStartReport(long songId, bool isTrial = false)
         {
-            if (songId <= 0 || _http.Cookie == null)
+            if (!_reportPolicy.TryAcquireStart(songId, isTrial))
             {
                 return;
             }
 
-            var csrf = _http.GetCsrfToken();
-            if (string.IsNullOrEmpty(csrf))
+            SendReport(PlayReport.BuildStartplayLogs(songId), songId);
+        }
+
+        /// <summary>
+        /// 「听完」上报的唯一出口：自然结束（<paramref name="ended"/> 为 true）或进度 ≥ 80% 时发
+        /// play（涨「听歌排行」）。
+        ///
+        /// 试听片段（<paramref name="isTrial"/>）在**记去重之前**就挡掉，与 Android 端
+        /// <c>currentIsTrial</c> 的位置一致：被抑制不算「已上报」，同一首之后按完整播放走时仍会发。
+        /// Windows 的权益判定还在别处（引擎里目前没有试听标记），参数位先留着，默认按完整播放处理。
+        /// </summary>
+        private void FirePlayReport(bool ended, long positionMs, long durationMs, bool isTrial = false)
+        {
+            if (!_reportPolicy.TryAcquire(_currentSongId, positionMs, durationMs, ended, isTrial))
             {
                 return;
             }
 
-            var url = PlayReport.WeblogUrl(csrf);
-            var logs = PlayReport.BuildLogs(songId, playedMs, "playend", null, isWifi: !_network.IsMetered);
-            _ = _http.PostWeblogAsync(url, logs);
+            SendReport(
+                PlayReport.BuildPlayLogs(_currentSongId, positionMs, isWifi: !_network.IsMetered),
+                _currentSongId);
+        }
+
+        /// <summary>
+        /// 发给 clientlog 的 eapi 通道（os=osx 身份）。发出后不管结果、不阻塞播放；未登录不发。
+        /// </summary>
+        private void SendReport(string logsJson, long songId)
+        {
+            if (songId <= 0 || string.IsNullOrEmpty(_http.Cookie))
+            {
+                return;
+            }
+
+            _ = _http.EapiPostOsxAsync(PlayReport.WeblogPath, PlayReport.WeblogFields(logsJson));
         }
 
         private async System.Threading.Tasks.Task SaveStateAsync()

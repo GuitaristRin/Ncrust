@@ -140,7 +140,7 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 
 | 模块 | 内容 | Android 对应 |
 |---|---|---|
-| `Net/` | `NcmHttp`：`EapiPost` / `EapiPostOfficial` / `EapiPostPc`（扫码登录）/ `WeapiPost` / `XeapiPost` / `Get` / `PostWeblog`；Cookie 注入；PC UA 与 Referer；`XeapiState`（xeapi 设备 id 永久持久化、公钥状态、内存会话，见 `spec/api/xeapi.md`） | `RetrofitClient`、`network/XeapiState` |
+| `Net/` | `NcmHttp`：`EapiPost` / `EapiPostOfficial` / `EapiPostPc`（扫码登录）/ `WeapiPost` / `XeapiPost` / `EapiPostOsx`（播放上报）/ `Get`；Cookie 注入；PC UA 与 Referer；`XeapiState`（xeapi 设备 id 永久持久化、公钥状态、内存会话，见 `spec/api/xeapi.md`） | `RetrofitClient`、`network/XeapiState` |
 | `Net/Crypto/` | `EapiCrypto`（AES-128-ECB + MD5 签名，响应解密）、`WeapiCrypto`（双层 AES-CBC + 不加填充的 RSA，用 `BigInteger.ModPow`）、`XeapiCrypto`（X25519 + HKDF + AES-GCM 信封，纯托管）、`ManagedAesGcm`（netstandard2.0 没有 `AesGcm`，测试里与 .NET 9 `AesGcm` 交叉比对） | `network/crypto/` |
 | `Json/` | `JsonValue`：只读 JSON DOM，零反射、零外部依赖，供所有响应解析 | —— |
 | `Api/` | REST 端点与 eapi 端点、响应模型 | `NcmApi`、`PlaylistApi`、`CoverUrls` |
@@ -229,8 +229,9 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 （它会 302 到一个 404 的 HTML 页面，然后一直缓冲）。
 `dolby` / `jyeffect` 在 Windows 上能否解码要在 M2 实测；解码不了就由自动降级兜底。
 
-**播放上报**：自然播完或进度 ≥ 80% 时，由 Core 的 `PlayReportPolicy` 触发 webLog，
-同一首歌只报一次；`wifi` 字段取「网络是否计费」的反值。不加密，发出后不管结果，不阻塞播放。
+**播放上报**：旧的明文 webLog（clientlogusf）返回 200 却不入账，已改为 eapi 打 `clientlog.music.163.com`、`os=osx` 身份
+（见 `spec/api/endpoints.md`）。每首两次：开始播放发 `startplay`，自然播完或进度 ≥ 80% 发 `play`（`time` 单位秒）；由 Core 的
+`PlayReportPolicy` 去重，同一首歌各报一次，试听片段两次都不发；`wifi` 字段取「网络是否计费」的反值。发出后不管结果，不阻塞播放。
 
 **进度**：`PlaybackEngine` 把 `PlaybackSession.PositionChanged` 节流到 2Hz 再发给状态层；
 `SeekBar` 在自己内部用 Composition 线性动画在两次 tick 之间插值。页面层不绑定高频位置。
