@@ -1089,7 +1089,13 @@ fun MainScreen(
                             ) {
                                 val cookie = android.webkit.CookieManager.getInstance()
                                     .getCookie(url)
-                                if (cookie != null && cookie.contains("MUSIC_U=")) {
+                                // 只认非空的 MUSIC_U：会话失效时网页会把它置空（`MUSIC_U=`），
+                                // 子串匹配会把空值当成登录成功，登录层一打开就关掉。
+                                val musicU = cookie?.split(';')
+                                    ?.map { it.trim() }
+                                    ?.lastOrNull { it.startsWith("MUSIC_U=") }
+                                    ?.removePrefix("MUSIC_U=")
+                                if (cookie != null && !musicU.isNullOrEmpty()) {
                                     com.takahashirinta.ncrust.auth.CookieManager
                                         .saveCookie(ctx, cookie)
                                     RetrofitClient.updateCookie(cookie)
@@ -1098,8 +1104,11 @@ fun MainScreen(
                                 }
                             }
                         }
-                        android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                        loadUrl("https://music.163.com/#/login")
+                        // removeAllCookies 是异步的：等它清完再加载，否则首个 onPageFinished
+                        // 可能读到上一次（已失效）的 MUSIC_U，直接「登录成功」。
+                        android.webkit.CookieManager.getInstance().removeAllCookies {
+                            loadUrl("https://music.163.com/#/login")
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize()
