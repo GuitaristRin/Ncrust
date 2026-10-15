@@ -3,6 +3,7 @@ package com.takahashirinta.ncrust.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
@@ -20,12 +21,19 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
+/**
+ * 整列表操作对话框：替换队列并播放 / 插到下一首 / 追加到队尾。
+ *
+ * [onAppendToQueue] 默认 null = 不显示第三项——老调用点（专辑、歌单详情）没有「追加整列表」
+ * 的入口，传 null 才能保证它们的行为一字不变。
+ */
 @Composable
 fun PlayAllDialog(
     songCount: Int,
     onDismiss: () -> Unit,
     onReplaceAndPlay: () -> Unit,
-    onInsertNext: () -> Unit
+    onInsertNext: () -> Unit,
+    onAppendToQueue: (() -> Unit)? = null
 ) {
     val strings = LocalStrings.current
     MetroDialog(onDismissRequest = onDismiss) {
@@ -99,6 +107,37 @@ fun PlayAllDialog(
             }
         }
         MetroDivider()
+
+        if (onAppendToQueue != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onAppendToQueue(); onDismiss() }
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MetroIcon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    contentDescription = null,
+                    tint = LocalMetroColors.current.onBackground,
+                    sizeDp = 26.dp
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    MetroText(
+                        text = strings.appendQueueTitle,
+                        color = LocalMetroColors.current.onBackground,
+                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    )
+                    MetroText(
+                        text = strings.appendQueueDesc,
+                        color = LocalMetroColors.current.onSurfaceVariant,
+                        style = TextStyle(fontSize = 12.sp)
+                    )
+                }
+            }
+            MetroDivider()
+        }
 
         Box(
             modifier = Modifier

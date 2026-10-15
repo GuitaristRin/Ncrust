@@ -114,6 +114,10 @@ val zhCN = Strings(
     playNowDesc = "清空当前队列并开始播放",
     insertNextTitle = "插播",
     insertNextDesc = "在当前曲目之后立即播放",
+    appendQueueTitle = "最后播放",
+    appendQueueDesc = "追加到当前队列末尾",
+    loadingSongsCount = { "正在加载 $it 首…" },
+    playAllPartial = { "有 $it 首未能加载，将按已取到的曲目执行" },
 
     aboutTitle = "关于 Ncrust",
     aboutAppSubtitle = "网易云音乐第三方客户端",

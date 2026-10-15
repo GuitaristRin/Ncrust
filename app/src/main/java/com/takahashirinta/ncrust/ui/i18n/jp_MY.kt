@@ -114,6 +114,10 @@ val jpMY = Strings(
     playNowDesc = "列 空 奏 始",
     insertNextTitle = "次 挿",
     insertNextDesc = "現在曲 直後 奏",
+    appendQueueTitle = "末 奏",
+    appendQueueDesc = "現列 末 加",
+    loadingSongsCount = { "読込 中 $it 首…" },
+    playAllPartial = { "$it 首 未 読込 得 曲 奏" },
 
     aboutTitle = "Ncrust 紹介",
     aboutAppSubtitle = "王易雲音楽 第三者 客",
