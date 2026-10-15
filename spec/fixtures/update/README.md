@@ -73,16 +73,8 @@ Android 侧另外断言 `assetName` / `assetUrl` / `assetSize` / `publishedAt` /
 5. **跨班次取最高**：遍历所有可见 release，取**严格大于当前版本**的最高者；同版本不算更新。
 6. **不依赖 Latest 徽章**，也不依赖 release 在数组里的顺序（班次是滚动的，顺序即发布时间）。
 
-## 已知的两端差异（不要为了让测试变绿而改夹具）
+## 两端差异（已消除）
 
-- **prerelease**：Android 侧按规则 3 忽略预发布；Windows 的
-  `Ncrust.Core.Update.UpdateChecker` 目前**只过滤 `draft`**，会把预发布班次当成正式版本。
-  所以 `update.prerelease.ignored` 标了 `"platforms": ["android"]`——它的期望是 Android 的规则，
-  Windows 侧尚未实现该规则（本轮不允许改 Windows 产品代码）。修好 Windows 后把这条的
-  `platforms` 改回两端即可，期望值本身不用动。
-- **扩展名**：Android 要求命中资产是 `.apk`（见规则 1）；Windows 的 `UpdateChecker` 不校验扩展名，
-  它按扩展名把 URL 分派到 `.appinstaller` / `.msix` / `.cer` 三样，遇到只传了 `.asc` 的班次会
-  返回一个「有更新但三样 URL 全空」的结果。所以 `update.asset.wrong-extension` 也标了
-  `"platforms": ["android"]`。
-- 现实数据里这两条差异暂时都打不出来：线上预发布班次（`v1.0.1`~`v1.0.3`、`0.1.0-beta`）的资产是
-  `app-debug.apk`，本来就过不了规则 2；线上也没有只带 `.asc` 的班次。差异要等对应的班次出现才会显形。
+2026-10-15 前 Windows 的 `UpdateChecker` 只过滤 `draft`、不校验扩展名，`update.prerelease.ignored` 与
+`update.asset.wrong-extension` 两条因此只标了 Android。现已在 Windows 补齐（忽略 `prerelease`；只有 `.appinstaller` /
+`.msix` / `.cer` 计入版本），两条恢复为两端都适用，期望值未改。今后新增规则时仍应先改夹具、再让两端同时通过。

@@ -11,9 +11,8 @@ public class UpdateCheckerTests
     /// 这里把夹具用例逐条喂给 Windows 的 UpdateChecker，锁住跨班次取最高、draft 忽略、
     /// 资产命名规范、平台/架构不互相误命中这些两端必须一致的行为。
     ///
-    /// 夹具里标了 "platforms": ["android"] 的用例（prerelease 规则）Windows 侧**尚未实现**
-    /// ——`UpdateChecker` 只过滤 draft。这里显式跳过并把它记在 skipped 列表里断言出来，
-    /// 不假装覆盖；期望值本身不动（原因见夹具 README「已知的两端差异」）。
+    /// 夹具用例目前全部两端适用（prerelease 与扩展名两条已在 Windows 补齐）；若将来有用例只标了
+    /// 一端，这里会显式跳过并断言出来，不假装覆盖。
     /// </summary>
     [Fact]
     public void Find_MatchesUpdateFixture()
@@ -68,9 +67,7 @@ public class UpdateCheckerTests
         // 夹具被清空、或平台标记写错导致大量用例被跳过时，测试必须红，否则等于没有对照。
         Assert.Equal(cases.GetArrayLength(), checkedCases + skippedForWindows.Count);
         Assert.True(checkedCases >= 12, $"跑到的 Windows 用例太少：{checkedCases}");
-        Assert.Equal(
-            new[] { "update.prerelease.ignored", "update.asset.wrong-extension" },
-            skippedForWindows);
+        Assert.Empty(skippedForWindows);
     }
 
     /// <summary>夹具用例默认两端都适用；显式写了 platforms 的按它判断。</summary>

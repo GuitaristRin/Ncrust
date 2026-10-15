@@ -82,7 +82,8 @@ namespace Ncrust.Core.Update
             UpdateInfo? best = null;
             foreach (var release in root.Items)
             {
-                if (!release.IsObject || release.GetBool("draft"))
+                // 草稿与预发布都不是给用户的版本（docs/PLAN_2026-10.md §1；与 Android 同一份夹具）。
+                if (!release.IsObject || release.GetBool("draft") || release.GetBool("prerelease"))
                 {
                     continue;
                 }
@@ -124,11 +125,8 @@ namespace Ncrust.Core.Update
                         continue;
                     }
 
-                    if (releaseVersion == null || version.CompareTo(releaseVersion) > 0)
-                    {
-                        releaseVersion = version;
-                    }
-
+                    // 只有认得的三样资产才算数：否则一个只带签名 / 校验文件（如 .asc）的班次会被当成
+                    // 「有更新但三样 URL 全空」，用户点了也装不了。
                     var url = asset.GetString("browser_download_url");
                     switch (rest.Substring(dot + 1).ToLowerInvariant())
                     {
@@ -141,6 +139,17 @@ namespace Ncrust.Core.Update
                         case "cer":
                             cer = url;
                             break;
+                        case "apk":
+                            // 共享夹具（spec/fixtures/update）也拿 Android 平台的用例喂本函数：.apk 计入版本，
+                            // 本端没有对应的 URL 槽，Windows 应用本身永远不会以 android 平台调用它。
+                            break;
+                        default:
+                            continue;
+                    }
+
+                    if (releaseVersion == null || version.CompareTo(releaseVersion) > 0)
+                    {
+                        releaseVersion = version;
                     }
                 }
 
