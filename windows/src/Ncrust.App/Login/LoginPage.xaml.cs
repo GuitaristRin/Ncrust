@@ -307,7 +307,7 @@ namespace Ncrust.Login
             QrLoginPollResult result;
             try
             {
-                result = await _qr.PollAsync(_key.Unikey, _key.SDeviceId);
+                result = await _qr.PollAsync(_key.Unikey);
             }
             catch
             {

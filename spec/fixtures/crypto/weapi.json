@@ -2,8 +2,8 @@
   {
     "id": "weapi.encrypt.qr-unikey",
     "kind": "weapi-encrypt",
-    "description": "weapi 扫码取 key 的 payload；params 是两层 AES-CBC，encSecKey 是反转 secKey 的 raw RSA。",
-    "source": "app/.../network/crypto/WeapiCrypto.kt；app/.../network/PlaylistApi.kt getLoginQrKey；独立 Node 参考实现生成",
+    "description": "通用 weapi 向量（payload 取自旧版扫码取 key，扫码现已改走 eapi + PC 身份）；params 是两层 AES-CBC，encSecKey 是反转 secKey 的 raw RSA。",
+    "source": "app/.../network/crypto/WeapiCrypto.kt；独立 Node 参考实现生成（原调用点 getLoginQrKey 已于 2026-10-15 改走 eapi）",
     "input": {
       "payloadJson": "{\"type\":1,\"noCheckToken\":true}",
       "secKey": "0123456789abcdef"

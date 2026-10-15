@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val ruRU = Strings(
     tabHome = "Главная",
@@ -93,6 +93,8 @@ val ruRU = Strings(
     qrScannedHint = "Отсканировано, подтвердите на телефоне",
     qrExpiredHint = "QR-код истёк, нажмите для обновления",
     qrLoadFailed = "Не удалось загрузить, нажмите для повтора",
+    qrSessionInvalid = "Сеанс недействителен, нажмите для повтора",
+    qrNetworkError = "Ошибка сети, не удалось подтвердить вход, нажмите для повтора",
     qrGenericLogin = "Другой способ входа",
     scanEntryTitle = "Авторизовать другое устройство",
     scanPrompt = "Наведите на QR-код входа на планшете",

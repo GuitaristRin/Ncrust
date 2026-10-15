@@ -34,14 +34,15 @@ import kotlinx.coroutines.launch
 private const val TAG = "QrLogin"
 
 /** 扫码状态机（UI 侧）。 */
-private enum class QrState { Loading, Waiting, Scanned, Expired, Failed }
+private enum class QrState { Loading, Waiting, Scanned, Expired, Failed, InvalidSession, NetworkError }
 
 /**
  * 平板 / 大屏独占的扫码登录弹窗。
  *
- * 流程：`/eapi/login/qrcode/unikey` 拿到官方返回的二维码图（base64 PNG，无需本地
- * 生成），每 3 秒轮询 `client/unikey`：801 待扫 / 802 已扫待确认 / 803 成功。
- * 成功时 cookie 在响应的 Set-Cookie 头里，回调给上层走既有保存路径。
+ * 流程：`/eapi/login/qrcode/unikey`（eapi + PC 客户端身份 + type=3，打 interfacepc）拿到
+ * unikey，本地渲染二维码（服务端一般不给图），每 2 秒轮询 `client/login`：
+ * 801 待扫 / 802 已扫待确认 / 803 成功。803 的 cookie 在响应的 Set-Cookie 头里，
+ * 先用它打一次 `account/get` 校验（`account` 非空才算登录），校验不过就留在弹窗里让用户重试。
  * 800 过期或请求失败时点击二维码可重新申请。
  *
  * 「通用登录」退回到与手机一致的 WebView 官方登录页。
@@ -61,6 +62,15 @@ fun QrLoginDialog(
     // 平板侧局域网配对服务：手机 Ncrust 扫同一个二维码时把 cookie 回传过来。
     var pairServer by remember { mutableStateOf<QrPairServer?>(null) }
 
+    fun hintFor(current: QrState): String = when (current) {
+        QrState.Scanned -> strings.qrScannedHint
+        QrState.Expired -> strings.qrExpiredHint
+        QrState.Failed -> strings.qrLoadFailed
+        QrState.InvalidSession -> strings.qrSessionInvalid
+        QrState.NetworkError -> strings.qrNetworkError
+        else -> strings.qrScanHint
+    }
+
     fun refresh() {
         pollJob?.cancel()
         pairServer?.stop()
@@ -75,7 +85,7 @@ fun QrLoginDialog(
             }
             // 官方 App 扫码走轮询; Ncrust 手机扫码走局域网回传, 两条路谁先到用谁。
             pairServer = QrPairServer(key.unikey) { cookie -> onLoginSuccess(cookie) }.also { it.start() }
-            // 二维码内容用带 chainId 的官方登录链接(官方 App 据此绑定确认会话);
+            // 二维码内容是 PC 形态的官方登录链接（`?codekey=<unikey>`，不带 chainId）：
             // 服务端一般不给图, 用 zxing 本地生成(官方客户端同款做法)。
             val qrContent = key.qrurl
             qrBitmap = key.qrimg?.let { decodeQrImage(it) } ?: generateQrBitmap(qrContent)
@@ -90,7 +100,7 @@ fun QrLoginDialog(
                 ticks++
                 // 单次轮询失败(网络抖动)不能让整个轮询协程死掉——否则扫码确认后
                 // 永远等不到 803, 表现为"授权了还是没登进去"。
-                val st = runCatching { PlaylistApi.checkLoginQr(key.unikey, key.sDeviceId) }.getOrNull()
+                val st = runCatching { PlaylistApi.checkLoginQr(key.unikey) }.getOrNull()
                 if (st == null) {
                     Log.w(TAG, "poll failed (transient), retry")
                     continue
@@ -101,12 +111,27 @@ fun QrLoginDialog(
                     802 -> state = QrState.Scanned
                     803 -> {
                         val cookie = st.cookie
-                        if (cookie != null) {
-                            Log.d(TAG, "login success, cookie len=${cookie.length}")
-                            onLoginSuccess(cookie)
-                        } else {
-                            Log.e(TAG, "803 but no MUSIC_U in Set-Cookie")
+                        if (cookie == null) {
+                            // 803 但 Set-Cookie 里没有非空 MUSIC_U：这次确认没带上会话。
+                            Log.e(TAG, "803 without non-empty MUSIC_U in Set-Cookie")
                             state = QrState.Failed
+                            return@launch
+                        }
+                        // 803 只说明手机上确认了: 先用这份 cookie 打 account/get, 服务端认了才算成功。
+                        // 不校验就会出现「提示登录成功、回首页仍显示未登录」。
+                        when (PlaylistApi.validateSession(cookie)) {
+                            PlaylistApi.SessionCheck.Valid -> {
+                                Log.d(TAG, "session validated, handing off login")
+                                onLoginSuccess(cookie)
+                            }
+                            PlaylistApi.SessionCheck.Invalid -> {
+                                Log.w(TAG, "session rejected by account/get")
+                                state = QrState.InvalidSession
+                            }
+                            PlaylistApi.SessionCheck.Unknown -> {
+                                Log.w(TAG, "session check failed (network)")
+                                state = QrState.NetworkError
+                            }
                         }
                         return@launch
                     }
@@ -125,7 +150,8 @@ fun QrLoginDialog(
         }
     }
 
-    val refreshable = state == QrState.Expired || state == QrState.Failed
+    val refreshable = state == QrState.Expired || state == QrState.Failed ||
+        state == QrState.InvalidSession || state == QrState.NetworkError
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -163,7 +189,7 @@ fun QrLoginDialog(
                         style = LocalMetroTypography.current.bodyMedium,
                     )
                     else -> MetroText(
-                        if (state == QrState.Failed) strings.qrLoadFailed else strings.qrExpiredHint,
+                        hintFor(state),
                         color = LocalMetroColors.current.onSurfaceVariant,
                         style = LocalMetroTypography.current.bodySmall.copy(textAlign = TextAlign.Center),
                         modifier = Modifier.padding(16.dp)
@@ -173,12 +199,7 @@ fun QrLoginDialog(
 
             Spacer(Modifier.height(12.dp))
             MetroText(
-                when (state) {
-                    QrState.Scanned -> strings.qrScannedHint
-                    QrState.Expired -> strings.qrExpiredHint
-                    QrState.Failed -> strings.qrLoadFailed
-                    else -> strings.qrScanHint
-                },
+                hintFor(state),
                 color = if (state == QrState.Scanned) LocalMetroColors.current.primary
                 else LocalMetroColors.current.onSurfaceVariant,
                 style = LocalMetroTypography.current.bodySmall.copy(textAlign = TextAlign.Center),

@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val jpMY = Strings(
     tabHome = "登布",
@@ -93,6 +93,8 @@ val jpMY = Strings(
     qrScannedHint = "掃 了 手機 確認",
     qrExpiredHint = "符牒 期限 切 押 更新",
     qrLoadFailed = "読込 失敗 押 再試",
+    qrSessionInvalid = "入 状態 無効 押 再試",
+    qrNetworkError = "網 異常 入 状態 不知 押 再試",
     qrGenericLogin = "一般 入",
     scanEntryTitle = "符牒 掃 他 端末 認",
     scanPrompt = "平板 登入符牒 向",

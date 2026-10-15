@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val koNK = Strings(
     tabHome = "처음",
@@ -93,6 +93,8 @@ qrScanHint = "NetEase Cloud Music 앱으로 스캔",
 qrScannedHint = "스캔됨, 휴대전화에서 확인하세요",
 qrExpiredHint = "QR코드가 만료됨, 눌러서 새로고침",
 qrLoadFailed = "불러오기 실패, 눌러서 다시 시도",
+qrSessionInvalid = "로그인 상태가 유효하지 않음, 눌러서 다시 시도",
+qrNetworkError = "네트워크 오류, 로그인 상태를 확인할 수 없음, 눌러서 다시 시도",
 qrGenericLogin = "일반 로그인",
 scanEntryTitle = "코드 스캔으로 다른 기기 인증",
 scanPrompt = "평판의 로그인 코드를 향하세요",

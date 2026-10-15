@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val zhTW = Strings(
     tabHome = "首頁",
@@ -93,6 +93,8 @@ qrScanHint = "使用網易雲 App 掃碼登入",
 qrScannedHint = "已掃碼, 請在手機上確認",
 qrExpiredHint = "二維碼已過期, 點擊重新整理",
 qrLoadFailed = "載入失敗, 點擊重試",
+qrSessionInvalid = "登入狀態無效, 點擊重試",
+qrNetworkError = "網路異常, 無法確認登入狀態, 點擊重試",
 qrGenericLogin = "一般登入",
 scanEntryTitle = "掃碼授權其他裝置",
 scanPrompt = "對準平板上的登入二維碼",

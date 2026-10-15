@@ -107,6 +107,9 @@ data class Strings(
     val qrScannedHint: String,
     val qrExpiredHint: String,
     val qrLoadFailed: String,
+    // 803 拿到 cookie 后用 account/get 校验的结果: 无效 / 网络失败(判不了) 各自提示
+    val qrSessionInvalid: String,
+    val qrNetworkError: String,
     val qrGenericLogin: String,
 
     // Phone-side QR scan to authorize another device (LAN cookie handoff)

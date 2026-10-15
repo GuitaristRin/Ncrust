@@ -28,11 +28,24 @@ namespace Ncrust.Core.Net
         public const string InterfaceUrl = "https://interface3.music.163.com";
         public const string ApiUrl = "https://interface.music.163.com";
 
+        /// <summary>eapi 的 PC 客户端域：扫码登录的 unikey / client/login 只在这个域上认 PC 身份。</summary>
+        public const string InterfacePcUrl = "https://interfacepc.music.163.com";
+
         private const string Ua =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
         private const string IosUa =
             "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1";
+
+        /// <summary>桌面客户端 UA（网易云音乐 PC 版）：扫码登录的 eapi 接口认这套指纹。</summary>
+        private const string PcUa =
+            "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 NeteaseMusicDesktop/3.1.29.205117";
+
+        /// <summary>
+        /// 没有 <see cref="Xeapi"/> 时（如未接 xeapi 的宿主）的兜底 PC 设备 id，进程内只生成一次。
+        /// 逐请求换 deviceId 正是风控画像里「非真实设备」的特征，见 <see cref="XeapiState"/>。
+        /// </summary>
+        private static string? _fallbackPcDeviceId;
 
         private readonly HttpClient _client;
         private readonly bool _ownsHandler;
@@ -155,6 +168,98 @@ namespace Ncrust.Core.Net
                 return await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             }
         }
+
+        /// <summary>
+        /// PC 客户端身份的 eapi POST（打 <see cref="InterfacePcUrl"/>）。扫码登录专用：host、PC UA、
+        /// PC 设备字段（同时作为 Cookie）与业务里的 <c>type=3</c> 缺一都拿不到 unikey
+        /// （老通道 weapi + <c>type=1</c> 现在直接回 <c>-462</c>，依据见 <c>spec/api/endpoints.md</c>）。
+        ///
+        /// <paramref name="path"/> 按 <c>/api/…</c> 形态传入（与 <see cref="WeapiPostAsync"/> /
+        /// <see cref="XeapiPostAsync"/> 一致），这里改写成 <c>/eapi/…</c>。
+        ///
+        /// <paramref name="fieldsJson"/> 是业务字段的 JSON **片段**（不含外层大括号），原样拼进信封。
+        /// 之所以收文本而不是键值对：参考实现里 <c>type</c> 是数值、<c>e_r</c> 是布尔，收成字符串会
+        /// 把 <c>"type":3</c> 变成 <c>"type":"3"</c>。信封字段顺序与参考实现一致：业务字段 →
+        /// <c>e_r:false</c> → <c>header</c>。
+        /// </summary>
+        public async Task<HttpResponseMessage> EapiPostPcAsync(
+            string path,
+            string fieldsJson,
+            CancellationToken cancellationToken = default)
+        {
+            var fullUrl = InterfacePcUrl + EapiPath(path);
+            var header = BuildPcHeader();
+            var payloadJson = new StringBuilder("{")
+                .Append(fieldsJson)
+                .Append(",\"e_r\":false,\"header\":")
+                .Append(JsonText.Object(header))
+                .Append('}')
+                .ToString();
+            var parameters = EapiCrypto.EncryptParams(fullUrl, payloadJson);
+
+            using (var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("params", parameters),
+            }))
+            using (var request = new HttpRequestMessage(HttpMethod.Post, fullUrl) { Content = content })
+            {
+                request.Headers.TryAddWithoutValidation("User-Agent", PcUa);
+                request.Headers.TryAddWithoutValidation("Cookie", BuildPcCookie(header));
+                return await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// PC 客户端设备字段。同一份既写进加密 body 的 <c>header</c>，也拼成请求 Cookie ——
+        /// 两处必须逐字段一致，服务端就是靠它把这次扫码绑到一个「PC 客户端会话」上的。
+        /// deviceId 复用 xeapi 持久化的那一台设备 id（见 <see cref="XeapiState.DeviceId"/>）。
+        /// </summary>
+        private List<KeyValuePair<string, string>> BuildPcHeader() => new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>("osver", "Microsoft-Windows-10-Professional-build-19045-64bit"),
+            new KeyValuePair<string, string>("deviceId", Xeapi?.DeviceId ?? FallbackPcDeviceId()),
+            new KeyValuePair<string, string>("os", "pc"),
+            new KeyValuePair<string, string>("appver", "3.1.17.204416"),
+            new KeyValuePair<string, string>("versioncode", "140"),
+            new KeyValuePair<string, string>("mobilename", string.Empty),
+            // 参考实现取毫秒时间戳的前 10 位，等价于秒级时间戳。
+            new KeyValuePair<string, string>(
+                "buildver",
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
+            new KeyValuePair<string, string>("resolution", "1920x1080"),
+            // 扫码时还没登录，参考实现固定发空串。
+            new KeyValuePair<string, string>("__csrf", string.Empty),
+            new KeyValuePair<string, string>("channel", "netease"),
+            new KeyValuePair<string, string>(
+                "requestId",
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+                + "_"
+                + RandomText.Next(0, 1000).ToString("D4", CultureInfo.InvariantCulture)),
+        };
+
+        /// <summary>
+        /// 把设备字段拼成请求 Cookie：<c>encodeURIComponent(k)=encodeURIComponent(v)</c> 以 <c>"; "</c> 拼接。
+        /// <see cref="Uri.EscapeDataString"/> 只对 <c>!*'()</c> 多转义，而本方法的取值里不可能出现它们，
+        /// 故与参考实现的 <c>encodeURIComponent</c> 逐字符等价。
+        /// </summary>
+        private static string BuildPcCookie(IEnumerable<KeyValuePair<string, string>> header)
+        {
+            var sb = new StringBuilder();
+            foreach (var pair in header)
+            {
+                if (sb.Length > 0)
+                {
+                    sb.Append("; ");
+                }
+
+                sb.Append(Uri.EscapeDataString(pair.Key)).Append('=').Append(Uri.EscapeDataString(pair.Value));
+            }
+
+            return sb.ToString();
+        }
+
+        private static string FallbackPcDeviceId() =>
+            _fallbackPcDeviceId ??= CryptoUtil.ToHex(CryptoUtil.RandomBytes(16));
 
         /// <summary>
         /// weapi POST。路径 <c>/api/…</c> 会改写成 <c>/weapi/…</c>；payload 缺
@@ -558,6 +663,9 @@ namespace Ncrust.Core.Net
 
         private static string XeapiPath(string uri) =>
             uri.StartsWith("/api/", StringComparison.Ordinal) ? "/xeapi/" + uri.Substring(5) : uri;
+
+        private static string EapiPath(string uri) =>
+            uri.StartsWith("/api/", StringComparison.Ordinal) ? "/eapi/" + uri.Substring(5) : uri;
 
         /// <summary>
         /// 请求体在 <see cref="XeapiCrypto.FormEncode(IEnumerable{KeyValuePair{string, string}})"/> 里

@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.network
 
 import android.util.Log
 import androidx.compose.runtime.Immutable
+import com.takahashirinta.ncrust.auth.QrLoginProtocol
 import com.takahashirinta.ncrust.network.crypto.EapiCrypto
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
@@ -405,34 +406,27 @@ object PlaylistApi {
     data class LoginQrKey(
         val unikey: String,
         val qrurl: String,
-        val qrimg: String?,
-        // 本次登录会话的 web 设备 id: chainId 与轮询 Cookie 必须一致, 官方 App
-        // 才能把"确认"绑到我们这条轮询会话上。
-        val sDeviceId: String
+        val qrimg: String?
     )
 
     /**
      * 申请二维码登录 key。
      *
-     * 必须走**网页 weapi** 通道, 且按新版协议带上 `noCheckToken` 与二维码里的
-     * `chainId`: 官方 App 扫码后会把确认绑到 chainId 对应的会话上, 缺了 chainId
-     * 就会一直停在"已扫码待确认", 永远等不到 803。
+     * 走 **eapi + PC 客户端身份 + type=3**（打 interfacepc，协议见 `spec/api/endpoints.md`）。
+     * 旧的 weapi 形态（type=1 + noCheckToken，二维码带 web 会话的 chainId）2026-10 实测被回
+     * `-462` 风控，二维码根本出不来。二维码内容也不再带 chainId——PC 身份不用它。
      */
     suspend fun getLoginQrKey(): LoginQrKey? = withContext(Dispatchers.IO) {
-        val payload = JSONObject().put("type", 1).put("noCheckToken", true).toString()
-        val response = RetrofitClient.weapiPost("/api/login/qrcode/unikey", payload)
+        val response = RetrofitClient.eapiPostPc(QrLoginProtocol.UNIKEY_PATH, QrLoginProtocol.unikeyFields())
         val body = response.body?.string() ?: return@withContext null
         val json = runCatching { JSONObject(body) }.getOrNull() ?: return@withContext null
         if (json.optInt("code", -1) != 200) return@withContext null
         val unikey = json.optString("unikey")
         if (unikey.isEmpty()) return@withContext null
-        val sDeviceId = randomSDeviceId()
-        val chainId = "v1_${sDeviceId}_web_login_${System.currentTimeMillis()}"
         LoginQrKey(
             unikey = unikey,
-            qrurl = "https://music.163.com/login?codekey=$unikey&chainId=$chainId",
-            qrimg = json.optString("qrimg", "").takeIf { it.isNotEmpty() },
-            sDeviceId = sDeviceId
+            qrurl = QrLoginProtocol.qrContent(unikey),
+            qrimg = json.optString("qrimg", "").takeIf { it.isNotEmpty() }
         )
     }
 
@@ -440,47 +434,51 @@ object PlaylistApi {
 
     /**
      * 轮询二维码状态。code: 800=过期, 801=待扫码, 802=已扫码待确认, 803=成功。
-     * 成功时 cookie 在响应的 Set-Cookie 头里, 拼出完整 cookie 串交上层走
-     * CookieManager/RetrofitClient 的既有保存路径。
      *
-     * 轮询需带上与 chainId 一致的 sDeviceId cookie(以及反风控的 os/NMTID),
-     * 否则服务端不认这条会话。
+     * 803 时会话 cookie 在响应的 Set-Cookie 头里（同名取**最后一个非空** MUSIC_U），
+     * 拼出完整 cookie 串交上层走 CookieManager/RetrofitClient 的既有保存路径。
+     * 这次登录**还没落盘**，所以下面的校验必须显式带这份 cookie。
      */
-    suspend fun checkLoginQr(key: String, sDeviceId: String): LoginQrStatus = withContext(Dispatchers.IO) {
-        val payload = JSONObject()
-            .put("type", 1)
-            .put("noCheckToken", true)
-            .put("key", key)
-            .toString()
-        val extraCookies = "os=pc; NMTID=${randomHex(16)}; sDeviceId=$sDeviceId"
-        val response = RetrofitClient.weapiPost("/api/login/qrcode/client/login", payload, extraCookies)
+    suspend fun checkLoginQr(key: String): LoginQrStatus = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPostPc(
+            QrLoginProtocol.CLIENT_LOGIN_PATH,
+            QrLoginProtocol.clientLoginFields(key)
+        )
         val body = response.body?.string() ?: return@withContext LoginQrStatus(-1, null)
         val code = runCatching { JSONObject(body).optInt("code", -1) }.getOrDefault(-1)
         if (code == 803) {
             val setCookies = response.headers("Set-Cookie")
-            Log.d(
-                "PlaylistApi",
-                "qr803 setCookie=${setCookies.size} hasMusicU=${setCookies.any { it.contains("MUSIC_U=") }} " +
-                    "body=${body.take(160)}"
-            )
+            // 日志只记业务码与 Set-Cookie 条数：cookie 内容一律不进日志。
+            Log.d("PlaylistApi", "qr803 setCookie=${setCookies.size}")
+            return@withContext LoginQrStatus(code, QrLoginProtocol.sessionCookie(setCookies))
         }
-        LoginQrStatus(code, if (code == 803) extractSessionCookie(response) else null)
+        LoginQrStatus(code, null)
     }
 
-    private const val HEX_CHARS = "0123456789ABCDEF"
+    /** 会话校验结果：Invalid = 服务端明确说没登录；Unknown = 网络 / 解析失败，判不了。 */
+    enum class SessionCheck { Valid, Invalid, Unknown }
 
-    /** 52 位十六进制设备 id, 与 go-musicfox 的 sDeviceId 格式一致。 */
-    private fun randomSDeviceId(): String =
-        buildString(52) { repeat(52) { append(HEX_CHARS[kotlin.random.Random.nextInt(HEX_CHARS.length)]) } }
-
-    private fun randomHex(len: Int): String =
-        buildString(len) { repeat(len) { append(HEX_CHARS[kotlin.random.Random.nextInt(16)]) } }
-
-    /** 从 Set-Cookie 头拼出会话 cookie 串(仅当含 MUSIC_U 时有效)。 */
-    private fun extractSessionCookie(response: okhttp3.Response): String? {
-        val cookies = response.headers("Set-Cookie")
-            .mapNotNull { it.substringBefore(";").takeIf { p -> p.contains("=") } }
-        return cookies.joinToString("; ").takeIf { it.contains("MUSIC_U=") }
+    /**
+     * 用刚拿到的 cookie 打一次 `account/get`：`account` 非空才算这次登录真的成立。
+     *
+     * 轮询回 803 只说明手机上确认了，不等于服务端认这个会话；不校验就会出现「提示登录成功、
+     * 进首页还是未登录」。网络失败与响应读不出都归 Unknown（**不能**当成无效），
+     * 上层据此区分「重试」与「网络异常」。
+     */
+    suspend fun validateSession(cookie: String): SessionCheck = withContext(Dispatchers.IO) {
+        val response = try {
+            RetrofitClient.eapiPost(ACCOUNT_GET_PATH, emptyMap(), cookieOverride = cookie)
+        } catch (e: Exception) {
+            Log.w("PlaylistApi", "session check request failed: ${e.message}")
+            return@withContext SessionCheck.Unknown
+        }
+        val body = try {
+            response.body?.string()
+        } catch (e: Exception) {
+            null
+        } ?: return@withContext SessionCheck.Unknown
+        val json = runCatching { JSONObject(body) }.getOrNull() ?: return@withContext SessionCheck.Unknown
+        if (json.optJSONObject("account") != null) SessionCheck.Valid else SessionCheck.Invalid
     }
 
     // ==================== 云端收藏（收藏单曲 / 收藏专辑） ====================
