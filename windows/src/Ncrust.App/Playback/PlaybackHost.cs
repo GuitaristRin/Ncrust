@@ -234,7 +234,9 @@ namespace Ncrust.Playback
                 AppServices.PlayPrefs,
                 AppServices.Network,
                 AppServices.Http,
-                InfinityFeeder.FromApi(AppServices.Discovery));
+                InfinityFeeder.FromApi(AppServices.Discovery),
+                // 取链判定要会话是否有效（只影响原因文案）：登录失效时说「登录后可播放」而不是「需要黑胶 VIP」。
+                () => AppServices.AccountSession.IsValid);
             engine.Initialize();
             engine.AttachEqualizer(AppServices.Equalizer.LoadState());
             return engine;

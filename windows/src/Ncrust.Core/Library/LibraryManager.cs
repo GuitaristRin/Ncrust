@@ -61,6 +61,13 @@ namespace Ncrust.Core.Library
     {
         public const int LikedBatchSize = 50;
 
+        /// <summary>
+        /// 整列播放补详情时的分批上界：<c>song/detail</c> 的 <c>c</c> 数组过长会被网关拒掉（414 / 超时），
+        /// 500 是留了余量的可用上界。与首屏分页的 <see cref="LikedBatchSize"/> = 50 不是一回事，
+        /// 后者是 UI 每屏渲染量，别拿它当网络批次（同 Android <c>LIKED_FETCH_BATCH_SIZE</c>）。
+        /// </summary>
+        internal const int LikedFetchBatchSize = 500;
+
         private const string FileName = "library.json";
 
         private readonly IFileStore _files;
@@ -382,6 +389,113 @@ namespace Ncrust.Core.Library
             await PersistAsync(cancellationToken).ConfigureAwait(false);
             return fetched;
         }
+
+        /// <summary>
+        /// 「我喜欢的音乐」全量详情，供「全部播放 / 插播全部 / 追加全部」用（issue #30：原先只播已加载的那一页）。
+        ///
+        /// 顺序以红心 id 表（<see cref="GetLikedSongIds"/>）为准 —— 它才是全量且有序的底表；
+        /// 本地 <c>_songs</c> 只是已分页加载的前若干首，当命中源用。
+        ///
+        /// 刻意**不把全量写回** <c>_songs</c>：那是 UI 的分页状态，灌进全量会让
+        /// <see cref="LoadMoreLikedSongsAsync"/> 的切片错位（它按 <c>_songs.Count</c> 切片，
+        /// 会以为后面几批已经加载过而永不补拉）。同 Android <c>loadAllLikedSongs</c>。
+        ///
+        /// id 表为空（未登录 / 未同步）时退回本地列表。某批取不到时只丢那一批，
+        /// 调用方用 <c>result.Count &lt; GetLikedSongIds().Count</c> 判断要不要提示「部分未加载」。
+        /// </summary>
+        public async Task<IReadOnlyList<SongItem>> LoadAllLikedSongsAsync(CancellationToken cancellationToken = default)
+        {
+            await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
+            List<long> ids;
+            Dictionary<long, SongItem> cached;
+            lock (_lock)
+            {
+                ids = _likedIds.ToList();
+                cached = _songs.ToDictionary(song => song.Id, song => song);
+            }
+
+            if (ids.Count == 0)
+            {
+                return GetSavedSongs();
+            }
+
+            return await AssembleLikedSongsAsync(ids, cached, LikedFetchBatchSize, FetchBatchAsync, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 按 id 表顺序拼装单曲：命中 <paramref name="cached"/> 的直接取，缺失的按
+        /// <paramref name="batchSize"/> 分批交给 <paramref name="fetchBatch"/>，取不到详情的 id
+        /// 直接跳过（不占位、不编数据）。单批抛异常只丢那一批，其余照常返回。
+        ///
+        /// 纯函数（不碰实例状态）以便单测锁住保序、分批与缓存命中。取消异常原样抛出。
+        /// </summary>
+        internal static async Task<IReadOnlyList<SongItem>> AssembleLikedSongsAsync(
+            IReadOnlyList<long> ids,
+            IReadOnlyDictionary<long, SongItem> cached,
+            int batchSize,
+            Func<IReadOnlyList<long>, CancellationToken, Task<IReadOnlyList<SongItem>>> fetchBatch,
+            CancellationToken cancellationToken)
+        {
+            var missing = new List<long>();
+            foreach (var id in ids)
+            {
+                if (!cached.ContainsKey(id))
+                {
+                    missing.Add(id);
+                }
+            }
+
+            var fetched = new Dictionary<long, SongItem>();
+            var size = Math.Max(1, batchSize);
+            for (var start = 0; start < missing.Count; start += size)
+            {
+                var batch = missing.GetRange(start, Math.Min(size, missing.Count - start));
+                IReadOnlyList<SongItem> songs;
+                try
+                {
+                    songs = await fetchBatch(batch, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    continue; // 单批失败只丢这一批。
+                }
+
+                // 只认本批请求过的 id：接口异常时可能返回错序 / 多余的项，不能让它们混进队列。
+                var wanted = new HashSet<long>(batch);
+                foreach (var song in songs)
+                {
+                    if (wanted.Contains(song.Id))
+                    {
+                        fetched[song.Id] = song;
+                    }
+                }
+            }
+
+            var result = new List<SongItem>(ids.Count);
+            foreach (var id in ids)
+            {
+                if (cached.TryGetValue(id, out var cachedSong))
+                {
+                    result.Add(cachedSong);
+                }
+                else if (fetched.TryGetValue(id, out var fetchedSong))
+                {
+                    result.Add(fetchedSong);
+                }
+            }
+
+            return result;
+        }
+
+        private Task<IReadOnlyList<SongItem>> FetchBatchAsync(
+            IReadOnlyList<long> ids,
+            CancellationToken cancellationToken) =>
+            _cloud.GetSongsByIdsAsync(ids, cancellationToken);
 
         /// <summary>重试所有待同步的点赞操作，方向依据当前本地收藏状态。</summary>
         public async Task RetryPendingSyncAsync(CancellationToken cancellationToken = default)

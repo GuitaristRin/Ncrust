@@ -48,13 +48,18 @@ namespace Ncrust.Core.Api
             }, cancellationToken).ConfigureAwait(false))
             {
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var songs = JsonValue.Parse(body).GetArray("songs");
+                var json = JsonValue.Parse(body);
+                var songs = json.GetArray("songs");
                 if (songs == null)
                 {
                     return Array.Empty<SongItem>();
                 }
 
-                return songs.Select(SongItem.FromJson).ToList();
+                var result = songs.Select(SongItem.FromJson).ToList();
+
+                // 权益是并列的 privileges[]，按 id 关联；取链判定「无版权」时要看 privilege.st。
+                SongItem.AttachPrivileges(result, json.GetArray("privileges"));
+                return result;
             }
         }
 

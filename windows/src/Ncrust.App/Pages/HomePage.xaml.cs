@@ -156,7 +156,11 @@ namespace Ncrust.Pages
         {
             var loggedIn = AppServices.IsLoggedIn();
             LoginPrompt.Visibility = loggedIn ? Visibility.Collapsed : Visibility.Visible;
-            DailySection.Visibility = loggedIn && HasItems(DailyList.ItemsSource) ? Visibility.Visible : Visibility.Collapsed;
+
+            // 会话失效时网易仍旧回一份**非个性化**的通用列表：有内容就照常显示，
+            // 但要注明「登录后为你推荐」，不冒充个性化推荐（对应 Android dailySongsLoginHint）。
+            DailySection.Visibility = HasItems(DailyList.ItemsSource) ? Visibility.Visible : Visibility.Collapsed;
+            DailyHint.Visibility = AppServices.IsSessionValid ? Visibility.Collapsed : Visibility.Visible;
 
             // 私人 FM 需要登录；有昵称时叫「某某的电台」（同 Android fmRadioTitle）。
             FmCard.Visibility = loggedIn ? Visibility.Visible : Visibility.Collapsed;

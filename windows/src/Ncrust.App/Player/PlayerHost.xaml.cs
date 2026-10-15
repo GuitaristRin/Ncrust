@@ -184,9 +184,17 @@ namespace Ncrust.Player
 
         private void OnQualityChanged(string level)
         {
-            var label = Ncrust.Resources.DisplayFormat.QualityLabel(level);
+            var engine = PlaybackHost.Engine;
+            var trial = engine.CurrentIsTrial;
+            var label = trial
+                ? Ncrust.Resources.DisplayFormat.TrialBadge
+                : Ncrust.Resources.DisplayFormat.QualityLabel(level);
             QualityText.Text = label;
             QualityBadge.Visibility = label.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+
+            // 迷你栏（传输栏）位置也带一个同样的标记：试听时不看卡片也知道这首只能听 45 秒。
+            MiniBadgeText.Text = label;
+            MiniBadgeText.Visibility = label.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void QualityBadgeClick(object sender, RoutedEventArgs e)

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Ncrust.Core.Account;
 using Ncrust.Core.Auth;
 using Ncrust.Core.Json;
 using Ncrust.Core.Net;
@@ -11,11 +13,15 @@ namespace Ncrust.Core.Api
 {
     /// <summary>
     /// 账号与用户歌单（对应 Android <c>PlaylistApi</c> 的 account / user playlist 段）。
+    /// 同时是会话监视器的网络来源（<see cref="ISessionApi"/>）：它会就地消化 301。
     /// </summary>
-    public sealed class AccountApi
+    public sealed class AccountApi : ISessionApi
     {
         private const string AccountGetPath = "/eapi/w/nuser/account/get";
         private const string UserPlaylistPath = "/eapi/user/playlist";
+
+        /// <summary>会员状态（weapi）。规格：<c>spec/api/entitlement.md</c> §VIP。</summary>
+        private const string VipInfoPath = "/api/music-vip-membership/client/vip/info";
 
         private readonly NcmHttp _http;
 
@@ -64,6 +70,76 @@ namespace Ncrust.Core.Api
 
         public async Task<long> GetCurrentUserIdAsync(CancellationToken cancellationToken = default) =>
             (await GetProfileAsync(cancellationToken).ConfigureAwait(false))?.UserId ?? 0;
+
+        /// <summary>
+        /// <c>account/get</c> 的原始响应，供会话判定用。判定的依据不只是「有没有资料」，
+        /// 还要看业务码与 <c>account</c>/<c>profile</c> 的空值组合（见 <see cref="SessionState.Derive"/>），
+        /// 所以这里不解析成 <see cref="UserProfile"/>，直接交出 JSON。
+        ///
+        /// 与 <see cref="GetProfileAsync"/> 的区别：请求层失败返回 null 而不是抛异常——调用方
+        /// （会话监视器）需要把「网络失败」与「未登录」分开处理。
+        /// </summary>
+        public async Task<JsonValue?> GetAccountAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                using (var response = await _http
+                    .EapiPostAsync(AccountGetPath, null, useInterface: false, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        return null; // 网关 / 5xx：判不了，不是「未登录」。
+                    }
+
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return ReadBusinessJson(body);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 黑胶 VIP / 音乐包状态。只应在会话 <see cref="SessionState.Valid"/> 时调用。
+        /// 失败（网络异常 / 非 200 / 301）返回 null —— 调用方显示为「未知」，**绝不**显示成「未开通」。
+        /// </summary>
+        public async Task<JsonValue?> GetVipInfoAsync(long userId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var payload = JsonText.Object(new[]
+                {
+                    new KeyValuePair<string, string>("userId", userId.ToString(CultureInfo.InvariantCulture)),
+                });
+                using (var response = await _http
+                    .WeapiPostAsync(VipInfoPath, payload, null, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        return null;
+                    }
+
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return ReadBusinessJson(body);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
 
         /// <summary>
         /// 判定一段 cookie 是否仍能登录：账户接口返回的 <c>account</c> / <c>profile</c> 非空才算有效。
@@ -208,6 +284,23 @@ namespace Ncrust.Core.Api
             }
 
             return string.Empty;
+        }
+
+        /// <summary>解析响应体并把业务码交给请求层（301 → 会话监视器立刻转 Expired）。解析失败返回 null。</summary>
+        private JsonValue? ReadBusinessJson(string body)
+        {
+            JsonValue json;
+            try
+            {
+                json = JsonValue.Parse(body);
+            }
+            catch (JsonParseException)
+            {
+                return null;
+            }
+
+            _http.ReportBusinessCode(json.GetInt("code", -1));
+            return json;
         }
     }
 }

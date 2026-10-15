@@ -147,11 +147,14 @@ namespace Ncrust.Core.Api
             }
         }
 
-        private static int ReadCode(string text)
+        /// <summary>解析业务码并把 301 交给请求层（登录失效：收藏写入会回「用户未登录」）。</summary>
+        private int ReadCode(string text)
         {
             try
             {
-                return JsonValue.Parse(text).GetInt("code", -1);
+                var code = JsonValue.Parse(text).GetInt("code", -1);
+                _http.ReportBusinessCode(code);
+                return code;
             }
             catch (JsonParseException)
             {

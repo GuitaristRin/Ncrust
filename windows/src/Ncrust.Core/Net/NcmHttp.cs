@@ -54,6 +54,15 @@ namespace Ncrust.Core.Net
         public string? Cookie { get; set; }
 
         /// <summary>
+        /// 需登录接口返回 301（用户未登录）时的就地信号，由会话监视器订阅
+        /// （见 <c>Ncrust.Core.Account.SessionMonitor</c> 与 <c>spec/api/entitlement.md</c> §状态模型）。
+        ///
+        /// 为什么放在请求层：登录失效时 <c>account/get</c> **仍然 200**（只是 <c>account</c> 为 null），
+        /// 只有收藏 / 每日推荐 / vip/info 这类需登录接口回 301，判定只能在读到业务码的地方做。
+        /// </summary>
+        public event Action<int>? BusinessCode;
+
+        /// <summary>
         /// xeapi 的设备 id / 公钥 / 会话状态。为 null 时 <see cref="XeapiPostAsync"/> 直接失败，
         /// 调用方（如 <c>LibraryApi</c>）会回退到老通道。
         /// </summary>
@@ -432,6 +441,18 @@ namespace Ncrust.Core.Net
         }
 
         public void Dispose() => _client.Dispose();
+
+        /// <summary>
+        /// 读到响应业务码时调用（各 API 在解析完响应体后统一调这一处）。
+        /// **只有 301 会往外报**：其余业务码对本层没有意义。
+        /// </summary>
+        public void ReportBusinessCode(int code)
+        {
+            if (code == 301)
+            {
+                BusinessCode?.Invoke(code);
+            }
+        }
 
         /// <summary>
         /// 公钥请求（协议 §2）：<b>明文</b>表单打 <c>API_URL</c>，Cookie 只带 deviceId。

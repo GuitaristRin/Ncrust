@@ -25,7 +25,7 @@ namespace Ncrust.Core.Api
         {
             var json = await EapiJsonAsync("/eapi/v2/discovery/recommend/songs", cancellationToken).ConfigureAwait(false);
             var songs = json.GetArray("recommend") ?? json.GetArray("data");
-            return ToSongList(songs);
+            return ToSongList(songs, json.GetArray("privileges"));
         }
 
         /// <summary>推荐歌单 /eapi/v1/discovery/recommend/resource，取前 10 个。</summary>
@@ -59,7 +59,7 @@ namespace Ncrust.Core.Api
                 .ConfigureAwait(false);
             var json = JsonValue.Parse(body);
             var songs = json.GetArray("data") ?? json.GetArray("songs");
-            return ToSongList(songs);
+            return ToSongList(songs, json.GetArray("privileges"));
         }
 
         /// <summary>
@@ -81,6 +81,8 @@ namespace Ncrust.Core.Api
                 result.Add(SongItem.FromJson(item.GetObject("song") ?? item));
             }
 
+            // 权益与歌曲并列返回；按 id 关联后，取链判定「无版权」才有依据（否则只能说「暂时无法播放」）。
+            SongItem.AttachPrivileges(result, json.GetArray("privileges"));
             return result;
         }
 
@@ -137,11 +139,19 @@ namespace Ncrust.Core.Api
             using (var response = await _http.EapiPostAsync(path, null, false, cancellationToken).ConfigureAwait(false))
             {
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                return JsonValue.Parse(body);
+                var json = JsonValue.Parse(body);
+
+                // 登录失效时每日推荐 / 推荐歌单仍回 200，但返回的是**非个性化**的通用列表；
+                // 需登录的接口则回 301。业务码在这一层交出去，会话监视器据此立刻转 Expired。
+                _http.ReportBusinessCode(json.GetInt("code", -1));
+                return json;
             }
         }
 
-        private static IReadOnlyList<SongItem> ToSongList(IReadOnlyList<JsonValue>? items)
+        /// <summary><paramref name="privileges"/> 是响应里与歌曲并列的权益数组，按 id 关联（判定「无版权」要用）。</summary>
+        private static IReadOnlyList<SongItem> ToSongList(
+            IReadOnlyList<JsonValue>? items,
+            IReadOnlyList<JsonValue>? privileges = null)
         {
             if (items == null)
             {
@@ -154,6 +164,7 @@ namespace Ncrust.Core.Api
                 result.Add(SongItem.FromJson(item));
             }
 
+            SongItem.AttachPrivileges(result, privileges);
             return result;
         }
     }
