@@ -25,6 +25,7 @@ namespace Ncrust.Pages
         private IReadOnlyList<UserPlaylistInfo> _playlists;
         private bool _loadingPlaylists;
         private bool _loadingMore;
+        private bool _loadingAllSongs;
         private bool _refreshing;
 
         public LibraryPage()
@@ -112,10 +113,66 @@ namespace Ncrust.Pages
 
         private void UpdateSongChrome()
         {
+            // 空态与数量都以红心歌单的 id 表为准：首屏详情拉取失败时本地可能是空的，
+            // 但收藏并不为空，不能因此显示「暂无收藏歌曲」（同 Android 的判据修正）。
             var total = Math.Max(_songs.Count, AppServices.Library.GetLikedSongIds().Count);
-            SongEmpty.Visibility = _songs.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            SongActionsRow.Visibility = _songs.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            SongEmpty.Visibility = total == 0 ? Visibility.Visible : Visibility.Collapsed;
+            SongActionsRow.Visibility = total > 0 ? Visibility.Visible : Visibility.Collapsed;
             SongCountText.Text = DisplayFormat.SongCount(total);
+        }
+
+        /// <summary>
+        /// 「全部播放 / 插播全部 / 追加全部」的取数：以红心歌单的**全量有序 id** 为准
+        /// （issue #30：分页只加载了前几十首详情，只播这一页会漏歌）。
+        /// 取数期间禁用三个按钮并显示进度；部分批次失败时照常执行，但如实提示少了几首。
+        /// </summary>
+        private async Task<IReadOnlyList<SongItem>> LoadAllLikedSongsAsync()
+        {
+            if (_loadingAllSongs)
+            {
+                return Array.Empty<SongItem>();
+            }
+
+            _loadingAllSongs = true;
+            SetSongActionsBusy(true);
+            try
+            {
+                var songs = await AppServices.Library.LoadAllLikedSongsAsync();
+                var total = AppServices.Library.GetLikedSongIds().Count;
+                if (total > songs.Count)
+                {
+                    AppShell.Notice("有 " + (total - songs.Count) + " 首未能加载，将按已取到的曲目执行");
+                }
+
+                // 刻意不动列表的分页状态（_songs）：它是「已加载的前几页」，
+                // 灌进全量会让 loadMore 的切片错位（见 LibraryManager.LoadAllLikedSongsAsync）。
+                return songs;
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+                return Array.Empty<SongItem>();
+            }
+            finally
+            {
+                _loadingAllSongs = false;
+                SetSongActionsBusy(false);
+            }
+        }
+
+        private void SetSongActionsBusy(bool busy)
+        {
+            PlayAllSongsButton.IsEnabled = !busy;
+            InsertAllSongsButton.IsEnabled = !busy;
+            AppendAllSongsButton.IsEnabled = !busy;
+            if (busy)
+            {
+                SongCountText.Text = "正在加载 " + AppServices.Library.GetLikedSongIds().Count + " 首…";
+            }
+            else
+            {
+                UpdateSongChrome();
+            }
         }
 
         /// <summary>
@@ -284,11 +341,32 @@ namespace Ncrust.Pages
             }
         }
 
-        private void PlayAllSongsClick(object sender, RoutedEventArgs e)
+        private async void PlayAllSongsClick(object sender, RoutedEventArgs e)
         {
-            if (_songs.Count > 0)
+            var songs = await LoadAllLikedSongsAsync();
+            if (songs.Count > 0)
             {
-                PlaybackHost.PlayAll(_songs.ToList());
+                PlaybackHost.PlayAll(songs);
+            }
+        }
+
+        private async void InsertAllSongsClick(object sender, RoutedEventArgs e)
+        {
+            var songs = await LoadAllLikedSongsAsync();
+            if (songs.Count > 0)
+            {
+                PlaybackHost.InsertAllNext(songs);
+                AppShell.Notice("已插播 " + songs.Count + " 首");
+            }
+        }
+
+        private async void AppendAllSongsClick(object sender, RoutedEventArgs e)
+        {
+            var songs = await LoadAllLikedSongsAsync();
+            if (songs.Count > 0)
+            {
+                PlaybackHost.AppendAll(songs);
+                AppShell.Notice("已加入播放队列 " + songs.Count + " 首");
             }
         }
 

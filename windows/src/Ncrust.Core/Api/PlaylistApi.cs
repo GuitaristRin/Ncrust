@@ -43,6 +43,9 @@ namespace Ncrust.Core.Api
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var json = JsonValue.Parse(body);
                 var code = json.GetInt("code", -1);
+
+                // 红心歌单是收藏刷新与「全部播放」的底表：未登录时回 301，交出去让会话监视器转 Expired。
+                _http.ReportBusinessCode(code);
                 if (code != 200)
                 {
                     throw new NcmApiException($"playlist trackIds code={code}");
@@ -90,6 +93,7 @@ namespace Ncrust.Core.Api
                 var json = JsonValue.Parse(body);
 
                 var code = json.GetInt("code", -1);
+                _http.ReportBusinessCode(code);
                 if (code != 200)
                 {
                     throw new NcmApiException($"playlist detail code={code}");
@@ -149,6 +153,9 @@ namespace Ncrust.Core.Api
                     }
                 }
 
+                // 权益与 playlist 同级（少数响应放在 playlist 里），按 id 关联到歌曲上：
+                // 取链判定「无版权」要用 privilege.st。
+                SongItem.AttachPrivileges(result, json.GetArray("privileges") ?? playlist.GetArray("privileges"));
                 return result;
             }
         }

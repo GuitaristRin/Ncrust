@@ -84,7 +84,31 @@
                 </muxc:NavigationViewItem>
             </muxc:NavigationView.FooterMenuItems>
 
-            <Frame x:Name="ContentFrame" Navigated="ContentFrameNavigated" />
+            <!--
+              内容区顶部是会话失效横幅（InfoBar，Severity=Warning），下面才是页面。
+              登录失效时 account/get 仍回 200，用户只会看到「推荐变了 / 收藏刷不出来」——
+              横幅把「网易的限制」和「Ncrust 的 bug」分开（见 spec/api/entitlement.md）。
+            -->
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <muxc:InfoBar
+                    x:Name="SessionBar"
+                    Grid.Row="0"
+                    IsClosable="False"
+                    IsOpen="False"
+                    Message="登录已失效，部分歌曲只能试听，推荐与收藏不可用"
+                    Severity="Warning">
+                    <muxc:InfoBar.ActionButton>
+                        <Button Click="SessionBarLoginClick" Content="重新登录" />
+                    </muxc:InfoBar.ActionButton>
+                </muxc:InfoBar>
+
+                <Frame x:Name="ContentFrame" Grid.Row="1" Navigated="ContentFrameNavigated" />
+            </Grid>
         </muxc:NavigationView>
 
         <!-- 自定义标题栏：拖动区。左边距随 NavigationView 的显示模式调整，给返回 / 汉堡按钮让位。 -->

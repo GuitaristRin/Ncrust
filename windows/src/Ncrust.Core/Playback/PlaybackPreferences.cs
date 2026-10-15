@@ -29,6 +29,16 @@ namespace Ncrust.Core.Playback
             set => _settings.SetBool("lyrics_translation", value);
         }
 
+        /// <summary>
+        /// 非会员遇到 VIP 歌曲（服务端只给 45 秒试听片段）时的行为：true = 播放试听片段（默认，
+        /// 与官方一致），false = 直接跳过。键名与 Android 相同。每次播放现读，设置页改完立刻生效。
+        /// </summary>
+        public bool VipTrialPlayback
+        {
+            get => _settings.GetBool("vip_trial_playback", true);
+            set => _settings.SetBool("vip_trial_playback", value);
+        }
+
         public int WifiQualityIndex
         {
             get => _settings.GetInt("wifi_quality", DefaultWifiQualityIndex);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Ncrust.Core.Account;
 using Ncrust.Core.Api;
 using Ncrust.Core.Audio;
 using Ncrust.Core.Net;
@@ -46,7 +47,11 @@ namespace Ncrust.Playback
         private readonly PlaybackPreferences _preferences;
         private readonly INetworkInfo _network;
         private readonly NcmHttp _http;
+        private readonly Func<bool> _sessionValid;
         private readonly PlayReportPolicy _reportPolicy = new PlayReportPolicy();
+
+        /// <summary>试听 / 封顶 / 跳过的提示去重与合并（规则见 spec/api/entitlement.md §界面要求）。</summary>
+        private readonly PlaybackNoticeTracker _notices = new PlaybackNoticeTracker();
 
         // 只在 UI 线程上读写。
         private readonly Dictionary<MediaPlaybackItem, ItemInfo> _infoByItem = new Dictionary<MediaPlaybackItem, ItemInfo>();
@@ -75,7 +80,8 @@ namespace Ncrust.Playback
             PlaybackPreferences preferences,
             INetworkInfo network,
             NcmHttp http,
-            InfinityFeeder infinity)
+            InfinityFeeder infinity,
+            Func<bool> sessionValid)
         {
             _infinity = infinity;
             _resolver = resolver;
@@ -83,6 +89,7 @@ namespace Ncrust.Playback
             _preferences = preferences;
             _network = network;
             _http = http;
+            _sessionValid = sessionValid ?? (() => false);
         }
 
         public event Action<SongItem> CurrentSongChanged;
@@ -110,8 +117,16 @@ namespace Ncrust.Playback
         /// </summary>
         public event Action<string> QualityChanged;
 
+        /// <summary>
+        /// 需要提示一次的播放权益事件（试听 / 音质封顶 / 跳过）。UI 线程上触发，文案由界面渲染。
+        /// </summary>
+        public event Action<PlaybackNotice> NoticeRaised;
+
         /// <summary>当前曲实际在播的档位（API 名，如 lossless）；没有在播为 null。</summary>
         public string CurrentLevel => CurrentInfo()?.DisplayLevel;
+
+        /// <summary>当前曲是否只能在播试听片段（界面据此把音质徽标换成「试听」）。</summary>
+        public bool CurrentIsTrial => _currentSongId > 0 && _notices.IsTrial(_currentSongId);
 
         /// <summary>
         /// 私人 FM 入口进来的 INFINITY：队尾续播拉 FM 流而不是相似歌曲（对应 Android fmMode）。
@@ -213,7 +228,7 @@ namespace Ncrust.Playback
             SetCurrentSong(current);
             AppendNextIfMissing();
             _player.Play();
-            FireStartReport(_currentSongId);
+            TryStartReport();
             QueueChanged?.Invoke();
             QualityChanged?.Invoke(CurrentLevel);
         }
@@ -378,25 +393,57 @@ namespace Ncrust.Playback
             var info = new ItemInfo(song, level);
 
             // Binding 在后台线程触发：只用闭包捕获的 song / level，不读共享字典。
+            // 会话是否有效也在这一刻读（判定结果只影响原因文案）：设置项「非会员遇到 VIP 歌曲」
+            // 需要它决定是播试听还是跳过。
+            var sessionValid = _sessionValid();
+            var playTrial = _preferences.VipTrialPlayback;
             binder.Binding += async (sender, args) =>
             {
                 var deferral = args.GetDeferral();
                 try
                 {
-                    var result = await _resolver.ResolveAsync(song.Id, level);
-                    if (result != null)
+                    var result = await _resolver.ResolveAsync(song.Id, level, sessionValid, song.Privilege);
+                    info.Entitlement = result.Entitlement;
+
+                    if (result.HasUrl && !(result.Entitlement is PlaybackEntitlement.Trial && !playTrial))
                     {
-                        args.SetUri(new Uri(result.Url));
+                        args.SetUri(new Uri(result.Url!));
 
                         // 取链可能已沿阶梯降档（例如请求无损、只拿到极高）：记下实际档位，是当前曲就刷新音质标签。
                         info.ActualLevel = result.ActualLevel;
                         OnUi(() =>
                         {
+                            // 试听 / 封顶先记账再刷新标签：徽标要显示「试听」而不是拿到的那一档。
+                            // 提示只在**真正开播**时发（取链可能比实际起播早一分钟）；去重规则在
+                            // PlaybackNoticeTracker 里（每首试听一次、封顶每进程一次）。
+                            _notices.NotePlayableStarted();
+                            if (result.Entitlement is PlaybackEntitlement.Trial trial)
+                            {
+                                _notices.RecordTrial(song.Id, trial.TrialSeconds, trial.Reason);
+                            }
+                            else if (result.Entitlement is PlaybackEntitlement.Full { Capped: true } full)
+                            {
+                                _notices.RecordCapped(
+                                    song.Id,
+                                    full.CappedTo ?? result.ActualLevel,
+                                    full.CappedReason ?? EntitlementReason.Unknown);
+                            }
+
                             if (ReferenceEquals(CurrentInfo(), info))
                             {
                                 QualityChanged?.Invoke(CurrentLevel);
+                                // 起播时取链若还没回来，startplay 推迟到这里：要先知道是不是试听片段。
+                                TryStartReport();
                             }
+
+                            Raise(_notices.TrialNoticeOnStart(song.Id));
+                            Raise(_notices.CappedNoticeOnStart(song.Id));
                         });
+                    }
+                    else
+                    {
+                        // 不可播，或设置要求跳过试听：不 SetUri，条目会走 ItemFailed → 由那里统一跳歌并说明原因。
+                        // （不是为了「失败」而失败：MediaPlaybackList 没有「主动跳过这一项」的接口。）
                     }
                 }
                 catch
@@ -572,7 +619,7 @@ namespace Ncrust.Playback
             TrimBefore(newItem);
             AppendNextIfMissing();
             SaveState();
-            FireStartReport(_currentSongId);
+            TryStartReport();
             QueueChanged?.Invoke();
             QualityChanged?.Invoke(CurrentLevel);
         }
@@ -592,13 +639,18 @@ namespace Ncrust.Playback
         /// 一首歌所有音质都失败（对应 Android 的 onUnplayable → playNext）：是当前曲就跳到下一首。
         /// 连续失败达到队列长度就停下，避免整队都放不了时无限空转。
         /// </summary>
-        private void SkipUnplayable(MediaPlaybackItem failed, long songId)
+        /// <param name="reason">不可播的原因（来自取链判定），用于「已跳过《歌名》：<原因>」。</param>
+        /// <param name="songName">歌名；拿不到时传空串（提示会退化成合并计数）。</param>
+        private void SkipUnplayable(MediaPlaybackItem failed, long songId, string songName, EntitlementReason reason)
         {
             PlaybackError?.Invoke(songId);
             if (!ReferenceEquals(_list.CurrentItem, failed))
             {
                 return; // 列表已经自己跳走了，或者失败的只是预载的下一首。
             }
+
+            // 只在实际跳过当前曲时提示：连续多首会合并成一条计数（见 PlaybackNoticeTracker）。
+            Raise(_notices.SkipNotice(songId, songName, reason));
 
             if (++_consecutiveFailures >= Math.Max(1, _session.Queue.Songs.Count))
             {
@@ -613,6 +665,11 @@ namespace Ncrust.Playback
         {
             _currentSongId = song.Id;
             CurrentSongChanged?.Invoke(song);
+
+            // 试听 / 音质封顶的提示在**真正开播**这一刻发：预载取链可能比实际起播早一分钟。
+            // 慢网络下取链晚于起播时，取链回调里还会再试一次（tracker 按歌去重，不会重复提示）。
+            Raise(_notices.TrialNoticeOnStart(song.Id));
+            Raise(_notices.CappedNoticeOnStart(song.Id));
         }
 
         private void OnItemFailedBackground(MediaPlaybackList sender, MediaPlaybackItemFailedEventArgs args)
@@ -627,7 +684,21 @@ namespace Ncrust.Playback
         {
             if (!_infoByItem.TryGetValue(failed, out var info))
             {
-                SkipUnplayable(failed, _currentSongId);
+                SkipUnplayable(failed, _currentSongId, string.Empty, EntitlementReason.Unknown);
+                return;
+            }
+
+            // 取链判定已经给过结论（无版权 / 需要会员，或设置要求跳过试听）：不必再沿阶梯重试，
+            // 直接跳歌并说明原因 —— 否则每一档都要再打一次网络，最后还是跳。
+            if (info.Entitlement is PlaybackEntitlement.Unavailable unavailable)
+            {
+                SkipUnplayable(failed, info.Song.Id, info.Song.Name, unavailable.Reason);
+                return;
+            }
+
+            if (info.Entitlement is PlaybackEntitlement.Trial trial && !_preferences.VipTrialPlayback)
+            {
+                SkipUnplayable(failed, info.Song.Id, info.Song.Name, trial.Reason);
                 return;
             }
 
@@ -637,7 +708,7 @@ namespace Ncrust.Playback
             if (nextLevel == null ||
                 (_lastRetryAt.TryGetValue(key, out var last) && now - last < RetryDedupeWindow))
             {
-                SkipUnplayable(failed, info.Song.Id);
+                SkipUnplayable(failed, info.Song.Id, info.Song.Name, EntitlementReason.Unknown);
                 return;
             }
 
@@ -694,13 +765,36 @@ namespace Ncrust.Playback
             _session.UpdateProgress(position, duration);
             ProgressChanged?.Invoke(position, duration);
 
-            FirePlayReport(ended: false, position, duration);
+            FirePlayReport(ended: false, position, duration, CurrentIsTrial);
         }
 
         private void ReportCurrent(bool ended)
         {
             var duration = DurationMs;
-            FirePlayReport(ended, duration, duration);
+            FirePlayReport(ended, duration, duration, CurrentIsTrial);
+        }
+
+        /// <summary>
+        /// 当前曲取链已完成时发 startplay；还没完成就等取链回调再来（试听片段不发，判定要等取链结果）。
+        /// 起播与取链回调两处都会调，<see cref="PlayReportPolicy.TryAcquireStart"/> 按歌去重。
+        /// </summary>
+        private void TryStartReport()
+        {
+            if (CurrentInfo()?.Entitlement == null)
+            {
+                return;
+            }
+
+            FireStartReport(_currentSongId, CurrentIsTrial);
+        }
+
+        /// <summary>把一次权益提示交给界面（UI 线程上调用）；tracker 用 null 表示「这次不提示」。</summary>
+        private void Raise(PlaybackNotice notice)
+        {
+            if (notice != null)
+            {
+                NoticeRaised?.Invoke(notice);
+            }
         }
 
         /// <summary>
@@ -709,8 +803,7 @@ namespace Ncrust.Playback
         /// <see cref="OnCurrentItemChanged"/>（无缝衔接）都算「真的开始播了」，重复调用由
         /// <see cref="PlayReportPolicy.TryAcquireStart"/> 去重；恢复上次会话不播，因此不发。
         ///
-        /// <paramref name="isTrial"/> 预留给权益判定（试听片段不发）：Windows 的试听标记还没落到
-        /// 引擎上，接上时在调用处传即可，默认按完整播放处理。
+        /// <paramref name="isTrial"/>：试听片段（权益判定 trial）不发，调用处传 <see cref="CurrentIsTrial"/>。
         /// </summary>
         private void FireStartReport(long songId, bool isTrial = false)
         {
@@ -728,7 +821,6 @@ namespace Ncrust.Playback
         ///
         /// 试听片段（<paramref name="isTrial"/>）在**记去重之前**就挡掉，与 Android 端
         /// <c>currentIsTrial</c> 的位置一致：被抑制不算「已上报」，同一首之后按完整播放走时仍会发。
-        /// Windows 的权益判定还在别处（引擎里目前没有试听标记），参数位先留着，默认按完整播放处理。
         /// </summary>
         private void FirePlayReport(bool ended, long positionMs, long durationMs, bool isTrial = false)
         {
@@ -806,6 +898,9 @@ namespace Ncrust.Playback
 
             /// <summary>取链实际落到的档位；Binding 在后台线程写入，只是一个引用赋值。</summary>
             public string ActualLevel { get; set; }
+
+            /// <summary>取链的权益判定（跳歌提示的原因取自它）；还没取链时为 null。</summary>
+            public PlaybackEntitlement Entitlement { get; set; }
 
             public string DisplayLevel => ActualLevel ?? Level;
         }

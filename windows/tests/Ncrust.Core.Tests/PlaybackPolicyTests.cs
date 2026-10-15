@@ -1,3 +1,4 @@
+using Ncrust.Core.Account;
 using Ncrust.Core.Json;
 using Ncrust.Core.Net;
 using Ncrust.Core.Playback;
@@ -124,27 +125,54 @@ public class SongUrlResolverTests
         using var http = new NcmHttp(handler);
         var resolver = new SongUrlResolver(http, new FlacProbe(true));
 
-        var result = await resolver.ResolveAsync(1, "lossless");
+        var result = await resolver.ResolveAsync(1, "lossless", sessionValid: true);
 
         Assert.NotNull(result);
-        Assert.Equal("http://x", result!.Url);
+        Assert.Equal("http://x", result.Url);
         Assert.Equal("exhigh", result.ActualLevel);
         Assert.Equal("mp3", result.ContainerType);
         Assert.Equal(320000, result.BitRate);
         Assert.Equal(new[] { "lossless", "exhigh" }, handler.RequestedLevels);
+
+        // requestedLevel 是 FLAC 门控后实际尝试的第一档：判定 capped 的基准。
+        Assert.Equal("lossless", result.RequestedLevel);
+        var full = Assert.IsType<PlaybackEntitlement.Full>(result.Entitlement);
+        Assert.True(full.Capped);
+        Assert.Equal("exhigh", full.CappedTo);
+        Assert.Equal(EntitlementReason.Vip, full.CappedReason);
     }
 
     [Fact]
     public async Task FlacGate_SkipsLosslessWhenUnsupported()
     {
+        var handler = new Handler(_ => Json("{\"code\":200,\"data\":[{\"code\":200,\"url\":\"http://s\",\"level\":\"exhigh\"}]}"));
+        using var http = new NcmHttp(handler);
+        var resolver = new SongUrlResolver(http, new FlacProbe(false));
+
+        var result = await resolver.ResolveAsync(1, "lossless", sessionValid: true);
+
+        Assert.Equal("exhigh", result.ActualLevel);
+        Assert.Equal("exhigh", handler.RequestedLevels[0]);
+
+        // 门控造成的「不请求 FLAC 档」不算 capped：capped 的基准就是门控后的第一档。
+        Assert.Equal("exhigh", result.RequestedLevel);
+        var full = Assert.IsType<PlaybackEntitlement.Full>(result.Entitlement);
+        Assert.False(full.Capped);
+    }
+
+    /// <summary>门控之后的档位仍被服务端降档 ⇒ 那就是账号封顶，照常报 capped。</summary>
+    [Fact]
+    public async Task FlacGate_PostGateDowngradeIsStillCapped()
+    {
         var handler = new Handler(_ => Json("{\"code\":200,\"data\":[{\"code\":200,\"url\":\"http://s\",\"level\":\"standard\"}]}"));
         using var http = new NcmHttp(handler);
         var resolver = new SongUrlResolver(http, new FlacProbe(false));
 
-        var result = await resolver.ResolveAsync(1, "lossless");
+        var result = await resolver.ResolveAsync(1, "lossless", sessionValid: true);
 
-        Assert.Equal("standard", result!.ActualLevel);
-        Assert.Equal("exhigh", handler.RequestedLevels[0]);
+        var full = Assert.IsType<PlaybackEntitlement.Full>(result.Entitlement);
+        Assert.True(full.Capped);
+        Assert.Equal("standard", full.CappedTo);
     }
 
     [Fact]
@@ -154,22 +182,69 @@ public class SongUrlResolverTests
         using var http = new NcmHttp(handler);
         var resolver = new SongUrlResolver(http, new FlacProbe(true));
 
-        var result = await resolver.ResolveAsync(1, "dolby");
+        var result = await resolver.ResolveAsync(1, "dolby", sessionValid: true);
 
-        Assert.Equal("mp4", result!.ContainerType);
+        Assert.Equal("mp4", result.ContainerType);
         Assert.Equal("mp4", handler.RequestedEncodeTypes[0]);
         Assert.Single(handler.RequestedLevels);
     }
 
+    /// <summary>
+    /// 全档位取不到 url 时**不再返回 null**：带出最后一次响应项与判定原因，
+    /// 上层才能说清「已跳过《歌名》：暂无版权」而不是静默跳歌（行为变更见 spec/api/entitlement.md）。
+    /// </summary>
     [Fact]
-    public async Task AllLevelsFail_ReturnsNull()
+    public async Task AllLevelsFail_ReturnsLastResponseWithReason()
     {
-        var handler = new Handler(_ => Json("{\"code\":200,\"data\":[{\"code\":404}]}"));
+        var handler = new Handler(_ => Json("{\"code\":200,\"data\":[{\"code\":404,\"url\":null,\"level\":null,\"fee\":1}]}"));
         using var http = new NcmHttp(handler);
         var resolver = new SongUrlResolver(http, new FlacProbe(true));
 
-        Assert.Null(await resolver.ResolveAsync(1, "higher"));
+        var result = await resolver.ResolveAsync(1, "higher", sessionValid: false);
+
+        Assert.False(result.HasUrl);
+        Assert.Null(result.Url);
+        Assert.Equal("higher", result.RequestedLevel);
         Assert.Equal(new[] { "higher", "standard" }, handler.RequestedLevels);
+
+        var unavailable = Assert.IsType<PlaybackEntitlement.Unavailable>(result.Entitlement);
+        Assert.Equal(EntitlementReason.Login, unavailable.Reason);
+    }
+
+    /// <summary>无版权（privilege.st &lt; 0）时原因归到 copyright —— 界面据此说「暂无版权」。</summary>
+    [Fact]
+    public async Task AllLevelsFail_CopyrightPrivilegeWins()
+    {
+        var handler = new Handler(_ => Json("{\"code\":200,\"data\":[{\"code\":404,\"url\":null}]}"));
+        using var http = new NcmHttp(handler);
+        var resolver = new SongUrlResolver(http, new FlacProbe(true));
+
+        var result = await resolver.ResolveAsync(
+            186016,
+            "exhigh",
+            sessionValid: true,
+            new SongPrivilege { St = -200, Fee = 0 });
+
+        var unavailable = Assert.IsType<PlaybackEntitlement.Unavailable>(result.Entitlement);
+        Assert.Equal(EntitlementReason.Copyright, unavailable.Reason);
+    }
+
+    /// <summary>试听片段：url 非空 + freeTrialInfo ⇒ Trial，并且照样把 URL 交出去播。</summary>
+    [Fact]
+    public async Task Trial_KeepsUrlAndReportsSeconds()
+    {
+        var handler = new Handler(_ => Json(
+            "{\"code\":200,\"data\":[{\"code\":200,\"url\":\"http://t\",\"level\":\"standard\",\"fee\":1," +
+            "\"freeTrialInfo\":{\"start\":0,\"end\":45}}]}"));
+        using var http = new NcmHttp(handler);
+        var resolver = new SongUrlResolver(http, new FlacProbe(true));
+
+        var result = await resolver.ResolveAsync(1, "exhigh", sessionValid: false);
+
+        Assert.Equal("http://t", result.Url);
+        var trial = Assert.IsType<PlaybackEntitlement.Trial>(result.Entitlement);
+        Assert.Equal(45, trial.TrialSeconds);
+        Assert.Equal(EntitlementReason.Login, trial.Reason);
     }
 
     private static HttpResponseMessage Json(string body) => new(System.Net.HttpStatusCode.OK)

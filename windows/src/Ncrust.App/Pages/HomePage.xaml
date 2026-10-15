@@ -71,6 +71,14 @@
                             </Button>
                         </StackPanel>
                     </Grid>
+                    <!-- 会话非 Valid 时说明这是通用列表，不冒充个性化推荐（对应 Android dailySongsLoginHint）。 -->
+                    <TextBlock
+                        x:Name="DailyHint"
+                        Foreground="{ThemeResource KOnSurfaceVariantBrush}"
+                        Style="{StaticResource CaptionTextStyle}"
+                        Text="登录后为你推荐"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
                     <ListView
                         x:Name="DailyList"
                         IsItemClickEnabled="True"

@@ -383,10 +383,24 @@
                         Style="{StaticResource BodyTextStyle}"
                         Text="未在播放"
                         TextTrimming="CharacterEllipsis" />
-                    <TextBlock
-                        x:Name="MiniArtist"
-                        Style="{StaticResource CaptionTextStyle}"
-                        TextTrimming="CharacterEllipsis" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            x:Name="MiniArtist"
+                            Style="{StaticResource CaptionTextStyle}"
+                            TextTrimming="CharacterEllipsis" />
+                        <!-- 音质 / 「试听」标记（对应 Android 迷你条的徽标位）：放 Auto 列，歌名再长也不会把它挤掉。 -->
+                        <TextBlock
+                            x:Name="MiniBadgeText"
+                            Grid.Column="1"
+                            Margin="8,0,0,0"
+                            Foreground="{ThemeResource SystemControlForegroundAccentBrush}"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Visibility="Collapsed" />
+                    </Grid>
                 </StackPanel>
             </Grid>
 

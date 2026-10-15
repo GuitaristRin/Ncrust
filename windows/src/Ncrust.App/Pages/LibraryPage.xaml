@@ -57,12 +57,27 @@
                         Orientation="Horizontal"
                         Spacing="12"
                         Visibility="Collapsed">
-                        <Button Click="PlayAllSongsClick">
+                        <!-- 三个入口都以红心歌单的全量 id 为准（分页只加载了前几十首，见 issue #30）。 -->
+                        <Button
+                            x:Name="PlayAllSongsButton"
+                            Click="PlayAllSongsClick"
+                            Style="{StaticResource AccentButtonStyle}"
+                            ToolTipService.ToolTip="清空当前队列并播放全部收藏">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" FontSize="14" Glyph="&#xE768;" />
                                 <TextBlock Text="全部播放" />
                             </StackPanel>
                         </Button>
+                        <Button
+                            x:Name="InsertAllSongsButton"
+                            Click="InsertAllSongsClick"
+                            Content="插播全部"
+                            ToolTipService.ToolTip="在当前曲目之后依次插入全部收藏" />
+                        <Button
+                            x:Name="AppendAllSongsButton"
+                            Click="AppendAllSongsClick"
+                            Content="追加全部"
+                            ToolTipService.ToolTip="把全部收藏加到播放队列末尾" />
                         <TextBlock
                             x:Name="SongCountText"
                             VerticalAlignment="Center"

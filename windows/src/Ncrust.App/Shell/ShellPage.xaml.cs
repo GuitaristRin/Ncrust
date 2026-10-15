@@ -29,6 +29,7 @@ namespace Ncrust.Shell
 
         private LoginPage _login;
         private int _suggestVersion;
+        private bool _engineHooked;
 
         public ShellPage()
         {
@@ -45,7 +46,7 @@ namespace Ncrust.Shell
 
             SearchSuggestion.RemoveRequested += RemoveHistoryAsync;
             LoginLauncher.LaunchRequested += ShowLogin;
-            AppServices.SessionChanged += UpdateAccountItem;
+            AppServices.SessionChanged += OnSessionChanged;
             Window.Current.CoreWindow.PointerPressed += OnCoreWindowPointerPressed;
             Loaded += OnLoaded;
 
@@ -56,7 +57,15 @@ namespace Ncrust.Shell
         private async void OnLoaded(object sender, RoutedEventArgs e)
         {
             UpdateAccountItem();
+            UpdateSessionBar();
             await PlaybackHost.RestoreAsync();
+
+            // 播放权益提示（试听 / 音质受限 / 跳过）走这里，界面文案在 Resources.DisplayFormat。
+            if (!_engineHooked)
+            {
+                _engineHooked = true;
+                PlaybackHost.Engine.NoticeRaised += OnPlaybackNotice;
+            }
 
             // 收藏库先读本地（菜单里的「加入库 / 移除收藏」要靠它判断），云端刷新放到后台。
             try
@@ -69,7 +78,7 @@ namespace Ncrust.Shell
                 App.WriteCrashLog(ex);
             }
 
-            await RefreshProfileAsync();
+            await RefreshSessionAsync(force: true);
             _ = RefreshLibraryAsync();
             _ = CheckForUpdatesQuietlyAsync();
         }
@@ -173,7 +182,15 @@ namespace Ncrust.Shell
             ApplicationView.GetForCurrentView().SetPreferredMinSize(new Size(360, 500));
 
             Window.Current.Activated += (_, args) =>
+            {
                 AppTitle.Opacity = args.WindowActivationState == CoreWindowActivationState.Deactivated ? 0.5 : 1.0;
+
+                // 回到前台时复核一次会话（距上次判定 ≥ 30 分钟才真打网络，间隔由 SessionMonitor 判断）。
+                if (args.WindowActivationState != CoreWindowActivationState.Deactivated)
+                {
+                    _ = RefreshSessionAsync(force: false);
+                }
+            };
         }
 
         private void ApplyTitleBarHeight(double height)
@@ -458,54 +475,75 @@ namespace Ncrust.Shell
 
         private void UpdateAccountItem()
         {
+            // 会话失效（cookie 已被清）或未登录时显示「登录」入口；只有会话有效才显示昵称。
+            // 还没判定过（Unknown，启动时判定在途）时按「有凭证」处理，免得每次启动都先闪一下「登录」。
+            var state = AppServices.AccountSession.State;
+            var known = state is Core.Account.SessionState.Valid
+                || (state is Core.Account.SessionState.Unknown && AppServices.IsLoggedIn());
             var profile = AppServices.Cache.UserProfile;
-            var loggedIn = AppServices.IsLoggedIn();
 
             // 账户图标固定用 XAML 里声明的系统联系人剪影（Segoe MDL2 E77B），真实头像只在设置页显示。
-            AccountItem.Content = loggedIn ? (profile?.Nickname ?? "我的") : "登录";
+            AccountItem.Content = known ? (profile?.Nickname ?? "我的") : "登录";
         }
 
-        private async System.Threading.Tasks.Task RefreshProfileAsync()
+        /// <summary>会话状态变化：侧栏账户项与内容区顶部的失效横幅都要跟着变。</summary>
+        private void OnSessionChanged()
         {
-            if (!AppServices.IsLoggedIn())
-            {
-                return;
-            }
-
-            Ncrust.Core.Api.UserProfile profile;
-            try
-            {
-                profile = await AppServices.Account.GetProfileAsync();
-            }
-            catch (Exception ex)
-            {
-                // 网络失败 / 服务端错误：保留「我的」占位与登录态，不打断启动。
-                App.WriteCrashLog(ex);
-                UpdateAccountItem();
-                return;
-            }
-
-            if (profile == null)
-            {
-                // 账户接口明确说未登录（account 与 profile 都是 null，即 code 301 那一类）：
-                // 会话已失效。只有这一条路径清登录态 —— 网络失败走上面的 catch，不能把用户登出。
-                OnSessionExpired();
-                return;
-            }
-
-            AppServices.Cache.UserProfile = profile;
             UpdateAccountItem();
+            UpdateSessionBar();
+
+            // 只记状态类型与「请求层还有没有 cookie」：昵称、UID 这些用户资料不进日志。
+            // 排查「收藏刷不出来 / 推荐变了」时，这行能直接区分「登录失效」与「网络问题」。
+            App.Trace("session: " + Core.Account.SessionState.TypeName(AppServices.AccountSession.State)
+                + " cookie=" + (AppServices.IsLoggedIn() ? "yes" : "no"));
+        }
+
+        /// <summary>播放权益提示（试听 / 音质封顶 / 跳过）：轻提示，不弹模态框、不打断播放。</summary>
+        private void OnPlaybackNotice(Core.Account.PlaybackNotice notice)
+        {
+            string text;
+            switch (notice.Kind)
+            {
+                case Core.Account.PlaybackNoticeKind.Trial:
+                    text = Ncrust.Resources.DisplayFormat.TrialNotice(notice.TrialSeconds, notice.Reason);
+                    break;
+                case Core.Account.PlaybackNoticeKind.Capped:
+                    text = Ncrust.Resources.DisplayFormat.QualityCapped(notice.Level, notice.Reason);
+                    break;
+                case Core.Account.PlaybackNoticeKind.Skipped:
+                    text = Ncrust.Resources.DisplayFormat.SkippedSong(notice.SongName, notice.Reason);
+                    break;
+                default:
+                    text = Ncrust.Resources.DisplayFormat.SkippedSongs(notice.Count);
+                    break;
+            }
+
+            ShowNotice(text);
         }
 
         /// <summary>
-        /// 会话失效：清掉本地登录态（侧栏账户项会随之变成「登录」，首页显示登录提示卡，设置页显示
-        /// 未登录 + 登录按钮），并用轻提示引导。不自动打开登录层 —— 登录层只由用户点击触发。
+        /// 会话判定：启动时一次、窗口重新激活且距上次判定 ≥ 30 分钟时一次（间隔检查在
+        /// <see cref="Core.Account.SessionMonitor.RefreshAsync"/> 里）。判定结果通过
+        /// <c>AppServices.SessionChanged</c> 回到这里刷新横幅与账户项。
         /// </summary>
-        private void OnSessionExpired()
+        private static async System.Threading.Tasks.Task RefreshSessionAsync(bool force)
         {
-            AppServices.SignOut();
-            AppShell.Notice("登录状态已失效，请重新登录");
+            try
+            {
+                await AppServices.AccountSession.RefreshAsync(force);
+            }
+            catch (Exception ex)
+            {
+                // 判定本身出错绝不改状态：维持上一个已知状态。
+                App.WriteCrashLog(ex);
+            }
         }
+
+        /// <summary>会话失效时在内容区顶部挂横幅；重新登录成功后自动消失。</summary>
+        private void UpdateSessionBar() =>
+            SessionBar.IsOpen = AppServices.AccountSession.State is Core.Account.SessionState.Expired;
+
+        private void SessionBarLoginClick(object sender, RoutedEventArgs e) => LoginLauncher.Request();
 
         // ── 登录层 ────────────────────────────────────────────────────────────
 
@@ -524,10 +562,10 @@ namespace Ncrust.Shell
 
         private async void OnLoggedIn(string cookie)
         {
-            AppServices.SetCookie(cookie);
             CloseLogin();
-            await RefreshProfileAsync();
 
+            // 登录成功后立刻复核（拿到资料与 VIP），不走 30 分钟窗口。
+            await AppServices.SetCookieAsync(cookie);
             await RefreshLibraryAsync();
         }
 

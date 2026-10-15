@@ -50,6 +50,8 @@ namespace Ncrust.Pages
             MeteredQualityBox.SelectedIndex = Clamp(prefs.MobileQualityIndex);
             GaplessSwitch.IsOn = prefs.GaplessEnabled;
             TranslationSwitch.IsOn = prefs.LyricsTranslation;
+            TrialPlayRadio.IsChecked = prefs.VipTrialPlayback;
+            TrialSkipRadio.IsChecked = !prefs.VipTrialPlayback;
             ThemeSystemRadio.IsChecked = AppTheme.Mode == AppThemeMode.System;
             ThemeDarkRadio.IsChecked = AppTheme.Mode == AppThemeMode.Dark;
             ThemeLightRadio.IsChecked = AppTheme.Mode == AppThemeMode.Light;
@@ -73,6 +75,10 @@ namespace Ncrust.Pages
             UidText.Text = profile != null && profile.UserId > 0
                 ? "UID: " + profile.UserId.ToString(CultureInfo.InvariantCulture)
                 : string.Empty;
+
+            // 会员状态只在会话有效时有意义；接口失败显示「未知」，绝不显示成「未开通」。
+            var vip = AppServices.AccountSession.State is Core.Account.SessionState.Valid valid ? valid.Vip : null;
+            VipStatusText.Text = vip == null ? string.Empty : Ncrust.Resources.DisplayFormat.VipLabel(vip);
 
             var avatar = CoverUrls.WithSize(profile?.AvatarUrl, 128);
             AvatarImage.Source = avatar != null && Uri.TryCreate(avatar, UriKind.Absolute, out var uri)
@@ -132,6 +138,17 @@ namespace Ncrust.Pages
                 AppServices.PlayPrefs.LyricsTranslation = TranslationSwitch.IsOn;
                 Player.PlayerHost.NotifyLyricsSettingsChanged();
             }
+        }
+
+        /// <summary>「非会员遇到 VIP 歌曲」：播放试听片段（默认）/ 直接跳过。引擎每次取链现读，立即生效。</summary>
+        private void TrialModeChecked(object sender, RoutedEventArgs e)
+        {
+            if (_loading || !(sender is RadioButton radio) || !(radio.Tag is string tag))
+            {
+                return;
+            }
+
+            AppServices.PlayPrefs.VipTrialPlayback = tag == "play";
         }
 
         // ── 音效 ──────────────────────────────────────────────────────────────

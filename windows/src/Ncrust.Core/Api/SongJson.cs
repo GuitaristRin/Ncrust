@@ -54,6 +54,15 @@ namespace Ncrust.Core.Api
                 sb.Append(",\"dt\":").Append(song.Duration);
             }
 
+            // 权益随歌落盘：重启后队列 / 收藏里的歌照样能判出「无版权」而不是「暂时无法播放」。
+            if (song.Privilege != null)
+            {
+                sb.Append(",\"privilege\":{\"st\":").Append(song.Privilege.St ?? 0)
+                    .Append(",\"pl\":").Append(song.Privilege.Pl ?? 0)
+                    .Append(",\"fee\":").Append(song.Privilege.Fee ?? 0)
+                    .Append('}');
+            }
+
             sb.Append('}');
         }
 

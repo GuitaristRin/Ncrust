@@ -99,6 +99,95 @@ namespace Ncrust.Resources
             return result;
         }
 
+        // ── 账号权益（试听 / 音质受限 / 登录失效 / VIP 状态）：用词与 Android i18n 一致 ──────────
+        // 固定文案（失效横幅、每日推荐说明）直接写在对应 XAML 里；这里只放按数据拼出来的那些。
+
+        /// <summary>音质徽标位置的试听标记。</summary>
+        public const string TrialBadge = "试听";
+
+        /// <summary>播放权益原因文案（跳过 / 不可播用它：login 说「登录后可播放」）。</summary>
+        public static string PlaybackReason(Core.Account.EntitlementReason reason)
+        {
+            switch (reason)
+            {
+                case Core.Account.EntitlementReason.Vip:
+                    return "需要黑胶 VIP";
+                case Core.Account.EntitlementReason.Album:
+                    return "需购买专辑";
+                case Core.Account.EntitlementReason.Copyright:
+                    return "暂无版权";
+                case Core.Account.EntitlementReason.Login:
+                    return "登录后可播放";
+                default:
+                    return "暂时无法播放";
+            }
+        }
+
+        /// <summary>试听提示里的原因：登录失效时是「登录后**可能**可完整播放」，与跳过文案不同。</summary>
+        public static string TrialReason(Core.Account.EntitlementReason reason) =>
+            reason == Core.Account.EntitlementReason.Login ? "登录后可能可完整播放" : PlaybackReason(reason);
+
+        /// <summary>「试听 45 秒 · 需要黑胶 VIP」。</summary>
+        public static string TrialNotice(int seconds, Core.Account.EntitlementReason reason) =>
+            string.Format(CultureInfo.InvariantCulture, "试听 {0} 秒 · {1}", seconds, TrialReason(reason));
+
+        /// <summary>「已跳过《歌名》：暂无版权」。</summary>
+        public static string SkippedSong(string name, Core.Account.EntitlementReason reason) =>
+            "已跳过《" + name + "》：" + PlaybackReason(reason);
+
+        /// <summary>连续多首不可播时合并成一条。</summary>
+        public static string SkippedSongs(int count) =>
+            string.Format(CultureInfo.InvariantCulture, "已跳过 {0} 首无法播放的歌曲", count);
+
+        /// <summary>「当前账号最高可播放「极高」」/「登录后可获得更高音质」。</summary>
+        public static string QualityCapped(string level, Core.Account.EntitlementReason reason)
+        {
+            if (reason == Core.Account.EntitlementReason.Login)
+            {
+                return "登录后可获得更高音质";
+            }
+
+            var label = QualityLabel(level);
+            return "当前账号最高可播放「" + (label.Length == 0 ? level : label) + "」";
+        }
+
+        /// <summary>会员状态（设置页账户区）。接口查不到时说「未知」，绝不显示成「未开通」。</summary>
+        public static string VipLabel(Core.Account.VipStatus vip)
+        {
+            if (vip is Core.Account.VipStatus.Active active)
+            {
+                return VipKindLabel(active.Kind) + " · 有效期至 " + VipDate(active.ExpireAt);
+            }
+
+            if (vip is Core.Account.VipStatus.Lapsed lapsed)
+            {
+                return VipKindLabel(lapsed.Kind) + " 已于 " + VipDate(lapsed.ExpireAt) + " 过期 · VIP 歌曲仅可试听";
+            }
+
+            if (vip is Core.Account.VipStatus.None)
+            {
+                return "未开通黑胶 VIP · VIP 歌曲仅可试听，最高音质受限";
+            }
+
+            return "会员状态未知";
+        }
+
+        private static string VipKindLabel(Core.Account.VipKind kind)
+        {
+            switch (kind)
+            {
+                case Core.Account.VipKind.Svip:
+                    return "黑胶 SVIP";
+                case Core.Account.VipKind.Package:
+                    return "音乐包";
+                default:
+                    return "黑胶 VIP";
+            }
+        }
+
+        private static string VipDate(long expireAtMs) =>
+            expireAtMs > 0 ? FromEpoch(expireAtMs).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : "—";
+
         private static DateTimeOffset FromEpoch(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).ToLocalTime();
 
         /// <summary>
