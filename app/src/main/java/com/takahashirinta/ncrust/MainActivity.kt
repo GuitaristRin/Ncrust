@@ -14,6 +14,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -1608,13 +1609,22 @@ fun MainScreen(
         // Activity 根部直接把 app finish 掉）。放在 NavHost 之后组合，OnBackPressedDispatcher
         // 按注册逆序回调，保证它比 Navigation 的 BackHandler 更优先命中。
         //
-        // 关键: enabled 必须走 derivedStateOf。若直接写 `progress.value > 0.01f`,
-        // 就是在组合阶段读 progress —— 展开/收起动画每一帧都会重组整个 MainScreen
-        // (实测展开时 Compose:recompose 119 次/65ms)。derivedStateOf 只在布尔值
-        // 真正翻转(阈值穿越)时才通知, 动画期间零重组。
-        val backEnabled by remember { derivedStateOf { progress.value > 0.01f } }
-        BackHandler(enabled = backEnabled) {
-            collapseCard()
-        }
+        PlayerBackHandler(progress) { collapseCard() }
     }
+}
+
+/**
+ * 全屏播放器展开时拦截返回键。
+ *
+ * enabled 必须走 derivedStateOf：直接写 `progress.value > 0.01f` 就是在组合阶段读 progress，
+ * 展开/收起动画每一帧都会重组整个 MainScreen（实测展开时 Compose:recompose 119 次/65ms）。
+ * 而且这个读取必须待在**本函数**里：放在 MainScreen 作用域，布尔值每翻转一次（展开、收起各一次）
+ * 仍会让整个 MainScreen 连同 NavHost、当前页面与列表项一起重组——Xperia 10 VII 上实测是展开/收起
+ * 起始那一帧 21~33ms 的卡顿（Perfetto + runtime-tracing，2026-10-15）。挪进这里后翻转只重组本节点。
+ * 组合位置不变，OnBackPressedDispatcher 的注册顺序也不变。
+ */
+@Composable
+private fun PlayerBackHandler(progress: Animatable<Float, AnimationVector1D>, onCollapse: () -> Unit) {
+    val backEnabled by remember { derivedStateOf { progress.value > 0.01f } }
+    BackHandler(enabled = backEnabled, onBack = onCollapse)
 }

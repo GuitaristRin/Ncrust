@@ -155,11 +155,15 @@ fun PlayerCard(
     val largeCoverCenterY = if (isWidePlayer) wideCoverCenter.y else screenHeightPx * 0.3f + dp24px
     val boundsCenter = coverSizePx / 2f
 
-    // 完全收起时才激活迷你播放栏；derivedStateOf 将重组限制在阈值穿越处
-    val miniBarEnabled by remember { derivedStateOf { progress.value < 0.01f } }
+    // 下面几个阈值布尔一律保存为 State 对象、只在 [ThresholdScope] 里读：derivedStateOf 只在阈值穿越时
+    // 通知，但若在 PlayerCard 顶层读，每次穿越仍会把整张卡片（歌词 / 队列 / 控件）重组一遍。
+    // 展开一次会穿越 0.01 / 0.7 / 0.9 / 0.99 四个阈值——Xperia 10 VII 实测每次 5~15ms，正落在
+    // 展开 / 收起的头几帧（Perfetto + runtime-tracing，2026-10-15）。
+    // 完全收起时才激活迷你播放栏
+    val miniBarEnabled = remember { derivedStateOf { progress.value < 0.01f } }
     val miniBarInteractionSource = remember { MutableInteractionSource() }
     // 完全展开时才激活收起按钮
-    val dismissEnabled by remember { derivedStateOf { progress.value > 0.99f } }
+    val dismissEnabled = remember { derivedStateOf { progress.value > 0.99f } }
     // 展开态子树常挂载（无 gate）：LyricsView / QueueView / FullPlayerControls / 大封面
     // 信息在 MainScreen 首次 composition 时即挂载，交互只切 graphicsLayer alpha，不再
     // 走 mount/dispose。这是"Apple Music 手感"的关键——原生 View 系统里 player subview
@@ -180,7 +184,11 @@ fun PlayerCard(
     // 折叠态下歌词行/队列行在屏幕底部(迷你条与导航栏之间的缝隙)依然命中测试——
     // 用户"在导航栏底部乱按"会点到不可见的歌词行/队列行, 触发 seek/切歌。
     // 展开阈值和 alpha 淡入阈值(0.7)错开, 保证交互只在内容真正可见后开启。
-    val cardExpandedForInput by remember { derivedStateOf { progress.value > 0.9f } }
+    val cardExpandedForInput = remember { derivedStateOf { progress.value > 0.9f } }
+    // 歌词面板可交互 = 歌词模式 && 卡片基本展开；合成一个 State，免得 LyricsView 外层为两个布尔各重组一次。
+    val lyricsInteractive = remember { derivedStateOf { lyricsEnabled && cardExpandedForInput.value } }
+    // 窄屏顶栏歌名可见 = 卡片展开到顶栏淡入（> 0.7）且处于小封面 / 歌词模式（歌名区 alpha 跟随 lyricAnimProgress）。
+    val titleVisible = remember { derivedStateOf { progress.value > 0.7f && lyricAnimProgress.value > 0.5f } }
 
     // ---- 歌词可达性驱动的「大封面 ↔ 歌词视图」自动切换 ----
     // - 切歌瞬间: 旧歌词已被 ViewModel 清空, 直接落大封面, 绝不残留上一首歌词。
@@ -475,6 +483,7 @@ fun PlayerCard(
                                 animationSpec = SokuouTweens.CoverFade,
                                 label = "LyricsCrossfade"
                             ) { _ ->
+                                ThresholdScope(lyricsInteractive) { interactive ->
                                 LyricsView(
                                     lyrics = lyrics,
                                     translatedLyrics = translatedLyrics,
@@ -484,10 +493,11 @@ fun PlayerCard(
                                     isVisible = showLyrics,
                                     forcedLocateTrigger = lyricLocateTrigger,
                                     onSeekToMs = { ms -> playerViewModel.seekTo(ms) },
-                                    enabled = lyricsEnabled && cardExpandedForInput,
+                                    enabled = interactive,
                                     onUserScrolled = {},
                                     isLoading = lyricsLoading,
                                 )
+                                }
                             }
                         }
 
@@ -552,17 +562,19 @@ fun PlayerCard(
                                 }
                             }
                             MetroDivider(color = LocalMetroColors.current.divider)
-                            QueueView(
-                                queue = playbackQueue,
-                                currentIndex = currentQueueIndex,
-                                playMode = playMode,
-                                isActive = showQueue,
-                                interactive = cardExpandedForInput,
-                                queueHeaderHeightPx = queueHeaderHeightPx,
-                                onPlayIndex = onPlayFromQueue,
-                                onRemoveIndex = onRemoveFromQueue,
-                                onMove = onMoveInQueue
-                            )
+                            ThresholdScope(cardExpandedForInput) { interactive ->
+                                QueueView(
+                                    queue = playbackQueue,
+                                    currentIndex = currentQueueIndex,
+                                    playMode = playMode,
+                                    isActive = showQueue,
+                                    interactive = interactive,
+                                    queueHeaderHeightPx = queueHeaderHeightPx,
+                                    onPlayIndex = onPlayFromQueue,
+                                    onRemoveIndex = onRemoveFromQueue,
+                                    onMove = onMoveInQueue
+                                )
+                            }
                         }
                     }
                 }
@@ -660,20 +672,25 @@ fun PlayerCard(
                                 // 歌名区域可点: 上拉"转到歌手/转到专辑"菜单(类 Apple Music)
                                 .clickable { onSongInfoClick() }
                         ) {
-                            MetroText(
-                                s.name,
-                                color = LocalMetroColors.current.onBackground,
-                                style = LocalMetroTypography.current.titleMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Clip,
-                                modifier = Modifier.basicMarquee(
-                                    iterations = Int.MAX_VALUE,
-                                    animationMode = MarqueeAnimationMode.Immediately,
-                                    initialDelayMillis = 2000,
-                                    repeatDelayMillis = 2500,
-                                    velocity = 48.dp
+                            // 跑马灯只在标题真正可见时挂：这一层只在 graphicsLayer 里调 alpha，卡片收起或处于
+                            // 大封面模式时它看不见，但无限跑马灯照样以 60fps 驱动重绘——Xperia 10 VII 实测
+                            // 长标题时静止首页 53 帧/秒、CPU 40~60%（2026-10-15）。
+                            ThresholdScope(titleVisible) { visible ->
+                                MetroText(
+                                    s.name,
+                                    color = LocalMetroColors.current.onBackground,
+                                    style = LocalMetroTypography.current.titleMedium,
+                                    maxLines = 1,
+                                    overflow = if (visible) TextOverflow.Clip else TextOverflow.Ellipsis,
+                                    modifier = if (visible) Modifier.basicMarquee(
+                                        iterations = Int.MAX_VALUE,
+                                        animationMode = MarqueeAnimationMode.Immediately,
+                                        initialDelayMillis = 2000,
+                                        repeatDelayMillis = 2500,
+                                        velocity = 48.dp
+                                    ) else Modifier
                                 )
-                            )
+                            }
                             MetroText(
                                 s.artists?.joinToString("/") { it.name } ?: "",
                                 color = LocalMetroColors.current.onSurfaceVariant,
@@ -737,26 +754,33 @@ fun PlayerCard(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(56.dp)
-                .then(
-                    // 暂无播放（hasSong=false）时不可点击展开，避免空白播放器被拉起。
-                    if (miniBarEnabled && hasSong) Modifier.clickable(
-                        interactionSource = miniBarInteractionSource,
-                        indication = null,
-                        onClick = {
-                            coroutineScope.launch {
-                                progress.animateTo(
-                                    1f,
-                                    tween(durationMillis = 400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
-                                )
-                            }
-                        }
-                    ) else Modifier
-                )
                 .graphicsLayer {
                     alpha = (1f - progress.value * 5f).coerceIn(0f, 1f)
                 }
                 .background(LocalMetroColors.current.surface)
         ) {
+            // 点击展开的命中层放在最底下（而不是挂在外层 Box 的 modifier 上），阈值翻转只重组这一层；
+            // 上面 Row 里的按钮照样先拿到点击。暂无播放（hasSong=false）时不可点击展开，避免空白播放器被拉起。
+            ThresholdScope(miniBarEnabled) { enabled ->
+                if (enabled && hasSong) {
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .clickable(
+                                interactionSource = miniBarInteractionSource,
+                                indication = null,
+                                onClick = {
+                                    coroutineScope.launch {
+                                        progress.animateTo(
+                                            1f,
+                                            tween(durationMillis = 400, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+                                        )
+                                    }
+                                }
+                            )
+                    )
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically
@@ -791,7 +815,7 @@ fun PlayerCard(
                         trialFlow = playerViewModel.currentIsTrial,
                         modifier = Modifier.padding(end = 4.dp)
                     )
-                    if (miniBarEnabled) {
+                    ThresholdScope(miniBarEnabled) { enabled -> if (enabled) {
                         MetroIconButton(onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onPlayPause()
@@ -810,7 +834,7 @@ fun PlayerCard(
                         }
                     } else {
                         Spacer(modifier = Modifier.width(96.dp))
-                    }
+                    } }
                 } else {
                     // 暂无播放: 卡片仍不可拉起(保持既有约束), 但给一个播放键
                     // 直接开始 Infinity——取每日推荐开播, 无需先有队列
@@ -822,7 +846,7 @@ fun PlayerCard(
                             .weight(1f)
                             .padding(horizontal = 12.dp)
                     )
-                    if (miniBarEnabled) {
+                    ThresholdScope(miniBarEnabled) { enabled -> if (enabled) {
                         MetroIconButton(onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onPlayNothing()
@@ -834,7 +858,7 @@ fun PlayerCard(
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                    }
+                    } }
                 }
             }
         }
@@ -888,14 +912,25 @@ fun PlayerCard(
                     .padding(end = 8.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                if (dismissEnabled) {
-                    MetroIconButton(onClick = onDismiss) {
-                        MetroIcon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = LocalMetroColors.current.onBackground)
+                ThresholdScope(dismissEnabled) { enabled ->
+                    if (enabled) {
+                        MetroIconButton(onClick = onDismiss) {
+                            MetroIcon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = LocalMetroColors.current.onBackground)
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * 读取一个阈值布尔的最小重组作用域：非 inline 的 Composable 自带重组边界，状态翻转时只重组
+ * [content]，不会把调用方（PlayerCard 整卡）一起拖进重组。
+ */
+@Composable
+private fun ThresholdScope(state: State<Boolean>, content: @Composable (Boolean) -> Unit) {
+    content(state.value)
 }
 
 // 新封面超过该阈值仍未就绪，才退化为纯色占位（"实在不出来再禁用"）。
