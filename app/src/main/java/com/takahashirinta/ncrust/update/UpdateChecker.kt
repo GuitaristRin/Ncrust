@@ -13,8 +13,24 @@ data class UpdateInfo(
     val releaseTag: String?,
     val releasePageUrl: String?,
     val publishedAt: String?,
-    val body: String?
+    val body: String?,
+    /**
+     * GitHub 资产 `id`。发布契约允许**同名资产原地替换**（`docs/RELEASES.md`），
+     * 此时 URL / 名字都不变，只有 id 会换——所以断点续传必须以它为稳定身份，
+     * 否则旧前缀 + 新后缀会拼出坏包。老资产 / 夹具没给 id 时为 null。
+     */
+    val assetId: String? = null
 )
+
+/**
+ * 稳定目标标识：优先 GitHub 资产 id，其次资产 URL。
+ *
+ * 更新页据此门控「显示 / 安装」——绝不能把 A 的已下载文件装到 B 的页面上。
+ */
+val UpdateInfo.targetKey: String get() = assetId ?: assetUrl
+
+/** 两份 [UpdateInfo] 是否指向同一个资产（同一目标）。 */
+fun UpdateInfo.matchesTarget(other: UpdateInfo): Boolean = targetKey == other.targetKey
 
 /**
  * 从 GitHub Releases API 的 JSON 里找出适用于 Android 的更新。
@@ -71,7 +87,8 @@ object UpdateChecker {
                     releaseTag = release.stringOrNull("tag_name"),
                     releasePageUrl = release.stringOrNull("html_url"),
                     publishedAt = release.stringOrNull("published_at"),
-                    body = release.stringOrNull("body")
+                    body = release.stringOrNull("body"),
+                    assetId = hit.id
                 )
             }
         }
@@ -98,7 +115,7 @@ object UpdateChecker {
 
             val url = asset.stringOrNull("browser_download_url") ?: continue
             if (hit == null || version > hit.version) {
-                hit = AssetHit(version, name, url, asset.longOrZero("size"))
+                hit = AssetHit(version, name, url, asset.longOrZero("size"), asset.idOrNull("id"))
             }
         }
         return hit
@@ -108,7 +125,8 @@ object UpdateChecker {
         val version: AppVersion,
         val name: String,
         val url: String,
-        val size: Long
+        val size: Long,
+        val id: String?
     )
 
     private fun JsonObject.arrayOrNull(name: String): JsonArray? {
@@ -129,5 +147,17 @@ object UpdateChecker {
     private fun JsonObject.longOrZero(name: String): Long {
         val element = get(name) ?: return 0L
         return if (element.isJsonPrimitive) runCatching { element.asLong }.getOrDefault(0L) else 0L
+    }
+
+    /** 资产 `id` 在 GitHub API 里是数字；统一转成字符串做身份比较，空 / 非标量返回 null。 */
+    private fun JsonObject.idOrNull(name: String): String? {
+        val element = get(name) ?: return null
+        if (!element.isJsonPrimitive) return null
+        val primitive = element.asJsonPrimitive
+        return when {
+            primitive.isNumber -> primitive.asLong.toString()
+            primitive.isString -> primitive.asString.takeIf { it.isNotBlank() }
+            else -> null
+        }
     }
 }

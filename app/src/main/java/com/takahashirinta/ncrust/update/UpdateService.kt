@@ -22,6 +22,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 /** 更新检查的状态（全局单例持有，因此离开页面 / 重组都不会丢）。 */
 data class UpdateState(
@@ -35,18 +36,36 @@ data class UpdateState(
     val shouldNotify: Boolean get() = UpdateNotifier.shouldNotify(available, dismissedVersion)
 }
 
-/** 下载与校验的进度。 */
+/**
+ * 下载与校验的进度。
+ *
+ * 每个非 Idle 状态都带 [target]（稳定资产标识），页面据此**只认自己目标的进度与结果**：
+ * 下载过 A 没安装、随后发现 B 进入 B 页时，A 的 [Ready] 绝不能被当成 B 的安装包。
+ */
 sealed interface DownloadState {
     data object Idle : DownloadState
 
     /** [total] 为 0 表示总长未知。 */
-    data class Downloading(val downloaded: Long, val total: Long) : DownloadState
+    data class Downloading(val downloaded: Long, val total: Long, val target: String) : DownloadState
 
-    data object Verifying : DownloadState
+    data class Verifying(val target: String) : DownloadState
 
     data class Ready(val file: File, val info: UpdateInfo) : DownloadState
 
-    data class Failed(val reason: FailureReason) : DownloadState
+    data class Failed(val reason: FailureReason, val target: String) : DownloadState
+}
+
+/**
+ * 把全局下载状态收窄到某个页面目标：别的目标的进度 / 结果一律当 Idle，
+ * 这样 B 页不会显示 A 的进度，更不会拿 A 的 [DownloadState.Ready] 去安装。
+ */
+internal fun DownloadState.forTarget(target: String): DownloadState = when (this) {
+    is DownloadState.Ready ->
+        if (info.targetKey == target && file.isFile) this else DownloadState.Idle
+    is DownloadState.Downloading -> if (this.target == target) this else DownloadState.Idle
+    is DownloadState.Verifying -> if (this.target == target) this else DownloadState.Idle
+    is DownloadState.Failed -> if (this.target == target) this else DownloadState.Idle
+    DownloadState.Idle -> DownloadState.Idle
 }
 
 /** 下载 / 校验失败的原因，界面按它选文案与退路。 */
@@ -92,8 +111,13 @@ object UpdateService {
 
     const val USER_AGENT = "Ncrust-Android"
 
+    // per_page 取 GitHub 上限 100；再据响应 Link 头翻页（见 ReleaseFeed），
+    // 否则落在第 21 个及以后的资产会被漏掉并误判「已最新」。
     private const val RELEASES_API =
-        "https://api.github.com/repos/GuitaristRin/Ncrust/releases?per_page=20"
+        "https://api.github.com/repos/GuitaristRin/Ncrust/releases?per_page=100"
+
+    /** 翻页上限，防病态的分页链把 60 次 / 小时限额烧光。 */
+    private const val MAX_RELEASES_PAGES = 10
 
     private const val PREFS_NAME = "ncrust_settings"
     private const val KEY_AUTO_CHECK = "update_auto_check"
@@ -106,6 +130,7 @@ object UpdateService {
     private const val KEY_FOUND_ASSET_NAME = "update_found_asset_name"
     private const val KEY_FOUND_ASSET_URL = "update_found_asset_url"
     private const val KEY_FOUND_ASSET_SIZE = "update_found_asset_size"
+    private const val KEY_FOUND_ASSET_ID = "update_found_asset_id"
     private const val KEY_FOUND_TAG = "update_found_tag"
     private const val KEY_FOUND_PAGE_URL = "update_found_page_url"
     private const val KEY_FOUND_PUBLISHED_AT = "update_found_published_at"
@@ -135,10 +160,12 @@ object UpdateService {
     private var downloadJob: Job? = null
     private var downloader: UpdateDownloader? = null
 
-    // 取消与失败要分开：cancel() 会让阻塞中的读抛 IOException，若不加这个标记，
-    // 用户点「取消」后界面会先回到 Idle、紧接着被 catch 覆盖成「下载失败」。
-    @Volatile
-    private var cancelRequested = false
+    /**
+     * 下载任务代次。每次 [startDownload] / [cancelDownload] 都自增，
+     * 旧任务的进度回调与收尾写状态前先比对代次——取消后旧任务必须彻底哑火，
+     * 否则它捕获 `DownloadCancelledException` 时会把紧接着新开的下载覆盖成 Idle。
+     */
+    private val downloadGeneration = AtomicLong(0L)
 
     /** 当前版本：唯一来源是 `build.gradle.kts` 的 `versionName`（经 BuildConfig 注入）。 */
     fun currentVersion(): AppVersion? = AppVersion.parseOrNull(BuildConfig.VERSION_NAME)
@@ -147,11 +174,19 @@ object UpdateService {
      * 从 SharedPreferences 恢复状态。每次冷启动在 `MainActivity.onCreate` 调一次：
      * 24 小时窗口内不会再联网，但「上次发现的新版本」必须立刻能显示，
      * 否则用户重启应用后圆点与横幅会凭空消失一天。
+     *
+     * 恢复时按 [UpdateRecovery] 过滤：用户升级后重启，落盘的版本可能已不再更高，
+     * 必须丢弃并清掉 prefs，否则会显示「更新到当前版本」。
      */
     fun init(context: Context) {
         val prefs = prefs(context)
+        val stored = loadFound(prefs)
+        val available = UpdateRecovery.restore(stored, currentVersion())
+        if (stored != null && available == null) {
+            clearFound(context)
+        }
         _state.value = UpdateState(
-            available = loadFound(prefs),
+            available = available,
             dismissedVersion = AppVersion.parseOrNull(prefs.getString(KEY_DISMISSED_VERSION, null)),
             checking = false,
             autoCheckEnabled = prefs.getBoolean(KEY_AUTO_CHECK, true),
@@ -207,41 +242,66 @@ object UpdateService {
     fun startDownload(context: Context, info: UpdateInfo) {
         if (downloadJob?.isActive == true) return
         val appContext = context.applicationContext
+        val target = info.targetKey
         val directory = File(appContext.cacheDir, DOWNLOAD_DIR)
         val active = UpdateDownloader(directory)
         downloader = active
-        cancelRequested = false
-        _download.value = DownloadState.Downloading(0L, info.assetSize)
+        val generation = downloadGeneration.incrementAndGet()
+        publish(generation, DownloadState.Downloading(0L, info.assetSize, target))
         downloadJob = scope.launch {
             try {
                 val file = active.download(
                     url = info.assetUrl,
-                    fileName = fileNameOf(info)
+                    fileName = fileNameOf(info),
+                    identity = target,
+                    expectedSize = info.assetSize
                 ) { downloaded, total ->
-                    _download.value = DownloadState.Downloading(
-                        downloaded = downloaded,
-                        total = if (total > 0) total else info.assetSize
+                    publish(
+                        generation,
+                        DownloadState.Downloading(
+                            downloaded = downloaded,
+                            total = if (total > 0) total else info.assetSize,
+                            target = target
+                        )
                     )
                 }
-                _download.value = DownloadState.Verifying
-                _download.value = verify(appContext, file, info)
+                publish(generation, DownloadState.Verifying(target))
+                publish(generation, verify(appContext, file, info))
             } catch (_: DownloadCancelledException) {
-                // 取消不是失败：半截文件留着，下次续传。
-                _download.value = DownloadState.Idle
+                // 取消不是失败：半截文件留着，下次续传。代次已被 cancel 推高，这里多半是哑火。
+                publish(generation, DownloadState.Idle)
             } catch (_: Exception) {
                 // 半截文件同样留着（断点续传），只是状态上如实报告失败。
-                if (!cancelRequested) _download.value = DownloadState.Failed(FailureReason.NETWORK)
+                publish(generation, DownloadState.Failed(FailureReason.NETWORK, target))
             }
         }
     }
 
     fun cancelDownload() {
-        cancelRequested = true
+        // 推高代次：旧任务之后的所有写状态（含 catch / finally）都被 publish 挡掉，
+        // 不会覆盖紧接着新开的下载。
+        downloadGeneration.incrementAndGet()
         downloader?.cancel()
         downloadJob?.cancel()
+        downloadJob = null
         downloader = null
         _download.value = DownloadState.Idle
     }
+
+    /** 只有代次仍是当前任务的回调才允许写状态。 */
+    private fun publish(generation: Long, state: DownloadState) {
+        if (downloadGeneration.get() == generation) _download.value = state
+    }
+
+    /**
+     * 当前 [DownloadState.Ready]（若有）是否正好指向 [info] 这份资产，且文件还在。
+     *
+     * 界面用它做显示与安装的双重门控：目标不一致或文件已不在就返回 null，
+     * 绝不能拿别的版本的已下载包去安装。
+     */
+    fun readyFor(info: UpdateInfo): DownloadState.Ready? =
+        (_download.value as? DownloadState.Ready)
+            ?.takeIf { it.info.targetKey == info.targetKey && it.file.isFile }
 
     /** Android 8+ 需要用户为本应用打开「安装未知应用」。 */
     fun canInstallPackages(context: Context): Boolean =
@@ -275,30 +335,40 @@ object UpdateService {
         val installed = ApkArchive.readInstalled(context)
         val archive = ApkArchive.readArchive(context, file)
         if (installed == null || archive == null) {
-            return DownloadState.Failed(FailureReason.ARCHIVE_UNREADABLE)
+            return DownloadState.Failed(FailureReason.ARCHIVE_UNREADABLE, info.targetKey)
         }
         return when (ApkVerification.check(archive, installed)) {
             ApkCheck.OK -> DownloadState.Ready(file, info)
-            ApkCheck.PACKAGE_MISMATCH -> DownloadState.Failed(FailureReason.PACKAGE_MISMATCH)
-            ApkCheck.VERSION_NOT_HIGHER -> DownloadState.Failed(FailureReason.VERSION_NOT_HIGHER)
-            ApkCheck.SIGNATURE_MISMATCH -> DownloadState.Failed(FailureReason.SIGNATURE_MISMATCH)
+            ApkCheck.PACKAGE_MISMATCH -> DownloadState.Failed(FailureReason.PACKAGE_MISMATCH, info.targetKey)
+            ApkCheck.VERSION_NOT_HIGHER -> DownloadState.Failed(FailureReason.VERSION_NOT_HIGHER, info.targetKey)
+            ApkCheck.SIGNATURE_MISMATCH -> DownloadState.Failed(FailureReason.SIGNATURE_MISMATCH, info.targetKey)
         }
     }
 
     private suspend fun fetch(): CheckOutcome = withContext(Dispatchers.IO) {
         val current = currentVersion() ?: return@withContext CheckOutcome.Failed
         try {
-            val request = Request.Builder()
-                .url(RELEASES_API)
-                .header("User-Agent", USER_AGENT)
-                .header("Accept", "application/vnd.github+json")
-                .build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext CheckOutcome.Failed
-                val body = response.body?.string() ?: return@withContext CheckOutcome.Failed
-                val info = UpdateChecker.find(body, current)
-                if (info != null) CheckOutcome.Found(info) else CheckOutcome.UpToDate
+            val pages = mutableListOf<String?>()
+            var url: String? = RELEASES_API
+            var page = 0
+            while (url != null && page < MAX_RELEASES_PAGES) {
+                page++
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", USER_AGENT)
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+                val (body, next) = client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext CheckOutcome.Failed
+                    val text = response.body?.string() ?: return@withContext CheckOutcome.Failed
+                    text to nextPageUrl(response.header("Link"))
+                }
+                pages += body
+                url = next
             }
+            // 解析失败（含非 JSON / 非数组）由 evaluateReleases 返回 null → Failed，
+            // 绝不能退化成 UpToDate 去清掉上次真实发现的结果。
+            evaluateReleases(pages, current) ?: CheckOutcome.Failed
         } catch (_: Exception) {
             CheckOutcome.Failed
         }
@@ -341,6 +411,7 @@ object UpdateService {
             .putString(KEY_FOUND_ASSET_NAME, info.assetName)
             .putString(KEY_FOUND_ASSET_URL, info.assetUrl)
             .putLong(KEY_FOUND_ASSET_SIZE, info.assetSize)
+            .putString(KEY_FOUND_ASSET_ID, info.assetId)
             .putString(KEY_FOUND_TAG, info.releaseTag)
             .putString(KEY_FOUND_PAGE_URL, info.releasePageUrl)
             .putString(KEY_FOUND_PUBLISHED_AT, info.publishedAt)
@@ -354,6 +425,7 @@ object UpdateService {
             .remove(KEY_FOUND_ASSET_NAME)
             .remove(KEY_FOUND_ASSET_URL)
             .remove(KEY_FOUND_ASSET_SIZE)
+            .remove(KEY_FOUND_ASSET_ID)
             .remove(KEY_FOUND_TAG)
             .remove(KEY_FOUND_PAGE_URL)
             .remove(KEY_FOUND_PUBLISHED_AT)
@@ -372,7 +444,8 @@ object UpdateService {
             releaseTag = prefs.getString(KEY_FOUND_TAG, null),
             releasePageUrl = prefs.getString(KEY_FOUND_PAGE_URL, null),
             publishedAt = prefs.getString(KEY_FOUND_PUBLISHED_AT, null),
-            body = prefs.getString(KEY_FOUND_BODY, null)
+            body = prefs.getString(KEY_FOUND_BODY, null),
+            assetId = prefs.getString(KEY_FOUND_ASSET_ID, null)
         )
     }
 }
