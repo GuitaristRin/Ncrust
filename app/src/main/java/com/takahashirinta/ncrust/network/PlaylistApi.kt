@@ -2,6 +2,11 @@ package com.takahashirinta.ncrust.network
 
 import android.util.Log
 import androidx.compose.runtime.Immutable
+import com.google.gson.Gson
+import com.takahashirinta.ncrust.account.AccountGetResponse
+import com.takahashirinta.ncrust.account.SessionMonitor
+import com.takahashirinta.ncrust.account.SongPrivilege
+import com.takahashirinta.ncrust.account.VipInfoResponse
 import com.takahashirinta.ncrust.network.crypto.EapiCrypto
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
@@ -15,6 +20,49 @@ object PlaylistApi {
     private const val USER_PLAYLIST_PATH = "/eapi/user/playlist"
     private const val PLAYLIST_DETAIL_PATH = "/eapi/v6/playlist/detail"
     private const val ACCOUNT_GET_PATH = "/eapi/w/nuser/account/get"
+    /** 会员状态（weapi）。规格：`spec/api/entitlement.md` §VIP。 */
+    private const val VIP_INFO_PATH = "/api/music-vip-membership/client/vip/info"
+
+    // 会话判定用的响应模型（account 包）走 Gson 映射：夹具单测用同一套 @SerializedName
+    // 解析 spec/fixtures/entitlement 下的响应，字段映射错了单测就会红。
+    private val gson = Gson()
+
+    /**
+     * 业务码里唯一需要在网络层就地处理的是 301（用户未登录）：立即把会话状态转 `Expired`，
+     * 界面据此显示失效横幅。登录失效时 `account/get` 仍返回 200，只有这类需登录接口会 301，
+     * 所以判定必须在读到业务码的地方做。
+     */
+    private fun reportBusinessCode(code: Int) {
+        SessionMonitor.reportApiCode(code)
+    }
+
+    /**
+     * `account/get`（会话判定用）。
+     * 注意：登录失效时它**仍然 200**，只是 `account`/`profile` 为 null —— 判定见
+     * `deriveSession`，不能只看 HTTP 状态码。
+     */
+    suspend fun getAccount(): AccountGetResponse = withContext(Dispatchers.IO) {
+        val response = RetrofitClient.eapiPost(ACCOUNT_GET_PATH, emptyMap())
+        val body = response.body?.string() ?: throw Exception("empty response")
+        val parsed = gson.fromJson(body, AccountGetResponse::class.java)
+            ?: throw Exception("account/get 解析失败")
+        reportBusinessCode(parsed.code ?: -1)
+        parsed
+    }
+
+    /**
+     * 黑胶 VIP / 音乐包状态。只应在会话 `Valid` 时调用。
+     * 失败（网络异常 / 非 200 / 301）由调用方处理成「未知」——**绝不**显示成「未开通」。
+     */
+    suspend fun getVipInfo(userId: Long): VipInfoResponse = withContext(Dispatchers.IO) {
+        val payload = JSONObject().put("userId", userId).toString()
+        val response = RetrofitClient.weapiPost(VIP_INFO_PATH, payload)
+        val body = response.body?.string() ?: throw Exception("empty response")
+        val parsed = gson.fromJson(body, VipInfoResponse::class.java)
+            ?: throw Exception("vip/info 解析失败")
+        reportBusinessCode(parsed.code ?: -1)
+        parsed
+    }
 
     /**
      * 获取当前登录用户的 UID
@@ -44,6 +92,7 @@ object PlaylistApi {
         val response = RetrofitClient.eapiPost(ACCOUNT_GET_PATH, payload)
         val body = response.body?.string() ?: throw Exception("empty response")
         val json = JSONObject(body)
+        reportBusinessCode(json.optInt("code", -1))
 
         val account = json.optJSONObject("account")
         val profile = json.optJSONObject("profile")
@@ -128,6 +177,8 @@ object PlaylistApi {
         if (code != 200) throw Exception("API error: code=$code")
 
         val playlistObj = json.optJSONObject("playlist") ?: return@withContext emptyList()
+        // 权益信息与 tracks[] 并列，按 id 关联到每首歌（无版权判定靠它）。
+        val privileges = parsePrivileges(playlistObj.optJSONArray("privileges"))
 
         // Parse the partial track objects that carry full detail (typically first ~20).
         val tracksMap = mutableMapOf<Long, SongItem>()
@@ -135,7 +186,7 @@ object PlaylistApi {
         if (trackArray != null) {
             for (i in 0 until trackArray.length()) {
                 val song = parseSongTrack(trackArray.getJSONObject(i))
-                tracksMap[song.id] = song
+                tracksMap[song.id] = privileges[song.id]?.let { song.copy(privilege = it) } ?: song
             }
         }
 
@@ -189,6 +240,26 @@ object PlaylistApi {
         )
     }
 
+    /**
+     * 详情接口的权益数组（`v3/song/detail`、`v6/playlist/detail` 都把它放在与歌曲并列的位置），
+     * 按 id 关联到每首歌。缺 `st` 时按 0 处理——**不能**把"没有这个字段"当成"无版权"。
+     */
+    private fun parsePrivileges(array: JSONArray?): Map<Long, SongPrivilege> {
+        if (array == null) return emptyMap()
+        val map = mutableMapOf<Long, SongPrivilege>()
+        for (i in 0 until array.length()) {
+            val p = array.optJSONObject(i) ?: continue
+            val id = p.optLong("id", 0L)
+            if (id <= 0L) continue
+            map[id] = SongPrivilege(
+                st = p.optInt("st", 0),
+                pl = p.optLong("pl", 0L),
+                fee = p.optInt("fee", 0)
+            )
+        }
+        return map
+    }
+
     private suspend fun fetchSongDetails(ids: List<Long>): List<SongItem> = withContext(Dispatchers.IO) {        val cArray = JSONArray()
         ids.forEach { id -> cArray.put(JSONObject().put("id", id)) }
         val payload = mapOf("c" to cArray.toString())
@@ -198,9 +269,13 @@ object PlaylistApi {
             try {
                 val response = RetrofitClient.eapiPost("/eapi/v3/song/detail", payload)
                 val body = response.body?.string() ?: return@repeat
-                val songArray = JSONObject(body).optJSONArray("songs") ?: return@repeat
+                val json = JSONObject(body)
+                reportBusinessCode(json.optInt("code", -1))
+                val songArray = json.optJSONArray("songs") ?: return@repeat
+                val privileges = parsePrivileges(json.optJSONArray("privileges"))
                 return@withContext (0 until songArray.length()).map { i ->
-                    parseSongTrack(songArray.getJSONObject(i))
+                    val song = parseSongTrack(songArray.getJSONObject(i))
+                    privileges[song.id]?.let { song.copy(privilege = it) } ?: song
                 }
             } catch (e: Exception) {
                 lastError = e
@@ -244,6 +319,11 @@ object PlaylistApi {
         val response = RetrofitClient.eapiPost("/eapi/v2/discovery/recommend/songs", emptyMap())
         val body = response.body?.string() ?: throw Exception("empty response")
         val json = JSONObject(body)
+        // 登录失效时这个接口**仍然 200**，只是返回非个性化的通用列表（规格 §问题）；
+        // 真正会 301 的是收藏等私有接口，但代码里统一上报：301 即转 Expired。
+        val code = json.optInt("code", -1)
+        reportBusinessCode(code)
+        if (code != 200) return@withContext emptyList()
         val arr = json.optJSONArray("recommend") ?: json.optJSONArray("data")
             ?: return@withContext emptyList()
         (0 until arr.length()).map { i ->
@@ -503,6 +583,7 @@ object PlaylistApi {
         val response = RetrofitClient.eapiPost(USER_PLAYLIST_PATH, payload)
         val body = response.body?.string() ?: return@withContext null
         val json = JSONObject(body)
+        reportBusinessCode(json.optInt("code", -1))
         val arr = json.optJSONArray("playlist") ?: return@withContext null
         // 名称最可靠：「我喜欢的音乐」不可被用户改名。
         for (i in 0 until arr.length()) {
@@ -558,6 +639,8 @@ object PlaylistApi {
             val json = JSONObject(body)
             val code = json.optInt("code", -1)
             if (code != 200) {
+                // 登录失效时这里返回 301：立即把会话转 Expired，界面显示失效横幅。
+                reportBusinessCode(code)
                 return@withContext LikedIdsResult.Failure("business code=$code")
             }
             val playlistObj = json.optJSONObject("playlist")

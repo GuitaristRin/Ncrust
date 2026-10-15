@@ -9,6 +9,14 @@ import android.os.Build
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.takahashirinta.ncrust.account.EntitlementReason
+import com.takahashirinta.ncrust.account.PlaybackEntitlement
+import com.takahashirinta.ncrust.account.PlaybackNotice
+import com.takahashirinta.ncrust.account.PlaybackNoticeTracker
+import com.takahashirinta.ncrust.account.SessionMonitor
+import com.takahashirinta.ncrust.account.SessionState
+import com.takahashirinta.ncrust.account.SongPrivilege
+import com.takahashirinta.ncrust.account.classifyPlayback
 import com.takahashirinta.ncrust.lyric.LrcLine
 import com.takahashirinta.ncrust.lyric.LrcParser
 import com.takahashirinta.ncrust.lyric.LyricsCache
@@ -20,6 +28,8 @@ import com.takahashirinta.ncrust.player.SongUrlFetcher
 import com.takahashirinta.ncrust.player.SongUrlResult
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
     val isPlaying = MutableStateFlow(false)
@@ -70,11 +80,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val currentQualityIndex = MutableStateFlow(3)
     private val qualityApiLevels = listOf("standard", "higher", "exhigh", "lossless", "hires", "jyeffect", "dolby")
 
+    // ---------- 账号权益（试听 / 音质封顶 / 不可播） ----------
+    // 当前歌是"45 秒试听片段"：迷你条与全屏播放器的音质徽标改显示「试听」，
+    // 且**不上报完整播放**（否则试听也算收听，污染推荐）。
+    val currentIsTrial = MutableStateFlow(false)
+    private val _notice = MutableStateFlow<PlaybackNotice?>(null)
+    /** 一次性提示（Toast），由界面渲染成对应语言并调用 [clearNotice]。 */
+    val notice: StateFlow<PlaybackNotice?> = _notice.asStateFlow()
+    // 提示的去重/合并规则（每首试听一次、每进程封顶一次、连续跳过合并）。
+    private val noticeTracker = PlaybackNoticeTracker()
+
     // 播放出错(如设备解码不了 24-bit FLAC / 高采样率)时自动降档重试的阶梯。
     // 每出错一次降一档,到 standard 仍失败才跳歌:保证「有声音,或跳歌」,绝不静默卡住。
     private val qualityRetryLadder = listOf("dolby", "jyeffect", "hires", "lossless", "exhigh", "higher", "standard")
     // 上一次交给 PlaybackService 的 URL 的实际档位(fetch 内部可能已降级)。
     private var lastPlayedLevel = ""
+    // 当前歌的歌曲详情 privilege：降档重试会重新取链，判定要用同一份权益信息。
+    private var lastSongPrivilege: SongPrivilege? = null
     // 已处理过的出错点 (songId@level),配合时间窗防止同一错误反复触发重试。
     private var lastErrorKey = ""
     private var lastErrorHandledAt = 0L
@@ -88,8 +110,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var latestPlaySongId = -1L
 
     private data class PreloadCacheEntry(
-        val url: String,
-        val actualLevel: String,
+        val result: SongUrlResult,
         // 取链时用的请求档位:播放失败降档重试时,只有档位一致才允许命中缓存,
         // 避免把上一档(可能播不出声)的 URL 原样放回播放器。
         val requestedLevel: String,
@@ -113,8 +134,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             progress.value = if (dur > 0) pos.toFloat() / dur.toFloat() else 0f
 
             // 播放行为上报: 进度达 80% 视为"听完",每首歌只上报一次。
+            // 试听片段（45 秒）不算听完——否则"只听了半首"也会喂给推荐体系。
             val sid = currentSongId.value ?: -1L
-            if (sid > 0 && sid != lastReportedSongId && PlayReporter.reachedCompletion(pos, dur)) {
+            if (sid > 0 && sid != lastReportedSongId && !currentIsTrial.value &&
+                PlayReporter.reachedCompletion(pos, dur)
+            ) {
                 lastReportedSongId = sid
                 PlayReporter.reportPlay(sid, pos, dur, end = "playend", isWifi = isOnWifi())
             }
@@ -128,9 +152,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
         PlaybackService.onPlaybackEnded = {
-            // 自然播放结束时,若尚未上报则补一条 playend。
+            // 自然播放结束时,若尚未上报则补一条 playend。试听片段的自然结束同样不上报。
             val sid = currentSongId.value ?: -1L
-            if (sid > 0 && sid != lastReportedSongId) {
+            if (sid > 0 && sid != lastReportedSongId && !currentIsTrial.value) {
                 lastReportedSongId = sid
                 PlayReporter.reportPlay(sid, duration.value, duration.value, end = "playend", isWifi = isOnWifi())
             }
@@ -152,6 +176,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 currentSongName.value = now.title
                 currentSongArtist.value = now.artist
                 currentSongArtwork.value = now.artwork.ifEmpty { null }
+                // 无缝衔接过来的歌不重新取链，试听标记从取链时的记录里还原；
+                // 首听（playSong 已提示过）不再重复提示，由 PlaybackNoticeTracker 去重。
+                restoreTrialState(now.songId)
                 // 音质档位同样取自当前 MediaItem 的 extras，与标题/封面同源，
                 // 因此三者绝不会互相错位（旧的全局预载槽推断正是错位来源）。
                 if (now.actualLevel.isNotEmpty()) {
@@ -261,7 +288,109 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
     }
 
-    fun playSong(songId: Long, title: String = "", artist: String = "", artworkUrl: String = "", quality: String = "") {
+    /**
+     * 设置项「非会员遇到 VIP 歌曲」：true = 播放试听片段（默认），false = 直接跳过。
+     * 每次播放都现读：设置页改完立刻生效，不需要额外的状态同步。
+     */
+    private fun trialPlaybackEnabled(): Boolean =
+        getApplication<Application>().getSharedPreferences("ncrust_settings", 0)
+            .getBoolean("vip_trial_playback", true)
+
+    /** 判定输入里的 `sessionValid`：`Unknown`（尚未判定/网络失败）不算 Valid。 */
+    private fun sessionValid(): Boolean = SessionMonitor.state.value is SessionState.Valid
+
+    private fun entitlementFor(result: SongUrlResult): PlaybackEntitlement = classifyPlayback(
+        requestedLevel = result.requestedLevel,
+        sessionValid = sessionValid(),
+        item = result.item,
+        privilege = result.privilege
+    )
+
+    /**
+     * 记录判定结果里"以后还要用"的部分：无缝衔接过来的歌不重新取链，
+     * [restoreTrialState] 靠这条记录把试听标记还原回来。
+     */
+    private fun recordTrialInfo(songId: Long, entitlement: PlaybackEntitlement) {
+        if (entitlement !is PlaybackEntitlement.Trial) return
+        noticeTracker.recordTrial(songId, entitlement.seconds, entitlement.reason)
+    }
+
+    /**
+     * 无缝衔接到 [songId] 时还原试听状态：徽标显示「试听」，并在该歌**首次真正开始播**时提示一次。
+     * 提示刻意放在这里而不是预载阶段——预载可以比实际起播早一分钟。
+     */
+    private fun restoreTrialState(songId: Long) {
+        currentIsTrial.value = noticeTracker.isTrial(songId)
+        noticeTracker.trialNoticeOnStart(songId)?.let { _notice.value = it }
+    }
+
+    /**
+     * 把判定结果兑现到播放与界面，返回 true = 可以继续播放这首。
+     *
+     * - `unavailable`：提示原因并让调用方跳歌（绝不回退 outer/url 兜底）。
+     * - `trial`：按设置决定播放试听片段还是跳过；播放时提示一次并标记 [currentIsTrial]。
+     * - `full`：清掉试听标记；被封顶时同一进程只提示一次（徽标显示实际档位由
+     *   `currentQualityIndex` 负责）。
+     */
+    private fun applyEntitlement(
+        songId: Long,
+        songName: String,
+        entitlement: PlaybackEntitlement
+    ): Boolean {
+        when (entitlement) {
+            is PlaybackEntitlement.Unavailable -> {
+                emitSkip(songId, songName, entitlement.reason)
+                return false
+            }
+            is PlaybackEntitlement.Trial -> {
+                recordTrialInfo(songId, entitlement)
+                if (!trialPlaybackEnabled()) {
+                    Log.i("PlayerViewModel", "trial skipped by setting songId=$songId")
+                    emitSkip(songId, songName, entitlement.reason)
+                    return false
+                }
+                noticeTracker.notePlayableStarted()
+                currentIsTrial.value = true
+                noticeTracker.trialNoticeOnStart(songId)?.let { _notice.value = it }
+                return true
+            }
+            is PlaybackEntitlement.Full -> {
+                currentIsTrial.value = false
+                noticeTracker.notePlayableStarted()
+                noticeTracker.cappedNotice(
+                    songId = songId,
+                    level = entitlement.cappedTo.orEmpty(),
+                    reason = entitlement.cappedReason ?: EntitlementReason.VIP
+                )?.let { _notice.value = it }
+                return true
+            }
+        }
+    }
+
+    /** 跳过一首不可播的歌：提示「已跳过《歌名》：原因」，连续多首合并成一条。 */
+    private fun emitSkip(songId: Long, songName: String, reason: EntitlementReason) {
+        currentIsTrial.value = false
+        val notice = noticeTracker.skipNotice(songId, songName, reason)
+        Log.i(
+            "PlayerViewModel",
+            "skip songId=$songId reason=${reason.wire} notice=$notice name=${songName.take(40)}"
+        )
+        _notice.value = notice
+    }
+
+    /** 界面提示已展示：清掉当前提示，等待下一条。 */
+    fun clearNotice() {
+        _notice.value = null
+    }
+
+    fun playSong(
+        songId: Long,
+        title: String = "",
+        artist: String = "",
+        artworkUrl: String = "",
+        quality: String = "",
+        privilege: SongPrivilege? = null
+    ) {
         songPlayVersion++
         val fetchVersion = songPlayVersion
         latestPlaySongId = songId
@@ -285,8 +414,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             "playSong id=$songId quality=$selectedQuality cacheHit=${cachedEntry != null}"
         )
         if (cachedEntry != null) {
-            lastPlayedLevel = cachedEntry.actualLevel
-            val actualIdx = qualityApiLevels.indexOf(cachedEntry.actualLevel).coerceAtLeast(0)
+            val result = cachedEntry.result
+            val entitlement = entitlementFor(result)
+            val url = result.url
+            if (url == null || !applyEntitlement(songId, title, entitlement)) {
+                // 试听被设置成"直接跳过"时走同一条跳歌路径；用 launch 而不是直接回调，
+                // 免得连续多首不可播时把调用栈越堆越深。
+                viewModelScope.launch(Dispatchers.Main) { onUnplayableCallback?.invoke() }
+                return
+            }
+            lastSongPrivilege = privilege
+            lastPlayedLevel = result.actualLevel ?: lastPlayedLevel
+            val actualIdx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
             currentQualityIndex.value = actualIdx
             resetLyricsForNewSong()
             currentSongId.value = songId
@@ -294,7 +433,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             currentSongArtist.value = artist
             currentSongArtwork.value = artworkUrl
             val intent = Intent(getApplication(), PlaybackService::class.java).apply {
-                putExtra("url", cachedEntry.url)
+                putExtra("url", url)
                 putExtra("title", title)
                 putExtra("artist", artist)
                 putExtra("artwork", artworkUrl)
@@ -309,23 +448,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             PlaybackStateManager.saveState(getApplication(), songId, title, artist, artworkUrl, true)
             return
         }
+        lastSongPrivilege = privilege
 
         playJob?.cancel()
         playJob = viewModelScope.launch(Dispatchers.IO) {
             try {
-                val result = SongUrlFetcher.fetch(songId, selectedQuality)
-                if (result == null) {
-                    // 该歌在所有音质档位都取不到可播放的 URL（无版权 / 需会员且当前无订阅）。
-                    // 前一个版本会兜底喂给 ExoPlayer 一个 404 的 HTML 链接导致无限缓冲"卡住"，
-                    // 现在改成交由 MainScreen 跳下一首，绝不播放坏链接。
-                    Log.w("PlayerViewModel", "no playable url for songId=$songId, skipping")
-                    withContext(Dispatchers.Main) { onUnplayableCallback?.invoke() }
-                    return@launch
-                }
+                val result = SongUrlFetcher.fetch(songId, selectedQuality, privilege)
+                val entitlement = entitlementFor(result)
+                val url = result.url
                 // 取链期间若有更新的 playSong / 预载接管发生(版本号已前进),
                 // 本次结果作废: 再发一次 "url" intent 会让 ExoPlayer setMediaItem
                 // 把同一首歌重播一遍 —— 就是"听起来像拖带"的卡顿。
+                // 也要在拿到判定结果**之前**作废：否则过期的这次取链会替用户已经切到的那首
+                // 发一条"已跳过/试听"提示，甚至把新歌跳掉。
                 if (fetchVersion != songPlayVersion) return@launch
+                if (url == null || !applyEntitlement(songId, title, entitlement)) {
+                    // 无版权 / 需会员 / 试听被设置成跳过：交给 MainScreen 跳下一首。
+                    // 绝不回退 https://music.163.com/song/media/outer/url（302→404 的 HTML，
+                    // ExoPlayer 拿到非音频流会无限缓冲）。
+                    Log.w("PlayerViewModel", "songId=$songId not playable: $entitlement")
+                    withContext(Dispatchers.Main) { onUnplayableCallback?.invoke() }
+                    return@launch
+                }
                 val actualIdx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                 resetLyricsForNewSong()
                 // 歌词请求异步化: 旧实现在这里顺序等待(失败退避最坏 3s+),
@@ -333,7 +477,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 // 播放立即开始, 歌词就绪了再自动切回歌词视图。
                 viewModelScope.launch { fetchLyrics(songId) }
                 withContext(Dispatchers.Main) {
-                    lastPlayedLevel = result.actualLevel
+                    lastPlayedLevel = result.actualLevel ?: lastPlayedLevel
                     currentQualityIndex.value = actualIdx
                     currentSongId.value = songId
                     currentSongName.value = title
@@ -341,7 +485,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     currentSongArtwork.value = artworkUrl
 
                     val intent = Intent(getApplication(), PlaybackService::class.java).apply {
-                        putExtra("url", result.url)
+                        putExtra("url", url)
                         putExtra("title", title)
                         putExtra("artist", artist)
                         putExtra("artwork", artworkUrl)
@@ -394,11 +538,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             title = currentSongName.value ?: "",
             artist = currentSongArtist.value ?: "",
             artworkUrl = currentSongArtwork.value ?: "",
-            quality = nextLevel
+            quality = nextLevel,
+            privilege = lastSongPrivilege
         )
     }
 
-    fun preloadNextSong(songId: Long, title: String, artist: String, artworkUrl: String, allowCurrent: Boolean = false) {
+    fun preloadNextSong(
+        songId: Long,
+        title: String,
+        artist: String,
+        artworkUrl: String,
+        allowCurrent: Boolean = false,
+        // 歌曲详情的 privilege，供取链结果判定（无版权靠 privilege.st）。
+        privilege: SongPrivilege? = null
+    ) {
         // Dedup: skip only if the SAME song is already being fetched/in queue.
         // 不能因 URL 已缓存而整体跳过——缓存意味着"省的再取链", 但下一首仍需
         // addMediaItem 入 ExoPlayer 队列才能无缝切换; 否则缓存命中时直接 return,
@@ -433,17 +586,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     it.requestedLevel == quality &&
                         System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS
                 }
-                val result = cacheHit?.let { SongUrlResult(it.url, it.actualLevel) }
-                    ?: SongUrlFetcher.fetch(songId, quality)
-                if (result == null) {
-                    // 预加载失败：可能无版权/无订阅，忽略即可，等当前歌结束时由 songEnded 跳歌。
+                val result = cacheHit?.result ?: SongUrlFetcher.fetch(songId, quality, privilege)
+                val entitlement = entitlementFor(result)
+                if (result.url == null) {
+                    // 预加载失败：可能无版权/无订阅，忽略即可，等当前歌结束时由 songEnded 跳歌
+                    // （提示由真正尝试播放的那次 playSong 发，避免"还没轮到就先报跳过"）。
                     currentlyPreloadingSongId = -1L
                     return@launch
                 }
+                // 试听 + 设置成"直接跳过"：不要预载进 ExoPlayer，否则无缝衔接会绕过设置直接播出来。
+                if (entitlement is PlaybackEntitlement.Trial && !trialPlaybackEnabled()) {
+                    Log.i("PlayerViewModel", "preload skipped (trial + skip setting): id=$songId")
+                    currentlyPreloadingSongId = -1L
+                    return@launch
+                }
+                // 记录试听时长/原因：无缝衔接时不重新取链，靠它还原"这首是试听"。
+                // 提示放在真正起播时（onSongTransitioned），此处不发。
+                recordTrialInfo(songId, entitlement)
                 withContext(Dispatchers.Main) {
                     currentlyPreloadingSongId = -1L
                     // Store in cache regardless of staleness — URL is valid even if a new song started.
-                    preloadCache[songId] = PreloadCacheEntry(result.url, result.actualLevel, quality)
+                    preloadCache[songId] = PreloadCacheEntry(result, quality)
                     if (capturedVersion != songPlayVersion) {
                         // playSong was called while this fetch was in flight.
                         // If it was for THIS same song and hasn't completed its own fetch, take over.
@@ -454,7 +617,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                             playJob?.cancel()
                             val idx = qualityApiLevels.indexOf(result.actualLevel).coerceAtLeast(0)
                             currentQualityIndex.value = idx
-                            lastPlayedLevel = result.actualLevel
+                            lastPlayedLevel = result.actualLevel ?: lastPlayedLevel
+                            if (!applyEntitlement(songId, title, entitlement)) {
+                                viewModelScope.launch(Dispatchers.Main) { onUnplayableCallback?.invoke() }
+                                return@withContext
+                            }
                             resetLyricsForNewSong()
                             currentSongId.value = songId
                             currentSongName.value = title
@@ -486,7 +653,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         putExtra("artist", artist)
                         putExtra("artwork", artworkUrl)
                         putExtra("songId", songId)
-                        putExtra("actualLevel", result.actualLevel)
+                        putExtra("actualLevel", result.actualLevel.orEmpty())
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                         getApplication<Application>().startForegroundService(intent)

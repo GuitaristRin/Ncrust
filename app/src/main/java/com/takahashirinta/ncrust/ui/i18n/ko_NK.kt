@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val koNK = Strings(
     tabHome = "처음",
@@ -189,4 +189,30 @@ scanConnecting = "평판에 연결중…",
 
     actionShare = "공유",
     shareChooserTitle = "공유 대상",
+
+    // ---------- 계정 권리: 로그인 실효 / VIP / 재생 제한 ----------
+    sessionExpiredBanner = "로그인이 실효되였습니다. 일부 곡은 시청만 가능하고 추천과 보관함을 리용할수 없습니다 · 다시 로그인",
+    dailySongsLoginHint = "로그인하면 당신을 위한 추천",
+    vipKindSvip = "흑교 SVIP",
+    vipKindVip = "흑교 VIP",
+    vipKindPackage = "음악꾸러미",
+    vipActiveLabel = { kind, date -> "$kind · 유효기간 $date" },
+    vipLapsedLabel = { kind, date -> "$kind 은(는) $date 에 만료 · VIP 곡은 시청만 가능" },
+    vipNoneLabel = "흑교 VIP 미가입 · VIP 곡은 시청만 가능하고 최고 음질이 제한됩니다",
+    vipUnknownLabel = "회원 상태 미상",
+    trialBadge = "시청",
+    trialToast = { seconds, reason -> "${seconds}초 시청 · $reason" },
+    playbackReasonVip = "흑교 VIP 필요",
+    playbackReasonAlbum = "음반 구매 필요",
+    playbackReasonCopyright = "저작권 없음",
+    playbackReasonLogin = "로그인하면 재생 가능",
+    playbackReasonLoginTrial = "로그인하면 전곡 재생이 가능할수 있습니다",
+    playbackReasonUnknown = "지금은 재생할수 없음",
+    skippedSong = { name, reason -> "《$name》 건너뛰기: $reason" },
+    skippedSongs = { count -> "재생할수 없는 곡 ${count}수를 건너뛰였습니다" },
+    qualityCapped = { level -> "이 계정은 《$level》까지 재생 가능" },
+    qualityCappedLogin = "로그인하면 더 높은 음질",
+    trialSettingTitle = "비회원이 VIP 곡을 만났을 때",
+    trialSettingPlay = "시청 부분 재생",
+    trialSettingSkip = "곧건너뛰기",
 )

@@ -221,6 +221,46 @@ data class Strings(
     // Sharing
     val actionShare: String,
     val shareChooserTitle: String,
+
+    // ---------- 账号权益：会话失效 / VIP / 播放限制（spec/api/entitlement.md） ----------
+    // 全局失效横幅（首页 / 收藏页顶部，点击走登录流程）
+    val sessionExpiredBanner: String,
+    // 首页每日推荐在非 Valid 会话下的一行说明（不把通用列表冒充成个性化推荐）
+    val dailySongsLoginHint: String,
+    // VIP 会员名（按 SVIP > 黑胶 VIP > 音乐包 的优先级取）
+    val vipKindSvip: String,
+    val vipKindVip: String,
+    val vipKindPackage: String,
+    // 有效：(会员名, 到期日期)
+    val vipActiveLabel: (String, String) -> String,
+    // 已过期：(会员名, 到期日期)
+    val vipLapsedLabel: (String, String) -> String,
+    val vipNoneLabel: String,
+    // 接口失败（含 301）：显示为未知，绝不显示「未开通」
+    val vipUnknownLabel: String,
+    // 音质徽标位置的「试听」
+    val trialBadge: String,
+    // 试听提示：(秒数, 原因)
+    val trialToast: (Int, String) -> String,
+    // 判定原因文案
+    val playbackReasonVip: String,
+    val playbackReasonAlbum: String,
+    val playbackReasonCopyright: String,
+    val playbackReasonLogin: String,
+    // 试听时的登录原因与跳过时不同：登录后仍可能只给到试听
+    val playbackReasonLoginTrial: String,
+    val playbackReasonUnknown: String,
+    // 跳过单曲：(歌名, 原因)
+    val skippedSong: (String, String) -> String,
+    // 连续多首不可播合并成一条：(首数)
+    val skippedSongs: (Int) -> String,
+    // 音质被封顶：(实际档位名)
+    val qualityCapped: (String) -> String,
+    val qualityCappedLogin: String,
+    // 设置项「非会员遇到 VIP 歌曲」
+    val trialSettingTitle: String,
+    val trialSettingPlay: String,
+    val trialSettingSkip: String,
 )
 
 /** 字节数格式化为人类可读的 B/KB/MB/GB，供 cacheSizeLabel 复用。 */

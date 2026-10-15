@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -42,6 +43,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.takahashirinta.ncrust.account.EntitlementReason
+import com.takahashirinta.ncrust.account.PlaybackNotice
+import com.takahashirinta.ncrust.account.QualityLadder
+import com.takahashirinta.ncrust.account.SessionMonitor
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.network.PlaylistApi
@@ -54,6 +59,7 @@ import com.takahashirinta.ncrust.player.PlaybackStateManager
 import com.takahashirinta.ncrust.power.BackgroundActivity
 import com.takahashirinta.ncrust.ui.components.BackgroundActivityDialog
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
+import com.takahashirinta.ncrust.ui.components.QrLoginDialog
 import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNav
 import io.github.takahashirinta.kanesumi.structure.bottomnav.MetroBottomNavItem
 import io.github.takahashirinta.kanesumi.structure.sidebar.MetroSidebar
@@ -66,6 +72,7 @@ import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
 import com.takahashirinta.ncrust.ui.screen.*
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import com.takahashirinta.ncrust.ui.i18n.Strings
 import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
 import com.takahashirinta.ncrust.ui.i18n.saveLanguageCode
 import com.takahashirinta.ncrust.ui.i18n.stringsForCode
@@ -104,6 +111,9 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
         RetrofitClient.init(this)
+        // 会话判定：启动时一次。必须在 RetrofitClient.init 之后（要读已加载的 cookie），
+        // 且在 AppWarmup 之前（预热里的收藏/推荐请求会带上 cookie）。
+        SessionMonitor.init(this)
         // 冷启动即刻并发启动预热：Home 三条网络 + 封面 Coil 预取。
         // splash 期间跑完，进入主页时 ContentCache 已就位，无 loader 闪烁。
         AppWarmup.start(this)
@@ -212,6 +222,12 @@ class MainActivity : ComponentActivity() {
         handleExternalIntent(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 回前台且距上次判定 ≥ 30 分钟才复核（登录失效最常见的时间窗就是"隔天再打开"）。
+        SessionMonitor.onResume(this)
+    }
+
     /**
      * 从外部 Intent 提取分享文本 / 深链 URL。只做提取，不做解析导航——
      * 统一交给 MainScreen 的解析器（与剪贴板同一路径）。
@@ -258,6 +274,25 @@ fun formatDuration(ms: Long): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%d:%02d".format(minutes, seconds)
+}
+
+/**
+ * 播放权益判定原因 → 文案。
+ *
+ * trial 的登录原因与跳过不同：试听时是「登录后**可能**可完整播放」（登录后仍可能只给到试听），
+ * 跳歌时是确定的「登录后可播放」。
+ */
+internal fun reasonText(
+    strings: Strings,
+    reason: EntitlementReason,
+    trial: Boolean = false
+): String = when (reason) {
+    EntitlementReason.VIP -> strings.playbackReasonVip
+    EntitlementReason.ALBUM -> strings.playbackReasonAlbum
+    EntitlementReason.COPYRIGHT -> strings.playbackReasonCopyright
+    EntitlementReason.LOGIN ->
+        if (trial) strings.playbackReasonLoginTrial else strings.playbackReasonLogin
+    EntitlementReason.UNKNOWN -> strings.playbackReasonUnknown
 }
 
 /** 播放模式：0=顺序循环, 1=单曲循环, 2=乱序, 3=顺序线性(播完停), 4=相似无限(FM 电台)。 */
@@ -510,7 +545,13 @@ fun MainScreen(
             Log.d("MainScreen", "playFromQueue index=$index songId=${song.id} mode=$playMode")
             // 明确指定要播的歌优先于"续播起播"意图：别让在途的 FM 续播把它顶掉。
             infinityNeedsPlay.value = false
-            playerViewModel.playSong(song.id, title = title, artist = artist, artworkUrl = artwork)
+            playerViewModel.playSong(
+                song.id,
+                title = title,
+                artist = artist,
+                artworkUrl = artwork,
+                privilege = song.privilege
+            )
             persistSession()
 
             // Immediately preload the next song so ExoPlayer has maximum time to buffer it.
@@ -522,7 +563,8 @@ fun MainScreen(
                 val (nTitle, nArtist, nArtwork) = songParams(nextSong)
                 playerViewModel.preloadNextSong(
                     nextSong.id, nTitle, nArtist, nArtwork,
-                    allowCurrent = playMode == QueueModes.SINGLE
+                    allowCurrent = playMode == QueueModes.SINGLE,
+                    privilege = nextSong.privilege
                 )
             }
         }
@@ -589,7 +631,7 @@ fun MainScreen(
                     // 预载窗口内追加：预载续播首曲本身，接上当前歌的无缝交接
                     playbackQueue.getOrNull(startIdx)?.let { next ->
                         val (t, a, w) = songParams(next)
-                        playerViewModel.preloadNextSong(next.id, t, a, w)
+                        playerViewModel.preloadNextSong(next.id, t, a, w, privilege = next.privilege)
                     }
                     persistSession()
                 }
@@ -697,7 +739,8 @@ fun MainScreen(
                 // 单曲循环模式: 预载自身是实现无缝单曲循环的手段, 显式放行
                 playerViewModel.preloadNextSong(
                     nextSong.id, title, artist, artwork,
-                    allowCurrent = playMode == QueueModes.SINGLE
+                    allowCurrent = playMode == QueueModes.SINGLE,
+                    privilege = nextSong.privilege
                 )
             } else if (playMode == QueueModes.INFINITY &&
                 currentQueueIndex >= playbackQueue.size - 1 && playbackQueue.isNotEmpty()
@@ -782,7 +825,8 @@ fun MainScreen(
             val (pTitle, pArtist, pArtwork) = songParams(songToPreload)
             playerViewModel.preloadNextSong(
                 songToPreload.id, pTitle, pArtist, pArtwork,
-                allowCurrent = playMode == QueueModes.SINGLE
+                allowCurrent = playMode == QueueModes.SINGLE,
+                privilege = songToPreload.privilege
             )
         }
     }
@@ -1111,6 +1155,8 @@ fun MainScreen(
     }
 
     var showWebLogin by remember { mutableStateOf(false) }
+    // 宽屏（平板/折叠展开/车机）走扫码登录：会话失效横幅点了之后弹出的登录流程与用户页一致。
+    var showQrRelogin by remember { mutableStateOf(false) }
     var cookieRefreshTrigger by remember { mutableIntStateOf(0) }
 
     // 登录成功后后台拉取一次云端收藏，供收藏页使用。
@@ -1119,6 +1165,56 @@ fun MainScreen(
             LibraryManager.refreshFromCloud(context)
         }
     }
+
+    // 播放权益提示（试听 / 音质封顶 / 跳过不可播的歌）：Toast 一级，不弹模态框、不打断播放。
+    // rememberUpdatedState：语言切换后 LaunchedEffect(Unit) 不会重启，直接闭包捕获旧 Strings
+    // 会让提示停留在上一种语言，直到进程重启。
+    val noticeStrings by rememberUpdatedState(LocalStrings.current)
+    LaunchedEffect(Unit) {
+        playerViewModel.notice.collect { notice ->
+            if (notice == null) return@collect
+            val text = when (notice) {
+                is PlaybackNotice.Trial -> noticeStrings.trialToast(
+                    notice.seconds,
+                    reasonText(noticeStrings, notice.reason, trial = true)
+                )
+                is PlaybackNotice.Capped -> if (notice.reason == EntitlementReason.LOGIN) {
+                    noticeStrings.qualityCappedLogin
+                } else {
+                    noticeStrings.qualityCapped(
+                        noticeStrings.qualityOptions.getOrElse(QualityLadder.indexOf(notice.level)) {
+                            notice.level
+                        }
+                    )
+                }
+                is PlaybackNotice.Skipped ->
+                    noticeStrings.skippedSong(notice.songName, reasonText(noticeStrings, notice.reason))
+                is PlaybackNotice.SkippedMany -> noticeStrings.skippedSongs(notice.count)
+            }
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+            playerViewModel.clearNotice()
+        }
+    }
+
+    // 会话失效横幅点击 → 现有登录流程（窄屏网页登录 / 宽屏扫码）。
+    val onRelogin: () -> Unit = {
+        if (isWideLayout) showQrRelogin = true else showWebLogin = true
+    }
+    if (showQrRelogin) QrLoginDialog(
+        onLoginSuccess = { cookie ->
+            com.takahashirinta.ncrust.auth.CookieManager.saveCookie(context, cookie)
+            RetrofitClient.updateCookie(cookie)
+            // 重新登录成功 → 会话回到 Valid，全局失效横幅消失。
+            SessionMonitor.onLoginSucceeded(context)
+            showQrRelogin = false
+            cookieRefreshTrigger++
+        },
+        onGenericLogin = {
+            showQrRelogin = false
+            showWebLogin = true
+        },
+        onDismiss = { showQrRelogin = false }
+    )
     if (showWebLogin) {
         Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
             AndroidView(
@@ -1146,6 +1242,8 @@ fun MainScreen(
                                     com.takahashirinta.ncrust.auth.CookieManager
                                         .saveCookie(ctx, cookie)
                                     RetrofitClient.updateCookie(cookie)
+                                    // 重新登录成功 → 会话回到 Valid，全局失效横幅消失。
+                                    SessionMonitor.onLoginSucceeded(ctx)
                                     showWebLogin = false
                                     cookieRefreshTrigger++
                                 }
@@ -1298,6 +1396,7 @@ fun MainScreen(
                     when (selectedTab) {
                         0 -> HomeScreen(
                             onSongClick = { playSongItem(it) },
+                            onRelogin = onRelogin,
                             onPlaylistClick = { playlistId ->
                                 navController.navigate(NavRoutes.playlist(playlistId))
                             },
@@ -1324,6 +1423,7 @@ fun MainScreen(
 
                         1 -> LibraryScreen(
                             onSongClick = { playSongItem(it) },
+                            onRelogin = onRelogin,
                             onAlbumClick = { albumId -> navController.navigate(NavRoutes.album(albumId)) },
                             onPlayAlbum = { albumId ->
                                 val albumSongs = LibraryManager.getSongsByAlbumId(context, albumId)

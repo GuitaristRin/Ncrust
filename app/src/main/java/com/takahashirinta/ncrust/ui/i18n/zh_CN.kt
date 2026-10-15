@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val zhCN = Strings(
     tabHome = "首页",
@@ -190,4 +190,30 @@ val zhCN = Strings(
 
     actionShare = "分享",
     shareChooserTitle = "分享到",
+
+    // ---------- 账号权益：会话失效 / VIP / 播放限制 ----------
+    sessionExpiredBanner = "登录已失效，部分歌曲只能试听，推荐与收藏不可用 · 重新登录",
+    dailySongsLoginHint = "登录后为你推荐",
+    vipKindSvip = "黑胶 SVIP",
+    vipKindVip = "黑胶 VIP",
+    vipKindPackage = "音乐包",
+    vipActiveLabel = { kind, date -> "$kind · 有效期至 $date" },
+    vipLapsedLabel = { kind, date -> "$kind 已于 $date 过期 · VIP 歌曲仅可试听" },
+    vipNoneLabel = "未开通黑胶 VIP · VIP 歌曲仅可试听，最高音质受限",
+    vipUnknownLabel = "会员状态未知",
+    trialBadge = "试听",
+    trialToast = { seconds, reason -> "试听 $seconds 秒 · $reason" },
+    playbackReasonVip = "需要黑胶 VIP",
+    playbackReasonAlbum = "需购买专辑",
+    playbackReasonCopyright = "暂无版权",
+    playbackReasonLogin = "登录后可播放",
+    playbackReasonLoginTrial = "登录后可能可完整播放",
+    playbackReasonUnknown = "暂时无法播放",
+    skippedSong = { name, reason -> "已跳过《$name》：$reason" },
+    skippedSongs = { count -> "已跳过 $count 首无法播放的歌曲" },
+    qualityCapped = { level -> "当前账号最高可播放「$level」" },
+    qualityCappedLogin = "登录后可获得更高音质",
+    trialSettingTitle = "非会员遇到 VIP 歌曲",
+    trialSettingPlay = "播放试听片段",
+    trialSettingSkip = "直接跳过",
 )

@@ -38,6 +38,8 @@ fun FullPlayerControls(
     durationFlow: StateFlow<Long>,
     qualityIndexFlow: StateFlow<Int>,
     qualityOptions: List<String>,
+    // 当前歌是否为试听片段（45 秒）。徽标位置改显示「试听」，不显示会误导的档位名。
+    trialFlow: StateFlow<Boolean>,
     onPlayPause: () -> Unit,
     onPlayPrevious: () -> Unit = {},
     onPlayNext: () -> Unit = {},
@@ -219,7 +221,11 @@ fun FullPlayerControls(
                         ) { onNavigateToUser() }
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
-                    QualityLabel(qualityIndexFlow = qualityIndexFlow, options = qualityOptions)
+                    QualityLabel(
+                        qualityIndexFlow = qualityIndexFlow,
+                        trialFlow = trialFlow,
+                        options = qualityOptions
+                    )
                 }
             }
         }
@@ -248,7 +254,11 @@ fun FullPlayerControls(
                     ) { onNavigateToUser() }
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
-                QualityLabel(qualityIndexFlow = qualityIndexFlow, options = qualityOptions)
+                QualityLabel(
+                    qualityIndexFlow = qualityIndexFlow,
+                    trialFlow = trialFlow,
+                    options = qualityOptions
+                )
             }
             DurationText(
                 durationFlow = durationFlow,
@@ -403,9 +413,16 @@ private fun DurationText(durationFlow: StateFlow<Long>, modifier: Modifier) {
 }
 
 @Composable
-private fun QualityLabel(qualityIndexFlow: StateFlow<Int>, options: List<String>) {
+private fun QualityLabel(
+    qualityIndexFlow: StateFlow<Int>,
+    trialFlow: StateFlow<Boolean>,
+    options: List<String>
+) {
     val qualityIndex by qualityIndexFlow.collectAsState()
-    val label = options.getOrElse(qualityIndex) { options.getOrElse(3) { "" } }
+    val isTrial by trialFlow.collectAsState()
+    // 试听片段没有"实际档位"可言：显示档位名会让用户以为音质设置生效了。
+    val label = if (isTrial) LocalStrings.current.trialBadge
+    else options.getOrElse(qualityIndex) { options.getOrElse(3) { "" } }
     MetroText(
         label,
         color = LocalMetroColors.current.primary,
@@ -413,5 +430,25 @@ private fun QualityLabel(qualityIndexFlow: StateFlow<Int>, options: List<String>
         maxLines = 1,
         softWrap = false,
         overflow = TextOverflow.Ellipsis
+    )
+}
+
+/**
+ * 迷你条上的音质徽标位：只在试听片段时显示「试听」。
+ *
+ * 单独做成叶子 Composable 让 [trialFlow] 的订阅只重组这一个 Text——
+ * 迷你条挂在 PlayerCard 的常驻子树上，在那里 collect 会让整条随切歌重组。
+ */
+@Composable
+fun TrialBadge(trialFlow: StateFlow<Boolean>, modifier: Modifier = Modifier) {
+    val isTrial by trialFlow.collectAsState()
+    if (!isTrial) return
+    MetroText(
+        LocalStrings.current.trialBadge,
+        color = LocalMetroColors.current.primary,
+        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier
     )
 }

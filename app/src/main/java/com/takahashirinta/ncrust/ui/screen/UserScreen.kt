@@ -31,6 +31,7 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import coil.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.takahashirinta.ncrust.account.SessionMonitor
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.cache.ContentCache
 import android.content.Context
@@ -41,6 +42,7 @@ import com.takahashirinta.ncrust.power.BackgroundActivity
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.components.QrAuthorizeScreen
 import com.takahashirinta.ncrust.ui.components.QrLoginDialog
+import com.takahashirinta.ncrust.ui.components.vipStatusText
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.i18n.LanguagePreset
 import com.takahashirinta.ncrust.ui.i18n.getSavedLanguageCode
@@ -89,6 +91,12 @@ fun UserScreen(
     var mobileQuality by remember { mutableIntStateOf(prefs.getInt("mobile_quality", 1)) }
     var gaplessEnabled by remember { mutableStateOf(prefs.getBoolean("gapless_playback", true)) }
     var lyricsTranslation by remember { mutableStateOf(prefs.getBoolean("lyrics_translation", true)) }
+    // 设置项「非会员遇到 VIP 歌曲」：true = 播放试听片段（默认），false = 直接跳过。
+    var trialPlayback by remember { mutableStateOf(prefs.getBoolean("vip_trial_playback", true)) }
+
+    // 会话/VIP 状态：会员文案只在这里显示（接口失败显示为未知，绝不显示「未开通」）。
+    val sessionState by SessionMonitor.state.collectAsState()
+    val vipText = vipStatusText(strings, sessionState)
 
     var selectedLanguageCode by remember { mutableStateOf(getSavedLanguageCode(context)) }
 
@@ -103,11 +111,11 @@ fun UserScreen(
             try {
                 val profile = PlaylistApi.getUserProfile()
                 // 服务端对失效 cookie 会返回空 account/profile → userId=0。
-                // 此时判定为已过期，主动清除本地 cookie，避免 UI 卡在 "UID: 0"。
+                // 交给 SessionMonitor 统一转 Expired：清请求层 cookie + 保留「曾登录」标记，
+                // 全局横幅据此说「登录已失效」而不是「未登录」。
                 if (profile.userId == 0L) {
-                    CookieManager.clearCookie(context)
-                    RetrofitClient.updateCookie(null)
-                    hasCookie = false
+                    SessionMonitor.markExpired(context)
+                    hasCookie = CookieManager.hasCookie(context)
                     userProfile = null
                 } else {
                     userProfile = profile
@@ -139,6 +147,8 @@ fun UserScreen(
         onLogout = {
             CookieManager.clearCookie(context)
             RetrofitClient.updateCookie(null)
+            // 主动退出 ≠ 登录失效：清掉「曾登录」标记，否则会一直显示失效横幅。
+            SessionMonitor.onLoggedOut(context)
             hasCookie = false
             userProfile = null
             showAccountDialog = false
@@ -156,6 +166,8 @@ fun UserScreen(
         onLoginSuccess = { cookie ->
             CookieManager.saveCookie(context, cookie)
             RetrofitClient.updateCookie(cookie)
+            // 登录成功 → 会话回 Valid，失效横幅消失。
+            SessionMonitor.onLoginSucceeded(context)
             hasCookie = true
             showQrLogin = false
             loadProfile()
@@ -232,6 +244,16 @@ fun UserScreen(
                     }
                 }
             )
+            // 会员状态（有效 / 已过期 / 未开通 / 未知）。会话不是 Valid 时不显示——
+            // 那时该说的是「登录已失效」，不是会员状态。
+            if (vipText != null) {
+                MetroText(
+                    vipText,
+                    color = LocalMetroColors.current.onSurfaceVariant,
+                    style = LocalMetroTypography.current.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
+                )
+            }
             Spacer(Modifier.height(24.dp))
         }
 
@@ -284,6 +306,17 @@ fun UserScreen(
                     lyricsTranslation = it
                     prefs.edit().putBoolean("lyrics_translation", it).apply()
                     playerViewModel.setLyricsTranslation(it)
+                }
+            )
+            // 非会员遇到 VIP 歌曲：播放 45 秒试听片段（默认）或直接跳过。
+            MetroDropdownRow(
+                label = strings.trialSettingTitle,
+                selectedIndex = if (trialPlayback) 0 else 1,
+                options = listOf(strings.trialSettingPlay, strings.trialSettingSkip),
+                onSelect = { index ->
+                    trialPlayback = index == 0
+                    // 播放器每次播放都现读这个键，无需通知 ViewModel。
+                    prefs.edit().putBoolean("vip_trial_playback", trialPlayback).apply()
                 }
             )
             Spacer(Modifier.height(24.dp))

@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val deDE = Strings(
     tabHome = "Startseite",
@@ -189,4 +189,30 @@ val deDE = Strings(
 
     actionShare = "Teilen",
     shareChooserTitle = "Teilen mit",
+
+    // ---------- Kontorechte: abgelaufene Anmeldung / VIP / Wiedergabegrenzen ----------
+    sessionExpiredBanner = "Anmeldung abgelaufen – manche Titel sind nur als Hörprobe verfügbar, Empfehlungen und Bibliothek fehlen · Erneut anmelden",
+    dailySongsLoginHint = "Melde dich an für persönliche Empfehlungen",
+    vipKindSvip = "Vinyl SVIP",
+    vipKindVip = "Vinyl VIP",
+    vipKindPackage = "Musikpaket",
+    vipActiveLabel = { kind, date -> "$kind · gültig bis $date" },
+    vipLapsedLabel = { kind, date -> "$kind am $date abgelaufen · VIP-Titel nur als Hörprobe" },
+    vipNoneLabel = "Kein Vinyl VIP · VIP-Titel nur als Hörprobe, höchste Qualität begrenzt",
+    vipUnknownLabel = "Mitgliedsstatus unbekannt",
+    trialBadge = "Hörprobe",
+    trialToast = { seconds, reason -> "$seconds s Hörprobe · $reason" },
+    playbackReasonVip = "Vinyl VIP erforderlich",
+    playbackReasonAlbum = "Albumkauf erforderlich",
+    playbackReasonCopyright = "Keine Lizenz",
+    playbackReasonLogin = "Zum Abspielen anmelden",
+    playbackReasonLoginTrial = "Anmelden für vollständige Wiedergabe",
+    playbackReasonUnknown = "Derzeit nicht verfügbar",
+    skippedSong = { name, reason -> "„$name“ übersprungen: $reason" },
+    skippedSongs = { count -> "$count nicht abspielbare Titel übersprungen" },
+    qualityCapped = { level -> "Dieses Konto spielt höchstens „$level“" },
+    qualityCappedLogin = "Anmelden für höhere Qualität",
+    trialSettingTitle = "VIP-Titel ohne Mitgliedschaft",
+    trialSettingPlay = "Hörprobe abspielen",
+    trialSettingSkip = "Titel überspringen",
 )

@@ -406,6 +406,7 @@ fun PlayerCard(
                         durationFlow = playerViewModel.duration,
                         qualityIndexFlow = playerViewModel.currentQualityIndex,
                         qualityOptions = strings.qualityOptions,
+                        trialFlow = playerViewModel.currentIsTrial,
                         onPlayPause = onPlayPause,
                         onPlayPrevious = onPlayPrevious,
                         onPlayNext = onPlayNext,
@@ -784,6 +785,12 @@ fun PlayerCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    // 音质徽标位：试听片段时显示「试听」（全屏播放器的徽标同理）。
+                    // 不加 miniBarEnabled 门控：那会在展开阈值处改变这条 Row 的布局。
+                    TrialBadge(
+                        trialFlow = playerViewModel.currentIsTrial,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
                     if (miniBarEnabled) {
                         MetroIconButton(onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
