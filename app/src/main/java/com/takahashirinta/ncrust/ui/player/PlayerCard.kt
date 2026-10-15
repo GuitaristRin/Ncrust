@@ -59,6 +59,9 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlin.math.abs
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import android.widget.Toast
@@ -189,6 +192,12 @@ fun PlayerCard(
     val lyricsInteractive = remember { derivedStateOf { lyricsEnabled && cardExpandedForInput.value } }
     // 窄屏顶栏歌名可见 = 卡片展开到顶栏淡入（> 0.7）且处于小封面 / 歌词模式（歌名区 alpha 跟随 lyricAnimProgress）。
     val titleVisible = remember { derivedStateOf { progress.value > 0.7f && lyricAnimProgress.value > 0.5f } }
+    // 卡片收起时，歌词 / 进度条 / 时间文本都看不见，但它们常挂载在一个整屏大小的图层里：2Hz 的位置更新
+    // 会让歌词滚动、进度条重绘，RenderThread 每次都要重画整块 1080x2520（Xperia 10 VII 实测每帧 ~14ms，
+    // 静止页面 6 帧/秒）。收起时冻结喂给它们的位置 / 进度，展开一越过 0.01 就追上当前值。
+    val cardShown = remember { derivedStateOf { progress.value > 0.01f } }
+    val shownPosition = rememberGatedFlow(playerViewModel.currentPosition, cardShown)
+    val shownProgress = rememberGatedFlow(playerViewModel.progress, cardShown)
 
     // ---- 歌词可达性驱动的「大封面 ↔ 歌词视图」自动切换 ----
     // - 切歌瞬间: 旧歌词已被 ViewModel 清空, 直接落大封面, 绝不残留上一首歌词。
@@ -409,8 +418,8 @@ fun PlayerCard(
                         isPlaying = isPlaying,
                         showLyrics = showLyrics,
                         showQueue = showQueue,
-                        progressFlow = playerViewModel.progress,
-                        positionFlow = playerViewModel.currentPosition,
+                        progressFlow = shownProgress,
+                        positionFlow = shownPosition,
                         durationFlow = playerViewModel.duration,
                         qualityIndexFlow = playerViewModel.currentQualityIndex,
                         qualityOptions = strings.qualityOptions,
@@ -488,7 +497,7 @@ fun PlayerCard(
                                     lyrics = lyrics,
                                     translatedLyrics = translatedLyrics,
                                     showTranslation = showLyricsTranslation,
-                                    positionFlow = playerViewModel.currentPosition,
+                                    positionFlow = shownPosition,
                                     isPlaying = isPlaying,
                                     isVisible = showLyrics,
                                     forcedLocateTrigger = lyricLocateTrigger,
@@ -922,6 +931,21 @@ fun PlayerCard(
             }
         }
     }
+}
+
+/**
+ * [open] 为真时把 [source] 原样转发，为假时停在最后一个值：给看不见的子树一份「冻结」的流，
+ * 它们就既不重组也不重绘。重新打开时立即从 [source] 的当前值继续。
+ */
+@Composable
+private fun <T> rememberGatedFlow(source: StateFlow<T>, open: State<Boolean>): StateFlow<T> {
+    val gated = remember(source) { MutableStateFlow(source.value) }
+    LaunchedEffect(source, open) {
+        snapshotFlow { open.value }.collectLatest { isOpen ->
+            if (isOpen) source.collect { gated.value = it }
+        }
+    }
+    return gated
 }
 
 /**

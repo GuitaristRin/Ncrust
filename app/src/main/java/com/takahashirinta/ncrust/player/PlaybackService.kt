@@ -227,6 +227,26 @@ class PlaybackService : MediaLibraryService() {
                 PlaybackStateManager.updatePlayingState(this@PlaybackService, isPlaying)
                 updatePlaybackState()
                 updateNotify()
+                // ticker 只在播放时存在：暂停后不再每 0.5s 唤醒一次（熄屏暂停时设备能真正进入深空闲）。
+                // 停下前补发一次最终位置，免得进度条停在上一个 tick 的旧值。
+                if (isPlaying) {
+                    startProgressUpdates()
+                } else {
+                    progressJob?.cancel()
+                    progressJob = null
+                    onProgressUpdate?.invoke(player.currentPosition, player.duration)
+                }
+            }
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                // 暂停时没有 ticker：拖动进度 / 外部 seek 后要立刻把新位置推给界面与媒体会话。
+                if (!player.isPlaying) {
+                    onProgressUpdate?.invoke(player.currentPosition, player.duration)
+                    updatePlaybackState()
+                }
             }
             override fun onPlayerError(error: PlaybackException) {
                 // 之前完全没有错误处理:解码/取流失败后播放器静默停在 IDLE,
@@ -751,12 +771,12 @@ class PlaybackService : MediaLibraryService() {
 
     private fun startProgressUpdates() {
         progressJob?.cancel()
+        // 未在播放时不起循环：由 onIsPlayingChanged(true) 再启动。
+        if (!player.isPlaying) return
         progressJob = scope.launch {
-            while (isActive) {
-                if (player.isPlaying) {
-                    onProgressUpdate?.invoke(player.currentPosition, player.duration)
-                    updatePlaybackState()
-                }
+            while (isActive && player.isPlaying) {
+                onProgressUpdate?.invoke(player.currentPosition, player.duration)
+                updatePlaybackState()
                 // 500 ms tick：歌词滚动/进度条精度感知不到差异，但把 UI 层 4Hz
                 // 广播降到 2Hz，PlayerViewModel 的三个 StateFlow / SlimProgressBar
                 // 每秒重绘次数直接减半，低端机主线程 snapshot 广播压力显著下降

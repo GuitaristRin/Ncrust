@@ -27,6 +27,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.flow.StateFlow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun FullPlayerControls(
@@ -392,7 +393,8 @@ fun FullPlayerControls(
 
 @Composable
 private fun PositionText(positionFlow: StateFlow<Long>, modifier: Modifier) {
-    val position by positionFlow.collectAsState()
+    // 按生命周期收集：熄屏 / 后台时 2Hz 的位置更新不再推动重组。
+    val position by positionFlow.collectAsStateWithLifecycle()
     MetroText(
         formatDuration(position),
         color = LocalMetroColors.current.onSurfaceVariant,
@@ -403,7 +405,7 @@ private fun PositionText(positionFlow: StateFlow<Long>, modifier: Modifier) {
 
 @Composable
 private fun DurationText(durationFlow: StateFlow<Long>, modifier: Modifier) {
-    val duration by durationFlow.collectAsState()
+    val duration by durationFlow.collectAsStateWithLifecycle()
     MetroText(
         formatDuration(duration),
         color = LocalMetroColors.current.onSurfaceVariant,

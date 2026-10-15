@@ -27,6 +27,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * 歌词面板 —— 渲染交给 Kanesumi 的 MetroLyricsPanel(左对齐大字,每行独立
@@ -74,7 +75,8 @@ fun LyricsView(
 
     // 订阅位置流:collectAsState 建 State;displayPosition 只在面板 draw/derived
     // 阶段被读,按需写一次也只重算当前行,不触发本 Composable 重组。
-    val positionState = positionFlow.collectAsState()
+    // 高频位置流按生命周期收集：熄屏 / 切到后台后不再推动歌词重组（进度回调本身仍在跑，预载与上报靠它）。
+    val positionState = positionFlow.collectAsStateWithLifecycle()
     // 初值取当前流值而非 0:否则面板首次出现时会先按"位置 0"高亮第一行/吸顶,
     // 等锚点被采样纠正后才跳回真实行。按需唤醒把纠错窗口拉长到最多 1s, 这个初值
     // 尤为重要。
