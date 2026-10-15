@@ -1,34 +1,56 @@
 package com.takahashirinta.ncrust.network
 
 import android.content.Context
+import android.util.Log
 import com.takahashirinta.ncrust.BuildConfig
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.network.crypto.EapiCrypto
 import com.takahashirinta.ncrust.network.crypto.WeapiCrypto
+import com.takahashirinta.ncrust.network.crypto.XeapiCrypto
 import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
+    private const val TAG = "RetrofitClient"
     private const val BASE_URL = "https://music.163.com"
     private const val INTERFACE_URL = "https://interface3.music.163.com"
     // eapi 客户端接口域：官方/参考实现全部 eapi 打到 interface.music.163.com（非 music.163.com）。
     // 读接口在 music 上宽松可通,但写操作(如 /eapi/radio/like)发错 host 会被判 -460 风险。
     private const val API_URL = "https://interface.music.163.com"
+    // xeapi 业务域。官方 Android 9.x 的 /xeapi/... 固定打 interface3（spec/api/xeapi.md §3）。
+    private const val XEAPI_URL = "https://interface3.music.163.com"
     private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     private const val IOS_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+    // 官方 Android 9.5.61 的 UA 与设备字段，xeapi 的公钥请求与业务请求共用同一套指纹。
+    private const val ANDROID_UA = "NeteaseMusic/9.5.61.260802021928(9005061);Dalvik/2.1.0 (Linux; U; Android 12; HBN-AL00 Build/cd737a2.0)"
+    private const val XEAPI_OS = "android"
+    private const val XEAPI_OSVER = "16"
+    private const val XEAPI_APPVER = "9.1.65"
+    private const val ANTI_CHEAT_URL = "https://ac.dun.163yun.com/v3/b?pn=YD00000558929251"
+    private val FORM_CONTENT_TYPE = "application/x-www-form-urlencoded;charset=utf-8".toMediaType()
+
+    /** 易盾响应形如 `null([200,<n>,"<token>"])`（xeapi.md §5）。 */
+    private val ANTI_CHEAT_RE = Regex("""null\(\[(\d+),\d+,"([^"]+)"\]\)""")
 
     private var currentCookie: String? = null
 
     fun init(context: Context) {
         currentCookie = CookieManager.getCookie(context)
+        // deviceId / 公钥状态 / xeapi 会话；只读盘，不发网络（首次业务请求时才取公钥）。
+        XeapiState.init(context)
     }
 
     fun updateCookie(cookie: String?) {
         currentCookie = cookie
+        // 换登录态后旧的内存会话不再属于当前 cookie，清掉重取。
+        XeapiState.clearSession()
     }
 
     fun getCookie(): String? = currentCookie
@@ -37,6 +59,18 @@ object RetrofitClient {
         OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /**
+     * 易盾 token 只是写入请求的加分项，不值得为它把一次收藏拖上 30 秒：单独一个短超时 client。
+     * 取不到就发空串（上游同样处理），绝不阻断写入。
+     */
+    private val antiCheatClient: OkHttpClient by lazy {
+        plainClient.newBuilder()
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .readTimeout(3, TimeUnit.SECONDS)
+            .callTimeout(5, TimeUnit.SECONDS)
             .build()
     }
 
@@ -142,6 +176,149 @@ object RetrofitClient {
             .build()
 
         return plainClient.newCall(request).execute()
+    }
+
+    /**
+     * xeapi 公钥请求（明文表单，不走加密层）；解析、验签、落盘由 [XeapiState] 负责。
+     * Cookie 只带 deviceId —— 这一步不涉及登录态，也不该把登录 cookie 掺进来。
+     */
+    internal fun xeapiPublicKeyRequest(formBody: String, deviceId: String): Response {
+        // 公钥接口在 interface（API_URL），业务请求才在 interface3（spec/api/xeapi.md §2）。
+        val request = Request.Builder()
+            .url("$API_URL/api/bsr/sk/get")
+            .post(formBody.toRequestBody(FORM_CONTENT_TYPE))
+            .header("User-Agent", ANDROID_UA)
+            .header("Cookie", "deviceId=$deviceId")
+            .build()
+        return plainClient.newCall(request).execute()
+    }
+
+    /**
+     * xeapi 加密 POST —— 官方 Android 9.x 的请求层（协议全文 `spec/api/xeapi.md`）。
+     *
+     * 收藏写入走这里：老通道（weapi/eapi 的 `/api/radio/like`）写入的收藏会被服务端事后回滚
+     * （「收藏隔天消失」，见 xeapi.md 末节）。
+     *
+     * 阻塞，调用方自己在 IO 线程调用。成功返回**已解密**的响应 JSON 文本；网络失败、公钥取不到
+     * 或解密失败抛异常，由调用方决定是否回退到老通道。
+     *
+     * @param uri `/api/...` 形式的接口路径，实际打到 `interface3/xeapi/<去掉 /api/ 的路径>`。
+     * @param pairs 业务字段，**顺序即协议**：明文信封的 `content` 按这个顺序做表单编码。
+     * @param antiCheat 是否现取易盾 token 放 `X-antiCheatToken`（写入类接口需要；取不到发空串）。
+     */
+    fun xeapiPost(uri: String, pairs: List<Pair<String, String>>, antiCheat: Boolean): String {
+        val url = XEAPI_URL + "/xeapi/" + uri.removePrefix("/api/")
+        // 易盾 token 每次写入现取、不缓存（xeapi.md §5）。
+        val antiCheatToken = if (antiCheat) fetchAntiCheatToken() else null
+
+        val first = executeXeapi(url, pairs, XeapiState.ensureKeyState(), antiCheatToken)
+        decryptXeapiBody(first)?.let { return it }
+
+        // 解不开通常意味着服务端换了公钥：按「旧 version」重取一次再试。只重试一次——
+        // 写入接口的重放本身就是风控特征，不能在这里死磕。
+        Log.w(TAG, "xeapi response decrypt failed, refreshing public key (uri=$uri)")
+        XeapiState.invalidateKeyState()
+        val second = executeXeapi(url, pairs, XeapiState.ensureKeyState(), antiCheatToken)
+        return decryptXeapiBody(second) ?: throw IOException("xeapi response decrypt failed: $uri")
+    }
+
+    private fun executeXeapi(
+        url: String,
+        pairs: List<Pair<String, String>>,
+        keyState: XeapiCrypto.KeyState,
+        antiCheatToken: String?
+    ): ByteArray {
+        val deviceId = XeapiState.deviceId()
+        val buildver = (System.currentTimeMillis() / 1000).toString().take(10)
+        val body = XeapiCrypto.encryptRequest(
+            pairs = pairs,
+            keyState = keyState,
+            os = XEAPI_OS,
+            session = XeapiState.session(),
+            rng = XeapiState.newRng()
+        ).body
+
+        // 设备字段要「同名以后者为准」地压过登录 cookie 里的旧值：先收成 map 再覆盖，
+        // 同一个键只出现一次，免得服务端读到登录时留下的旧 os/appver/deviceId。
+        val cookiePairs = LinkedHashMap<String, String>()
+        (currentCookie ?: "").split(';').forEach { part ->
+            val sep = part.indexOf('=')
+            if (sep > 0) cookiePairs[part.substring(0, sep).trim()] = part.substring(sep + 1).trim()
+        }
+        val musicU = cookiePairs["MUSIC_U"]
+        cookiePairs["os"] = XEAPI_OS
+        cookiePairs["osver"] = XEAPI_OSVER
+        cookiePairs["appver"] = XEAPI_APPVER
+        cookiePairs["buildver"] = buildver
+        cookiePairs["deviceId"] = deviceId
+        cookiePairs["sDeviceId"] = deviceId
+
+        val builder = Request.Builder()
+            .url(url)
+            .post(body.toRequestBody(FORM_CONTENT_TYPE))
+            .header("User-Agent", ANDROID_UA)
+            .header("X-Client-Enc-State", "ENCRYPTED")
+            .header("x-aeapi", "true")
+            .header("x-deviceid", deviceId)
+            .header("x-sdeviceid", deviceId)
+            .header("x-os", XEAPI_OS)
+            .header("x-osver", XEAPI_OSVER)
+            .header("x-appver", XEAPI_APPVER)
+            .header("x-buildver", buildver)
+            .header("Cookie", cookiePairs.entries.joinToString("; ") { "${it.key}=${it.value}" })
+        // 已登录时 x-music-u 与 Cookie 里的 MUSIC_U 同值（xeapi.md §3.3）。
+        if (!musicU.isNullOrEmpty()) builder.header("x-music-u", musicU)
+        if (antiCheatToken != null) builder.header("X-antiCheatToken", antiCheatToken)
+
+        return plainClient.newCall(builder.build()).execute().use { response ->
+            // 响应头带 x-encr-ssid/x-encr-sskey 时记下，之后的请求走会话模式（只存内存）。
+            XeapiState.updateSession(response.header("x-encr-ssid"), response.header("x-encr-sskey"))
+            val raw = response.body?.bytes() ?: ByteArray(0)
+            // 脱敏日志：只记路径、HTTP 码与长度，不记 cookie / 易盾 token / 加密体。
+            Log.i(TAG, "xeapi $url http=${response.code} bytes=${raw.size}")
+            raw
+        }
+    }
+
+    /**
+     * 解密 xeapi 响应体。解不开时若原文本身就是 JSON（服务端在参数错 / 风控时会直接回未加密
+     * JSON），照原样返回让调用方拿得到业务码；否则返回 null，交给上层刷新公钥后重试。
+     */
+    private fun decryptXeapiBody(raw: ByteArray): String? {
+        if (raw.isEmpty()) return null
+        runCatching { XeapiCrypto.decryptResponse(raw) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+        val plain = String(raw, Charsets.UTF_8).trim()
+        return plain.takeIf { it.startsWith("{") || it.startsWith("[") }
+    }
+
+    /**
+     * 易盾反作弊 token：`GET .../v3/b?pn=...` → `null([200,<n>,"<token>"])`，取第三项。
+     * 取不到返回空串——缺 token 只是少一层客户端指纹，不该阻断写入。
+     */
+    private fun fetchAntiCheatToken(): String {
+        return try {
+            val request = Request.Builder().url(ANTI_CHEAT_URL).header("User-Agent", ANDROID_UA).build()
+            antiCheatClient.newCall(request).execute().use { response ->
+                val match = ANTI_CHEAT_RE.find(response.body?.string().orEmpty())
+                when {
+                    match == null -> {
+                        Log.w(TAG, "antiCheat token unparseable (http=${response.code})")
+                        ""
+                    }
+                    match.groupValues[1] != "200" -> {
+                        Log.w(TAG, "antiCheat code=${match.groupValues[1]}")
+                        ""
+                    }
+                    else -> match.groupValues[2]
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "antiCheat token request failed: ${e.message}")
+            ""
+        }
     }
 
     /**

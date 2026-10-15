@@ -578,10 +578,17 @@ object PlaylistApi {
     /**
      * 收藏(like=true) / 取消收藏(false) 单曲（写入「我喜欢的音乐」）。
      *
-     * 主通道走与官方网页/参考实现完全一致的 weapi `/api/radio/like`：
-     * `alg=itembased&trackId=<id>&like=<bool>&time=3`。`time` 是试听秒数（官方固定 3），
-     * 旧实现把它当成 Unix 秒级时间戳发送（~1.7e9），服务端风控可能先接受、随后在
-     * 例行审核里把该 like 判为异常并回滚——这正是「收藏后隔天消失」的服务端诱因。
+     * 主通道是官方 Android 9.x 的 **xeapi** `/api/v1/radio/like`：
+     * `alg=itembased&trackId=<id>&like=<bool>&time=3`，带易盾 token。`time` 只是试听秒数（官方固定 3）。
+     *
+     * 为什么不再走老通道：weapi / eapi 的 `/api/radio/like` 写入的收藏当天在官方与两端都可见、
+     * **隔天被服务端回滚**。de193ff / 25f0c39 把 `time` 从 Unix 时间戳改成 3 之后**仍复现**，
+     * 所以「time 是诱因」这个旧结论是错的——真正的机制是服务端把非官方指纹的写入判为异常环境，
+     * 例行审核时回滚（gmg137/netease-cloud-music-gtk#410 实测到 `524「当前环境异常，已取消喜欢」`）。
+     * 调研与对照实验见 `spec/api/xeapi.md` 末节。
+     *
+     * weapi / eapi **只作回退**：两者都还在老通道上，**同样有被事后回滚的风险**；xeapi 失败时用它们
+     * 只是「至少这次点亮了」的兜底，不是长久的修复。
      *
      * 注意：like 写操作历史上曾受网易账号/IP 级风险控制，本账号四种协议变体(eapi 最小/
      * eapi+PC 指纹/eapi+安卓身份/经典 weapi)均被 `-460「检测到您的网络环境存在风险」`或
@@ -590,15 +597,48 @@ object PlaylistApi {
      *
      * 只返回布尔结果不够：调用方（LibraryManager）需要据此决定是否标记"仅本地/待同步"，
      * 并在成功后再做一次读回校验。这里额外记录脱敏的 HTTP 状态、业务码与耗时，便于诊断；
-     * **不记录** Cookie、CSRF token 或完整加密请求体。
-     *
-     * weapi 被账号级风控（-460）拦截时回退到 eapi 客户端协议；回退同样使用 time=3。
+     * **不记录** Cookie、易盾 token、CSRF token 或完整加密请求体。
      */
     suspend fun likeSong(songId: Long, like: Boolean): Boolean = withContext(Dispatchers.IO) {
+        if (tryXeapiLike(songId, like) == 200) return@withContext true
         if (tryWeapiLike(songId, like) == 200) return@withContext true
         tryEapiLike(songId, like) == 200
     }
 
+    /**
+     * xeapi `/api/v1/radio/like`——与官方 Android 9.x 同形（xeapi 加密 + 持久 deviceId + 易盾 token）。
+     * 字段顺序固定，别改：顺序进加密体，换了顺序就是另一种指纹。
+     */
+    private fun tryXeapiLike(songId: Long, like: Boolean): Int {
+        val startedAt = System.currentTimeMillis()
+        return try {
+            val text = RetrofitClient.xeapiPost(
+                uri = "/api/v1/radio/like",
+                pairs = listOf(
+                    "alg" to "itembased",
+                    "trackId" to songId.toString(),
+                    "like" to like.toString(),
+                    "time" to "3"
+                ),
+                antiCheat = true
+            )
+            val code = JSONObject(text).optInt("code", -1)
+            Log.i(
+                "PlaylistApi",
+                "likeSong(xeapi) id=$songId like=$like code=$code elapsedMs=${System.currentTimeMillis() - startedAt}"
+            )
+            code
+        } catch (e: Throwable) {
+            Log.w(
+                "PlaylistApi",
+                "likeSong(xeapi) req failed id=$songId like=$like " +
+                    "elapsedMs=${System.currentTimeMillis() - startedAt}: ${e.message}"
+            )
+            -1
+        }
+    }
+
+    /** 回退通道 1：经典 weapi `/api/radio/like`。**老通道，收藏可能被服务端事后回滚**。 */
     private fun tryWeapiLike(songId: Long, like: Boolean): Int {
         return try {
             val payload = JSONObject()
@@ -618,6 +658,7 @@ object PlaylistApi {
         }
     }
 
+    /** 回退通道 2：eapi「官方 iPhone 指纹」`/eapi/radio/like`。**同样是老通道，可能被事后回滚**。 */
     private fun tryEapiLike(songId: Long, like: Boolean): Int {
         val payload = mapOf(
             "alg" to "itembased",

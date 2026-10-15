@@ -8,9 +8,10 @@
 | 名称 | 值 | 用途 |
 |---|---|---|
 | `BASE_URL` | `https://music.163.com` | REST、weapi |
-| `API_URL` | `https://interface.music.163.com` | eapi 默认域 |
-| `INTERFACE_URL` | `https://interface3.music.163.com` | eapi 取歌曲 URL（`useInterface = true`） |
+| `API_URL` | `https://interface.music.163.com` | eapi 默认域、xeapi 公钥接口 |
+| `INTERFACE_URL` | `https://interface3.music.163.com` | eapi 取歌曲 URL（`useInterface = true`）、xeapi 业务请求 |
 | weblog | `https://clientlogusf.music.163.com` | 播放上报 |
+| antiCheat | `https://ac.dun.163yun.com/v3/b?pn=YD00000558929251` | 易盾 token（xeapi 写入用，见下） |
 
 通用头：PC UA、`Referer: https://music.163.com/`、`Cookie`（有登录态时）。写接口另有
 官方客户端指纹变体（见下）。
@@ -50,13 +51,32 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 | `/eapi/song/enhance/player/url/v1` | `ids=[id]`,`level`,`header`(JSON),`encodeType`(dolby→`mp4`,否则`flac`) | 播放 URL（**host 用 `INTERFACE_URL`**） |
 | `/eapi/album/sublist` | `limit`,`offset`,`total=true` | 收藏专辑 |
 | `/eapi/album/sub` / `/eapi/album/unsub` | `id` | 收藏 / 取消收藏专辑 |
-| `/eapi/radio/like` | `alg=itembased`,`trackId`,`like`,`time`,`e_r=TRUE`,`csrf_token` | 喜欢 / 取消喜欢（**官方客户端指纹**，见下） |
+| `/eapi/radio/like` | `alg=itembased`,`trackId`,`like`,`time=3`,`e_r=TRUE`,`csrf_token` | 喜欢 / 取消喜欢（**回退通道**，官方客户端指纹，见下） |
 
 **官方客户端指纹**（`EapiPostOfficial`，用于 `/eapi/radio/like`）：iOS UA；设备字段
 `os=iphone`,`appver=8.9.60`,`deviceId`,`osver`,`versioncode=140`,`mobilename`,`buildver`,
 `resolution=1920x1080`,`__csrf`,`channel=yykj`,`requestId` 以 URL-encoded Cookie 形式发送，
 同时整体作为 `header` 字段写进加密 body。写接口在 `BASE_URL` 之外的 host 上可能被判
 `-460 风险`，故固定打 `API_URL`。
+
+> 收藏写入已改走 xeapi（见下节）。`/eapi/radio/like` 与 weapi 的 `/api/radio/like` 只作回退：
+> 两者都是**老通道**，写入的收藏会被服务端事后回滚（「收藏隔天消失」，`spec/api/xeapi.md` 末节）。
+
+## xeapi（业务请求打 `INTERFACE_URL` 的 `/xeapi/…`，公钥打 `API_URL`）
+
+官方 Android 9.x 的请求加密层，协议全文与算法见 `spec/api/xeapi.md`（夹具
+`fixtures/crypto/xeapi.json`）。表单体 `C=<…>&S=<…>&R=<…>`，另有设备头
+`X-Client-Enc-State: ENCRYPTED`、`x-aeapi`、`x-deviceid`/`x-sdeviceid`、`x-os`/`x-osver`/`x-appver`/`x-buildver`、
+`x-music-u`、`X-antiCheatToken`，以及 Cookie 里追加的
+`os=android; osver=16; appver=9.1.65; buildver=<10 位秒级时间戳>; deviceId=<32 hex>; sDeviceId=<同上>`。
+
+| 路径 | 方法 | 参数 | 用途 |
+|---|---|---|---|
+| `/api/bsr/sk/get` | POST 明文表单（打 `API_URL`） | `appVersion=9.5.61`,`currentKeyVersion`,`deviceId`,`nonce`,`os=android`,`requestType=active`,`signature`,`t1=`,`t2=`,`timestamp`,`uid=` | 取公钥（`publicKey`/`version`/`sk`/`nextUpdateTime`），响应需验签 |
+| `/api/v1/radio/like` | POST xeapi（打 `INTERFACE_URL`，实际路径 `/xeapi/v1/radio/like`） | `alg=itembased`,`trackId`,`like`,`time=3`；带 `X-antiCheatToken` | 喜欢 / 取消喜欢（**主通道**，`code == 200` 即成功） |
+
+`deviceId` 每台设备生成一次（32 位小写 hex）后持久化，登出也不清；公钥状态落盘、按
+`nextUpdateTime` 或业务解密失败刷新（刷新时带旧 `version`）；`x-encr-ssid`/`x-encr-sskey` 会话只存内存。
 
 ## weapi（`BASE_URL`，表单 `params` + `encSecKey`）
 
@@ -67,6 +87,7 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 | `/api/login/qrcode/unikey` | `type=1`,`noCheckToken=true` | 申请二维码 key |
 | `/api/login/qrcode/client/login` | `type=1`,`noCheckToken=true`,`key`；额外 Cookie `os=pc; NMTID=<hex16>; sDeviceId=<52 hex>` | 轮询扫码状态（800/801/802/803），803 的 Set-Cookie 里取 `MUSIC_U` |
 | `/api/discovery/simiSong` | `songid`,`limit`,`offset` | 相似歌曲回退路径 |
+| `/api/radio/like` | `alg=itembased`,`trackId`,`like`,`time=3` | 喜欢 / 取消喜欢（**回退通道**，老通道，可能被服务端事后回滚） |
 
 ## weblog（`https://clientlogusf.music.163.com`）
 
