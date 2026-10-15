@@ -134,7 +134,10 @@ namespace Ncrust.Core.Auth
             }
         }
 
-        /// <summary>从 Set-Cookie 头拼出会话 cookie 串；只在含 <c>MUSIC_U=</c> 时有效。</summary>
+        /// <summary>
+        /// 从 Set-Cookie 头拼出会话 cookie 串；只在含非空 <c>MUSIC_U</c> 时才算拿到登录态
+        /// （803 也可能只给删除写法 <c>MUSIC_U=</c>，旧实现按子串匹配会把空值当成登录成功）。
+        /// </summary>
         internal static string? ExtractSessionCookie(HttpResponseMessage response)
         {
             if (!response.Headers.TryGetValues("Set-Cookie", out var values))
@@ -153,8 +156,10 @@ namespace Ncrust.Core.Auth
                 }
             }
 
-            var cookie = string.Join("; ", parts);
-            return cookie.Contains("MUSIC_U=") ? cookie : null;
+            // 同一响应里可能有两条同名 MUSIC_U（删除用的空值与真值，顺序不定）：按 Set-Cookie
+            // 语义解析并取最后一个非空值；顺带去重，别把重复名字交给服务端。
+            var cookie = SessionCookie.ParseSetCookie(string.Join("; ", parts));
+            return cookie.HasMusicU ? cookie.ToString() : null;
         }
     }
 }

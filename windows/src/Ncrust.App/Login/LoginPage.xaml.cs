@@ -1,9 +1,9 @@
 using System;
-using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
+using Ncrust.Core.Api;
 using Ncrust.Core.Auth;
 using Ncrust.Core.Net;
 using QRCoder;
@@ -23,6 +23,12 @@ namespace Ncrust.Login
         private const string CookieDomain = "https://music.163.com";
         private const int MaxPollTicks = 150;
 
+        /// <summary>账户接口说这段 cookie 无效。</summary>
+        private const string InvalidSessionText = "登录状态无效，请重新登录";
+
+        /// <summary>判不了（断网 / 服务端异常）：既不能说登录成功，也不能清掉登录态。</summary>
+        private const string UnknownSessionText = "网络异常，暂时无法确认登录状态，请稍后重试";
+
         private readonly NcmHttp _http = new NcmHttp();
         private readonly QrLoginClient _qr;
         private readonly DispatcherTimer _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -30,6 +36,12 @@ namespace Ncrust.Login
         private QrLoginKey _key;
         private int _ticks;
         private bool _webInitialized;
+
+        /// <summary>校验进行中：同一时刻只允许一次，避免多次 NavigationCompleted 并发打接口。</summary>
+        private bool _checkingSession;
+
+        /// <summary>已经判过的 cookie 串，同一个 cookie 不重复校验。</summary>
+        private string _checkedCookie;
 
         public event Action<string> LoggedIn;
 
@@ -61,6 +73,12 @@ namespace Ncrust.Login
             {
                 await WebLogin.EnsureCoreWebView2Async();
                 _webInitialized = true;
+
+                // 先清掉 WebView2 的 cookie 再导航。WebView2 的 cookie 跨会话持久化，登录层又只在
+                // 需要登录时出现：清晚了（或不清）的话，第一次 NavigationCompleted 就会读到上一次
+                // 残留的（可能已被服务端置空的）MUSIC_U，用户还没扫码就被判定成登录成功。
+                await ClearWebCookiesAsync();
+
                 WebLogin.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
                 WebLogin.CoreWebView2.Navigate(LoginUrl);
             }
@@ -85,10 +103,52 @@ namespace Ncrust.Login
                 WebStatus.Visibility = Visibility.Visible;
             }
 
-            var cookie = await TryReadWebCookieAsync();
-            if (cookie != null)
+            await CheckWebSessionAsync();
+        }
+
+        /// <summary>
+        /// 网页登录：读到非空 MUSIC_U 后还要问一次账户接口才算登录成功。cookie 可能是上次残留的，
+        /// 也可能被服务端置空了 —— 光看有没有这个名字，用户没扫码也会「登录成功」。
+        /// </summary>
+        private async Task CheckWebSessionAsync()
+        {
+            if (_checkingSession)
             {
-                Complete(cookie);
+                return;
+            }
+
+            var cookie = await TryReadWebCookieAsync();
+            if (cookie == null || cookie == _checkedCookie)
+            {
+                return; // 没有非空 MUSIC_U，或这个 cookie 刚判过。
+            }
+
+            _checkingSession = true;
+            _checkedCookie = cookie;
+            try
+            {
+                switch (await AccountApi.ValidateSessionAsync(cookie))
+                {
+                    case SessionValidation.Valid:
+                        Complete(cookie);
+                        break;
+                    case SessionValidation.Invalid:
+                        // 失效的 cookie 留着，下次打开登录层又会「自动登录」：清掉它，留在登录页。
+                        await ClearWebCookiesAsync();
+                        WebStatus.Text = InvalidSessionText;
+                        WebStatus.Visibility = Visibility.Visible;
+                        break;
+                    default:
+                        // 断网：允许同一 cookie 之后再校验一次，这次先不 Complete。
+                        _checkedCookie = null;
+                        WebStatus.Text = UnknownSessionText;
+                        WebStatus.Visibility = Visibility.Visible;
+                        break;
+                }
+            }
+            finally
+            {
+                _checkingSession = false;
             }
         }
 
@@ -97,11 +157,6 @@ namespace Ncrust.Login
             try
             {
                 var cookies = await WebLogin.CoreWebView2.CookieManager.GetCookiesAsync(CookieDomain);
-                if (!cookies.Any(cookie => cookie.Name == "MUSIC_U"))
-                {
-                    return null;
-                }
-
                 var sb = new StringBuilder();
                 foreach (var cookie in cookies)
                 {
@@ -113,11 +168,51 @@ namespace Ncrust.Login
                     sb.Append(cookie.Name).Append('=').Append(cookie.Value);
                 }
 
-                return sb.ToString();
+                // 只认非空的 MUSIC_U：会话失效时它可能是空值（`MUSIC_U=`），按「有没有这个名字」
+                // 判定会拿着一个空 cookie 直接 Complete。
+                return SessionCookie.Parse(sb.ToString()).HasMusicU ? sb.ToString() : null;
             }
             catch
             {
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// 清掉 WebView2 持有的 cookie，并读回确认。留着失效或上一账号的 MUSIC_U，登录层下次打开
+        /// 就会被它自动「登录」。<c>DeleteAllCookies</c> 同步返回，但 API 没有承诺「返回后发出的请求
+        /// 一定看不到旧 cookie」，所以清完读一次确认，还有残留就再清一遍（最多三轮）。
+        /// 真清不掉也不拦着登录：导航后读到 cookie 时还会验一次会话。
+        /// </summary>
+        private async Task ClearWebCookiesAsync()
+        {
+            if (!_webInitialized)
+            {
+                return;
+            }
+
+            try
+            {
+                var manager = WebLogin.CoreWebView2.CookieManager;
+                manager.DeleteAllCookies();
+                for (var attempt = 0; attempt < 2; attempt++)
+                {
+                    var remaining = await manager.GetCookiesAsync(CookieDomain);
+                    if (remaining.Count == 0)
+                    {
+                        return;
+                    }
+
+                    manager.DeleteAllCookies();
+                }
+
+                // 清不干净（少见）：不拦着登录，但记一笔，免得「登录层一打开就自动登录」再出现时无从查起。
+                App.WriteLog("login.log", DateTimeOffset.Now.ToString("O") + " WebView2 cookie 清不干净\r\n");
+            }
+            catch (Exception ex)
+            {
+                // 清不掉不影响本次登录，只是下次打开登录层可能又读到旧 cookie。
+                App.WriteCrashLog(ex);
             }
         }
 
@@ -230,17 +325,30 @@ namespace Ncrust.Login
                     break;
                 case QrLoginClient.Succeeded:
                     _pollTimer.Stop();
-                    if (!string.IsNullOrEmpty(result.Cookie))
-                    {
-                        Complete(result.Cookie);
-                    }
-                    else
+                    if (string.IsNullOrEmpty(result.Cookie))
                     {
                         QrStatus.Text = "登录成功但未取到 cookie，请重试";
+                        break;
                     }
 
+                    await CompleteQrAsync(result.Cookie);
                     break;
             }
+        }
+
+        /// <summary>803 的 cookie 也要验一次：轮询说「成功」不等于服务端已经认这个会话。</summary>
+        private async Task CompleteQrAsync(string cookie)
+        {
+            var validation = await AccountApi.ValidateSessionAsync(cookie);
+            if (validation == SessionValidation.Valid)
+            {
+                Complete(cookie);
+                return;
+            }
+
+            QrStatus.Text = validation == SessionValidation.Invalid
+                ? "登录状态无效，请点「刷新二维码」重试"
+                : "网络异常，无法确认登录状态，请点「刷新二维码」重试";
         }
 
         private void Complete(string cookie)
