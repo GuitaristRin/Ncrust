@@ -5,7 +5,8 @@ namespace Ncrust.Core.Playback
 {
     /// <summary>
     /// 播放相关设置（对应 Android 的 <c>ncrust_settings</c> 键）。键名与 Android 相同。
-    /// 默认：gapless 开、歌词翻译开、Wi-Fi 无损(3) / 移动较好(1)。
+    /// 默认：gapless **关**（1.0.2 起降级为实验特性，与 Android 1.4.0 一致）、歌词翻译开、
+    /// Wi-Fi 无损(3) / 移动较好(1)。
     /// </summary>
     public sealed class PlaybackPreferences
     {
@@ -17,9 +18,15 @@ namespace Ncrust.Core.Playback
         public PlaybackPreferences(ISettingsStore settings) =>
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
+        /// <summary>
+        /// 无缝预载（提前取下一首的 URL 填进 <c>MediaPlaybackList</c>）。
+        /// **默认关**：预载交接仍会偶发元数据 / 音源错位，不能算可靠，所以与 Android 1.4.0 一样
+        /// 改成用户显式开启的实验特性（设置页标注「测试中，可能不稳定」）。
+        /// 只影响从未设过这个键的设备；老用户之前打开的开关值仍被尊重。
+        /// </summary>
         public bool GaplessEnabled
         {
-            get => _settings.GetBool("gapless_playback", true);
+            get => _settings.GetBool("gapless_playback", false);
             set => _settings.SetBool("gapless_playback", value);
         }
 

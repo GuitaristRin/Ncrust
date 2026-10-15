@@ -145,7 +145,8 @@ public class PlaybackPreferencesTests
     {
         var prefs = new PlaybackPreferences(new FakeSettings());
 
-        Assert.True(prefs.GaplessEnabled);
+        // 无缝播放 1.0.2 起默认关（实验特性），与 Android 1.4.0 一致。
+        Assert.False(prefs.GaplessEnabled);
         Assert.True(prefs.LyricsTranslation);
         Assert.Equal(3, prefs.WifiQualityIndex);
         Assert.Equal(1, prefs.MobileQualityIndex);
@@ -205,6 +206,8 @@ public class PlaybackSessionStateTests
     public void PreloadCandidate_OnlyInsideWindow()
     {
         var settings = new FakeSettings();
+        // 预载只在用户显式开启后才发生（默认已关），这里显式打开再测窗口边界。
+        settings.SetBool("gapless_playback", true);
         var session = new PlaybackSessionState(
             Queue(1, 2, 3), new PlaybackPreferences(settings), new PlaybackStateStore(new InMemoryFileStore()));
 
@@ -221,8 +224,10 @@ public class PlaybackSessionStateTests
     [Fact]
     public void PreloadCandidate_IgnoresTooEarly()
     {
+        var settings = new FakeSettings();
+        settings.SetBool("gapless_playback", true); // 默认关，显式开启，免得「太早」被默认值掩盖
         var session = new PlaybackSessionState(
-            Queue(1, 2), new PlaybackPreferences(new FakeSettings()), new PlaybackStateStore(new InMemoryFileStore()));
+            Queue(1, 2), new PlaybackPreferences(settings), new PlaybackStateStore(new InMemoryFileStore()));
 
         session.UpdateProgress(500, 5_000); // 位置 <= 1s
         Assert.Null(session.PreloadCandidate());
