@@ -68,6 +68,7 @@ import io.github.takahashirinta.kanesumi.structure.sidebar.MetroSidebarItem
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
 import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
+import com.takahashirinta.ncrust.ui.components.UpdateNavDot
 import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
 import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
@@ -88,6 +89,7 @@ import com.takahashirinta.ncrust.ui.theme.toMetroColors
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import com.takahashirinta.ncrust.share.NeteaseLink
 import com.takahashirinta.ncrust.share.NeteaseLinkParser
+import com.takahashirinta.ncrust.update.UpdateService
 import io.github.takahashirinta.kanesumi.anim.sokuou.metroViewConfiguration
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.MetroTheme
@@ -118,6 +120,8 @@ class MainActivity : ComponentActivity() {
         // 冷启动即刻并发启动预热：Home 三条网络 + 封面 Coil 预取。
         // splash 期间跑完，进入主页时 ContentCache 已就位，无 loader 闪烁。
         AppWarmup.start(this)
+        // 更新检查：先把上次发现的结果读回来（24 小时窗口内不再联网，但横幅要立刻能显示）。
+        UpdateService.init(this)
         enableEdgeToEdge()
         setContent {
             var themeIndex by remember {
@@ -190,6 +194,17 @@ class MainActivity : ComponentActivity() {
                         ) {
                             showBatteryPrompt = true
                         }
+                    }
+
+                    // 更新检查：等 splash 收起（首页已渲染）再等约 10 秒才联网，
+                    // 避开冷启动的预热请求与首帧。24 小时窗口、开关与「失败静默」
+                    // 都在 UpdateService.autoCheck 里。用 splash 状态当触发条件而不是
+                    // LaunchedEffect(Unit)：语言切换会重走一遍 splash，那时也该重新判定
+                    // （窗口没过就不会再发请求）。
+                    LaunchedEffect(showSplash) {
+                        if (showSplash) return@LaunchedEffect
+                        delay(10_000L)
+                        UpdateService.autoCheck(this@MainActivity)
                     }
                     if (showBatteryPrompt) {
                         BackgroundActivityDialog(
@@ -1150,8 +1165,18 @@ fun MainScreen(
     }
 
     var showAbout by remember { mutableStateOf(false) }
+    // 更新页：与「关于」同一套覆盖层做法（全屏 + 悬浮返回箭头）。放在关于之前判断，
+    // 这样从关于页进来时返回能落回关于页，而不是直接回主界面。
+    var showUpdate by remember { mutableStateOf(false) }
+    if (showUpdate) {
+        UpdatePageOverlay(onClose = { showUpdate = false })
+        return
+    }
     if (showAbout) {
-        AboutScreen(onBack = { showAbout = false })
+        AboutScreen(
+            onBack = { showAbout = false },
+            onOpenUpdate = { showUpdate = true }
+        )
         return
     }
 
@@ -1516,6 +1541,7 @@ fun MainScreen(
 
                         3 -> UserScreen(
                             onOpenAbout = { showAbout = true },
+                            onOpenUpdate = { showUpdate = true },
                             themeIndex = themeIndex,
                             onThemeChange = onThemeChange,
                             themeMode = themeMode,
@@ -1578,6 +1604,9 @@ fun MainScreen(
                     items = navTabs.map { MetroBottomNavItem(it.first, it.second) },
                     autoReserveBottomStack = false,
                 )
+                // 「用户」图标右上角的小圆点：叠加绘制在导航之上（MetroBottomNav 没有角标
+                // 字段，且库对本仓库只读）。宽屏走左侧 sidebar，不画。
+                UpdateNavDot()
             }
         }
 

@@ -15,6 +15,9 @@
     <!-- 手机端扫码授权其他设备时用相机识别二维码（非必装硬件，故 required=false）。 -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- 应用内更新：下载好的 APK 交给系统安装器（Android 8+ 还需用户在系统设置里
+         为本应用打开「安装未知应用」，见 update/UpdateService.canInstallPackages）。 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".NcrustApplication"
@@ -72,6 +75,18 @@
                 <data android:scheme="https" android:host="163cn.tv" />
             </intent-filter>
         </activity>
+
+        <!-- 应用内更新的安装包落在 cacheDir/updates/，交给系统安装器时经 FileProvider
+             授权读权限（Android 7+ 不允许把 file:// 交给别的应用）。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- exported=true: 车机 Media Center / 系统媒体控制需要跨进程绑定本服务。 -->
         <service

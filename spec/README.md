@@ -28,6 +28,7 @@ Ncrust 的三个端（Android `app/`、Windows `windows/`、以后的 Linux）**
 | `api/endpoints.md` | 端点目录：路径、加密方式（REST / eapi / weapi）、参数、所用 host | ✅ 已落地（Windows M1，覆盖 Android 现行端点） |
 | `fixtures/crypto/` | eapi / weapi / xeapi 固定输入 → 固定输出（随机量全部固定以保证可复现） | eapi/weapi ✅；xeapi 夹具已落地，两端实现进行中 |
 | `api/xeapi.md` | 官方 Android 9.x 请求加密层 + 收藏新通道 `/api/v1/radio/like` | 📝 2026-10-15 调研，线上探针通过 |
+| `fixtures/update/` | 应用内更新：跨班次按资产名找严格更高版本、忽略 draft / prerelease、资产名与扩展名校验；含已知两端差异说明 | ✅ Android 全覆盖；Windows 跑同一份夹具（两条规则待补齐） |
 | `api/entitlement.md` + `fixtures/entitlement/` | 登录失效 / VIP / 试听 / 无版权 / 音质受限的判定规则与界面要求，及三组判定夹具 | 📝 2026-10-15 实测落地，两端实现待做 |
 | `tools/` | 零依赖 Node 参考实现与调研脚本：`xeapi.mjs`、`gen-xeapi-fixtures.mjs`、`probe-xeapi.mjs`（匿名探针）、`like-experiment.mjs`（收藏回滚对照实验，**会改账号数据，须账号主人同意**） | 📝 |
 | `fixtures/quality/` | 7 级音质阶梯、各起点的降级序列、FLAC 门控规则 | ✅ 已落地（Windows Core + 测试） |
