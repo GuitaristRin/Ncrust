@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
  * 云同步收藏库。
  *
  * 语义（与网易云官方一致）：
- *  - 「收藏单曲」 = 网易云「收藏/我喜欢」（weapi /api/radio/like）；
+ *  - 「收藏单曲」 = 网易云「收藏/我喜欢」（xeapi `/api/v1/radio/like`，失败才回退 weapi/eapi）；
  *  - 「收藏专辑」 = 网易云「我收藏的专辑」（weapi /api/album/sub），与单曲解耦。
  *
  * 本地用 SharedPreferences 缓存云端状态（收藏单曲 + 收藏专辑），保证：
@@ -193,11 +193,17 @@ object LibraryManager {
     }
 
     /** 未获云端确认的点赞操作（songId -> 期望红心状态），供 UI 显示"仅本地/待重试"。 */
-    fun getPendingSyncSongIds(context: Context): Set<Long> =
-        synchronized(pendingLock) { ensurePendingLoaded(context).keys.toSet() }
+    fun getPendingSyncSongIds(context: Context): Set<Long> = pendingSnapshot(context).keys
 
     fun isSongPendingSync(context: Context, songId: Long): Boolean =
         synchronized(pendingLock) { ensurePendingLoaded(context).containsKey(songId) }
+
+    /**
+     * 待同步表的快照（songId -> 期望红心状态）。必须用副本：pushLikeBlocking 成功后会改写
+     * 待同步表（markPending(..., null)），直接在原表上迭代会 ConcurrentModificationException。
+     */
+    private fun pendingSnapshot(context: Context): Map<Long, Boolean> =
+        synchronized(pendingLock) { ensurePendingLoaded(context).toMap() }
 
     /**
      * 推送一次点赞/取消到云端。返回 true 仅当服务端业务码成功**且**随后的读回校验一致。
@@ -242,17 +248,29 @@ object LibraryManager {
 
     /**
      * 重试所有待同步的点赞操作（用户手动触发或后台补偿）。
-     * 依据当前本地收藏状态决定期望方向：在本地收藏中 → 红心；否则 → 取消红心。
+     *
+     * 期望方向**只能**取待同步表里记下的那一个（`pending[songId]`），不能拿 [isSongSaved] 反推：
+     * `cachedSongs` 只装了已分页加载的前 N 首（刷新时只拉首屏详情），云端最终一致尚未生效时这首歌
+     * 还不在本地列表里，反推会得到 false，于是一次「收藏」被同步成 unlike——收藏真的被撤销，
+     * 随后读回校验还会把它当成"已解决"移出待同步表。见 [planPendingLikeRetries]。
      */
     suspend fun retryPendingSync(context: Context) = withContext(Dispatchers.IO) {
         if (!isLoggedIn(context)) return@withContext
-        val ids = getPendingSyncSongIds(context)
-        if (ids.isEmpty()) return@withContext
-        for (songId in ids) {
-            val desired = isSongSaved(context, songId)
+        val plans = planPendingLikeRetries(pendingSnapshot(context))
+        if (plans.isEmpty()) return@withContext
+        for ((songId, desired) in plans) {
             pushLikeBlocking(context, songId, desired)
         }
     }
+
+    /**
+     * 待同步表 → 本次重试计划（纯函数，便于 JVM 单测）。
+     *
+     * 唯一真源是表里记的期望状态：`true` 就是收藏、`false` 就是取消，与「本地已加载的那一页里
+     * 有没有这首歌」无关。[isSongSaved] 只看已分页加载的前 N 首，用它是本函数被抽出来的原因。
+     */
+    internal fun planPendingLikeRetries(pending: Map<Long, Boolean>): List<Pair<Long, Boolean>> =
+        pending.entries.map { it.key to it.value }
 
     private fun pushSubAlbum(albumId: Long, sub: Boolean) {
         ioScope.launch {
