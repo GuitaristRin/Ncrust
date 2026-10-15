@@ -1,4 +1,4 @@
-# 生成 Windows 端的 .appinstaller（App Installer 的更新入口）。
+﻿# 生成 Windows 端的 .appinstaller（App Installer 的更新入口）。
 #
 # .appinstaller 是 Windows 端更新的唯一正解：只有经它安装的包，系统的 App Installer
 # 才会在启动时按 <UpdateSettings> 自动更新；直接装 .msix 没有更新源，永远不更新。

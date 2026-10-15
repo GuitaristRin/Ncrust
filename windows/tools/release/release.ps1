@@ -1,4 +1,4 @@
-# 打包 Windows 端发布资产：编译 → 取出并重命名 MSIX → （可选）签名 → 生成 .appinstaller → 导出 .cer。
+﻿# 打包 Windows 端发布资产：编译 → 取出并重命名 MSIX → （可选）签名 → 生成 .appinstaller → 导出 .cer。
 # 资产命名遵循 docs/RELEASES.md：ncrust-windows-x86_64-<版本>.<ext>。
 #
 # 私钥 (.pfx) 不入库；口令从参数或环境变量传入。签名需要 Windows SDK 的 signtool。
@@ -58,7 +58,9 @@ if (-not $SkipSign) {
     if ($LASTEXITCODE -ne 0) { throw '签名失败' }
     & $signtool.Source verify /pa $msixOut
 
-    $cert = Get-PfxCertificate -FilePath $PfxPath -Password $PfxPassword
+    # 注意：Windows PowerShell 5.1 的 Get-PfxCertificate 没有 -Password 参数（PS 7 才有），
+    # 用 X509Certificate2 构造器取同一张证书，5.1 / 7 都能跑。
+    $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($PfxPath, $plain)
     $cerOut = Join-Path $OutDir "$assetPrefix-$Version.cer"
     Export-Certificate -Cert $cert -FilePath $cerOut -Type CERT | Out-Null
     Write-Output "证书 -> $cerOut"
