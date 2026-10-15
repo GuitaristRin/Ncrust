@@ -472,21 +472,39 @@ namespace Ncrust.Shell
                 return;
             }
 
+            Ncrust.Core.Api.UserProfile profile;
             try
             {
-                var profile = await AppServices.Account.GetProfileAsync();
-                if (profile != null)
-                {
-                    AppServices.Cache.UserProfile = profile;
-                }
+                profile = await AppServices.Account.GetProfileAsync();
             }
             catch (Exception ex)
             {
-                // 网络失败时保留「我的」占位，不打断启动。
+                // 网络失败 / 服务端错误：保留「我的」占位与登录态，不打断启动。
                 App.WriteCrashLog(ex);
+                UpdateAccountItem();
+                return;
             }
 
+            if (profile == null)
+            {
+                // 账户接口明确说未登录（account 与 profile 都是 null，即 code 301 那一类）：
+                // 会话已失效。只有这一条路径清登录态 —— 网络失败走上面的 catch，不能把用户登出。
+                OnSessionExpired();
+                return;
+            }
+
+            AppServices.Cache.UserProfile = profile;
             UpdateAccountItem();
+        }
+
+        /// <summary>
+        /// 会话失效：清掉本地登录态（侧栏账户项会随之变成「登录」，首页显示登录提示卡，设置页显示
+        /// 未登录 + 登录按钮），并用轻提示引导。不自动打开登录层 —— 登录层只由用户点击触发。
+        /// </summary>
+        private void OnSessionExpired()
+        {
+            AppServices.SignOut();
+            AppShell.Notice("登录状态已失效，请重新登录");
         }
 
         // ── 登录层 ────────────────────────────────────────────────────────────

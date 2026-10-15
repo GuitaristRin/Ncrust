@@ -80,6 +80,9 @@ namespace Ncrust
 
         public static void SignOut()
         {
+            // WebView2 的 cookie 不在这里清：它存在 WebView2 自己的用户数据目录里，而登录层关闭时
+            // LoginPage / WebView2 已经从可视树上移除，这里拿不到实例。改由 LoginPage 在打开登录层时
+            // 无条件 DeleteAllCookies —— 登录层只在需要登录时出现，旧 cookie 没有保留价值。
             Http.Cookie = null;
             Credentials.ClearCookie();
             Cache.UserProfile = null;

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Ncrust.Core.Auth;
 using Ncrust.Core.Json;
 using Ncrust.Core.Net;
 
@@ -29,6 +31,13 @@ namespace Ncrust.Core.Api
                 .EapiPostAsync(AccountGetPath, null, useInterface: false, cancellationToken)
                 .ConfigureAwait(false))
             {
+                if (!response.IsSuccessStatusCode)
+                {
+                    // HTTP 层就失败了（网关 / 5xx）：这不是「未登录」。调用方把 null 当作会话失效，
+                    // 所以这里必须抛出去，别让一次服务端抖动把用户登出。
+                    throw new NcmApiException($"account/get http {(int)response.StatusCode}");
+                }
+
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var json = JsonValue.Parse(body);
                 var account = json.GetObject("account");
@@ -55,6 +64,60 @@ namespace Ncrust.Core.Api
 
         public async Task<long> GetCurrentUserIdAsync(CancellationToken cancellationToken = default) =>
             (await GetProfileAsync(cancellationToken).ConfigureAwait(false))?.UserId ?? 0;
+
+        /// <summary>
+        /// 判定一段 cookie 是否仍能登录：账户接口返回的 <c>account</c> / <c>profile</c> 非空才算有效。
+        ///
+        /// 刻意做成静态、并且自己建一个一次性的 <see cref="NcmHttp"/>：调用它的场景（登录层刚读到
+        /// cookie）里，这段 cookie 还没被确认，写进全局请求层会污染其它请求。
+        ///
+        /// 三态：没有非空 <c>MUSIC_U</c> 与「接口明确说未登录」是 <see cref="SessionValidation.Invalid"/>；
+        /// 断网 / 超时 / 非 2xx / 响应不是 JSON 一律 <see cref="SessionValidation.Unknown"/> ——
+        /// 不能当成失效，否则一次网络抖动就会把用户登出。
+        /// </summary>
+        /// <param name="cookie">待判定的会话 cookie 串。</param>
+        /// <param name="handler">仅测试注入：给了就用它建临时请求层，不打真网络（同 <see cref="NcmHttp"/> 的构造签名）。</param>
+        public static async Task<SessionValidation> ValidateSessionAsync(
+            string? cookie,
+            HttpMessageHandler? handler = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (!SessionCookie.Parse(cookie).HasMusicU)
+            {
+                return SessionValidation.Invalid; // 没有 MUSIC_U，或只有删除写法 `MUSIC_U=`：不必打接口。
+            }
+
+            using (var http = handler == null ? new NcmHttp() : new NcmHttp(handler))
+            {
+                http.Cookie = cookie;
+                try
+                {
+                    using (var response = await http
+                        .EapiPostAsync(AccountGetPath, null, useInterface: false, cancellationToken)
+                        .ConfigureAwait(false))
+                    {
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            return SessionValidation.Unknown;
+                        }
+
+                        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        var json = JsonValue.Parse(body);
+                        return json.GetObject("account") != null || json.GetObject("profile") != null
+                            ? SessionValidation.Valid
+                            : SessionValidation.Invalid;
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw; // 调用方主动取消，别吞掉。
+                }
+                catch (Exception)
+                {
+                    return SessionValidation.Unknown;
+                }
+            }
+        }
 
         /// <summary>用户歌单（含特殊歌单，<c>SpecialType != 0</c> 的需要调用方自行区分）。</summary>
         public async Task<IReadOnlyList<UserPlaylistInfo>> GetUserPlaylistsAsync(
