@@ -26,6 +26,7 @@ val en = Strings(
     playbackSectionTitle = "Playback",
     gaplessSectionTitle = "Gapless Playback",
     gaplessDescription = "Preload next track to eliminate gaps",
+    gaplessBetaNote = "In testing — may be unstable",
     lyricsTranslationLabel = "Lyrics Translation",
     themeSectionTitle = "Theme Color",
     themeModeSectionTitle = "Theme Mode",

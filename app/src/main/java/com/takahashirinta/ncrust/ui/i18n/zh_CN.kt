@@ -26,6 +26,7 @@ val zhCN = Strings(
     playbackSectionTitle = "播放",
     gaplessSectionTitle = "无缝播放",
     gaplessDescription = "提前加载下一首，消除曲间空白",
+    gaplessBetaNote = "测试中，可能不稳定",
     lyricsTranslationLabel = "歌词翻译",
     themeSectionTitle = "主题色",
     themeModeSectionTitle = "主题模式",

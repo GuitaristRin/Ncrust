@@ -26,6 +26,7 @@ val jpJP = Strings(
     playbackSectionTitle = "再生",
     gaplessSectionTitle = "ギャップレス再生",
     gaplessDescription = "次の曲を先読みして途切れをなくす",
+    gaplessBetaNote = "試験中・不安定な場合があります",
     lyricsTranslationLabel = "歌詞翻訳",
     themeSectionTitle = "テーマカラー",
     themeModeSectionTitle = "テーマモード",

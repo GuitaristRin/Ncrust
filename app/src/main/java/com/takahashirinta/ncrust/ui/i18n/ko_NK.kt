@@ -26,6 +26,7 @@ val koNK = Strings(
     playbackSectionTitle = "재생",
     gaplessSectionTitle = "틈 없이 이어 재생",
     gaplessDescription = "다음곡 미리불러와 틈 없애기",
+    gaplessBetaNote = "시험중, 불안정할수 있음",
     lyricsTranslationLabel = "가사 번역",
     themeSectionTitle = "주제 색상",
     themeModeSectionTitle = "주제 방식",

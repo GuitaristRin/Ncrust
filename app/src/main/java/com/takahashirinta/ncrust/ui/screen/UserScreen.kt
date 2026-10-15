@@ -93,7 +93,8 @@ fun UserScreen(
     val playerViewModel: PlayerViewModel = viewModel()
     var wifiQuality by remember { mutableIntStateOf(prefs.getInt("wifi_quality", 3)) }
     var mobileQuality by remember { mutableIntStateOf(prefs.getInt("mobile_quality", 1)) }
-    var gaplessEnabled by remember { mutableStateOf(prefs.getBoolean("gapless_playback", true)) }
+    // 1.4.0 起默认关闭：预载续播未达可靠标准，降级为用户显式开启的实验特性。
+    var gaplessEnabled by remember { mutableStateOf(prefs.getBoolean("gapless_playback", false)) }
     var lyricsTranslation by remember { mutableStateOf(prefs.getBoolean("lyrics_translation", true)) }
     // 设置项「非会员遇到 VIP 歌曲」：true = 播放试听片段（默认），false = 直接跳过。
     var trialPlayback by remember { mutableStateOf(prefs.getBoolean("vip_trial_playback", true)) }
@@ -305,20 +306,6 @@ fun UserScreen(
         // 播放
         item {
             SectionTitle(strings.playbackSectionTitle)
-            // 标题与 Switch 同行居中，描述另起一行——描述不参与对齐，否则 Switch
-            // 会被顶到与描述顶部对齐，看起来像挂在描述上。
-            SettingSwitchRow(
-                title = strings.gaplessSectionTitle,
-                description = strings.gaplessDescription,
-                checked = gaplessEnabled,
-                onCheckedChange = {
-                    gaplessEnabled = it
-                    prefs.edit().putBoolean("gapless_playback", it).apply()
-                    // 即时生效: VM 缓存的 gaplessEnabled 不刷新的话,
-                    // 本首歌的预载状态与开关不一致, 要等下一首歌才对上
-                    playerViewModel.refreshGaplessSetting()
-                }
-            )
             // 歌词翻译开关(Spotify 式双语:原句下方小号译文)。切了立即生效,播放器常挂载无需重进。
             SettingSwitchRow(
                 title = strings.lyricsTranslationLabel,
@@ -338,6 +325,22 @@ fun UserScreen(
                     trialPlayback = index == 0
                     // 播放器每次播放都现读这个键，无需通知 ViewModel。
                     prefs.edit().putBoolean("vip_trial_playback", trialPlayback).apply()
+                }
+            )
+            // 无缝播放：1.4.0 起降级为实验特性（默认关闭），因此排在播放区最后一位。
+            // 标题与 Switch 同行居中，描述与提示另起一行——它们不参与对齐，否则 Switch
+            // 会被顶到与描述顶部对齐，看起来像挂在描述上。
+            SettingSwitchRow(
+                title = strings.gaplessSectionTitle,
+                description = strings.gaplessDescription,
+                note = strings.gaplessBetaNote,
+                checked = gaplessEnabled,
+                onCheckedChange = {
+                    gaplessEnabled = it
+                    prefs.edit().putBoolean("gapless_playback", it).apply()
+                    // 即时生效: VM 缓存的 gaplessEnabled 不刷新的话,
+                    // 本首歌的预载状态与开关不一致, 要等下一首歌才对上
+                    playerViewModel.refreshGaplessSetting()
                 }
             )
             Spacer(Modifier.height(24.dp))
@@ -602,15 +605,18 @@ private fun SectionTitle(text: String) {
 }
 
 /**
- * 开关设置行：标题与 Switch 同一行垂直居中，描述（可选）另起一行。
+ * 开关设置行：标题与 Switch 同一行垂直居中，描述（可选）与提示（可选）另起一行。
  * 描述不参与对齐，避免 Switch 被顶到与描述顶部对齐。
+ *
+ * [note] 用主题色小字单独一行，给「测试中，可能不稳定」这类实验性提示，与灰色描述区分开。
  */
 @Composable
 private fun SettingSwitchRow(
     title: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    description: String? = null
+    description: String? = null,
+    note: String? = null
 ) {
     Row(
         modifier = Modifier
@@ -631,6 +637,16 @@ private fun SettingSwitchRow(
         MetroText(
             description,
             color = LocalMetroColors.current.onSurfaceVariant,
+            style = LocalMetroTypography.current.caption,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 4.dp)
+        )
+    }
+    if (note != null) {
+        MetroText(
+            note,
+            color = LocalMetroColors.current.primary,
             style = LocalMetroTypography.current.caption,
             modifier = Modifier
                 .fillMaxWidth()

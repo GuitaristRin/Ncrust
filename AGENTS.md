@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. It reflects the code as of **v1.3.2** (`versionCode = 7`). When in doubt, the source wins — update this file if you find a stale claim.
+This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. It reflects the code as of **v1.4.0** (`versionCode = 8`). When in doubt, the source wins — update this file if you find a stale claim.
 
 **Monorepo.** This repository now hosts more than the Android app: `windows/` (the Windows client, UWP + WinUI 2) and `spec/` (cross-platform spec + test fixtures). Everything below except *Repository Layout* and *Commit Convention* describes the **Android app** only. Working in `windows/`? Read **`windows/AGENTS.md`** — it is canonical there.
 
@@ -61,7 +61,7 @@ Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` /
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
 - Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → upload `ncrust-android-universal-X.Y.Z.apk` to the current rolling release train (`CrateStack-*`), or open a new one if none exists today (`gh release create CrateStack-YYYYMMDD<A> --latest=false`) → user smoke-tests and publishes manually. Train/tag scheme and asset naming live in `docs/RELEASES.md`. Hotfixes may swap same-name assets in place without a version bump, provided the release notes say so.
-- Current: `versionName = "1.3.2"`, `versionCode = 7`. Latest release: Android 1.3.2 in train `CrateStack-20260928A` (2026-09-28).
+- Current: `versionName = "1.4.0"`, `versionCode = 8` (小屏高度档 + 上游焦点框 + 更新链路加固 + 无缝播放默认关闭；**尚未发布**). Latest release: Android 1.3.2 in train `CrateStack-20260928A` (2026-09-28).
 
 ## Commit Convention
 
@@ -94,7 +94,7 @@ Ncrust is a third-party NetEase Cloud Music (网易云音乐) Android client bui
 2. **GPU zero-recomposition** — animations driven by a single `progress: Float` through `graphicsLayer`, not state-driven recomposition.
 3. **Three-layer graphics architecture** — main page / player card / navigation bar are independent composable layers, enabling gesture transitions without interference.
 
-Feature surface at v1.3.2: home discovery (daily songs / recommended playlists / new songs / private FM), three-type search with 500 ms debounce + history, cloud-synced library (liked songs / subscribed albums / user playlists), song share + external link receiving, full-screen player with gapless playback and a 7-level quality ladder, 5 playback modes, bilingual lyrics, system media controls + Android Auto / Automotive, WebView + QR login, runtime theming (6 colors × 3 modes), and 8 runtime languages.
+Feature surface at v1.4.0: home discovery (daily songs / recommended playlists / new songs / private FM), three-type search with 500 ms debounce + history, cloud-synced library (liked songs / subscribed albums / user playlists), song share + external link receiving, full-screen player with a 7-level quality ladder (gapless preload is opt-in and experimental as of 1.4.0), 5 playback modes, bilingual lyrics, system media controls + Android Auto / Automotive, WebView + QR login, runtime theming (6 colors × 3 modes), and 8 runtime languages.
 
 ## Terminology: Kanesumi Design
 
@@ -171,7 +171,7 @@ When editing UI, prefer Kanesumi components/presets. **Do not batch-refactor exi
 
 ### Animation Pattern
 
-The player card uses a single `progress: Float` driven by `Animatable`. All visual properties (card size, position, opacity) are computed inside `graphicsLayer { }` — **never `animateFloatAsState`**. This is the core GPU zero-recomposition pattern. Easing is `tween + CubicBezierEasing` (controlled deceleration, no spring/bounce). Cover art always fills the full screen width with no clipping; transitions use centre-based `TransformOrigin(0.5f, 0.5f)` with computed translations.
+The player card uses a single `progress: Float` driven by `Animatable`. All visual properties (card size, position, opacity) are computed inside `graphicsLayer { }` — **never `animateFloatAsState`**. This is the core GPU zero-recomposition pattern. Easing is `tween + CubicBezierEasing` (controlled deceleration, no spring/bounce). Narrow-player covers remain full-width at the original anchor on Regular phones with sufficient space; Compact / Tiny covers shrink to the measured available height and are horizontally centred. All tiers reserve the measured title and controls; transitions retain centre-based `TransformOrigin(0.5f, 0.5f)` and the existing interpolation formulas and timings.
 
 For anything that is *not* the player card, use the Kanesumi `sokuou` presets (`SokuouTweens.CoverFade`, `SokuouPresets.*`, `mapRange`/`mapRangeClamped`) instead of ad-hoc `tween(...)`.
 
@@ -318,9 +318,9 @@ To add a locale: create `xx_XX.kt` with a `Strings(...)` and add a `LanguagePres
 
 ## Key Constraints & Pitfalls
 
-- **Kanesumi Design**: no rounded corners in the player; no spring/bounce; cover always fills the full screen width (`fillMaxWidth().aspectRatio(1f)`, scale 1.0 in large mode).
+- **Kanesumi Design / height adaptation**: no rounded corners in the player; no spring/bounce. `LocalHeightClass` is provided across MainScreen's content tree from the same `contentHeightPx` as `collapsedOffsetY` (Regular ≥720dp, Compact ≥560dp, Tiny <560dp). Regular narrow-player covers stay full-width where space permits (384×896 keeps the original anchor); Compact / Tiny shrink and centre using measured content, top bar, controls and title heights. Measurements are read in layout / graphicsLayer, never per-frame composition. Compact uses compact controls; Tiny merges time / progress and moves panel toggles to the top bar. Lyrics typography is 32/42/20/26, 24/32/16/21, 20/27/14/18sp respectively.
 - **GPU zero-recomposition**: read animation values only inside `graphicsLayer`; never `animateFloatAsState` for the player card. High-frequency StateFlows are subscribed in leaf composables / `draw` scope, not in the parent.
-- **PlayerCard collapse gating**: below `progress = 0.05`, heavy children (LyricsView / QueueView / FullPlayerControls) are disposed.
+- **PlayerCard collapsed state**: LyricsView / QueueView / FullPlayerControls remain mounted; visibility is graphicsLayer alpha, input is threshold-gated. Below `progress = 0.01`, the position / progress flows feeding the hidden children are frozen; expansion resumes current values. Do not restore mount/dispose gating on expansion.
 - **Borderless list style**: `SongCard` LIST/COMPACT rows have `0dp` left padding (72dp cover flush to the edge); only the right keeps 16dp. `DetailScaffold` has no `TopAppBar` Surface — a floating back arrow (`MetroTopScrim`) overlays the content. Grid tiles use `spacedBy(2.dp)`. Home/Library use a 34sp page header instead of an app bar.
 - **Bottom overlay inset**: the mini bar (56dp) sits above the M3-era 80dp nav bar, drawn as a sibling overlay, so `Scaffold.innerPadding.bottom` does **not** reserve space for them. Use `BottomOverlayInsetDp` as `contentPadding`.
 - **System-bar compensation**: `collapsedOffsetY = contentHeightPx - sysNavPx - navBarHeightPx(56/0) - miniBarHeightPx(56) - sysStatusPx`. `sysStatusPx` cancels the `.statusBarsPadding()` applied inside `PlayerCard` to the mini-bar overlay. **Automotive (AAOS) caveat**: CarSystemUI does not deliver WindowInsets, so on `UI_MODE_TYPE_CAR` the content height comes from the measured root height (`rootHeightPx`), not `screenHeightDp`; phone/tablet keep `screenHeightDp` so car changes don't leak. Touch any of these values carefully.
@@ -328,6 +328,7 @@ To add a locale: create `xx_XX.kt` with a `Strings(...)` and add a `LanguagePres
 - **No explicit coroutines dependency**: coroutines ship with the Kotlin stdlib configuration here.
 - **Gson 反射 vs R8（v1.3.2 首版启动闪退的根因）**: R8 会剪掉未被 `-keep` 的类的字段 `Signature` 注解，Gson 反序列化时泛型字段退化为裸 `List`，元素全部变成 `LinkedTreeMap`，第一次按真实类型访问元素就 `ClassCastException`。含泛型字段的持久化模型，元素类型必须由「匿名 `TypeToken`」显式携带（`PlaybackStateManager` 的 `songListType`、`LibraryManager` 的各 `*Type` 同此），或把模型加进 `-keep` 规则；**绝不让 Gson 反射整个未 keep 的 data class**。播放会话落盘用显式键信封（`PlaybackStateManager.serializeSession`/`parseSession`，键名写死在代码里），`PlaybackSessionStoreTest` 锁住该格式。
 - **`ContentCache` is not persisted**; `LibraryManager` is the persistence layer.
+- **Gapless preload is opt-in (1.4.0)**: `gapless_playback` defaults to **false** in both `PlayerViewModel.refreshGaplessSetting()` and `preloadNext()`. The feature is advertised as experimental (`gaplessBetaNote`: 「测试中，可能不稳定」) and its switch sits last in the playback settings section. Do not flip the default back to `true`, and never treat a missing key as enabled — only an explicit user opt-in may preload into the ExoPlayer queue.
 - **Stale comments**: some comments say "last 20 s" for the gapless preload window (actual 60 s) and "4 Hz" for progress ticks (actual 2 Hz). Trust the code.
 - **`SongDetailScreen` / `NavRoutes.song(...)` are registered but unreachable** — clipboard song links load into the player instead.
 - **`ncrust-api/` is not part of the app** — see Repository Layout.

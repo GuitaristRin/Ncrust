@@ -26,6 +26,7 @@ val deDE = Strings(
     playbackSectionTitle = "Wiedergabe",
     gaplessSectionTitle = "Nahtlose Wiedergabe",
     gaplessDescription = "Nächsten Titel vorladen, um Lücken zu vermeiden",
+    gaplessBetaNote = "In Erprobung – kann instabil sein",
     lyricsTranslationLabel = "Liedtext-Übersetzung",
     themeSectionTitle = "Farbschema",
     themeModeSectionTitle = "Erscheinungsbild",

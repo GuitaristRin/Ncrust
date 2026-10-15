@@ -26,6 +26,7 @@ val zhTW = Strings(
     playbackSectionTitle = "播放",
     gaplessSectionTitle = "無縫而歌",
     gaplessDescription = "預載下曲，去其隙縫",
+    gaplessBetaNote = "試用中，或有不穩",
     lyricsTranslationLabel = "歌詞翻譯",
     themeSectionTitle = "裳色",
     themeModeSectionTitle = "主題模式",

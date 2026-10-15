@@ -30,6 +30,8 @@ data class Strings(
     val playbackSectionTitle: String,
     val gaplessSectionTitle: String,
     val gaplessDescription: String,
+    /** 无缝播放的实验性提示：默认关闭，标注「测试中，可能不稳定」。 */
+    val gaplessBetaNote: String,
     val lyricsTranslationLabel: String,
     val themeSectionTitle: String,
     val themeModeSectionTitle: String,

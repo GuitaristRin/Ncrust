@@ -26,6 +26,7 @@ val jpMY = Strings(
     playbackSectionTitle = "再世",
     gaplessSectionTitle = "無間 再世",
     gaplessDescription = "次 予読 隙 無",
+    gaplessBetaNote = "試 中 安 定 難",
     lyricsTranslationLabel = "歌詞 翻訳",
     themeSectionTitle = "主題色",
     themeModeSectionTitle = "主題 様",
