@@ -31,6 +31,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -38,6 +39,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -48,6 +50,8 @@ import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.QueueModes
+import com.takahashirinta.ncrust.ui.HeightClass
+import com.takahashirinta.ncrust.ui.LocalHeightClass
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouTweens
@@ -142,20 +146,58 @@ fun PlayerCard(
     var cardRootOrigin by remember { mutableStateOf(Offset.Zero) }
     var wideCoverCenter by remember { mutableStateOf(Offset.Zero) }
     var wideCoverSizePx by remember { mutableStateOf(0f) }
+    // 窄屏封面按高度适配所需的两个实测值（见 CoverGeometry.kt）：控件区高度、歌名块高度。
+    // 都只在布局阶段由 onSizeChanged 写一次，不是逐帧值——读进 composition 只在实测结果
+    // 真正变化时重组一次，不引入逐帧重组。
+    var narrowControlsHeightPx by remember { mutableFloatStateOf(0f) }
+    var narrowTitleHeightPx by remember { mutableFloatStateOf(0f) }
+    val heightClass = LocalHeightClass.current
+    // 歌词排版按档缩放：Regular 保持 32/42/20/26sp（面板自带默认值），矮屏用更小的
+    // 字号与行距换行数——E5 档（427x640dp）歌词区约 374dp 高，Compact 档一行含译文
+    // 53dp ⇒ 约 7 行，满足「至少 5 行」。
+    val lyricsType = lyricsTypographyFor(heightClass)
+    val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        .let { with(density) { it.toPx() } }
+    // 系统导航栏高度：contentHeightPx 是整屏高（含系统栏），控件区底边要减掉它才落到
+    // 卡片坐标系里。车机 WindowInsets 为 0，天然不参与。
+    val sysNavPx = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        .let { with(density) { it.toPx() } }
+    val topBarHeightPx = with(density) { 56.dp.toPx() }
+    // 控件区上方那个 Spacer 的高度（下方窄屏分支里的 16.dp）——封面可用带的底边要连它一起让开。
+    val controlsTopGapPx = with(density) { 16.dp.toPx() }
+    // 窄屏大封面几何：边长取「可用宽度」与「可用高度扣掉顶栏 / 控件区 / 歌名块 / 最小留白」
+    // 的较小值，水平居中；纵向沿用既有锚点（0.3 屏高 + 24dp），只有会越出可用带时才夹进去。
+    // Regular 档在 384x896dp 上算出来仍是满宽 + 同一锚点 ⇒ 外观与改动前逐像素相同。
+    val narrowCover = narrowCoverGeometry(
+        availableWidthPx = screenWidthPx,
+        // 内容区底边（卡片根坐标）：整屏高减掉系统导航栏。与 collapsedOffsetY 同源——
+        // MainActivity 传进来的 contentHeightPx 车机走根布局实测、其余设备走 screenHeightDp；
+        // 车机 WindowInsets 为 0，这里减不减都一样。
+        contentHeightPx = screenHeightPx - sysNavPx,
+        topBarBottomPx = statusBarPx + topBarHeightPx,
+        // 控件区 = 实测控件高度 + 它与面板之间的 16dp Spacer：封面可用带的底边要把这两块
+        // 一起让开，否则封面会压进那条缝里。
+        controlsHeightPx = narrowControlsHeightPx + controlsTopGapPx,
+        // 歌名块就压在封面同一段空间的底部，不留出来封面按高度放大后必然盖住歌名。
+        // Regular 档留 0：满宽封面的下边本来就够不到歌名，留了反而把「满宽」判掉。
+        titleReservePx = if (heightClass == HeightClass.Regular) 0f else narrowTitleHeightPx,
+        minGapPx = with(density) { 12.dp.toPx() },
+        preferredCenterYPx = screenHeightPx * 0.3f + dp24px
+    )
     val coverSizePx = if (isWidePlayer) {
         // 实测前用兜底尺寸，避免首帧 1px 让 Coil 按 1px 解码成纯色（重进时尤为明显）。
         if (wideCoverSizePx > 0f) wideCoverSizePx
         else minOf(screenWidthPx * 0.4f, screenHeightPx * 0.5f)
-    } else screenWidthPx
+    } else narrowCover.sizePx
     val coverSizeDp = with(density) { coverSizePx.toDp() }
     val miniCoverHalfPx = with(density) { 28.dp.toPx() }
-    val miniScale = miniCoverHalfPx * 2f / coverSizePx
-    val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        .let { with(density) { it.toPx() } }
+    // coerceAtLeast(1f)：极端窄屏（可用带被夹成 0）时 coverSizePx 为 0，除零会得到
+    // Infinity 缩放，整个 graphicsLayer 就废了。正常档位下这个下限不生效。
+    val miniScale = miniCoverHalfPx * 2f / coverSizePx.coerceAtLeast(1f)
     val miniCoverCenterX = miniCoverHalfPx
     val miniCoverCenterY = statusBarPx + miniCoverHalfPx
-    val largeCoverCenterX = if (isWidePlayer) wideCoverCenter.x else screenWidthPx / 2f
-    val largeCoverCenterY = if (isWidePlayer) wideCoverCenter.y else screenHeightPx * 0.3f + dp24px
+    val largeCoverCenterX = if (isWidePlayer) wideCoverCenter.x else narrowCover.centerXPx
+    val largeCoverCenterY = if (isWidePlayer) wideCoverCenter.y else narrowCover.centerYPx
     val boundsCenter = coverSizePx / 2f
 
     // 下面几个阈值布尔一律保存为 State 对象、只在 [ThresholdScope] 里读：derivedStateOf 只在阈值穿越时
@@ -412,6 +454,36 @@ fun PlayerCard(
             if (hasSong) {
                 val s = song!!
 
+                // 切换行三个动作：Tiny 档同一组动作要同时挂到顶栏（控件区那一行被省掉），
+                // 抽成局部 lambda 保证两处行为一字不差——尤其 onToggleLyrics 里那次
+                // retryLyrics，复制一份迟早会漏。
+                val onToggleLyricsAction: () -> Unit = {
+                    val nowReady = lyricsReady
+                    showLyrics = !showLyrics
+                    showQueue = false
+                    // 未就绪(失败/尚未成功)时点击 = 触发一次重新加载，
+                    // 不必切歌才能恢复歌词。
+                    if (!nowReady && !lyricsLoading) playerViewModel.retryLyrics()
+                }
+                val onToggleQueueAction: () -> Unit = {
+                    showQueue = !showQueue
+                    showLyrics = false
+                }
+                val onAddToLibraryAction: () -> Unit = {
+                    val cur = song
+                    if (cur != null) {
+                        // 已在库 → 移出; 不在库 → 收藏。本地即时生效, 云端异步同步。
+                        if (LibraryManager.isSongSaved(context, cur.id)) {
+                            LibraryManager.removeSong(context, cur.id)
+                            Toast.makeText(context, strings.removedFromLibrary, Toast.LENGTH_SHORT).show()
+                        } else {
+                            LibraryManager.saveSong(context, cur)
+                            Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                        }
+                        libraryTick++
+                    }
+                }
+
                 // 底部播放控件（窄屏整宽 / 宽屏左栏共用）。常挂载，alpha 只在 draw 阶段调。
                 val playerControls: @Composable () -> Unit = {
                     FullPlayerControls(
@@ -427,32 +499,9 @@ fun PlayerCard(
                         onPlayPause = onPlayPause,
                         onPlayPrevious = onPlayPrevious,
                         onPlayNext = onPlayNext,
-                        onToggleLyrics = {
-                            val nowReady = lyricsReady
-                            showLyrics = !showLyrics
-                            showQueue = false
-                            // 未就绪(失败/尚未成功)时点击 = 触发一次重新加载，
-                            // 不必切歌才能恢复歌词。
-                            if (!nowReady && !lyricsLoading) playerViewModel.retryLyrics()
-                        },
-                        onToggleQueue = {
-                            showQueue = !showQueue
-                            showLyrics = false
-                        },
-                        onAddToLibrary = {
-                            val cur = song
-                            if (cur != null) {
-                                // 已在库 → 移出; 不在库 → 收藏。本地即时生效, 云端异步同步。
-                                if (LibraryManager.isSongSaved(context, cur.id)) {
-                                    LibraryManager.removeSong(context, cur.id)
-                                    Toast.makeText(context, strings.removedFromLibrary, Toast.LENGTH_SHORT).show()
-                                } else {
-                                    LibraryManager.saveSong(context, cur)
-                                    Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
-                                }
-                                libraryTick++
-                            }
-                        },
+                        onToggleLyrics = onToggleLyricsAction,
+                        onToggleQueue = onToggleQueueAction,
+                        onAddToLibrary = onAddToLibraryAction,
                         isInLibrary = isSongSaved,
                         isBufferingFlow = playerViewModel.isBuffering,
                         onSeek = { fraction ->
@@ -464,7 +513,10 @@ fun PlayerCard(
                         onNavigateToUser = onNavigateToUser,
                         lyricsUnavailable = lyricsUnavailable,
                         previousEnabled = playMode != QueueModes.INFINITY,
-                        landscape = isWidePlayer
+                        // 宽屏左栏一直走横向布局；窄屏按高度档收紧（Regular 不变）。
+                        landscape = isWidePlayer,
+                        compact = !isWidePlayer && heightClass != HeightClass.Regular,
+                        tiny = !isWidePlayer && heightClass == HeightClass.Tiny
                     )
                 }
 
@@ -505,6 +557,10 @@ fun PlayerCard(
                                     enabled = interactive,
                                     onUserScrolled = {},
                                     isLoading = lyricsLoading,
+                                    fontSize = lyricsType.fontSize,
+                                    lineHeight = lyricsType.lineHeight,
+                                    translationFontSize = lyricsType.translationFontSize,
+                                    translationLineHeight = lyricsType.translationLineHeight,
                                 )
                                 }
                             }
@@ -959,6 +1015,24 @@ private fun ThresholdScope(state: State<Boolean>, content: @Composable (Boolean)
 
 // 新封面超过该阈值仍未就绪，才退化为纯色占位（"实在不出来再禁用"）。
 private const val COVER_HOLD_MS = 400L
+
+/** 歌词面板的排版尺寸（sp）。 */
+private data class LyricsTypography(
+    val fontSize: TextUnit,
+    val lineHeight: TextUnit,
+    val translationFontSize: TextUnit,
+    val translationLineHeight: TextUnit
+)
+
+/**
+ * 歌词排版按高度档取值。数值来自调研文档（32/42/20/26 → 24/32/16/21 → 20/27/14/18sp），
+ * 未做逐档实测微调——派工者若在真机上觉得行距仍偏大，改这里的四个数即可，无需动 Kanesumi。
+ */
+private fun lyricsTypographyFor(heightClass: HeightClass): LyricsTypography = when (heightClass) {
+    HeightClass.Regular -> LyricsTypography(32.sp, 42.sp, 20.sp, 26.sp)
+    HeightClass.Compact -> LyricsTypography(24.sp, 32.sp, 16.sp, 21.sp)
+    HeightClass.Tiny -> LyricsTypography(20.sp, 27.sp, 14.sp, 18.sp)
+}
 
 /**
  * 切歌不闪的封面。Coil 的 [AsyncImagePainter] 在 model 变化时先进入 loading 态、

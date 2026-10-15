@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.lyric.LrcLine
@@ -55,6 +56,12 @@ fun LyricsView(
     onUserScrolled: () -> Unit = {},
     // 歌词是否仍在加载：加载中且暂无内容时留空，避免切歌瞬间闪一下"暂无歌词"。
     isLoading: Boolean = false,
+    // 排版按高度档传入（PlayerCard 依 LocalHeightClass 给值）：默认值 = Regular 档的
+    // 32/42/20/26sp，与 Kanesumi 面板自带默认值一致，改动前观感不变。
+    fontSize: TextUnit = 32.sp,
+    lineHeight: TextUnit = 42.sp,
+    translationFontSize: TextUnit = 20.sp,
+    translationLineHeight: TextUnit = 26.sp,
 ) {
     val strings = LocalStrings.current
     if (lyrics.isEmpty()) {
@@ -148,6 +155,10 @@ fun LyricsView(
             // 浅色底上白色已播行会看不见。这里改用语义色。
             pastLineColor = LocalMetroColors.current.onBackground.copy(alpha = 0.6f),
             futureLineColor = LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.4f),
+            fontSize = fontSize,
+            lineHeight = lineHeight,
+            translationFontSize = translationFontSize,
+            translationLineHeight = translationLineHeight,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),

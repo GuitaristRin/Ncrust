@@ -69,6 +69,9 @@ import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
 import com.takahashirinta.ncrust.ui.components.TopScrimIconButton
 import com.takahashirinta.ncrust.ui.components.UpdateNavDot
+import com.takahashirinta.ncrust.ui.HeightClass
+import com.takahashirinta.ncrust.ui.LocalHeightClass
+import com.takahashirinta.ncrust.ui.heightClassFor
 import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
 import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
@@ -373,6 +376,11 @@ fun MainScreen(
     // WindowInsets 全为 0、screenHeightDp 又对不上）；手机/平板沿用 screenHeightDp，
     // 保持车机改动之前的行为。实测前先用整屏过渡。
     val contentHeightPx = if (isAutomotive && rootHeightPx > 0f) rootHeightPx else screenHeightPx
+
+    // 高度档：**与 collapsedOffsetY 同一个高度来源**（车机走根布局实测、其余设备走
+    // screenHeightDp）。两处若各算各的，车机上会出现"miniBar 落点按实测高度、档位按
+    // screenHeightDp"的错位——矮屏车机会被判成 Regular，播放器又退回满宽封面。
+    val heightClass = heightClassFor(with(density) { contentHeightPx.toDp().value })
 
     // miniBar 底 = navBar 顶。手机/平板系统栏由 WindowInsets 给出；车机内容区已被系统
     // inset（WindowInsets 为 0），公式一致，区别只在 contentHeightPx 的取法。
@@ -1322,6 +1330,9 @@ fun MainScreen(
         // Scaffold's SongCards from receiving events when the player is fully expanded.
         // zIndex(1f) ensures it renders above Scaffold (default zIndex=0) despite being listed first.
         Box(modifier = Modifier.fillMaxSize().zIndex(1f)) {
+        // 高度档注入点：播放器卡片（S1）只读档位。列表页 / 底部导航（S2）需要时把
+        // provider 上提到整块内容区即可，档位值本身已经在 MainScreen 顶层算好。
+        CompositionLocalProvider(LocalHeightClass provides heightClass) {
         PlayerCardOverlay(
             song = currentSong,
             isPlaying = isPlaying,
@@ -1375,6 +1386,7 @@ fun MainScreen(
                 }
             }
         )
+        } // end CompositionLocalProvider(LocalHeightClass)
         } // end PlayerCardOverlay wrapper
 
         // 宽屏左侧常驻导航（Apple Music 式）：背景铺满整高(含状态栏后)，内容自行
