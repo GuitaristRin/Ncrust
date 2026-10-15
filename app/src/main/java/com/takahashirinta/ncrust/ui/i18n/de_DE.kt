@@ -114,6 +114,10 @@ val deDE = Strings(
     playNowDesc = "Aktuelle Warteschlange leeren und abspielen",
     insertNextTitle = "Als Nächstes abspielen",
     insertNextDesc = "Sofort nach dem aktuellen Titel abspielen",
+    appendQueueTitle = "Zuletzt abspielen",
+    appendQueueDesc = "An das Ende der aktuellen Warteschlange anhängen",
+    loadingSongsCount = { "$it Songs werden geladen…" },
+    playAllPartial = { "$it Songs konnten nicht geladen werden; die übrigen werden verwendet" },
 
     aboutTitle = "Über Ncrust",
     aboutAppSubtitle = "Inoffizieller NetEase Cloud Music Client",

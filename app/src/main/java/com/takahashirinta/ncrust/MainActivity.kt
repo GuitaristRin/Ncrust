@@ -1355,6 +1355,11 @@ fun MainScreen(
                             },
                             onSongInsertNext = { insertNext(it) },
                             onSongAppendToQueue = { appendToQueue(it) },
+                            // 「单曲」整列播放：用现成的批量队列函数，playbackQueue[currentQueueIndex]
+                            // 不变量由它们自己维护，这里不重造队列逻辑。
+                            onPlayAllSongs = { replaceQueueAndPlay(it) },
+                            onInsertAllSongsNext = { insertAllNext(it) },
+                            onAppendAllSongs = { appendAllToQueue(it) },
                             onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
                             refreshTrigger = cookieRefreshTrigger
                         )

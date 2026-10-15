@@ -114,6 +114,10 @@ val ruRU = Strings(
     playNowDesc = "Очистить текущую очередь и начать воспроизведение",
     insertNextTitle = "Следующим",
     insertNextDesc = "Играть сразу после текущего трека",
+    appendQueueTitle = "В конец очереди",
+    appendQueueDesc = "Добавить в конец текущей очереди",
+    loadingSongsCount = { "Загрузка $it песен…" },
+    playAllPartial = { "Не удалось загрузить $it песен; используются полученные" },
 
     aboutTitle = "О Ncrust",
     aboutAppSubtitle = "Неофициальный клиент NetEase Cloud Music",

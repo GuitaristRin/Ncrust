@@ -114,6 +114,10 @@ val en = Strings(
     playNowDesc = "Clear current queue and start playing",
     insertNextTitle = "Play Next",
     insertNextDesc = "Play immediately after the current track",
+    appendQueueTitle = "Play Last",
+    appendQueueDesc = "Append to the end of the current queue",
+    loadingSongsCount = { "Loading $it songs…" },
+    playAllPartial = { "$it songs could not be loaded; using the ones fetched" },
 
     aboutTitle = "About Ncrust",
     aboutAppSubtitle = "Unofficial NetEase Cloud Music client",

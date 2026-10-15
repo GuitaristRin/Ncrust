@@ -133,6 +133,13 @@ data class Strings(
     val playNowDesc: String,
     val insertNextTitle: String,
     val insertNextDesc: String,
+    val appendQueueTitle: String,
+    val appendQueueDesc: String,
+
+    // Library「单曲」整列播放：全量详情是按红心 id 表分批补的，期间要有加载反馈，
+    // 部分批次失败时按实际拿到的曲目执行并如实提示。
+    val loadingSongsCount: (Int) -> String,
+    val playAllPartial: (Int) -> String,
 
     // About
     val aboutTitle: String,

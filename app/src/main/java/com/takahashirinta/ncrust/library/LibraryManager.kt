@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * 云同步收藏库。
@@ -469,6 +470,66 @@ object LibraryManager {
 
     /** 红心歌单全部单曲 id（有序），供收藏页做分页懒加载的底表。 */
     fun getLikedSongIds(context: Context): List<Long> = ensureLikedIdsLoaded(context)
+
+    // 整列播放补详情时的分批上界：eapi `/v3/song/detail` 的 `c` 数组过长会被网关拒掉
+    // （414/超时），500 是留了余量的可用上界。与分页首屏的 LIKED_BATCH_SIZE=50 不是一回事，
+    // 后者是 UI 每屏渲染量，别拿它当网络批次。
+    internal const val LIKED_FETCH_BATCH_SIZE = 500
+
+    /**
+     * 「我喜欢的音乐」全量详情，供「播放全部 / 插播全部 / 追加到队列」用。
+     *
+     * 顺序以红心 id 表（[getLikedSongIds]）为准——它才是全量且有序的底表；
+     * `cachedSongs` 只是已分页加载的前若干首。
+     *
+     * 刻意**不把全量写回** `cachedSongs`：那是 UI 的分页状态，灌进全量会让分页窗口错位
+     * （`loadMoreLikedSongs` 按 size 切片，会以为后面几批已经加载过而永不补拉）。
+     * 这里只读缓存当命中源。
+     *
+     * id 表为空（未登录 / 未同步）时退回 [getSavedSongs] 的本地列表。批次失败时返回已拿到的
+     * 部分而不抛异常，调用方用 `result.size < getLikedSongIds().size` 判断是否要提示。
+     */
+    suspend fun loadAllLikedSongs(context: Context): List<SongItem> = withContext(Dispatchers.IO) {
+        val ids = ensureLikedIdsLoaded(context)
+        if (ids.isEmpty()) return@withContext getSavedSongs(context)
+        val cachedById = synchronized(songsLock) { ensureSongsLoaded(context).associateBy { it.id } }
+        val songs = assembleLikedSongs(ids, cachedById) { batch -> PlaylistApi.getSongsByIds(batch) }
+        // 只在驱动层打日志：纯函数里碰 android.util.Log 会让它跑不了 JVM 单测。
+        if (songs.size < ids.size) {
+            Log.w(TAG, "loadAllLikedSongs: ${songs.size}/${ids.size}, ${ids.size - songs.size} id(s) without detail")
+        }
+        songs
+    }
+
+    /**
+     * 按 id 表顺序拼装单曲：命中 [cached] 的 id 直接取，缺失的按 [batchSize] 分批交给 [fetchBatch]，
+     * 取不到详情的 id 直接跳过（不占位、不编数据）。单批抛异常只丢那一批，其余照常返回。
+     *
+     * 纯函数（无 Context / 无网络 / 不碰 android.util.Log），JVM 单测靠它锁住保序、分批与缓存命中。
+     * 取消异常必须原样抛出，否则协程被取消后这里还会跑完整个批次循环。
+     */
+    internal suspend fun assembleLikedSongs(
+        ids: List<Long>,
+        cached: Map<Long, SongItem>,
+        batchSize: Int = LIKED_FETCH_BATCH_SIZE,
+        fetchBatch: suspend (List<Long>) -> List<SongItem>
+    ): List<SongItem> {
+        val missing = ids.filter { it !in cached }
+        val fetched = HashMap<Long, SongItem>()
+        for (batch in missing.chunked(batchSize.coerceAtLeast(1))) {
+            val songs = try {
+                fetchBatch(batch)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyList()
+            }
+            // 只认本批请求过的 id：接口异常时可能返回错序/多余的项，不能让它们混进队列。
+            val wanted = batch.toHashSet()
+            for (song in songs) if (song.id in wanted) fetched[song.id] = song
+        }
+        return ids.mapNotNull { cached[it] ?: fetched[it] }
+    }
 
     /**
      * 分页拉取下一批收藏单曲详情（滚动到底时调用）。会追加进本地缓存并返回新渲染项。

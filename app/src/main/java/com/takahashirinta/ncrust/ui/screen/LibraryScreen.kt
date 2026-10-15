@@ -22,6 +22,7 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -45,6 +46,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import com.takahashirinta.ncrust.ui.components.PlayAllButton
+import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
@@ -62,6 +64,11 @@ fun LibraryScreen(
     onSongInsertNext: (SongItem) -> Unit = {},
     onSongAppendToQueue: (SongItem) -> Unit = {},
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
+    // 「单曲」tab 的整列操作：全量曲目由本屏按红心 id 表补齐（分页列表只有已加载的首页），
+    // 拿到之后仍然交给 MainScreen 既有的队列函数，别在这里自己拼队列。
+    onPlayAllSongs: (List<SongItem>) -> Unit = {},
+    onInsertAllSongsNext: (List<SongItem>) -> Unit = {},
+    onAppendAllSongs: (List<SongItem>) -> Unit = {},
     refreshTrigger: Int = 0
 ) {
     val context = LocalContext.current
@@ -78,6 +85,39 @@ fun LibraryScreen(
     var playlists by remember { mutableStateOf<List<PlaylistApi.PlaylistInfo>>(emptyList()) }
     var isLoadingPlaylists by remember { mutableStateOf(false) }
     var playlistError by remember { mutableStateOf<String?>(null) }
+
+    // 整列播放：全量详情按红心 id 表分批补齐（N 首可能上千，非瞬时），期间按钮禁用 + 文案变化，
+    // 结束后才弹 PlayAllDialog——绝不让对话框里出现"点了没反应"的空白期。
+    var isLoadingAllSongs by remember { mutableStateOf(false) }
+    var loadingAllSongsTotal by remember { mutableIntStateOf(0) }
+    var playAllSongs by remember { mutableStateOf<List<SongItem>?>(null) }
+
+    fun startPlayAll() {
+        if (isLoadingAllSongs) return
+        coroutineScope.launch {
+            isLoadingAllSongs = true
+            try {
+                // id 表长度即这次要补的曲目数；未登录/未同步时为 0（退回本地列表），文案改用通用 loading。
+                val expected = LibraryManager.getLikedSongIds(context).size
+                loadingAllSongsTotal = expected
+                // loadAllLikedSongs 内部走 Dispatchers.IO，主线程不被拖住。
+                val songs = LibraryManager.loadAllLikedSongs(context)
+                if (songs.isEmpty()) {
+                    Toast.makeText(context, strings.noSavedSongs, Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                // 批次失败或曲目已下架时只拿到一部分：如实提示，不假装全拿到了。
+                if (expected > songs.size) {
+                    Toast.makeText(context, strings.playAllPartial(expected - songs.size), Toast.LENGTH_LONG).show()
+                }
+                playAllSongs = songs
+            } finally {
+                // 异常退出也要复位，否则按钮永远停在"加载中"。
+                isLoadingAllSongs = false
+            }
+        }
+    }
+
     fun loadPlaylists() {
         coroutineScope.launch {
             isLoadingPlaylists = true
@@ -143,6 +183,17 @@ fun LibraryScreen(
             }
     }
 
+    // 全量曲目到手后才弹对话框：三项动作都作用于这一份完整列表，而不是已加载的那一页。
+    playAllSongs?.let { songs ->
+        PlayAllDialog(
+            songCount = songs.size,
+            onDismiss = { playAllSongs = null },
+            onReplaceAndPlay = { onPlayAllSongs(songs) },
+            onInsertNext = { onInsertAllSongsNext(songs) },
+            onAppendToQueue = { onAppendAllSongs(songs) }
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
     ResponsiveContent {
         // 背景由 MainScreen 外层 Box 统一填充，此处不重复画一层
@@ -202,11 +253,23 @@ fun LibraryScreen(
                                 }
                             )
                         }
-                        if (savedSongs.isEmpty()) {
+                        // 红心 id 表才是全量（savedSongs 只是已分页加载的首页）。
+                        // 未登录/未同步时 id 表为空，退回本地已存列表，故两者取其一判断"有没有东西可放"。
+                        val likedIdCount = LibraryManager.getLikedSongIds(context).size
+                        val playAllCount = if (likedIdCount > 0) likedIdCount else savedSongs.size
+                        if (savedSongs.isEmpty() && likedIdCount == 0) {
                             Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
                                 MetroText(strings.noSavedSongs, color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodyLarge)
                             }
                         } else {
+                            LibraryPlayAllRow(
+                                songCount = playAllCount,
+                                isLoading = isLoadingAllSongs,
+                                loadingLabel = if (loadingAllSongsTotal > 0)
+                                    strings.loadingSongsCount(loadingAllSongsTotal)
+                                else strings.loading,
+                                onClick = { startPlayAll() }
+                            )
                             LazyColumn(
                                 modifier = Modifier.fillMaxWidth().weight(1f),
                                 state = songListState,
@@ -342,6 +405,56 @@ fun LibraryScreen(
         }
     }
 
+    }
+}
+
+/**
+ * 「单曲」tab 顶部的整列播放入口。
+ *
+ * 复用专辑/歌单 tab 的 [PlayAllButton]（Kanesumi 里刻意做成圆形，用户决策），视觉上与网格
+ * 卡片右下角那颗是同一个控件；这里多一行文案，因为歌曲列表没有封面可以承载它。
+ * 加载期间按钮降透明度 + 禁用、副标题变「正在加载 N 首…」，避免点了没反应。
+ */
+@Composable
+private fun LibraryPlayAllRow(
+    songCount: Int,
+    isLoading: Boolean,
+    loadingLabel: String,
+    onClick: () -> Unit
+) {
+    val strings = LocalStrings.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !isLoading, onClick = onClick)
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PlayAllButton(
+            modifier = Modifier.alpha(if (isLoading) 0.4f else 1f),
+            size = 44.dp,
+            onClick = { if (!isLoading) onClick() }
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            MetroText(
+                strings.playAllButton,
+                color = LocalMetroColors.current.onBackground,
+                style = LocalMetroTypography.current.bodyLarge
+            )
+            MetroText(
+                if (isLoading) loadingLabel else strings.songCountFormat(songCount),
+                color = LocalMetroColors.current.onSurfaceVariant,
+                style = LocalMetroTypography.current.bodySmall
+            )
+        }
+        if (isLoading) {
+            MetroProgressIndicator(
+                color = LocalMetroColors.current.primary,
+                sizeDp = 18.dp,
+                strokeDp = 2.dp
+            )
+        }
     }
 }
 

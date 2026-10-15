@@ -114,6 +114,10 @@ val jpJP = Strings(
     playNowDesc = "現在のキューをクリアして再生開始",
     insertNextTitle = "次に再生",
     insertNextDesc = "現在の曲の直後に再生",
+    appendQueueTitle = "最後に再生",
+    appendQueueDesc = "現在のキューの末尾に追加",
+    loadingSongsCount = { "$it 曲を読み込み中…" },
+    playAllPartial = { "$it 曲を読み込めませんでした。取得できた曲で実行します" },
 
     aboutTitle = "Ncrustについて",
     aboutAppSubtitle = "NetEase Cloud Music 非公式クライアント",
