@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val deDE = Strings(
     tabHome = "Startseite",
@@ -93,6 +93,8 @@ val deDE = Strings(
     qrScannedHint = "Gescannt, auf dem Handy bestätigen",
     qrExpiredHint = "QR-Code abgelaufen, zum Aktualisieren tippen",
     qrLoadFailed = "Laden fehlgeschlagen, zum Wiederholen tippen",
+    qrSessionInvalid = "Anmeldung ungültig, zum Wiederholen tippen",
+    qrNetworkError = "Netzwerkfehler, Anmeldung nicht bestätigt, zum Wiederholen tippen",
     qrGenericLogin = "Andere Anmeldung",
     scanEntryTitle = "Anderes Gerät per Scan autorisieren",
     scanPrompt = "Auf den Anmelde-QR-Code am Tablet richten",

@@ -140,7 +140,7 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 
 | 模块 | 内容 | Android 对应 |
 |---|---|---|
-| `Net/` | `NcmHttp`：`EapiPost` / `EapiPostOfficial` / `WeapiPost` / `XeapiPost` / `Get` / `PostWeblog`；Cookie 注入；PC UA 与 Referer；`XeapiState`（xeapi 设备 id 永久持久化、公钥状态、内存会话，见 `spec/api/xeapi.md`） | `RetrofitClient`、`network/XeapiState` |
+| `Net/` | `NcmHttp`：`EapiPost` / `EapiPostOfficial` / `EapiPostPc`（扫码登录）/ `WeapiPost` / `XeapiPost` / `Get` / `PostWeblog`；Cookie 注入；PC UA 与 Referer；`XeapiState`（xeapi 设备 id 永久持久化、公钥状态、内存会话，见 `spec/api/xeapi.md`） | `RetrofitClient`、`network/XeapiState` |
 | `Net/Crypto/` | `EapiCrypto`（AES-128-ECB + MD5 签名，响应解密）、`WeapiCrypto`（双层 AES-CBC + 不加填充的 RSA，用 `BigInteger.ModPow`）、`XeapiCrypto`（X25519 + HKDF + AES-GCM 信封，纯托管）、`ManagedAesGcm`（netstandard2.0 没有 `AesGcm`，测试里与 .NET 9 `AesGcm` 交叉比对） | `network/crypto/` |
 | `Json/` | `JsonValue`：只读 JSON DOM，零反射、零外部依赖，供所有响应解析 | —— |
 | `Api/` | REST 端点与 eapi 端点、响应模型 | `NcmApi`、`PlaylistApi`、`CoverUrls` |
@@ -184,7 +184,7 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 | `ncrust_settings` | `LocalSettings` | 键名尽量与 Android 相同 |
 | `ncrust_library`、歌词缓存、搜索历史 | `LocalFolder/*.json` | `LocalSettings` 单个值有大小上限，大块数据不能放进去 |
 | WebView 登录 | 独立登录窗口：内嵌 WebView2（主）+ 二维码（辅助） | Android 同款 WebView 路径；**浏览器 Cookie 导入已证伪**（App-Bound Encryption，见「已知的坑」） |
-| 二维码登录（宽屏默认） | 二维码登录（**桌面默认**），用 ZXing.Net 渲染 | 同一套 weapi 轮询：每 2s 一次，最多 150 次；800 过期 / 802 已扫码 / 803 成功 |
+| 二维码登录（宽屏默认） | 二维码登录（**桌面默认**），用 ZXing.Net 渲染 | 同一套 eapi + PC 身份（`interfacepc`，type 3）轮询：每 2s 一次，最多 150 次；800 过期 / 802 已扫码 / 803 成功（weapi type 1 现回 -462） |
 | `QrPair`：手机扫码，把 cookie 交给平板 | M3：Windows 作为被扫端（`QrPairServer`） | 需要 `privateNetworkClientServer` 能力；UDP 广播在 AppContainer 里的表现必须实测 |
 | `QrScannerScreen` / `QrAuthorizeScreen` | 不移植 | Windows 不做扫码端 |
 | 电池白名单、屏幕方向策略 | 不移植 | —— |
@@ -422,7 +422,7 @@ DB 运行中被锁）。因此改用**独立登录窗口**，内含两个入口�
    `Microsoft.Web.WebView2` 包与 Evergreen 运行时）导航到 `https://music.163.com/#/login`；
    登录后用 `CoreWebView2.CookieManager.GetCookiesAsync("https://music.163.com")` 读
    `MUSIC_U`（HttpOnly 也能读），拼出会话 cookie。与 Android 的 WebView 登录等价。
-2. **二维码登录（辅助）**：`QrLoginClient` 申请 unikey（带 chainId），本地用 QRCoder 渲染
+2. **二维码登录（辅助）**：`QrLoginClient` 经 `EapiPostPc` 申请 unikey（type 3，二维码为不带 chainId 的 pc 形态），本地用 QRCoder 渲染
    （服务端 `qrimg` 优先），每 2s 轮询、最多 150 次；803 从 Set-Cookie 取会话 cookie。
 
 两条路径成功后走同一处：存 `ICredentialStore`（PasswordVault）→ `NcmHttp.Cookie` → 刷新云端

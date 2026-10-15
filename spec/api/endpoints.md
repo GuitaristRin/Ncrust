@@ -10,6 +10,7 @@
 | `BASE_URL` | `https://music.163.com` | REST、weapi |
 | `API_URL` | `https://interface.music.163.com` | eapi 默认域、xeapi 公钥接口 |
 | `INTERFACE_URL` | `https://interface3.music.163.com` | eapi 取歌曲 URL（`useInterface = true`）、xeapi 业务请求 |
+| `INTERFACE_PC_URL` | `https://interfacepc.music.163.com` | eapi + PC 客户端指纹（扫码登录，见下） |
 | weblog | `https://clientlogusf.music.163.com` | 播放上报 |
 | antiCheat | `https://ac.dun.163yun.com/v3/b?pn=YD00000558929251` | 易盾 token（xeapi 写入用，见下） |
 
@@ -62,6 +63,31 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 > 收藏写入已改走 xeapi（见下节）。`/eapi/radio/like` 与 weapi 的 `/api/radio/like` 只作回退：
 > 两者都是**老通道**，写入的收藏会被服务端事后回滚（「收藏隔天消失」，`spec/api/xeapi.md` 末节）。
 
+### eapi · PC 客户端指纹（扫码登录，打 `https://interfacepc.music.163.com`）
+
+扫码登录**不再走 weapi**：它用的是桌面客户端（PC）身份 + `type=3`，且 host 是 `interfacepc`。
+UA 为桌面客户端（`Mozilla/5.0 (Windows NT 10.0; WOW64) … NeteaseMusicDesktop/3.1.29.205117`）；
+设备字段 `osver=Microsoft-Windows-10-Professional-build-19045-64bit`,`deviceId`（复用 xeapi 的持久
+设备 id，见下节）、`os=pc`,`appver=3.1.17.204416`,`versioncode=140`,`mobilename=`(空),
+`buildver=<10 位秒级时间戳>`,`resolution=1920x1080`,`__csrf=`(空),`channel=netease`,
+`requestId=<毫秒时间戳>_<4 位随机>` 按 `encodeURIComponent(k)=encodeURIComponent(v)`、以 `; ` 拼成请求
+**Cookie**，同时整体作为 `header` 字段写进加密 body；body 另带 `e_r=false`（布尔，不是字符串）。
+
+| 路径 | 参数 | 用途 |
+|---|---|---|
+| `/eapi/login/qrcode/unikey` | `type=3` | 申请二维码 key（响应 `unikey`） |
+| `/eapi/login/qrcode/client/login` | `key`,`type=3` | 轮询扫码状态（800 过期 / 801 待扫 / 802 已扫待确认 / 803 成功），803 的 Set-Cookie 里取 `MUSIC_U`（同名取最后一个非空值） |
+
+二维码内容：`https://music.163.com/login?codekey=<unikey>` —— **PC 形态，不带 `chainId`**
+（`chainId` 是 web 登录会话的绑定字段，PC 身份不用它）。局域网交接协议（Android `QrPair`）只依赖
+`codekey` 里的 unikey，因此不受这次改动影响。
+
+> **依据（2026-10-15）**：weapi `/api/login/qrcode/unikey`（`type=1` + `noCheckToken=true`）实测返回
+> **`code -462`**（风控校验），二维码根本出不来。参考实现
+> `NeteaseCloudMusicApiEnhanced/api-enhanced` 的 `module/login_qr_key.js` / `module/login_qr_check.js`
+> 已改为上面的 eapi + PC 身份 + `type=3`。本仓库的零依赖实测脚本 `spec/tools/qr-login.mjs`
+> （逐项照该参考实现写）实测：unikey 返回 `code 200` 且二维码可生成；本轮实现即与它逐字段对照。
+
 ## xeapi（业务请求打 `INTERFACE_URL` 的 `/xeapi/…`，公钥打 `API_URL`）
 
 官方 Android 9.x 的请求加密层，协议全文与算法见 `spec/api/xeapi.md`（夹具
@@ -84,10 +110,12 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 
 | 路径 | 参数 | 用途 |
 |---|---|---|
-| `/api/login/qrcode/unikey` | `type=1`,`noCheckToken=true` | 申请二维码 key |
-| `/api/login/qrcode/client/login` | `type=1`,`noCheckToken=true`,`key`；额外 Cookie `os=pc; NMTID=<hex16>; sDeviceId=<52 hex>` | 轮询扫码状态（800/801/802/803），803 的 Set-Cookie 里取 `MUSIC_U` |
 | `/api/discovery/simiSong` | `songid`,`limit`,`offset` | 相似歌曲回退路径 |
 | `/api/radio/like` | `alg=itembased`,`trackId`,`like`,`time=3` | 喜欢 / 取消喜欢（**回退通道**，老通道，可能被服务端事后回滚） |
+
+> 扫码登录的两行（`type=1` + `noCheckToken=true` 的 `/api/login/qrcode/unikey` 与
+> `/api/login/qrcode/client/login`，轮询另带 `os=pc; NMTID=<hex16>; sDeviceId=<52 hex>`）已弃用：
+> 实测 `-462`，改用上面 eapi 节的 PC 客户端指纹通道。
 
 ## weblog（`https://clientlogusf.music.163.com`）
 

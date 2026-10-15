@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val en = Strings(
     tabHome = "Home",
@@ -93,6 +93,8 @@ val en = Strings(
     qrScannedHint = "Scanned, confirm on your phone",
     qrExpiredHint = "QR code expired, tap to refresh",
     qrLoadFailed = "Failed to load, tap to retry",
+    qrSessionInvalid = "Login is not valid, tap to retry",
+    qrNetworkError = "Network error, could not confirm login, tap to retry",
     qrGenericLogin = "Other login methods",
     scanEntryTitle = "Scan to authorize another device",
     scanPrompt = "Point at the login QR code on the tablet",

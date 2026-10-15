@@ -179,7 +179,7 @@ For anything that is *not* the player card, use the Kanesumi `sokuou` presets (`
 Two API styles coexist:
 
 - **REST via Retrofit** (`NcmApi`, base `https://music.163.com/`): search (`api/cloudsearch/pc`, types 1/10/100), song detail (`api/v3/song/detail`), lyrics (`api/song/lyric`), album detail (`api/v1/album/{id}`), artist albums (`api/artist/albums/{id}`).
-- **eapi via manual OkHttp POST** (`PlaylistApi` + `RetrofitClient.eapiPost`): playlists, recommendations, daily songs, personal FM, similar songs, song URL, album sub/unsub, like. **weapi** (`RetrofitClient.weapiPost`) is used for QR login (`/api/login/qrcode/unikey`, `/api/login/qrcode/client/login`) and the similar-song fallback.
+- **eapi via manual OkHttp POST** (`PlaylistApi` + `RetrofitClient.eapiPost`): playlists, recommendations, daily songs, personal FM, similar songs, song URL, album sub/unsub, like. **weapi** (`RetrofitClient.weapiPost`) is used for the similar-song fallback. **QR login** uses eapi with a PC client identity on `interfacepc.music.163.com` (`/eapi/login/qrcode/unikey` + `client/login`, `type=3`) — weapi `type=1` now returns `-462` (see `spec/api/endpoints.md`, `spec/api/login.md`). **Likes** go through **xeapi** `/api/v1/radio/like` (`RetrofitClient.xeapiPost`, `spec/api/xeapi.md`); weapi/eapi `radio/like` are fallbacks only.
 
 `RetrofitClient` hosts:
 
@@ -289,7 +289,7 @@ SharedPreferences files:
 `CookieManager` stores the raw cookie in `ncrust_prefs`. Login paths:
 
 1. **WebView login** (phone default, and "通用登录" on tablet) — `MainActivity` shows a WebView at `https://music.163.com/#/login`, reads `MUSIC_U=` on `onPageFinished`, saves + `RetrofitClient.updateCookie`, then triggers `LibraryManager.refreshFromCloud`.
-2. **QR login** (wide screens `>= 600dp`) — `QrLoginDialog` requests a `unikey` via weapi, renders the QR with ZXing, starts a `QrPairServer`, and polls `client/login` every 2 s (max 150 ticks): 800 expired / 802 scanned / 803 success.
+2. **QR login** (wide screens `>= 600dp`) — `QrLoginDialog` requests a `unikey` via eapi + PC identity (`type=3`; QR content is `https://music.163.com/login?codekey=<unikey>`), renders the QR with ZXing, starts a `QrPairServer`, and polls `client/login` every 2 s (max 150 ticks): 800 expired / 802 scanned / 803 success.
 3. **Phone-scanning-tablet handoff** — `QrAuthorizeScreen` (CameraX + ZXing) scans the tablet's QR, extracts the unikey, and sends the phone's cookie over the LAN. Protocol in `QrPair`: UDP broadcast on port `47821` (prefix `NCRUSTPAIR1?` / `NCRUSTPAIR1!`) to discover the tablet, then a TCP connection carrying a length-prefixed AES-128-CBC payload (key = `SHA-256(unikey)[0:16]`, random IV prepended). `cleartextTraffic` is enabled for this.
 
 **Manual cookie paste no longer exists** — it was removed in `a16e381`. Do not reintroduce it in docs.

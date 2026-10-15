@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val zhCN = Strings(
     tabHome = "首页",
@@ -93,6 +93,8 @@ val zhCN = Strings(
     qrScannedHint = "已扫码, 请在手机上确认",
     qrExpiredHint = "二维码已过期, 点击刷新",
     qrLoadFailed = "加载失败, 点击重试",
+    qrSessionInvalid = "登录状态无效, 点击重试",
+    qrNetworkError = "网络异常, 无法确认登录状态, 点击重试",
     qrGenericLogin = "通用登录",
     scanEntryTitle = "扫码授权其他设备",
     scanPrompt = "对准平板上的登录二维码",

@@ -1,4 +1,4 @@
-﻿package com.takahashirinta.ncrust.ui.i18n
+package com.takahashirinta.ncrust.ui.i18n
 
 val jpJP = Strings(
     tabHome = "ホーム",
@@ -93,6 +93,8 @@ val jpJP = Strings(
     qrScannedHint = "スキャン済み。スマホで確認してください",
     qrExpiredHint = "QRコードの有効期限切れ。タップして更新",
     qrLoadFailed = "読み込み失敗。タップして再試行",
+    qrSessionInvalid = "ログイン状態が無効です。タップして再試行",
+    qrNetworkError = "ネットワークエラー。ログイン状態を確認できません。タップして再試行",
     qrGenericLogin = "その他のログイン",
     scanEntryTitle = "他の端末をQRコードで認証",
     scanPrompt = "タブレットのログインQRコードに向けてください",
