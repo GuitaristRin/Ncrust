@@ -25,5 +25,20 @@ namespace Ncrust.Core.Net.Crypto
                 return ToHex(md5.ComputeHash(Encoding.UTF8.GetBytes(input)));
             }
         }
+
+        /// <summary>
+        /// 密码学随机字节。用 <see cref="RandomNumberGenerator"/> 而不是 <c>Random</c>：
+        /// 动态密钥、临时私钥、设备 id 都属于不该被预测的量。
+        /// </summary>
+        internal static byte[] RandomBytes(int length)
+        {
+            var bytes = new byte[length];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(bytes);
+            }
+
+            return bytes;
+        }
     }
 }

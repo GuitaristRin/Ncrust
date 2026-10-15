@@ -19,7 +19,8 @@ namespace Ncrust.Core.Net.Crypto
     /// </summary>
     public static class EapiCrypto
     {
-        private static readonly byte[] AesKey = Encoding.UTF8.GetBytes("e82ckenh8dichen8");
+        /// <summary>xeapi 解密响应用的是同一把 key（见 <see cref="XeapiCrypto.DecryptResponse"/>）。</summary>
+        internal static readonly byte[] AesKey = Encoding.UTF8.GetBytes("e82ckenh8dichen8");
 
         private const string MagicPrefix = "nobody";
         private const string MagicSuffix = "md5forencrypt";

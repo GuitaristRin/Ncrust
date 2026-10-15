@@ -140,8 +140,8 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 
 | 模块 | 内容 | Android 对应 |
 |---|---|---|
-| `Net/` | `NcmHttp`：`EapiPost` / `EapiPostOfficial` / `WeapiPost` / `Get` / `PostWeblog`；Cookie 注入；PC UA 与 Referer | `RetrofitClient` |
-| `Net/Crypto/` | `EapiCrypto`（AES-128-ECB + MD5 签名，响应解密）、`WeapiCrypto`（双层 AES-CBC + 不加填充的 RSA，用 `BigInteger.ModPow`） | `network/crypto/` |
+| `Net/` | `NcmHttp`：`EapiPost` / `EapiPostOfficial` / `WeapiPost` / `XeapiPost` / `Get` / `PostWeblog`；Cookie 注入；PC UA 与 Referer；`XeapiState`（xeapi 设备 id 永久持久化、公钥状态、内存会话，见 `spec/api/xeapi.md`） | `RetrofitClient`、`network/XeapiState` |
+| `Net/Crypto/` | `EapiCrypto`（AES-128-ECB + MD5 签名，响应解密）、`WeapiCrypto`（双层 AES-CBC + 不加填充的 RSA，用 `BigInteger.ModPow`）、`XeapiCrypto`（X25519 + HKDF + AES-GCM 信封，纯托管）、`ManagedAesGcm`（netstandard2.0 没有 `AesGcm`，测试里与 .NET 9 `AesGcm` 交叉比对） | `network/crypto/` |
 | `Json/` | `JsonValue`：只读 JSON DOM，零反射、零外部依赖，供所有响应解析 | —— |
 | `Api/` | REST 端点与 eapi 端点、响应模型 | `NcmApi`、`PlaylistApi`、`CoverUrls` |
 | `Auth/` | 解析 cookie（`MUSIC_U`、`__csrf`、deviceId、osver）、二维码登录轮询状态机 | `CookieManager`、`QrLoginDialog` 的逻辑部分 |
