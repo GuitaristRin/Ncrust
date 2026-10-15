@@ -31,6 +31,9 @@ namespace Ncrust.Core.Net
         /// <summary>eapi 的 PC 客户端域：扫码登录的 unikey / client/login 只在这个域上认 PC 身份。</summary>
         public const string InterfacePcUrl = "https://interfacepc.music.163.com";
 
+        /// <summary>播放上报（听歌打卡）的日志域（参考实现 <c>util/config.json</c> 的 <c>clDomian</c>）。</summary>
+        public const string ClientLogUrl = "https://clientlog.music.163.com";
+
         private const string Ua =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
@@ -42,10 +45,17 @@ namespace Ncrust.Core.Net
             "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 NeteaseMusicDesktop/3.1.29.205117";
 
         /// <summary>
-        /// 没有 <see cref="Xeapi"/> 时（如未接 xeapi 的宿主）的兜底 PC 设备 id，进程内只生成一次。
+        /// os=osx 身份专用的 Mac Chrome UA：参考实现的 eapi 分支里 <c>cookie.os === 'osx'</c>
+        /// 时才用它，播放上报非它不可。
+        /// </summary>
+        private const string OsxUa =
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+        /// <summary>
+        /// 没有 <see cref="Xeapi"/> 时（如未接 xeapi 的宿主）的兜底设备 id，进程内只生成一次。
         /// 逐请求换 deviceId 正是风控画像里「非真实设备」的特征，见 <see cref="XeapiState"/>。
         /// </summary>
-        private static string? _fallbackPcDeviceId;
+        private static string? _fallbackDeviceId;
 
         private readonly HttpClient _client;
         private readonly bool _ownsHandler;
@@ -187,8 +197,44 @@ namespace Ncrust.Core.Net
             string fieldsJson,
             CancellationToken cancellationToken = default)
         {
-            var fullUrl = InterfacePcUrl + EapiPath(path);
             var header = BuildPcHeader();
+            return await EapiPostWithIdentityAsync(
+                InterfacePcUrl, PcUa, path, fieldsJson, header, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// eapi + **os=osx 身份** POST（打 <see cref="ClientLogUrl"/>）。播放上报专用：听歌打卡只有
+        /// 「clientlog + eapi + os=osx」这个组合入账，android / iphone / pc 身份的同名请求照回 200
+        /// 但会被服务端丢弃（依据 NeteaseCloudMusicApiEnhanced/api-enhanced#167，协议见
+        /// <c>spec/api/endpoints.md</c> 的「播放上报 / 听歌打卡」）。请求头只有 UA 与 Cookie
+        /// （参考实现这条路径不带 Referer）。
+        /// </summary>
+        /// <param name="path"><c>/api/…</c> 形态，这里改写成 <c>/eapi/…</c>。</param>
+        /// <param name="fieldsJson">业务字段的 JSON 片段（播放上报只有 <c>logs</c>）。</param>
+        public async Task<HttpResponseMessage> EapiPostOsxAsync(
+            string path,
+            string fieldsJson,
+            CancellationToken cancellationToken = default)
+        {
+            var header = BuildOsxHeader();
+            return await EapiPostWithIdentityAsync(
+                ClientLogUrl, OsxUa, path, fieldsJson, header, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// eapi + 客户端身份 POST 的公共拼装（PC 扫码 / osx 播报共用）：设备字段按
+        /// <see cref="BuildHeaderCookie"/> 拼成 Cookie，同一份再进加密 body 的 <c>header</c>；
+        /// 信封是 业务字段 → <c>e_r:false</c> → <c>header</c>。host 与 UA 是身份差异，作参数传入。
+        /// </summary>
+        private async Task<HttpResponseMessage> EapiPostWithIdentityAsync(
+            string host,
+            string ua,
+            string path,
+            string fieldsJson,
+            List<KeyValuePair<string, string>> header,
+            CancellationToken cancellationToken)
+        {
+            var fullUrl = host + EapiPath(path);
             var payloadJson = new StringBuilder("{")
                 .Append(fieldsJson)
                 .Append(",\"e_r\":false,\"header\":")
@@ -203,8 +249,8 @@ namespace Ncrust.Core.Net
             }))
             using (var request = new HttpRequestMessage(HttpMethod.Post, fullUrl) { Content = content })
             {
-                request.Headers.TryAddWithoutValidation("User-Agent", PcUa);
-                request.Headers.TryAddWithoutValidation("Cookie", BuildPcCookie(header));
+                request.Headers.TryAddWithoutValidation("User-Agent", ua);
+                request.Headers.TryAddWithoutValidation("Cookie", BuildHeaderCookie(header));
                 return await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             }
         }
@@ -217,7 +263,7 @@ namespace Ncrust.Core.Net
         private List<KeyValuePair<string, string>> BuildPcHeader() => new List<KeyValuePair<string, string>>
         {
             new KeyValuePair<string, string>("osver", "Microsoft-Windows-10-Professional-build-19045-64bit"),
-            new KeyValuePair<string, string>("deviceId", Xeapi?.DeviceId ?? FallbackPcDeviceId()),
+            new KeyValuePair<string, string>("deviceId", Xeapi?.DeviceId ?? FallbackDeviceId()),
             new KeyValuePair<string, string>("os", "pc"),
             new KeyValuePair<string, string>("appver", "3.1.17.204416"),
             new KeyValuePair<string, string>("versioncode", "140"),
@@ -238,11 +284,55 @@ namespace Ncrust.Core.Net
         };
 
         /// <summary>
-        /// 把设备字段拼成请求 Cookie：<c>encodeURIComponent(k)=encodeURIComponent(v)</c> 以 <c>"; "</c> 拼接。
-        /// <see cref="Uri.EscapeDataString"/> 只对 <c>!*'()</c> 多转义，而本方法的取值里不可能出现它们，
-        /// 故与参考实现的 <c>encodeURIComponent</c> 逐字符等价。
+        /// os=osx 身份的设备字段（播放上报专用）。**顺序即协议**：与参考实现 <c>util/request.js</c>
+        /// 的 eapi 分支逐项一致（`os=osx` 是入账与否的决定性变量）。同一份既写进加密 body 的
+        /// <c>header</c>，也拼成请求 Cookie —— 两处必须逐字段一致。
+        /// deviceId 复用 xeapi 持久化的那一台设备 id。
         /// </summary>
-        private static string BuildPcCookie(IEnumerable<KeyValuePair<string, string>> header)
+        private List<KeyValuePair<string, string>> BuildOsxHeader()
+        {
+            var header = new List<KeyValuePair<string, string>>
+            {
+                new KeyValuePair<string, string>("osver", "15.5"),
+                new KeyValuePair<string, string>("deviceId", Xeapi?.DeviceId ?? FallbackDeviceId()),
+                new KeyValuePair<string, string>("os", "osx"),
+                new KeyValuePair<string, string>("appver", "3.1.10.5100"),
+                new KeyValuePair<string, string>("versioncode", "140"),
+                new KeyValuePair<string, string>("mobilename", string.Empty),
+                new KeyValuePair<string, string>(
+                    "buildver",
+                    DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
+                new KeyValuePair<string, string>("resolution", "1920x1080"),
+                new KeyValuePair<string, string>("__csrf", GetCsrfToken() ?? string.Empty),
+                new KeyValuePair<string, string>("channel", "netease"),
+                new KeyValuePair<string, string>(
+                    "requestId",
+                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
+                    + "_"
+                    + RandomText.Next(0, 1000).ToString("D4", CultureInfo.InvariantCulture)),
+            };
+
+            // 登录态两个字段按有无追加在末尾（参考实现同序）：匿名请求不带 MUSIC_U 就没有这一项。
+            var session = ParseCookie(Cookie);
+            if (session.TryGetValue("MUSIC_U", out var musicU))
+            {
+                header.Add(new KeyValuePair<string, string>("MUSIC_U", musicU));
+            }
+
+            if (session.TryGetValue("MUSIC_A", out var musicA))
+            {
+                header.Add(new KeyValuePair<string, string>("MUSIC_A", musicA));
+            }
+
+            return header;
+        }
+
+        /// <summary>
+        /// 把设备字段拼成请求 Cookie：<c>encodeURIComponent(k)=encodeURIComponent(v)</c> 以 <c>"; "</c> 拼接
+        /// （PC / osx 两种身份共用）。<see cref="Uri.EscapeDataString"/> 只对 <c>!*'()</c> 多转义，
+        /// 而本方法的取值里不可能出现它们，故与参考实现的 <c>encodeURIComponent</c> 逐字符等价。
+        /// </summary>
+        private static string BuildHeaderCookie(IEnumerable<KeyValuePair<string, string>> header)
         {
             var sb = new StringBuilder();
             foreach (var pair in header)
@@ -258,8 +348,8 @@ namespace Ncrust.Core.Net
             return sb.ToString();
         }
 
-        private static string FallbackPcDeviceId() =>
-            _fallbackPcDeviceId ??= CryptoUtil.ToHex(CryptoUtil.RandomBytes(16));
+        private static string FallbackDeviceId() =>
+            _fallbackDeviceId ??= CryptoUtil.ToHex(CryptoUtil.RandomBytes(16));
 
         /// <summary>
         /// weapi POST。路径 <c>/api/…</c> 会改写成 <c>/weapi/…</c>；payload 缺
@@ -392,24 +482,7 @@ namespace Ncrust.Core.Net
             }
         }
 
-        /// <summary>播放上报（webLog）：普通表单 POST <c>logs=&lt;JSON&gt;</c>，不走 eapi/weapi 加密。</summary>
-        public async Task<HttpResponseMessage> PostWeblogAsync(
-            string weblogUrl,
-            string logsJson,
-            CancellationToken cancellationToken = default)
-        {
-            using (var content = new FormUrlEncodedContent(new[]
-            {
-                new KeyValuePair<string, string>("logs", logsJson),
-            }))
-            using (var request = new HttpRequestMessage(HttpMethod.Post, weblogUrl) { Content = content })
-            {
-                ApplyCommonHeaders(request, Ua);
-                return await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        /// <summary>从当前 Cookie 提取 <c>__csrf</c>，供 weapi 与 webLog 使用。</summary>
+        /// <summary>从当前 Cookie 提取 <c>__csrf</c>，供 weapi 与 eapi 身份头使用。</summary>
         public string? GetCsrfToken() => GetCsrfToken(Cookie);
 
         public static string? GetCsrfToken(string? cookie)

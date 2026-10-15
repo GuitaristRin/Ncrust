@@ -37,31 +37,79 @@ public class PlayReportTests
     }
 
     [Fact]
-    public void BuildLogs_MatchesOfficialShape()
+    public void TryAcquire_StartplayOncePerSong()
     {
-        var logs = PlayReport.BuildLogs(123, 45000, "playend", null, isWifi: true);
+        var policy = new PlayReportPolicy();
 
-        Assert.Equal(
-            "[{\"action\":\"play\",\"json\":{\"type\":\"song\",\"wifi\":0,\"download\":0,\"id\":123,\"time\":45000,\"end\":\"playend\",\"mainsite\":\"1\",\"mainsiteWeb\":\"1\"}}]",
-            logs);
+        Assert.True(policy.TryAcquireStart(1));
+        Assert.False(policy.TryAcquireStart(1)); // 同一首只发一次
+        Assert.True(policy.TryAcquireStart(2));
+        Assert.False(policy.TryAcquireStart(0));
+        Assert.False(policy.TryAcquireStart(-1));
     }
 
     [Fact]
-    public void BuildLogs_MeteredNetworkFlipsWifiTo1_AndIncludesStrategy()
+    public void TryAcquire_TrialSuppressesBothReports()
     {
-        var logs = PlayReport.BuildLogs(9, 1000, "interrupt", "itembased", isWifi: false);
+        // 试听片段（45 秒）既不算「开始播放」也不算「听完」：两条都不发。
+        var policy = new PlayReportPolicy();
 
-        Assert.Contains("\"wifi\":1", logs);
-        Assert.Contains("\"alg\":\"itembased\"", logs);
-        Assert.Contains("\"end\":\"interrupt\"", logs);
+        Assert.False(policy.TryAcquireStart(1, isTrial: true));
+        Assert.False(policy.TryAcquire(1, 100, 100, ended: true, isTrial: true));
+        // 被抑制不等于已上报：这首歌之后按完整播放再走一遍时仍会发。
+        Assert.True(policy.TryAcquireStart(1));
+        Assert.True(policy.TryAcquire(1, 100, 100, ended: true));
     }
 
     [Fact]
-    public void WeblogUrl_EscapesCsrf()
+    public void BuildStartplayLogs_MatchesReferenceShape()
     {
         Assert.Equal(
-            "https://clientlogusf.music.163.com/api/feedback/weblog?csrf_token=a%2Bb",
-            PlayReport.WeblogUrl("a+b"));
+            "[{\"action\":\"startplay\",\"json\":{\"id\":123,\"type\":\"song\","
+            + "\"mainsite\":\"1\",\"mainsiteWeb\":\"1\",\"content\":\"id=\"}}]",
+            PlayReport.BuildStartplayLogs(123));
+    }
+
+    [Fact]
+    public void BuildPlayLogs_MatchesReferenceShape()
+    {
+        Assert.Equal(
+            "[{\"action\":\"play\",\"json\":{\"download\":0,\"end\":\"playend\",\"id\":123,"
+            + "\"sourceId\":\"\",\"time\":45,\"type\":\"song\",\"wifi\":0,\"source\":\"list\","
+            + "\"mainsite\":\"1\",\"mainsiteWeb\":\"1\",\"content\":\"id=\"}}]",
+            PlayReport.BuildPlayLogs(123, 45_000, isWifi: true));
+    }
+
+    [Fact]
+    public void BuildPlayLogs_TimeIsSecondsAndMeteredNetworkFlipsWifi()
+    {
+        // 参考实现与服务端要的 time 是秒；旧通道发的是毫秒，是这次随通道一起纠正的点。
+        Assert.Contains("\"time\":45,", PlayReport.BuildPlayLogs(9, 45_000));
+        Assert.Contains("\"time\":0,", PlayReport.BuildPlayLogs(9, 999));
+        Assert.Contains("\"wifi\":1,", PlayReport.BuildPlayLogs(9, 1_000, isWifi: false));
+    }
+
+    [Fact]
+    public void BuildLogs_SourceIdFlowsIntoSourceIdAndContent()
+    {
+        // 来源歌单 / 专辑 id 不知道时用空串；知道时两处都要带上。
+        Assert.Contains("\"sourceId\":\"501\"", PlayReport.BuildPlayLogs(9, 1_000, "501"));
+        Assert.Contains("\"content\":\"id=501\"", PlayReport.BuildPlayLogs(9, 1_000, "501"));
+        Assert.Contains("\"content\":\"id=501\"", PlayReport.BuildStartplayLogs(9, "501"));
+        Assert.Contains("\"content\":\"id=\"", PlayReport.BuildStartplayLogs(9));
+    }
+
+    [Fact]
+    public void WeblogFields_KeepsLogsAsAnEscapedString()
+    {
+        // logs 的值是字符串（服务端再 parse 一次），不是嵌套对象；片段不含外层大括号
+        //（外层由 NcmHttp 的信封拼装补上）。
+        var fields = PlayReport.WeblogFields(PlayReport.BuildStartplayLogs(1));
+
+        Assert.StartsWith("\"logs\":\"[{\\\"action\\\":\\\"startplay\\\"", fields);
+        Assert.EndsWith("}}]\"", fields);
+        var parsed = JsonValue.Parse("{" + fields + "}");
+        Assert.Equal(PlayReport.BuildStartplayLogs(1), parsed.GetString("logs"));
     }
 }
 

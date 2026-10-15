@@ -108,7 +108,7 @@ public class QrLoginClientTests
         Assert.Equal("https://interfacepc.music.163.com/eapi/login/qrcode/unikey", handler.LastUri);
 
         // 解密后必须是参考实现的明文形态：type 是数值 3、e_r 是布尔 false、header 是 PC 身份。
-        var plaintext = DecryptParams(handler.LastBody!);
+        var plaintext = EapiTestBody.DecryptParams(handler.LastBody!);
         Assert.Contains("\"type\":3", plaintext);
         var json = JsonValue.Parse(plaintext);
         Assert.False(json.GetBool("e_r", true));
@@ -183,7 +183,7 @@ public class QrLoginClientTests
         Assert.Equal(QrLoginClient.Scanned, result.Code);
         Assert.Null(result.Cookie);
         Assert.Equal("https://interfacepc.music.163.com/eapi/login/qrcode/client/login", handler.LastUri);
-        var plaintext = DecryptParams(handler.LastBody!);
+        var plaintext = EapiTestBody.DecryptParams(handler.LastBody!);
         Assert.Contains("\"key\":\"KEY\"", plaintext);
         Assert.Contains("\"type\":3", plaintext);
         Assert.Equal("pc", JsonValue.Parse(plaintext).GetObject("header")?.GetString("os"));
@@ -289,31 +289,6 @@ public class QrLoginClientTests
         var settings = new FakeSettings();
         settings.SetString(XeapiState.DeviceIdKey, deviceId);
         return new XeapiState(settings);
-    }
-
-    /// <summary>
-    /// 把请求体 <c>params=&lt;hex&gt;</c> 解回加密前的明文，并取出其中的业务 JSON：
-    /// eapi 明文是 <c>&lt;path&gt;-36cd479b6b5-&lt;json&gt;-36cd479b6b5-&lt;digest&gt;</c>。
-    /// </summary>
-    private static string DecryptParams(string body)
-    {
-        var value = body.Substring(body.IndexOf('=') + 1);
-        var bytes = new byte[value.Length / 2];
-        for (var i = 0; i < bytes.Length; i++)
-        {
-            bytes[i] = Convert.ToByte(value.Substring(i * 2, 2), 16);
-        }
-
-        using var aes = Aes.Create();
-        aes.Key = EapiCrypto.AesKey;
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.PKCS7;
-        using var decryptor = aes.CreateDecryptor();
-        var plaintext = Encoding.UTF8.GetString(decryptor.TransformFinalBlock(bytes, 0, bytes.Length));
-
-        var parts = plaintext.Split(new[] { "-36cd479b6b5-" }, StringSplitOptions.None);
-        Assert.Equal(3, parts.Length);
-        return parts[1];
     }
 
     private static HttpResponseMessage Json(string body) => new HttpResponseMessage(HttpStatusCode.OK)
