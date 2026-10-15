@@ -61,7 +61,7 @@ Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` /
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
 - Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → upload `ncrust-android-universal-X.Y.Z.apk` to the current rolling release train (`CrateStack-*`), or open a new one if none exists today (`gh release create CrateStack-YYYYMMDD<A> --latest=false`) → user smoke-tests and publishes manually. Train/tag scheme and asset naming live in `docs/RELEASES.md`. Hotfixes may swap same-name assets in place without a version bump, provided the release notes say so.
-- Current: `versionName = "1.3.2"`, `versionCode = 7`. Latest release: `android-v1.3.2` (2026-09-28).
+- Current: `versionName = "1.3.2"`, `versionCode = 7`. Latest release: Android 1.3.2 in train `CrateStack-20260928A` (2026-09-28).
 
 ## Commit Convention
 
