@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.lyric.LrcLine
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
+import com.takahashirinta.ncrust.ui.HeightClass
+import com.takahashirinta.ncrust.ui.LocalHeightClass
 import io.github.takahashirinta.kanesumi.controls.MetroLyricLine
 import io.github.takahashirinta.kanesumi.controls.MetroLyricsPanel
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
@@ -57,6 +59,7 @@ fun LyricsView(
     isLoading: Boolean = false,
 ) {
     val strings = LocalStrings.current
+    val heightClass = LocalHeightClass.current
     if (lyrics.isEmpty()) {
         if (!isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -148,6 +151,26 @@ fun LyricsView(
             // 浅色底上白色已播行会看不见。这里改用语义色。
             pastLineColor = LocalMetroColors.current.onBackground.copy(alpha = 0.6f),
             futureLineColor = LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.4f),
+            fontSize = when (heightClass) {
+                HeightClass.Regular -> 32.sp
+                HeightClass.Compact -> 24.sp
+                HeightClass.Tiny -> 20.sp
+            },
+            lineHeight = when (heightClass) {
+                HeightClass.Regular -> 42.sp
+                HeightClass.Compact -> 32.sp
+                HeightClass.Tiny -> 27.sp
+            },
+            translationFontSize = when (heightClass) {
+                HeightClass.Regular -> 20.sp
+                HeightClass.Compact -> 16.sp
+                HeightClass.Tiny -> 14.sp
+            },
+            translationLineHeight = when (heightClass) {
+                HeightClass.Regular -> 26.sp
+                HeightClass.Compact -> 21.sp
+                HeightClass.Tiny -> 18.sp
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),

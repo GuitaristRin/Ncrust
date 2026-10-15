@@ -72,6 +72,8 @@ import com.takahashirinta.ncrust.ui.components.UpdateNavDot
 import com.takahashirinta.ncrust.ui.navigation.MainNavGraph
 import com.takahashirinta.ncrust.ui.navigation.NavRoutes
 import com.takahashirinta.ncrust.ui.player.PlayerCardOverlay
+import com.takahashirinta.ncrust.ui.LocalHeightClass
+import com.takahashirinta.ncrust.ui.heightClassFor
 import com.takahashirinta.ncrust.ui.screen.*
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.i18n.Strings
@@ -373,6 +375,7 @@ fun MainScreen(
     // WindowInsets 全为 0、screenHeightDp 又对不上）；手机/平板沿用 screenHeightDp，
     // 保持车机改动之前的行为。实测前先用整屏过渡。
     val contentHeightPx = if (isAutomotive && rootHeightPx > 0f) rootHeightPx else screenHeightPx
+    val heightClass = heightClassFor(with(density) { contentHeightPx.toDp().value })
 
     // miniBar 底 = navBar 顶。手机/平板系统栏由 WindowInsets 给出；车机内容区已被系统
     // inset（WindowInsets 为 0），公式一致，区别只在 contentHeightPx 的取法。
@@ -1164,20 +1167,22 @@ fun MainScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // 页面、导航、播放器及覆盖页共用高度档，后续 S2 无需再移动 provider。
+    CompositionLocalProvider(LocalHeightClass provides heightClass) {
     var showAbout by remember { mutableStateOf(false) }
     // 更新页：与「关于」同一套覆盖层做法（全屏 + 悬浮返回箭头）。放在关于之前判断，
     // 这样从关于页进来时返回能落回关于页，而不是直接回主界面。
     var showUpdate by remember { mutableStateOf(false) }
     if (showUpdate) {
         UpdatePageOverlay(onClose = { showUpdate = false })
-        return
+        return@CompositionLocalProvider
     }
     if (showAbout) {
         AboutScreen(
             onBack = { showAbout = false },
             onOpenUpdate = { showUpdate = true }
         )
-        return
+        return@CompositionLocalProvider
     }
 
     var showWebLogin by remember { mutableStateOf(false) }
@@ -1293,7 +1298,7 @@ fun MainScreen(
                 alignment = Alignment.TopEnd
             )
         }
-        return
+        return@CompositionLocalProvider
     }
 
     val navStrings = LocalStrings.current
@@ -1639,6 +1644,7 @@ fun MainScreen(
         // 按注册逆序回调，保证它比 Navigation 的 BackHandler 更优先命中。
         //
         PlayerBackHandler(progress) { collapseCard() }
+    }
     }
 }
 

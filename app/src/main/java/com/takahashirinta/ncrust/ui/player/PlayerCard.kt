@@ -31,6 +31,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -38,6 +40,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -48,6 +52,8 @@ import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.QueueModes
+import com.takahashirinta.ncrust.ui.HeightClass
+import com.takahashirinta.ncrust.ui.LocalHeightClass
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import io.github.takahashirinta.kanesumi.anim.sokuou.SokuouTweens
@@ -58,6 +64,7 @@ import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -112,9 +119,9 @@ fun PlayerCard(
     val isSongSaved = remember(song?.id, libraryTick) {
         song?.let { LibraryManager.isSongSaved(context, it.id) } ?: false
     }
-    // currentPosition / progress 是 4Hz 更新的 StateFlow，直接传引用给需要的子组件，
+    // currentPosition / progress 是 2Hz 更新的 StateFlow，直接传引用给需要的子组件，
     // 让它们在最小作用域（graphicsLayer / Canvas draw / derivedStateOf / 叶子 Text）内订阅，
-    // 避免 PlayerCard 本身随位置更新 4Hz 重组
+    // 避免 PlayerCard 本身随位置更新 2Hz 重组
     // duration / qualityIndex / isBuffering downgraded to leaf collect inside FullPlayerControls;
     // subscribing at this scope would force the whole PlayerCard subtree to recompose on song
     // change / buffer flap, dragging in AsyncImage + Column layout for no reason.
@@ -132,6 +139,8 @@ fun PlayerCard(
     val dp24px = with(density) { 24.dp.toPx() }
     // 宽屏播放器两栏（Apple Music 式）：左封面 / 右歌词·队列。
     val isWidePlayer = LocalConfiguration.current.screenWidthDp >= 600
+    val heightClass = LocalHeightClass.current
+    val tinyPlayer = !isWidePlayer && heightClass == HeightClass.Tiny
     // 宽屏左栏占整宽的比例：随 wideSplit 在 100%(单栏) 与 44%(两栏) 间过渡。窄屏恒为 1。
     val wideLeftFraction = if (isWidePlayer) 1f - 0.56f * wideSplit else 1f
     // 迷你条与顶栏按钮的触觉反馈
@@ -142,21 +151,38 @@ fun PlayerCard(
     var cardRootOrigin by remember { mutableStateOf(Offset.Zero) }
     var wideCoverCenter by remember { mutableStateOf(Offset.Zero) }
     var wideCoverSizePx by remember { mutableStateOf(0f) }
-    val coverSizePx = if (isWidePlayer) {
+    val wideCoverBaseSizePx = if (isWidePlayer) {
         // 实测前用兜底尺寸，避免首帧 1px 让 Coil 按 1px 解码成纯色（重进时尤为明显）。
         if (wideCoverSizePx > 0f) wideCoverSizePx
         else minOf(screenWidthPx * 0.4f, screenHeightPx * 0.5f)
     } else screenWidthPx
-    val coverSizeDp = with(density) { coverSizePx.toDp() }
+    val coverSizeDp = with(density) { wideCoverBaseSizePx.toDp() }
     val miniCoverHalfPx = with(density) { 28.dp.toPx() }
-    val miniScale = miniCoverHalfPx * 2f / coverSizePx
     val statusBarPx = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         .let { with(density) { it.toPx() } }
     val miniCoverCenterX = miniCoverHalfPx
     val miniCoverCenterY = statusBarPx + miniCoverHalfPx
-    val largeCoverCenterX = if (isWidePlayer) wideCoverCenter.x else screenWidthPx / 2f
-    val largeCoverCenterY = if (isWidePlayer) wideCoverCenter.y else screenHeightPx * 0.3f + dp24px
-    val boundsCenter = coverSizePx / 2f
+    // 回调只写测量状态；状态只在封面的 layout / graphicsLayer 中读取，不把测量变化
+    // 提升到整卡 composition。内容区测的是 systemBarsPadding 内侧，不能再扣一次系统栏。
+    val narrowContentSize = remember { mutableStateOf(IntSize.Zero) }
+    val narrowTopBarHeight = remember { mutableFloatStateOf(0f) }
+    val narrowControlsHeight = remember { mutableFloatStateOf(0f) }
+    val narrowTitleHeight = remember { mutableFloatStateOf(0f) }
+    val controlsGapPx = with(density) { 16.dp.toPx() }
+    val coverGapPx = with(density) { 12.dp.toPx() }
+    val narrowCover = remember(statusBarPx, controlsGapPx, coverGapPx, screenHeightPx, dp24px) {
+        derivedStateOf {
+            narrowCoverGeometry(
+                availableWidthPx = narrowContentSize.value.width.toFloat(),
+                contentHeightPx = statusBarPx + narrowContentSize.value.height,
+                topBarBottomPx = statusBarPx + narrowTopBarHeight.floatValue,
+                controlsHeightPx = narrowControlsHeight.floatValue + controlsGapPx,
+                titleReservePx = narrowTitleHeight.floatValue,
+                minGapPx = coverGapPx,
+                preferredCenterYPx = screenHeightPx * 0.3f + dp24px
+            )
+        }
+    }
 
     // 下面几个阈值布尔一律保存为 State 对象、只在 [ThresholdScope] 里读：derivedStateOf 只在阈值穿越时
     // 通知，但若在 PlayerCard 顶层读，每次穿越仍会把整张卡片（歌词 / 队列 / 控件）重组一遍。
@@ -211,6 +237,29 @@ fun PlayerCard(
     // 失败时点一下即触发重试，而不是一次网络抖动就把按钮永久禁用（issue: 后台被杀重进后按钮灰掉）。
     val lyricsNoContent = lyricsNoContentSongId == song?.id && lyrics.isEmpty()
     val lyricsUnavailable = lyricsNoContent && !lyricsLoading
+
+    // 底部切换行与 Tiny 顶栏使用同一组回调，保留歌词重试和收藏即时刷新行为。
+    val onToggleLyricsAction: () -> Unit = {
+        showLyrics = !showLyrics
+        showQueue = false
+        if (!lyricsReady && !lyricsLoading) playerViewModel.retryLyrics()
+    }
+    val onToggleQueueAction: () -> Unit = {
+        showQueue = !showQueue
+        showLyrics = false
+    }
+    val onAddToLibraryAction: () -> Unit = {
+        song?.let { cur ->
+            if (LibraryManager.isSongSaved(context, cur.id)) {
+                LibraryManager.removeSong(context, cur.id)
+                Toast.makeText(context, strings.removedFromLibrary, Toast.LENGTH_SHORT).show()
+            } else {
+                LibraryManager.saveSong(context, cur)
+                Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+            }
+            libraryTick++
+        }
+    }
 
     // 每首歌只自动切到歌词视图一次；用户手动关掉歌词后，不再被自动打开
     // （否则关歌词时 showLyrics 被 effect 立刻改回 true，wideSplit 回不到 0，
@@ -408,6 +457,7 @@ fun PlayerCard(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
+                .onSizeChanged { narrowContentSize.value = it }
         ) {
             if (hasSong) {
                 val s = song!!
@@ -427,32 +477,9 @@ fun PlayerCard(
                         onPlayPause = onPlayPause,
                         onPlayPrevious = onPlayPrevious,
                         onPlayNext = onPlayNext,
-                        onToggleLyrics = {
-                            val nowReady = lyricsReady
-                            showLyrics = !showLyrics
-                            showQueue = false
-                            // 未就绪(失败/尚未成功)时点击 = 触发一次重新加载，
-                            // 不必切歌才能恢复歌词。
-                            if (!nowReady && !lyricsLoading) playerViewModel.retryLyrics()
-                        },
-                        onToggleQueue = {
-                            showQueue = !showQueue
-                            showLyrics = false
-                        },
-                        onAddToLibrary = {
-                            val cur = song
-                            if (cur != null) {
-                                // 已在库 → 移出; 不在库 → 收藏。本地即时生效, 云端异步同步。
-                                if (LibraryManager.isSongSaved(context, cur.id)) {
-                                    LibraryManager.removeSong(context, cur.id)
-                                    Toast.makeText(context, strings.removedFromLibrary, Toast.LENGTH_SHORT).show()
-                                } else {
-                                    LibraryManager.saveSong(context, cur)
-                                    Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
-                                }
-                                libraryTick++
-                            }
-                        },
+                        onToggleLyrics = onToggleLyricsAction,
+                        onToggleQueue = onToggleQueueAction,
+                        onAddToLibrary = onAddToLibraryAction,
                         isInLibrary = isSongSaved,
                         isBufferingFlow = playerViewModel.isBuffering,
                         onSeek = { fraction ->
@@ -464,7 +491,9 @@ fun PlayerCard(
                         onNavigateToUser = onNavigateToUser,
                         lyricsUnavailable = lyricsUnavailable,
                         previousEnabled = playMode != QueueModes.INFINITY,
-                        landscape = isWidePlayer
+                        landscape = isWidePlayer,
+                        compact = !isWidePlayer && heightClass != HeightClass.Regular,
+                        tiny = tinyPlayer
                     )
                 }
 
@@ -665,13 +694,16 @@ fun PlayerCard(
                         }
                     }
                 } else {
-                    // 窄屏：顶部标题栏 + 整宽面板 + 底部控件（保持原行为）。
+                    // 窄屏：顶部标题栏 + 整宽面板 + 底部控件。
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
+                            .onSizeChanged { narrowTopBarHeight.floatValue = it.height.toFloat() }
                             .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
-                            .padding(start = 68.dp, end = 56.dp),
+                            // Tiny 右侧固定预留 4×44dp 按键 + 8dp 边距。320dp 宽时标题
+                            // 仍有 68dp，长歌名用既有跑马灯，绝不伸到按键下方。
+                            .padding(start = 68.dp, end = if (tinyPlayer) 184.dp else 56.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Column(
@@ -716,11 +748,13 @@ fun PlayerCard(
                             .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                     ) {
                         playerPanels(Modifier.fillMaxSize())
-                        // 大封面模式下的曲名/歌手信息：overlay 在内容区底部，不占高度。
+                        // 大封面模式下的曲名/歌手信息：overlay 在面板底部；不挤占歌词
+                        // 布局，但其完整实测高度会从大封面可用带中扣除。
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
                                 .fillMaxWidth()
+                                .onSizeChanged { narrowTitleHeight.floatValue = it.height.toFloat() }
                                 .padding(horizontal = 24.dp, vertical = 8.dp)
                                 .graphicsLayer {
                                     alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) *
@@ -749,6 +783,7 @@ fun PlayerCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .onSizeChanged { narrowControlsHeight.floatValue = it.height.toFloat() }
                             .graphicsLayer { alpha = ((progress.value - 0.7f) / 0.3f).coerceIn(0f, 1f) }
                     ) {
                         playerControls()
@@ -873,7 +908,7 @@ fun PlayerCard(
         }
 
         // 唯一封面叠加层：全屏 ↔ miniBar 共用这一个 cover，随 progress 平滑位移/缩放。
-        // 窄屏大图=整屏宽居中；宽屏大图=左栏封面区实测中心与尺寸。
+        // 窄屏大图按实测可用带收缩并居中；Regular 空间足够时仍满宽、原锚点。
         if (hasSong) {
             val s = song!!
             StableCover(
@@ -883,9 +918,24 @@ fun PlayerCard(
                 modifier = Modifier
                     .then(
                         if (isWidePlayer) Modifier.size(coverSizeDp)
-                        else Modifier.fillMaxWidth().aspectRatio(1f)
+                        else Modifier.layout { measurable, _ ->
+                            // onSizeChanged 在首次布局结束后才回填。未测量时沿用原底图宽度，
+                            // 避免 Coil 首次 draw 以 1px 请求封面，后续放大仍只有纯色像素。
+                            // 真正测得零空间才用 1px 避免除零；mini 封面仍为 56dp。
+                            val baseSize = if (narrowContentSize.value == IntSize.Zero) screenWidthPx
+                                else narrowCover.value.sizePx
+                            val side = baseSize.roundToInt().coerceAtLeast(1)
+                            val placeable = measurable.measure(Constraints.fixed(side, side))
+                            layout(side, side) { placeable.place(0, 0) }
+                        }
                     )
                     .graphicsLayer {
+                        val geometry = narrowCover.value
+                        val coverSizePx = if (isWidePlayer) wideCoverBaseSizePx else size.width.coerceAtLeast(1f)
+                        val miniScale = miniCoverHalfPx * 2f / coverSizePx
+                        val largeCoverCenterX = if (isWidePlayer) wideCoverCenter.x else geometry.centerXPx
+                        val largeCoverCenterY = if (isWidePlayer) wideCoverCenter.y else geometry.centerYPx
+                        val boundsCenter = coverSizePx / 2f
                         val p = progress.value
                         val normalizedP = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
                         // 宽屏封面恒为大图（缩到 mini 是窄屏"大封面↔歌词"切换的语义）；
@@ -921,10 +971,31 @@ fun PlayerCard(
                     .padding(end = 8.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                ThresholdScope(dismissEnabled) { enabled ->
-                    if (enabled) {
-                        MetroIconButton(onClick = onDismiss) {
-                            MetroIcon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = LocalMetroColors.current.onBackground)
+                if (tinyPlayer) {
+                    ThresholdScope(dismissEnabled) { enabled ->
+                        if (enabled) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                PlayerPanelToggles(
+                                    showLyrics, showQueue, isSongSaved, lyricsUnavailable,
+                                    onToggleLyricsAction, onToggleQueueAction, onAddToLibraryAction,
+                                    44.dp, 24.dp
+                                )
+                                Box(
+                                    Modifier.size(44.dp).clickable { onDismiss() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    MetroIcon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer,
+                                        tint = LocalMetroColors.current.onBackground)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    ThresholdScope(dismissEnabled) { enabled ->
+                        if (enabled) {
+                            MetroIconButton(onClick = onDismiss) {
+                                MetroIcon(Icons.Default.KeyboardArrowDown, strings.collapsePlayer, tint = LocalMetroColors.current.onBackground)
+                            }
                         }
                     }
                 }

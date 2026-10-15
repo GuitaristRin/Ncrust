@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.formatDuration
@@ -56,6 +57,8 @@ fun FullPlayerControls(
     previousEnabled: Boolean = true,
     // 宽屏左栏用紧凑尺寸：缩小按钮/间距，把纵向空间让给封面区。
     compact: Boolean = false,
+    // 时间与进度合行，面板切换交给顶栏。
+    tiny: Boolean = false,
     // 宽屏横向布局：进度行 + 操作行扁平铺开，替代手机的竖向大按钮堆叠。
     landscape: Boolean = false
 ) {
@@ -234,45 +237,74 @@ fun FullPlayerControls(
     }
 
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = bottomPad)) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = hPad)
-        ) {
-            // 位置文本抽出为叶子 Composable：仅它随 250ms 位置更新重组，
-            // 不牵连按钮/进度条区域
-            PositionText(
-                positionFlow = positionFlow,
-                modifier = Modifier.align(Alignment.CenterStart)
-            )
+        if (tiny) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = hPad),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PositionText(positionFlow, Modifier.widthIn(max = 48.dp))
+                Spacer(Modifier.width(8.dp))
+                SlimProgressBar(
+                    progressFlow = progressFlow,
+                    durationFlow = durationFlow,
+                    isBufferingFlow = isBufferingFlow,
+                    onSeek = onSeek,
+                    modifier = Modifier.weight(1f),
+                    horizontalPadding = 0.dp
+                )
+                Spacer(Modifier.width(8.dp))
+                DurationText(durationFlow, Modifier.widthIn(max = 48.dp))
+                Spacer(Modifier.width(8.dp))
+                // 最长多语言音质名也只占 64dp；省略号截断，不侵占进度条的权重空间。
+                Box(
+                    Modifier.widthIn(max = 64.dp)
+                        .background(LocalMetroColors.current.surfaceVariant)
+                        .clickable { onNavigateToUser() }
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    QualityLabel(qualityIndexFlow, trialFlow, qualityOptions)
+                }
+            }
+        } else {
             Box(
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(LocalMetroColors.current.surfaceVariant)
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() }
-                    ) { onNavigateToUser() }
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = hPad)
             ) {
-                QualityLabel(
-                    qualityIndexFlow = qualityIndexFlow,
-                    trialFlow = trialFlow,
-                    options = qualityOptions
+                // 高频位置文本仅在叶子订阅，不牵连按钮 / 进度条区域。
+                PositionText(
+                    positionFlow = positionFlow,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .background(LocalMetroColors.current.surfaceVariant)
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { onNavigateToUser() }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    QualityLabel(
+                        qualityIndexFlow = qualityIndexFlow,
+                        trialFlow = trialFlow,
+                        options = qualityOptions
+                    )
+                }
+                DurationText(
+                    durationFlow = durationFlow,
+                    modifier = Modifier.align(Alignment.CenterEnd)
                 )
             }
-            DurationText(
+            Spacer(Modifier.height(gapTight))
+            SlimProgressBar(
+                progressFlow = progressFlow,
                 durationFlow = durationFlow,
-                modifier = Modifier.align(Alignment.CenterEnd)
+                isBufferingFlow = isBufferingFlow,
+                onSeek = onSeek
             )
         }
-        Spacer(Modifier.height(gapTight))
-        SlimProgressBar(
-            progressFlow = progressFlow,
-            durationFlow = durationFlow,
-            isBufferingFlow = isBufferingFlow,
-            onSeek = onSeek
-        )
         Spacer(Modifier.height(gapLoose))
         Row(
             modifier = Modifier
@@ -332,61 +364,84 @@ fun FullPlayerControls(
                 )
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+        if (!tiny) {
+            PlayerPanelToggles(
+                showLyrics, showQueue, isInLibrary, lyricsUnavailable,
+                onToggleLyrics, onToggleQueue, onAddToLibrary,
+                toggleBtn, toggleIcon, Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/** Tiny 顶栏与常规底部切换行共用同一组动作及语义。 */
+@Composable
+fun PlayerPanelToggles(
+    showLyrics: Boolean,
+    showQueue: Boolean,
+    isInLibrary: Boolean,
+    lyricsUnavailable: Boolean,
+    onToggleLyrics: () -> Unit,
+    onToggleQueue: () -> Unit,
+    onAddToLibrary: () -> Unit,
+    toggleBtn: Dp,
+    toggleIcon: Dp,
+    modifier: Modifier = Modifier
+) {
+    val strings = LocalStrings.current
+    val haptic = LocalHapticFeedback.current
+    fun tick() = haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    Row(modifier, horizontalArrangement = Arrangement.SpaceEvenly) {
+        Box(
+            modifier = Modifier
+                .size(toggleBtn)
+                .clickable(enabled = !lyricsUnavailable) {
+                    tick()
+                    onToggleLyrics()
+                },
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(toggleBtn)
-                    .clickable(enabled = !lyricsUnavailable) {
-                        tick()
-                        onToggleLyrics()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                MetroIcon(
-                    imageVector = Icons.Default.Lyrics,
-                    contentDescription = strings.lyricsButton,
-                    // 无歌词/未加载时置灰, 语义是该歌不可展开歌词
-                    tint = if (lyricsUnavailable) LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.5f)
-                    else if (showLyrics) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
-                    sizeDp = toggleIcon
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(toggleBtn)
-                    .clickable {
-                        tick()
-                        onToggleQueue()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                MetroIcon(
-                    imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
-                    contentDescription = strings.queueButton,
-                    tint = if (showQueue) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
-                    sizeDp = toggleIcon
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(toggleBtn)
-                    .clickable {
-                        tick()
-                        onAddToLibrary()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                // 已在库 → 对号(按动移出); 不在库 → 加号(按动收藏)
-                MetroIcon(
-                    imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
-                    contentDescription = strings.addToLibraryButton,
-                    tint = if (isInLibrary) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
-                    sizeDp = toggleIcon
-                )
-            }
+            MetroIcon(
+                imageVector = Icons.Default.Lyrics,
+                contentDescription = strings.lyricsButton,
+                // 无歌词/未加载时置灰, 语义是该歌不可展开歌词
+                tint = if (lyricsUnavailable) LocalMetroColors.current.onSurfaceVariant.copy(alpha = 0.5f)
+                else if (showLyrics) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
+                sizeDp = toggleIcon
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(toggleBtn)
+                .clickable {
+                    tick()
+                    onToggleQueue()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            MetroIcon(
+                imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                contentDescription = strings.queueButton,
+                tint = if (showQueue) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
+                sizeDp = toggleIcon
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(toggleBtn)
+                .clickable {
+                    tick()
+                    onAddToLibrary()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            // 已在库 → 对号(按动移出); 不在库 → 加号(按动收藏)
+            MetroIcon(
+                imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
+                contentDescription = strings.addToLibraryButton,
+                tint = if (isInLibrary) LocalMetroColors.current.primary else LocalMetroColors.current.onBackground,
+                sizeDp = toggleIcon
+            )
         }
     }
 }
@@ -399,6 +454,9 @@ private fun PositionText(positionFlow: StateFlow<Long>, modifier: Modifier) {
         formatDuration(position),
         color = LocalMetroColors.current.onSurfaceVariant,
         style = TextStyle(fontSize = 12.sp),
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier
     )
 }
@@ -410,6 +468,9 @@ private fun DurationText(durationFlow: StateFlow<Long>, modifier: Modifier) {
         formatDuration(duration),
         color = LocalMetroColors.current.onSurfaceVariant,
         style = TextStyle(fontSize = 12.sp),
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier
     )
 }
