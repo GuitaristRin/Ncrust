@@ -27,6 +27,9 @@ namespace Ncrust
 
         public static INetworkInfo Network { get; } = new ConnectionProfileNetworkInfo();
 
+        /// <summary>xeapi 的设备 id / 公钥 / 会话。设备 id 与公钥落 <see cref="Settings"/>，跨启动复用。</summary>
+        public static XeapiState Xeapi { get; } = new XeapiState(Settings);
+
         public static NcmHttp Http { get; } = CreateHttp();
 
         public static PlaybackPreferences PlayPrefs { get; } = new PlaybackPreferences(Settings);
@@ -89,7 +92,7 @@ namespace Ncrust
 
         private static NcmHttp CreateHttp()
         {
-            var http = new NcmHttp();
+            var http = new NcmHttp(null, Xeapi);
             var cookie = Credentials.GetCookie();
             if (!string.IsNullOrEmpty(cookie))
             {

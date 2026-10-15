@@ -9,7 +9,7 @@
 |---|---|---|
 | `BASE_URL` | `https://music.163.com` | REST、weapi |
 | `API_URL` | `https://interface.music.163.com` | eapi 默认域 |
-| `INTERFACE_URL` | `https://interface3.music.163.com` | eapi 取歌曲 URL（`useInterface = true`） |
+| `INTERFACE_URL` | `https://interface3.music.163.com` | eapi 取歌曲 URL（`useInterface = true`）、xeapi 业务请求（`/xeapi/…`） |
 | weblog | `https://clientlogusf.music.163.com` | 播放上报 |
 
 通用头：PC UA、`Referer: https://music.163.com/`、`Cookie`（有登录态时）。写接口另有
@@ -50,13 +50,28 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 | `/eapi/song/enhance/player/url/v1` | `ids=[id]`,`level`,`header`(JSON),`encodeType`(dolby→`mp4`,否则`flac`) | 播放 URL（**host 用 `INTERFACE_URL`**） |
 | `/eapi/album/sublist` | `limit`,`offset`,`total=true` | 收藏专辑 |
 | `/eapi/album/sub` / `/eapi/album/unsub` | `id` | 收藏 / 取消收藏专辑 |
-| `/eapi/radio/like` | `alg=itembased`,`trackId`,`like`,`time`,`e_r=TRUE`,`csrf_token` | 喜欢 / 取消喜欢（**官方客户端指纹**，见下） |
+| `/eapi/radio/like` | `alg=itembased`,`trackId`,`like`,`time`,`e_r=TRUE`,`csrf_token` | 喜欢 / 取消喜欢（**回退通道**，见 xeapi 节） |
 
 **官方客户端指纹**（`EapiPostOfficial`，用于 `/eapi/radio/like`）：iOS UA；设备字段
 `os=iphone`,`appver=8.9.60`,`deviceId`,`osver`,`versioncode=140`,`mobilename`,`buildver`,
 `resolution=1920x1080`,`__csrf`,`channel=yykj`,`requestId` 以 URL-encoded Cookie 形式发送，
 同时整体作为 `header` 字段写进加密 body。写接口在 `BASE_URL` 之外的 host 上可能被判
 `-460 风险`，故固定打 `API_URL`。
+
+## xeapi（业务 `INTERFACE_URL`，公钥 `API_URL`）
+
+官方 Android 9.x 的请求加密层，协议全文见 **`api/xeapi.md`**，夹具 `fixtures/crypto/xeapi.json`。
+
+| 路径 | 参数 | 用途 |
+|---|---|---|
+| `/xeapi/v1/radio/like` | 加密表单 `C`/`S`/`R`；明文字段 `alg=itembased`,`trackId`,`like`,`time=3` | 喜欢 / 取消喜欢（**主通道**，带 `X-antiCheatToken`） |
+| `/api/bsr/sk/get` | `appVersion`,`currentKeyVersion`,`deviceId`,`nonce`,`os`,`requestType=active`,`signature`,`t1`,`t2`,`timestamp`,`uid` | 取服务端公钥（明文表单，Cookie 只带 `deviceId`） |
+| `ac.dun.163yun.com/v3/b?pn=YD00000558929251` | — | 易盾反作弊 token（GET，现取不缓存） |
+
+**为什么收藏必须走 xeapi**：老通道（weapi / eapi `/api/radio/like`）的写入会被服务端风控
+**事后回滚**——收藏当天可见、隔天消失；`time` 从时间戳改成 `3` 后仍复现。
+取证与对照实验见 `api/xeapi.md` 末节与 `tools/like-experiment.mjs`。weapi / eapi 保留为回退，
+只是不让收藏功能整体不可用，其写入仍可能被回滚。
 
 ## weapi（`BASE_URL`，表单 `params` + `encSecKey`）
 
