@@ -11,7 +11,8 @@
 | `API_URL` | `https://interface.music.163.com` | eapi 默认域、xeapi 公钥接口 |
 | `INTERFACE_URL` | `https://interface3.music.163.com` | eapi 取歌曲 URL（`useInterface = true`）、xeapi 业务请求 |
 | `INTERFACE_PC_URL` | `https://interfacepc.music.163.com` | eapi + PC 客户端指纹（扫码登录，见下） |
-| weblog | `https://clientlogusf.music.163.com` | 播放上报 |
+| `CLIENT_LOG_URL` | `https://clientlog.music.163.com` | 播放上报（eapi + osx 身份，见末节） |
+| clientlogusf（**废弃**） | `https://clientlogusf.music.163.com` | 旧播放上报通道：回 200 但不入账 |
 | antiCheat | `https://ac.dun.163yun.com/v3/b?pn=YD00000558929251` | 易盾 token（xeapi 写入用，见下） |
 
 通用头：PC UA、`Referer: https://music.163.com/`、`Cookie`（有登录态时）。写接口另有
@@ -117,7 +118,54 @@ UA 为桌面客户端（`Mozilla/5.0 (Windows NT 10.0; WOW64) … NeteaseMusicDe
 > `/api/login/qrcode/client/login`，轮询另带 `os=pc; NMTID=<hex16>; sDeviceId=<52 hex>`）已弃用：
 > 实测 `-462`，改用上面 eapi 节的 PC 客户端指纹通道。
 
-## weblog（`https://clientlogusf.music.163.com`）
+## 播放上报 / 听歌打卡（`CLIENT_LOG_URL`，eapi + osx 身份）
 
-`POST /api/feedback/weblog?csrf_token=<csrf>`，表单 `logs=<JSON 数组>`（不含 eapi/weapi 加密）。
-字段与官方 web 播放器一致，见 `Ncrust.Core.Playback.PlayReport`。
+`POST https://clientlog.music.163.com/eapi/feedback/weblog`，**eapi 加密**（签名路径
+`/api/feedback/weblog`；请求路径是 `/eapi/…`，`EapiCrypto` 内部换回 `/api/` 再签名）。
+业务字段只有一个 `logs`（JSON **文本**），加密信封为
+`{"logs":"<JSON 文本>","e_r":false,"header":{…}}` —— `e_r` 是布尔 `false`（参考实现
+`util/config.json` 的 `encryptResponse = false`）。
+
+**两次上报，缺一不可**（参考实现 `module/scrobble.js` 依次发两条）：
+
+| 顺序 | `logs[0].action` | 作用 | `json` 字段（**顺序即参考实现写法**） |
+|---|---|---|---|
+| 1 | `startplay` | 进「最近播放」 | `id`,`type:"song"`,`mainsite:"1"`,`mainsiteWeb:"1"`,`content:"id=<sourceId>"` |
+| 2 | `play` | 涨「听歌排行」计数 | `download:0`,`end:"playend"`,`id`,`sourceId`,`time`,`type:"song"`,`wifi`,`source:"list"`,`mainsite:"1"`,`mainsiteWeb:"1"`,`content:"id=<sourceId>"` |
+
+- `id`：歌曲 id。`sourceId`：歌曲来源的歌单 / 专辑 id —— **不知道时用空串**（`content` 就是 `id=`），不要编。
+- `time`：**播放秒数**（不是毫秒）。
+- `wifi`：`0` = Wi-Fi，`1` = 计费网络。参考实现固定发 `0`（它的对照实验都在 Wi-Fi 下做），
+  本仓库两端按实际网络发 0 / 1。
+- 时机：每首歌**开始播放**时发 `startplay`（每首一次）；自然结束**或**进度 ≥ 80% 时发 `play`（每首一次）。
+  **试听片段两条都不发**（`api/entitlement.md`：45 秒片段不该进「最近播放」与排行）。
+- 仍然尽力而为：fire-and-forget，失败与未登录都不影响、不阻塞播放。
+
+**身份：`os=osx`（决定性变量）** —— android / iphone / pc 身份的同名请求会被服务端丢弃。
+
+- UA：`Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36`
+- `header` 对象同时进加密 body 与请求 Cookie；作 Cookie 时按
+  `encodeURIComponent(k)=encodeURIComponent(v)` 以 `; ` 拼接。字段与顺序（`util/request.js` eapi 分支的
+  构造顺序）：`osver=15.5`、`deviceId`（复用 xeapi 的持久设备 id，一台设备一个）、`os=osx`、
+  `appver=3.1.10.5100`、`versioncode=140`、`mobilename=`（空）、`buildver=<10 位秒级时间戳>`、
+  `resolution=1920x1080`、`__csrf`（登录 Cookie 里的值）、`channel=netease`、
+  `requestId=<毫秒时间戳>_<4 位随机>`，末尾按有无补 `MUSIC_U` / `MUSIC_A`。
+- 请求头只有 `User-Agent` 与 `Cookie`（参考实现这条路径不带 `Referer`）；表单体是 `params=<hex>`。
+- **与参考实现的已知差异**：参考实现在 eapi 头末尾还会补上它自己缓存到的 `NMTID`（来自某次 eapi
+  响应的 Set-Cookie）。两端都不带这个字段 —— 上面这份字段清单里没有它，而它取决于一次额外的响应
+  缓存；**去掉它是否影响入账没有实测**，若日后发现打卡不生效，这是第一个值得补回的字段。
+
+**旧通道（已废弃，别再回去）**：`POST https://clientlogusf.music.163.com/api/feedback/weblog?csrf_token=…`，
+明文表单 `logs=<JSON 数组>`（不含 eapi/weapi 加密）。2026 年社区对照实验
+（[`NeteaseCloudMusicApiEnhanced/api-enhanced#167`](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/issues/167)，
+维护者已据此在 4.35.2 修复）实测：**weapi/music.163.com、eapi/interface、clientlogusf 三条通道都回
+HTTP 200 / `code 200`，但服务端静默丢弃，不入账**（「最近播放」「听歌排行」「每日推荐」都吃不到）。
+
+**依据**（2026-10-15 逐字段核对参考实现）：`module/scrobble.js`（两次上报与全部字段）、
+`util/request.js` 的 `case 'eapi'` 分支（header 构造与 `createHeaderCookie`、`cookie.os === 'osx'` 时
+专用的 Mac Chrome UA、`data.header = header`）、`util/config.json`
+（`clDomian = https://clientlog.music.163.com`、`encryptResponse = false`），以及 #167 的对照实验结论。
+
+> **验证边界**：两端各自的单测锁的是「请求形态 = 上面这份规格」（URL、UA、Cookie、解密后的 logs 字段与
+> 顺序）。**「服务端是否真的入账」没有在真实账号上验证过** —— 未登录 / 无效 cookie 的匿名探针只会拿到
+> `code 200`（正是 #167 里那条假通道的表现），只能由账号主人在官方 App 的「最近播放 / 听歌排行」里核对。

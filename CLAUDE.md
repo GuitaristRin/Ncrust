@@ -243,9 +243,9 @@ Quality preferences (indices into the 7-level ladder) live in `ncrust_settings`:
 
 Defaults: Wi-Fi = 3 (lossless), Mobile = 1 (higher). The selected label shows as a badge in `FullPlayerControls`.
 
-#### Playback reporting (webLog)
+#### Playback reporting (scrobble)
 
-`PlayReporter` replays the official web player's `webLog` so local listening feeds NetEase recommendations. On natural end **or** progress ≥ 80%, it POSTs a form `logs=JSON([{action:"play", json:{type:"song", wifi:0|1, download:0, id, time, end:"playend", mainsite:"1", mainsiteWeb:"1"}}])` to `https://clientlogusf.music.163.com/api/feedback/weblog?csrf_token=<csrf>`. **No eapi/weapi encryption.** Fire-and-forget on a `ncrust-weblog` thread, deduped per song, never blocks playback.
+`PlayReporter` feeds local listening back to NetEase (「最近播放」/「听歌排行」/ recommendations). The old plain-form webLog to `clientlogusf` returns 200 but is **silently dropped** (api-enhanced#167), so it now posts **eapi** to `https://clientlog.music.163.com/eapi/feedback/weblog` with an **`os=osx`** client identity (the deciding variable; see `spec/api/endpoints.md`). Two reports per song: `startplay` when playback starts, `play` (with `time` in **seconds**, `end:"playend"`) on natural end **or** progress ≥ 80%. Trial clips (`account/` entitlement = trial) send neither. Fire-and-forget on a `ncrust-scrobble` thread, deduped per song, never blocks playback.
 
 ### Queue Management
 

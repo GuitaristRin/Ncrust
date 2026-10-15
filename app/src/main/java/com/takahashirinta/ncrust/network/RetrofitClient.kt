@@ -33,6 +33,12 @@ object RetrofitClient {
     // spec/api/endpoints.md「eapi · PC 客户端指纹」）。
     private const val INTERFACE_PC_URL = "https://interfacepc.music.163.com"
     private const val PC_UA = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 NeteaseMusicDesktop/3.1.29.205117"
+    // 播放上报（听歌打卡）的日志域。旧通道 clientlogusf 回 200 但不入账，只有这里的
+    // clientlog + eapi + os=osx 身份入账（依据 NeteaseCloudMusicApiEnhanced/api-enhanced#167，
+    // 协议见 spec/api/endpoints.md 的「播放上报 / 听歌打卡」）。
+    private const val CLIENT_LOG_URL = "https://clientlog.music.163.com"
+    // os=osx 身份专用的 Mac Chrome UA：参考实现的 eapi 分支里 `cookie.os === 'osx'` 时才用它。
+    private const val OSX_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     // 官方 Android 9.5.61 的 UA 与设备字段，xeapi 的公钥请求与业务请求共用同一套指纹。
     private const val ANDROID_UA = "NeteaseMusic/9.5.61.260802021928(9005061);Dalvik/2.1.0 (Linux; U; Android 12; HBN-AL00 Build/cd737a2.0)"
     private const val XEAPI_OS = "android"
@@ -140,18 +146,95 @@ object RetrofitClient {
      * @param fields 业务字段，值必须给原生类型（`type` 是数值）。
      */
     fun eapiPostPc(path: String, fields: Map<String, Any>): Response {
-        val fullUrl = INTERFACE_PC_URL + "/eapi/" + path.removePrefix("/api/")
         val header = QrLoginProtocol.pcHeader(
-            deviceId = pcDeviceId(),
+            deviceId = deviceId(),
             nowMs = System.currentTimeMillis(),
             requestSuffix = (0..999).random()
         )
+        return eapiPostWithIdentity(INTERFACE_PC_URL, PC_UA, path, fields, header)
+    }
+
+    /**
+     * eapi + **os=osx 身份** POST（打 clientlog 日志域）。播放上报专用：听歌打卡只有
+     * 「clientlog + eapi + os=osx」这个组合入账，android / iphone / pc 身份的同名请求会被丢弃
+     * （依据 NeteaseCloudMusicApiEnhanced/api-enhanced#167，协议见 `spec/api/endpoints.md`）。
+     *
+     * 请求头只有 UA 与 Cookie（参考实现这条路径不带 Referer）；字段与顺序由 [osxHeader] 负责，
+     * 是纯函数、有单测。
+     *
+     * @param path `/api/…` 形态，内部改写成 `/eapi/…`。
+     * @param fields 业务字段（播放上报只有一个 `logs`，值是 JSON 文本）。
+     */
+    fun eapiPostOsx(path: String, fields: Map<String, Any>): Response {
+        val cookie = cookieValues(currentCookie)
+        val header = osxHeader(
+            deviceId = deviceId(),
+            csrf = getCsrfToken().orEmpty(),
+            musicU = cookie["MUSIC_U"],
+            musicA = cookie["MUSIC_A"],
+            nowMs = System.currentTimeMillis(),
+            requestSuffix = (0..999).random()
+        )
+        return eapiPostWithIdentity(CLIENT_LOG_URL, OSX_UA, path, fields, header)
+    }
+
+    /**
+     * os=osx 身份的设备字段，**顺序即协议**（逐项对齐参考实现 util/request.js 的 eapi 分支）。
+     *
+     * 同一份既按 [QrLoginProtocol.cookieHeader] 作请求 Cookie，也整体进加密 body 的 `header`；
+     * 服务端就是靠这组字段认出「桌面客户端」的 —— 换成 android / iphone / pc 身份，请求照回 200
+     * 但不会入账。纯函数（deviceId 与时间由调用方给），JVM 单测直接断言字段与顺序。
+     *
+     * @param nowMs 毫秒时间戳：`buildver` 取它的前 10 位（等价于秒级时间戳），
+     *   `requestId` 是 `<毫秒>_<4 位随机>`。
+     */
+    fun osxHeader(
+        deviceId: String,
+        csrf: String,
+        musicU: String?,
+        musicA: String?,
+        nowMs: Long,
+        requestSuffix: Int,
+    ): LinkedHashMap<String, String> {
+        val header = linkedMapOf(
+            "osver" to "15.5",
+            "deviceId" to deviceId,
+            "os" to "osx",
+            "appver" to "3.1.10.5100",
+            "versioncode" to "140",
+            "mobilename" to "",
+            "buildver" to (nowMs / 1000).toString(),
+            "resolution" to "1920x1080",
+            "__csrf" to csrf,
+            "channel" to "netease",
+            "requestId" to "${nowMs}_${requestSuffix.toString().padStart(4, '0')}",
+        )
+        if (!musicU.isNullOrEmpty()) header["MUSIC_U"] = musicU
+        if (!musicA.isNullOrEmpty()) header["MUSIC_A"] = musicA
+        return header
+    }
+
+    /**
+     * eapi + 客户端身份 POST 的公共拼装（PC 扫码 / osx 播报共用）：这两条通道除了 host 与 UA
+     * （身份差异，作参数传入）之外形态完全一致 —— 设备字段按 [QrLoginProtocol.cookieHeader] 拼成
+     * Cookie，同一份再进加密 body 的 `header`，信封是「业务字段 → `e_r:false` → `header`」。
+     *
+     * （第三条身份通道 [eapiPostOfficial] 是 iPhone 身份、拼法另有历史，不并入这里。）
+     */
+    private fun eapiPostWithIdentity(
+        host: String,
+        ua: String,
+        path: String,
+        fields: Map<String, Any>,
+        header: Map<String, String>
+    ): Response {
+        val fullUrl = host + "/eapi/" + path.removePrefix("/api/")
         val params = EapiCrypto.encryptParams(fullUrl, QrLoginProtocol.envelope(fields, header))
 
         val request = Request.Builder()
             .url(fullUrl)
             .post(FormBody.Builder().add("params", params).build())
-            .header("User-Agent", PC_UA)
+            .header("User-Agent", ua)
             .header("Cookie", QrLoginProtocol.cookieHeader(header))
             .build()
 
@@ -159,16 +242,26 @@ object RetrofitClient {
     }
 
     /**
-     * PC 身份用的设备 id：复用 xeapi 的持久设备 id（一台设备一个 id）。
+     * 客户端身份共用的设备 id：复用 xeapi 的持久设备 id（一台设备一个 id）。
      * 没初始化 [XeapiState] 时兜底随机，但**进程内只生成一次**——逐请求换 deviceId 正是
      * 风控画像里「非真实设备」的特征（`spec/api/xeapi.md` §3.3）。
      */
-    private val fallbackPcDeviceId: String by lazy {
+    private val fallbackDeviceId: String by lazy {
         buildString(32) { repeat(32) { append("0123456789abcdef"[(0..15).random()]) } }
     }
 
-    private fun pcDeviceId(): String =
-        runCatching { XeapiState.deviceId() }.getOrNull() ?: fallbackPcDeviceId
+    private fun deviceId(): String =
+        runCatching { XeapiState.deviceId() }.getOrNull() ?: fallbackDeviceId
+
+    /** 登录 Cookie 串 → 键值对（同名后者覆盖前者）；eapi 身份构造要按字段取值。 */
+    private fun cookieValues(cookie: String?): Map<String, String> =
+        (cookie ?: "")
+            .split(';')
+            .asSequence()
+            .map { it.trim() }
+            .filter { it.contains('=') }
+            .map { it.split('=', limit = 2) }
+            .associate { it[0].trim() to it.getOrElse(1) { "" } }
 
     /**
      * 逐行对齐官方/参考实现的 eapi 请求：
@@ -181,13 +274,7 @@ object RetrofitClient {
     fun eapiPostOfficial(path: String, payload: Map<String, String>): Response {
         val fullUrl = API_URL + path
         val csrf = getCsrfToken().orEmpty()
-        val mus: Map<String, String> = (currentCookie ?: "")
-            .split(';')
-            .asSequence()
-            .map { it.trim() }
-            .filter { it.contains('=') }
-            .map { it.split('=', limit = 2) }
-            .associate { it[0].trim() to it.getOrElse(1) { "" } }
+        val mus: Map<String, String> = cookieValues(currentCookie)
         val header = LinkedHashMap<String, String>()
         header["os"] = "iphone"
         header["appver"] = "8.9.60"
@@ -421,24 +508,7 @@ object RetrofitClient {
         return plainClient.newCall(request).execute().body?.string() ?: throw Exception("empty response")
     }
 
-    /**
-     * 播放行为上报(webLog)。与官方 web 播放器一致,POST 到 clientlogusf 日志域,
-     * body 为表单 `logs=<JSON 数组>`,并携带 session Cookie。
-     *
-     * 这条链路不走 eapi/weapi 加密,只做普通表单 POST + csrf_token。
-     */
-    fun postWeblog(weblogUrl: String, logsJson: String): okhttp3.Response {
-        val request = Request.Builder()
-            .url(weblogUrl)
-            .post(FormBody.Builder().add("logs", logsJson).build())
-            .header("User-Agent", UA)
-            .header("Referer", "https://music.163.com/")
-            .header("Cookie", currentCookie ?: "")
-            .build()
-        return plainClient.newCall(request).execute()
-    }
-
-    /** 从当前 Cookie 串中提取 __csrf token,用于 weblog 上报。 */
+    /** 从当前 Cookie 串中提取 __csrf token,用于 weapi / eapi 身份头与播放上报。 */
     fun getCsrfToken(): String? {
         val cookie = currentCookie ?: return null
         return cookie.split(';')

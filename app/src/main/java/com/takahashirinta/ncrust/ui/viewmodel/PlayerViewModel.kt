@@ -73,6 +73,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     // 防止同一首歌重复上报播放行为。
     private var lastReportedSongId = -1L
+    // 同理防止同一首歌重复上报「开始播放」（startplay）。
+    private var lastStartReportedSongId = -1L
 
     // Incremented on every explicit playSong call; lets preloadNextSong detect staleness.
     private var songPlayVersion = 0
@@ -140,7 +142,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 PlayReporter.reachedCompletion(pos, dur)
             ) {
                 lastReportedSongId = sid
-                PlayReporter.reportPlay(sid, pos, dur, end = "playend", isWifi = isOnWifi())
+                PlayReporter.reportPlay(sid, pos, isWifi = isOnWifi())
             }
 
             // Signal the preload window once per song (guarded by !needsPreload.value).
@@ -156,7 +158,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val sid = currentSongId.value ?: -1L
             if (sid > 0 && sid != lastReportedSongId && !currentIsTrial.value) {
                 lastReportedSongId = sid
-                PlayReporter.reportPlay(sid, duration.value, duration.value, end = "playend", isWifi = isOnWifi())
+                PlayReporter.reportPlay(sid, duration.value, isWifi = isOnWifi())
             }
             onSongEndedCallback?.invoke()
         }
@@ -179,6 +181,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 // 无缝衔接过来的歌不重新取链，试听标记从取链时的记录里还原；
                 // 首听（playSong 已提示过）不再重复提示，由 PlaybackNoticeTracker 去重。
                 restoreTrialState(now.songId)
+                // 「开始播放」这一步的上报放在试听状态还原之后：试听片段不发（见 reportStartplay）。
+                reportStartplay(now.songId)
                 // 音质档位同样取自当前 MediaItem 的 extras，与标题/封面同源，
                 // 因此三者绝不会互相错位（旧的全局预载槽推断正是错位来源）。
                 if (now.actualLevel.isNotEmpty()) {
@@ -286,6 +290,22 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         return cm.getNetworkCapabilities(cm.activeNetwork)
             ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+    }
+
+    /**
+     * 开始播一首就发 startplay（听歌打卡的第一步，让这首歌进「最近播放」）。
+     *
+     * 挂点就是切歌回调 [PlaybackService.onSongTransitioned]：手动切歌（非 AUTO）与无缝衔接（AUTO）
+     * 都经过它，正好是"这一首真的开始播了"的时刻；预载阶段不能发（可能早一分钟）。
+     *
+     * 与其他上报同一条抑制规则：试听片段不发 —— 45 秒片段不该进「最近播放」，
+     * 用的就是 [currentIsTrial] 这个判定，不另立一套。
+     */
+    private fun reportStartplay(songId: Long) {
+        if (songId <= 0 || songId == lastStartReportedSongId || currentIsTrial.value) return
+        lastStartReportedSongId = songId
+        // startplay 的字段里没有 wifi（参考实现如此），所以这里不传网络状态。
+        PlayReporter.reportStart(songId)
     }
 
     /**
