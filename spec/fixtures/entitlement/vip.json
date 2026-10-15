@@ -1,0 +1,154 @@
+[
+  {
+    "id": "entitlement.vip.black-active",
+    "kind": "vip",
+    "description": "黑胶 VIP 有效。",
+    "source": "XiaoMengXinX/Music163Api-Go types/vipInfo.go 字段；规则见 spec/api/entitlement.md",
+    "input": {
+      "response": {
+        "code": 200,
+        "data": {
+          "now": 1792000000000,
+          "redVipLevel": 3,
+          "associator": {
+            "vipCode": 100,
+            "expireTime": 1794592000000
+          },
+          "musicPackage": {
+            "vipCode": 0,
+            "expireTime": 0
+          }
+        }
+      }
+    },
+    "expect": {
+      "state": "active",
+      "kind": "vip",
+      "expireAt": 1794592000000
+    }
+  },
+  {
+    "id": "entitlement.vip.svip-wins",
+    "kind": "vip",
+    "description": "SVIP 与黑胶同时有效时取 SVIP。",
+    "source": "XiaoMengXinX/Music163Api-Go types/vipInfo.go 字段；规则见 spec/api/entitlement.md",
+    "input": {
+      "response": {
+        "code": 200,
+        "data": {
+          "now": 1792000000000,
+          "associator": {
+            "vipCode": 100,
+            "expireTime": 1794592000000
+          },
+          "redplus": {
+            "vipCode": 300,
+            "expireTime": 1792864000000
+          },
+          "musicPackage": {
+            "vipCode": 0,
+            "expireTime": 0
+          }
+        }
+      }
+    },
+    "expect": {
+      "state": "active",
+      "kind": "svip",
+      "expireAt": 1792864000000
+    }
+  },
+  {
+    "id": "entitlement.vip.package-only",
+    "kind": "vip",
+    "description": "只有音乐包有效。",
+    "source": "XiaoMengXinX/Music163Api-Go types/vipInfo.go 字段；规则见 spec/api/entitlement.md",
+    "input": {
+      "response": {
+        "code": 200,
+        "data": {
+          "now": 1792000000000,
+          "associator": {
+            "vipCode": 0,
+            "expireTime": 0
+          },
+          "musicPackage": {
+            "vipCode": 230,
+            "expireTime": 1792432000000
+          }
+        }
+      }
+    },
+    "expect": {
+      "state": "active",
+      "kind": "package",
+      "expireAt": 1792432000000
+    }
+  },
+  {
+    "id": "entitlement.vip.lapsed",
+    "kind": "vip",
+    "description": "都过期：lapsed，expireAt 取最近过期的一项。",
+    "source": "XiaoMengXinX/Music163Api-Go types/vipInfo.go 字段；规则见 spec/api/entitlement.md",
+    "input": {
+      "response": {
+        "code": 200,
+        "data": {
+          "now": 1792000000000,
+          "associator": {
+            "vipCode": 100,
+            "expireTime": 1791740800000
+          },
+          "musicPackage": {
+            "vipCode": 230,
+            "expireTime": 1788544000000
+          }
+        }
+      }
+    },
+    "expect": {
+      "state": "lapsed",
+      "expireAt": 1791740800000
+    }
+  },
+  {
+    "id": "entitlement.vip.none",
+    "kind": "vip",
+    "description": "从未开通：none。",
+    "source": "XiaoMengXinX/Music163Api-Go types/vipInfo.go 字段；规则见 spec/api/entitlement.md",
+    "input": {
+      "response": {
+        "code": 200,
+        "data": {
+          "now": 1792000000000,
+          "associator": {
+            "vipCode": 0,
+            "expireTime": 0
+          },
+          "musicPackage": {
+            "vipCode": 0,
+            "expireTime": 0
+          }
+        }
+      }
+    },
+    "expect": {
+      "state": "none"
+    }
+  },
+  {
+    "id": "entitlement.vip.not-logged-in",
+    "kind": "vip",
+    "description": "301 未登录：unknown，不能显示「未开通」。",
+    "source": "XiaoMengXinX/Music163Api-Go types/vipInfo.go 字段；规则见 spec/api/entitlement.md",
+    "input": {
+      "response": {
+        "message": "用户未登录",
+        "code": 301
+      }
+    },
+    "expect": {
+      "state": "unknown"
+    }
+  }
+]

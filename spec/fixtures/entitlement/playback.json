@@ -1,0 +1,430 @@
+[
+  {
+    "id": "entitlement.playback.vip-trial-anonymous",
+    "kind": "playback",
+    "description": "VIP 歌、未登录：200 + url 但带 freeTrialInfo，是 45 秒试听，原因归为「登录」。",
+    "source": "2026-10-15 spec/tools/probe-entitlement.mjs 实测响应（匿名）；规则见 spec/api/entitlement.md",
+    "input": {
+      "requestedLevel": "exhigh",
+      "sessionValid": false,
+      "item": {
+        "id": 347230,
+        "url": "http://m702.music.126.net/x.mp3",
+        "code": 200,
+        "level": "standard",
+        "fee": 1,
+        "freeTrialInfo": {
+          "fragmentType": -1,
+          "start": 0,
+          "end": 45,
+          "algData": {
+            "fragSource": "default"
+          }
+        },
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": {
+        "st": 0,
+        "pl": 0,
+        "fee": 1
+      }
+    },
+    "expect": {
+      "kind": "trial",
+      "trialSeconds": 45,
+      "reason": "login"
+    }
+  },
+  {
+    "id": "entitlement.playback.vip-trial-logged-in",
+    "kind": "playback",
+    "description": "VIP 歌、已登录非会员：同样的试听，原因归为「需要 VIP」。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "lossless",
+      "sessionValid": true,
+      "item": {
+        "id": 1901371647,
+        "url": "http://m702.music.126.net/y.mp3",
+        "code": 200,
+        "level": "standard",
+        "fee": 1,
+        "freeTrialInfo": {
+          "fragmentType": -1,
+          "start": 0,
+          "end": 45,
+          "algData": {
+            "fragSource": "default"
+          }
+        },
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": {
+        "st": 0,
+        "pl": 0,
+        "fee": 1
+      }
+    },
+    "expect": {
+      "kind": "trial",
+      "trialSeconds": 45,
+      "reason": "vip"
+    }
+  },
+  {
+    "id": "entitlement.playback.album-trial",
+    "kind": "playback",
+    "description": "fee 4（数字专辑）试听：原因是「需购买专辑」，与登录无关；试听时长 = end - start。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "exhigh",
+      "sessionValid": false,
+      "item": {
+        "id": 2,
+        "url": "http://m7.music.126.net/z.mp3",
+        "code": 200,
+        "level": "standard",
+        "fee": 4,
+        "freeTrialInfo": {
+          "start": 30,
+          "end": 60
+        },
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": {
+        "st": 0,
+        "pl": 0,
+        "fee": 4
+      }
+    },
+    "expect": {
+      "kind": "trial",
+      "trialSeconds": 30,
+      "reason": "album"
+    }
+  },
+  {
+    "id": "entitlement.playback.full-exact",
+    "kind": "playback",
+    "description": "免费歌按请求档位拿到完整音源：full，不 capped。",
+    "source": "2026-10-15 spec/tools/probe-entitlement.mjs 实测响应（匿名）；规则见 spec/api/entitlement.md",
+    "input": {
+      "requestedLevel": "exhigh",
+      "sessionValid": false,
+      "item": {
+        "id": 5257138,
+        "url": "http://m701.music.126.net/a.mp3",
+        "code": 200,
+        "level": "exhigh",
+        "fee": 8,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": {
+        "st": 0,
+        "pl": 320000,
+        "fee": 8
+      }
+    },
+    "expect": {
+      "kind": "full",
+      "capped": false
+    }
+  },
+  {
+    "id": "entitlement.playback.full-capped-vip",
+    "kind": "playback",
+    "description": "fee 8 已登录非会员请求无损只给到极高：capped，原因 vip。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "lossless",
+      "sessionValid": true,
+      "item": {
+        "id": 5257138,
+        "url": "http://m701.music.126.net/a.mp3",
+        "code": 200,
+        "level": "exhigh",
+        "fee": 8,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": {
+        "st": 0,
+        "pl": 320000,
+        "fee": 8
+      }
+    },
+    "expect": {
+      "kind": "full",
+      "capped": true,
+      "cappedTo": "exhigh",
+      "cappedReason": "vip"
+    }
+  },
+  {
+    "id": "entitlement.playback.full-capped-login",
+    "kind": "playback",
+    "description": "未登录请求无损只给到极高：capped，原因 login。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "lossless",
+      "sessionValid": false,
+      "item": {
+        "id": 5257138,
+        "url": "http://m701.music.126.net/a.mp3",
+        "code": 200,
+        "level": "exhigh",
+        "fee": 8,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": {
+        "st": 0,
+        "pl": 320000,
+        "fee": 8
+      }
+    },
+    "expect": {
+      "kind": "full",
+      "capped": true,
+      "cappedTo": "exhigh",
+      "cappedReason": "login"
+    }
+  },
+  {
+    "id": "entitlement.playback.full-unknown-level",
+    "kind": "playback",
+    "description": "服务端返回阶梯外的档位（如 sky）：无法比较，不算 capped。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "lossless",
+      "sessionValid": true,
+      "item": {
+        "id": 3,
+        "url": "http://m7.music.126.net/b.flac",
+        "code": 200,
+        "level": "sky",
+        "fee": 0,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": null
+    },
+    "expect": {
+      "kind": "full",
+      "capped": false
+    }
+  },
+  {
+    "id": "entitlement.playback.unavailable-copyright",
+    "kind": "playback",
+    "description": "无版权：404 + url null，详情 st=-200 → copyright。",
+    "source": "2026-10-15 spec/tools/probe-entitlement.mjs 实测响应（匿名）；规则见 spec/api/entitlement.md",
+    "input": {
+      "requestedLevel": "exhigh",
+      "sessionValid": false,
+      "item": {
+        "id": 186016,
+        "url": null,
+        "code": 404,
+        "level": null,
+        "fee": 0,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": false,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": 1,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": {
+        "st": -200,
+        "pl": 0,
+        "fee": 0
+      }
+    },
+    "expect": {
+      "kind": "unavailable",
+      "reason": "copyright"
+    }
+  },
+  {
+    "id": "entitlement.playback.unavailable-vip",
+    "kind": "playback",
+    "description": "fee 1 无 url、已登录：需要 VIP。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "exhigh",
+      "sessionValid": true,
+      "item": {
+        "id": 4,
+        "url": null,
+        "code": 404,
+        "level": null,
+        "fee": 1,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": {
+        "st": 0,
+        "pl": 0,
+        "fee": 1
+      }
+    },
+    "expect": {
+      "kind": "unavailable",
+      "reason": "vip"
+    }
+  },
+  {
+    "id": "entitlement.playback.unavailable-login",
+    "kind": "playback",
+    "description": "fee 1 无 url、未登录：原因是 login；没有详情 privilege 时用 item.fee。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "exhigh",
+      "sessionValid": false,
+      "item": {
+        "id": 4,
+        "url": null,
+        "code": 404,
+        "level": null,
+        "fee": 1,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": null
+    },
+    "expect": {
+      "kind": "unavailable",
+      "reason": "login"
+    }
+  },
+  {
+    "id": "entitlement.playback.unavailable-album",
+    "kind": "playback",
+    "description": "fee 4 无 url：需购买专辑。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "exhigh",
+      "sessionValid": true,
+      "item": {
+        "id": 5,
+        "url": null,
+        "code": 404,
+        "level": null,
+        "fee": 4,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": null
+    },
+    "expect": {
+      "kind": "unavailable",
+      "reason": "album"
+    }
+  },
+  {
+    "id": "entitlement.playback.unavailable-unknown",
+    "kind": "playback",
+    "description": "fee 0 无 url 且无版权信号：unknown，不编原因。",
+    "source": "按 spec/api/entitlement.md 规则构造",
+    "input": {
+      "requestedLevel": "exhigh",
+      "sessionValid": true,
+      "item": {
+        "id": 6,
+        "url": null,
+        "code": 404,
+        "level": null,
+        "fee": 0,
+        "freeTrialInfo": null,
+        "freeTrialPrivilege": {
+          "resConsumable": true,
+          "userConsumable": false,
+          "listenType": null,
+          "cannotListenReason": null,
+          "playReason": null,
+          "freeLimitTagType": null
+        }
+      },
+      "privilege": null
+    },
+    "expect": {
+      "kind": "unavailable",
+      "reason": "unknown"
+    }
+  }
+]

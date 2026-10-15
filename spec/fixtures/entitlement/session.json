@@ -1,0 +1,99 @@
+[
+  {
+    "id": "entitlement.session.valid",
+    "kind": "session",
+    "description": "有 cookie，account/profile 非空。",
+    "source": "2026-10-15 伪造 cookie 实测：account/get 返回 code 200 + account:null；需登录接口返回 301",
+    "input": {
+      "hasCookie": true,
+      "accountGet": {
+        "code": 200,
+        "account": {
+          "id": 1
+        },
+        "profile": {
+          "userId": 1,
+          "nickname": "a"
+        }
+      }
+    },
+    "expect": {
+      "state": "valid"
+    }
+  },
+  {
+    "id": "entitlement.session.expired",
+    "kind": "session",
+    "description": "有 cookie，但 account 为 null（code 200）→ 失效。",
+    "source": "2026-10-15 伪造 cookie 实测：account/get 返回 code 200 + account:null；需登录接口返回 301",
+    "input": {
+      "hasCookie": true,
+      "accountGet": {
+        "code": 200,
+        "account": null,
+        "profile": null
+      }
+    },
+    "expect": {
+      "state": "expired"
+    }
+  },
+  {
+    "id": "entitlement.session.logged-out",
+    "kind": "session",
+    "description": "无 cookie → 未登录。",
+    "source": "2026-10-15 伪造 cookie 实测：account/get 返回 code 200 + account:null；需登录接口返回 301",
+    "input": {
+      "hasCookie": false,
+      "accountGet": {
+        "code": 200,
+        "account": null,
+        "profile": null
+      }
+    },
+    "expect": {
+      "state": "logged-out"
+    }
+  },
+  {
+    "id": "entitlement.session.network-error",
+    "kind": "session",
+    "description": "网络失败（accountGet 为 null）→ unknown，维持上一个状态。",
+    "source": "2026-10-15 伪造 cookie 实测：account/get 返回 code 200 + account:null；需登录接口返回 301",
+    "input": {
+      "hasCookie": true,
+      "accountGet": null
+    },
+    "expect": {
+      "state": "unknown"
+    }
+  },
+  {
+    "id": "entitlement.session.server-error",
+    "kind": "session",
+    "description": "非 200 业务码 → unknown，不判失效。",
+    "source": "2026-10-15 伪造 cookie 实测：account/get 返回 code 200 + account:null；需登录接口返回 301",
+    "input": {
+      "hasCookie": true,
+      "accountGet": {
+        "code": 500
+      }
+    },
+    "expect": {
+      "state": "unknown"
+    }
+  },
+  {
+    "id": "entitlement.session.api-301",
+    "kind": "session",
+    "description": "任一需登录接口返回 301 → expired。",
+    "source": "2026-10-15 伪造 cookie 实测：account/get 返回 code 200 + account:null；需登录接口返回 301",
+    "input": {
+      "hasCookie": true,
+      "otherApiCode": 301
+    },
+    "expect": {
+      "state": "expired"
+    }
+  }
+]
