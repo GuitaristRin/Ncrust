@@ -1,0 +1,277 @@
+[
+  {
+    "id": "xeapi.sign.key-request",
+    "kind": "xeapi-sign",
+    "description": "公钥接口签名：HMAC-SHA256，key 是 SIGN_KEY 字符串的 ASCII 字节（不是 base64 解码后的字节）。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "timestamp": "1779955023124",
+      "nonce": "1234567890123456"
+    },
+    "expect": {
+      "signature": "ifwS7a8uKgwUqobqStzeaTDbzPEWYB23dWVCtfGI1Ko="
+    }
+  },
+  {
+    "id": "xeapi.public-key.decrypt",
+    "kind": "xeapi-public-key-decrypt",
+    "description": "公钥接口 data.encryptedData：AES-256-ECB/PKCS7（静态 key）解出公钥状态 JSON。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "encryptedData": "iSn+/droUTdLD6lK62mBNibmiHVNpt0yKZOs3g2yPLIHR8kC9Vtp8J9eVc6IUBFdFfzE659SHg4Jj7YQrrJfD65klogigXcVYKAFMep3gXqjYy/pjbYS1s0REI1oba3XN4CCYDeWyH9YKjCTHSAIaY8OaykkylEBK6Go1sr7mMgq0bjuT0FVMrctoOV0Nz1fWUS6vSi7Ydr22Fp7wTUX/g=="
+    },
+    "expect": {
+      "plaintext": "{\"publicKey\":\"43EthRoOXXm4McXjSrIrQaGYFx3iCbi4+sojoRxiSFk=\",\"version\":\"1000000000000\",\"sk\":\"8PZfbIFA1779944463972\",\"nextUpdateTime\":1803882269000}"
+    }
+  },
+  {
+    "id": "xeapi.plaintext.like",
+    "kind": "xeapi-plaintext",
+    "description": "明文信封 收藏写入的真实字段顺序与布尔/数字写法。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "pairs": [
+        [
+          "alg",
+          "itembased"
+        ],
+        [
+          "trackId",
+          "2754388325"
+        ],
+        [
+          "like",
+          "true"
+        ],
+        [
+          "time",
+          "3"
+        ]
+      ]
+    },
+    "expect": {
+      "plaintext": "{\"content\":\"alg=itembased&trackId=2754388325&like=true&time=3\",\"queryString\":\"e_r=true\"}"
+    }
+  },
+  {
+    "id": "xeapi.plaintext.json-value",
+    "kind": "xeapi-plaintext",
+    "description": "明文信封 JSON 值里的 [ ] { } \" : , 必须百分号编码（大写 hex）。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "pairs": [
+        [
+          "c",
+          "[{\"id\":347230}]"
+        ]
+      ]
+    },
+    "expect": {
+      "plaintext": "{\"content\":\"c=%5B%7B%22id%22%3A347230%7D%5D\",\"queryString\":\"e_r=true\"}"
+    }
+  },
+  {
+    "id": "xeapi.plaintext.tricky",
+    "kind": "xeapi-plaintext",
+    "description": "明文信封 空格编码为 +；! ' ( ) ~ 必须编码；* - . _ 保留；非 ASCII 先 UTF-8 再编码。e_r 字段被剔除。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "pairs": [
+        [
+          "q",
+          "a b!'()~*-._"
+        ],
+        [
+          "name",
+          "海阔天空"
+        ],
+        [
+          "e_r",
+          "true"
+        ]
+      ]
+    },
+    "expect": {
+      "plaintext": "{\"content\":\"q=a+b%21%27%28%29%7E*-._&name=%E6%B5%B7%E9%98%94%E5%A4%A9%E7%A9%BA\",\"queryString\":\"e_r=true\"}"
+    }
+  },
+  {
+    "id": "xeapi.mid-transform.rotate",
+    "kind": "xeapi-mid-transform",
+    "description": "中间变换：XOR r[i&15] → 左移 (r[0]&15)%len → r 前缀。r[0]=0xa3 时 rot=3。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "ciphertext": "AQgPFh0kKzI5QEdOVVxjanF4f4aNlJuiqbC3vsXM09rh6O/2/Q==",
+      "random": "o6qxuL/GzdTb4unw9/4FDA=="
+    },
+    "expect": {
+      "output": "o6qxuL/GzdTb4unw9/4FDK6i4ubm4qKuvqKiZmbS0s4+MlJWdnJSXk4yMtbWQkJeTkKior4="
+    }
+  },
+  {
+    "id": "xeapi.x25519.ecdh",
+    "kind": "xeapi-x25519",
+    "description": "X25519（RFC 7748）：私钥 clamp 由算法自身完成，输出 32 字节共享密钥与临时公钥。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "privateKey": "QUhPVl1ka3J5gIeOlZyjqrG4v8bN1Nvi6fD3/gUMExo=",
+      "peerPublicKey": "43EthRoOXXm4McXjSrIrQaGYFx3iCbi4+sojoRxiSFk="
+    },
+    "expect": {
+      "publicKey": "HqGZDSlV3xAsD7h6Q3i4A30afMEiAFNbD1iAn/BRhGU=",
+      "sharedSecret": "ngAIQBsM7j9nc8OWReV6YsBSP/PP68eb39eTkNhTHUc="
+    }
+  },
+  {
+    "id": "xeapi.kdf.aes-key",
+    "kind": "xeapi-kdf",
+    "description": "PRK = HMAC(0^32, shared)；OKM = HMAC(PRK, ephPub ‖ 0x01)；取前 16 字节作 AES-128-GCM key。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "sharedSecret": "ngAIQBsM7j9nc8OWReV6YsBSP/PP68eb39eTkNhTHUc=",
+      "ephemeralPublicKey": "HqGZDSlV3xAsD7h6Q3i4A30afMEiAFNbD1iAn/BRhGU="
+    },
+    "expect": {
+      "aesKey": "kCWFkHwJXPRlK21i9ie6kA=="
+    }
+  },
+  {
+    "id": "xeapi.envelope.s",
+    "kind": "xeapi-s",
+    "description": "S = ephPub(32) ‖ iv(12) ‖ GCM 密文 ‖ tag(16)，明文 base64(dynamicKey)|os|sk。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "dynamicKey": "EBceJSwzOkFIT1ZdZGtyeQ==",
+      "keyState": {
+        "publicKey": "43EthRoOXXm4McXjSrIrQaGYFx3iCbi4+sojoRxiSFk=",
+        "version": "1000000000000",
+        "sk": "8PZfbIFA1779944463972"
+      },
+      "os": "android",
+      "ephemeralPrivate": "QUhPVl1ka3J5gIeOlZyjqrG4v8bN1Nvi6fD3/gUMExo=",
+      "iv": "BQwTGiEoLzY9REtS"
+    },
+    "expect": {
+      "S": "HqGZDSlV3xAsD7h6Q3i4A30afMEiAFNbD1iAn/BRhGUFDBMaISgvNj1ES1JRdjzJuBlYCzdsEPeFI7SlznY9cPkzNxeD19Qj/SU8uvcNrCJHlMG2DvzCburCJrof6aIpehwloMe/My3u+CQIPY60ZRgE"
+    }
+  },
+  {
+    "id": "xeapi.request.like-v1",
+    "kind": "xeapi-request",
+    "description": "收藏 /api/v1/radio/like 的完整请求体（无会话：随机 16 字节动态密钥 → AES-128-ECB；R 的会话段为空）。 C 用 base64url 且不补 =；S/R 用标准 base64；最后整体表单编码。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "pairs": [
+        [
+          "alg",
+          "itembased"
+        ],
+        [
+          "trackId",
+          "2754388325"
+        ],
+        [
+          "like",
+          "true"
+        ],
+        [
+          "time",
+          "3"
+        ]
+      ],
+      "keyState": {
+        "publicKey": "43EthRoOXXm4McXjSrIrQaGYFx3iCbi4+sojoRxiSFk=",
+        "version": "1000000000000",
+        "sk": "8PZfbIFA1779944463972"
+      },
+      "os": "android",
+      "session": null,
+      "rng": {
+        "dynamicKey": "EBceJSwzOkFIT1ZdZGtyeQ==",
+        "midRandom": "o6qxuL/GzdTb4unw9/4FDA==",
+        "ephemeralPrivate": "QUhPVl1ka3J5gIeOlZyjqrG4v8bN1Nvi6fD3/gUMExo=",
+        "iv": "BQwTGiEoLzY9REtS"
+      }
+    },
+    "expect": {
+      "plaintext": "{\"content\":\"alg=itembased&trackId=2754388325&like=true&time=3\",\"queryString\":\"e_r=true\"}",
+      "C": "fNMt2SVeoLAMyceFG1nzXv61ZYjlA957mLc4bI13xXvb3hdVAbu8F0Y_BDRxdoXH_MZ66Y7zGnPLLZw7mlpcuIKKN1zvp2YBtSf74_8v9yQoGJ7zGKzc3w9tEeiZMwpgU2qfNAR7xGabnM1lw9ZiFYCOMrHfvXUpFBthbbF8nx0",
+      "S": "HqGZDSlV3xAsD7h6Q3i4A30afMEiAFNbD1iAn/BRhGUFDBMaISgvNj1ES1JRdjzJuBlYCzdsEPeFI7SlznY9cPkzNxeD19Qj/SU8uvcNrCJHlMG2DvzCburCJrof6aIpehwloMe/My3u+CQIPY60ZRgE",
+      "R": "3LCoCTuHo/mDfZ1x3PtHsQ==",
+      "body": "C=fNMt2SVeoLAMyceFG1nzXv61ZYjlA957mLc4bI13xXvb3hdVAbu8F0Y_BDRxdoXH_MZ66Y7zGnPLLZw7mlpcuIKKN1zvp2YBtSf74_8v9yQoGJ7zGKzc3w9tEeiZMwpgU2qfNAR7xGabnM1lw9ZiFYCOMrHfvXUpFBthbbF8nx0&S=HqGZDSlV3xAsD7h6Q3i4A30afMEiAFNbD1iAn%2FBRhGUFDBMaISgvNj1ES1JRdjzJuBlYCzdsEPeFI7SlznY9cPkzNxeD19Qj%2FSU8uvcNrCJHlMG2DvzCburCJrof6aIpehwloMe%2FMy3u%2BCQIPY60ZRgE&R=3LCoCTuHo%2FmDfZ1x3PtHsQ%3D%3D"
+    }
+  },
+  {
+    "id": "xeapi.request.session",
+    "kind": "xeapi-request",
+    "description": "有会话时：x-encr-sskey 的 ASCII 字节（32 字节）作动态密钥 → AES-256-ECB；R = version|ssid。 C 用 base64url 且不补 =；S/R 用标准 base64；最后整体表单编码。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "pairs": [
+        [
+          "alg",
+          "itembased"
+        ],
+        [
+          "trackId",
+          "347230"
+        ],
+        [
+          "like",
+          "false"
+        ],
+        [
+          "time",
+          "3"
+        ]
+      ],
+      "keyState": {
+        "publicKey": "43EthRoOXXm4McXjSrIrQaGYFx3iCbi4+sojoRxiSFk=",
+        "version": "1000000000000",
+        "sk": "8PZfbIFA1779944463972"
+      },
+      "os": "android",
+      "session": {
+        "id": "01c3a3532b0d4e6f",
+        "key": "0123456789abcdef0123456789abcdef"
+      },
+      "rng": {
+        "dynamicKey": "EBceJSwzOkFIT1ZdZGtyeQ==",
+        "midRandom": "o6qxuL/GzdTb4unw9/4FDA==",
+        "ephemeralPrivate": "QUhPVl1ka3J5gIeOlZyjqrG4v8bN1Nvi6fD3/gUMExo=",
+        "iv": "BQwTGiEoLzY9REtS"
+      }
+    },
+    "expect": {
+      "plaintext": "{\"content\":\"alg=itembased&trackId=347230&like=false&time=3\",\"queryString\":\"e_r=true\"}",
+      "C": "BOqDMj0iwdWIRqtFJyxDN7ay0CgPqFuTzBdPyF-axFPZAXK9emA7_9WQiy7y1wykw6de3vK6OylOnkGd1_1nV_QxZ93-tAeXpjHs5uEygXUdXwsDOyokNVVw0ocva0om14X8fXrNRPS6CuGC2iy4K4qjYkH96N8FTcMlxsaVuJ4",
+      "S": "HqGZDSlV3xAsD7h6Q3i4A30afMEiAFNbD1iAn/BRhGUFDBMaISgvNj1ES1JZcBrVvzB+QDZtNYqeRaiozQMbZcYIS1Ky3Pd3wR4M7cRxkBB4m8abFZqsZK+afOpZsPh0MRYSmF6MY4A6DevRQmju2nVp52nGBSLLrsn1BQycdZL+afT4iIo=",
+      "R": "6uMm/2V2SqT96D2FtoKGgPpy9BJUPi8fYejoYMSLGoY=",
+      "body": "C=BOqDMj0iwdWIRqtFJyxDN7ay0CgPqFuTzBdPyF-axFPZAXK9emA7_9WQiy7y1wykw6de3vK6OylOnkGd1_1nV_QxZ93-tAeXpjHs5uEygXUdXwsDOyokNVVw0ocva0om14X8fXrNRPS6CuGC2iy4K4qjYkH96N8FTcMlxsaVuJ4&S=HqGZDSlV3xAsD7h6Q3i4A30afMEiAFNbD1iAn%2FBRhGUFDBMaISgvNj1ES1JZcBrVvzB%2BQDZtNYqeRaiozQMbZcYIS1Ky3Pd3wR4M7cRxkBB4m8abFZqsZK%2BafOpZsPh0MRYSmF6MY4A6DevRQmju2nVp52nGBSLLrsn1BQycdZL%2BafT4iIo%3D&R=6uMm%2F2V2SqT96D2FtoKGgPpy9BJUPi8fYejoYMSLGoY%3D"
+    }
+  },
+  {
+    "id": "xeapi.response.plain",
+    "kind": "xeapi-response",
+    "description": "响应：AES-128-ECB（eapi key）解密后直接是 UTF-8 JSON。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "base64": "3a76jwSJB/QmCjZL36bn/sBGWuRFPKRPWkq6NKKSb33DTGJLLJdZxX/Z+9aZR0Ok"
+    },
+    "expect": {
+      "plaintext": "{\"code\":200,\"playlistId\":6936573734,\"songs\":[]}"
+    }
+  },
+  {
+    "id": "xeapi.response.gzip",
+    "kind": "xeapi-response",
+    "description": "响应：解密后以 1f8b 开头时须再 gunzip。",
+    "source": "spec/tools/xeapi.mjs（对齐 api-enhanced@2db6684 util/crypto.js）；gen-xeapi-fixtures.mjs 生成",
+    "input": {
+      "base64": "VVChTEe8rVP9CD+WL8eTDG28Hbr18KWFA7TQa1Q9Xr95/K82gjAGBugJHIDsR9ixSdckG+y5dVVLgu1AKQ+tFloL2njVCxceLrscen6mzwo="
+    },
+    "expect": {
+      "plaintext": "{\"code\":200,\"playlistId\":6936573734,\"songs\":[]}"
+    }
+  }
+]

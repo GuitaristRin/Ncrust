@@ -41,3 +41,24 @@
 
 `eapi.json` / `weapi.json` 的期望值由一个独立参考实现（Node.js `crypto` + `BigInt`）
 按上述算法生成，再与 Android 实现逐条核对。它是三端共同的「标准答案」。
+
+### `xeapi.json`
+
+官方 Android 9.x 的请求加密层，协议见 `spec/api/xeapi.md`。期望值由 `spec/tools/xeapi.mjs`
+生成（`node spec/tools/gen-xeapi-fixtures.mjs > spec/fixtures/crypto/xeapi.json`），所有随机量
+（动态密钥、mid 随机数、X25519 临时私钥、GCM IV）都固定在 `input` 里。二进制一律标准 base64。
+
+| kind | input | expect |
+|---|---|---|
+| `xeapi-sign` | `{ timestamp, nonce }` | `{ signature }` |
+| `xeapi-public-key-decrypt` | `{ encryptedData }` | `{ plaintext }` |
+| `xeapi-plaintext` | `{ pairs: [[k, v], …] }`（有序） | `{ plaintext }`（明文信封 JSON 文本） |
+| `xeapi-mid-transform` | `{ ciphertext, random }` | `{ output }` |
+| `xeapi-x25519` | `{ privateKey, peerPublicKey }` | `{ publicKey, sharedSecret }` |
+| `xeapi-kdf` | `{ sharedSecret, ephemeralPublicKey }` | `{ aesKey }` |
+| `xeapi-s` | `{ dynamicKey, keyState, os, ephemeralPrivate, iv }` | `{ S }` |
+| `xeapi-request` | `{ pairs, keyState, os, session, rng: { dynamicKey, midRandom, ephemeralPrivate, iv } }` | `{ plaintext, C, S, R, body }` |
+| `xeapi-response` | `{ base64 }` | `{ plaintext }` |
+
+`C` 是 base64url **不补 `=`**；`body` 是 `C=…&S=…&R=…` 的表单编码。`session` 为 `null` 时用
+`rng.dynamicKey`；非空时用 `session.key` 的 ASCII 字节作动态密钥、`R` 带 `session.id`。
