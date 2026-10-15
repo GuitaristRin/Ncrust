@@ -54,7 +54,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private var onSongEndedCallback: (() -> Unit)? = null
     private var onSongPreviousCallback: (() -> Unit)? = null
-    private var onSongTransitionedCallback: (() -> Unit)? = null
+    // 参数 = 本次过渡是否为 ExoPlayer 自然衔接（AUTO）。UI 层据此决定"队列索引能不能
+    // 拿模式推断兜底"：非 AUTO（手动/系统控件/车机 seek）时应用队列并没有推进。
+    private var onSongTransitionedCallback: ((Boolean) -> Unit)? = null
     private var onUnplayableCallback: (() -> Unit)? = null
     private var playJob: Job? = null
     private var preloadJob: Job? = null
@@ -143,6 +145,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // Called on the main thread by ExoPlayer's onMediaItemTransition (AUTO reason).
         // 元数据由 PlaybackService 从真正开始播放的 MediaItem 读出，与音频同源。
         PlaybackService.onSongTransitioned = { now ->
+            Log.d("PlayerViewModel", "songTransitioned auto=${now.auto} songId=${now.songId} title=${now.title}")
             if (now.songId > 0) {
                 resetLyricsForNewSong()
                 currentSongId.value = now.songId
@@ -162,7 +165,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 viewModelScope.launch { fetchLyrics(now.songId) }
             }
             needsPreload.value = false
-            onSongTransitionedCallback?.invoke()
+            onSongTransitionedCallback?.invoke(now.auto)
         }
 
         // 恢复当前曲目：优先以「仍在播放的 Service 的真实当前 item」为准——Activity 冷重建
@@ -217,7 +220,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setOnSongEndedCallback(callback: () -> Unit) { onSongEndedCallback = callback }
     fun setOnSongPreviousCallback(callback: () -> Unit) { onSongPreviousCallback = callback }
-    fun setOnSongTransitionedCallback(callback: () -> Unit) { onSongTransitionedCallback = callback }
+    fun setOnSongTransitionedCallback(callback: (Boolean) -> Unit) { onSongTransitionedCallback = callback }
     fun setOnUnplayableCallback(callback: () -> Unit) { onUnplayableCallback = callback }
 
     /**
@@ -277,6 +280,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val cachedEntry = preloadCache[songId]?.takeIf {
             it.requestedLevel == selectedQuality && System.currentTimeMillis() - it.timestamp <= CACHE_TTL_MS
         }
+        Log.d(
+            "PlayerViewModel",
+            "playSong id=$songId quality=$selectedQuality cacheHit=${cachedEntry != null}"
+        )
         if (cachedEntry != null) {
             lastPlayedLevel = cachedEntry.actualLevel
             val actualIdx = qualityApiLevels.indexOf(cachedEntry.actualLevel).coerceAtLeast(0)
@@ -396,10 +403,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // 不能因 URL 已缓存而整体跳过——缓存意味着"省的再取链", 但下一首仍需
         // addMediaItem 入 ExoPlayer 队列才能无缝切换; 否则缓存命中时直接 return,
         // ExoPlayer 队列永远只有当前一首, 播完必然走 songEnded→playNext 硬切(= 无缝失效)。
-        if (currentlyPreloadingSongId == songId) return
+        if (currentlyPreloadingSongId == songId) {
+            Log.d("PlayerViewModel", "preload skipped (already in flight): id=$songId")
+            return
+        }
         // 把当前正在播的歌再入队(除单曲循环由 MainScreen 显式 allowCurrent 外)——
         // 队尾回绕/单曲队列等边界会让 [A,A] 自动过渡成"假单曲循环"。
-        if (!allowCurrent && songId == currentSongId.value && songId > 0) return
+        if (!allowCurrent && songId == currentSongId.value && songId > 0) {
+            Log.d("PlayerViewModel", "preload skipped (same as playing song): id=$songId")
+            return
+        }
 
         val capturedVersion = songPlayVersion
         preloadJob?.cancel()
@@ -481,6 +494,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         getApplication<Application>().startService(intent)
                     Log.d("PlayerViewModel", "Preload enqueued: $title")
                 }
+            } catch (e: CancellationException) {
+                // 被下一次预载取消：**不能**在这里清 currentlyPreloadingSongId——
+                // 取消发生在"新的预载已经把自己的 id 写进去"之后，清掉就把新预载的在途
+                // 标记误删了，同一首歌会被重复预载（旧的 catch (Exception) 就吞了它）。
+                throw e
             } catch (e: Exception) {
                 currentlyPreloadingSongId = -1L
                 Log.w("PlayerViewModel", "Preload failed for songId=$songId", e)
