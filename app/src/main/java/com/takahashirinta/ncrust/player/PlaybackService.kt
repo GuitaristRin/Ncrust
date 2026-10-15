@@ -450,8 +450,10 @@ class PlaybackService : MediaLibraryService() {
     private suspend fun resolveMediaItem(item: MediaItem): MediaItem {
         if (item.localConfiguration != null) return item
         val songId = item.mediaId.removePrefix("song:").toLongOrNull() ?: return item
-        val result = SongUrlFetcher.fetch(songId, currentQualityLevel()) ?: return item
-        return item.buildUpon().setUri(result.url).build()
+        // 取不到可播 URL（无版权 / 需会员）时保持不可播：绝不回退 outer/url 兜底
+        // （那个端点返回 302→404 的 HTML，media3 会一直缓冲）。
+        val url = SongUrlFetcher.fetch(songId, currentQualityLevel()).url ?: return item
+        return item.buildUpon().setUri(url).build()
     }
 
     private fun currentQualityLevel(): String {

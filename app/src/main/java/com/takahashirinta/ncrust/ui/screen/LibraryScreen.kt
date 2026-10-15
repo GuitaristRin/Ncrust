@@ -29,6 +29,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.takahashirinta.ncrust.account.SessionMonitor
+import com.takahashirinta.ncrust.account.SessionState
 import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.library.AlbumInfo
 import com.takahashirinta.ncrust.library.LibraryManager
@@ -37,6 +39,7 @@ import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import com.takahashirinta.ncrust.ui.ResponsiveContent
+import com.takahashirinta.ncrust.ui.components.SessionExpiredBanner
 import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
 import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
@@ -69,11 +72,17 @@ fun LibraryScreen(
     onPlayAllSongs: (List<SongItem>) -> Unit = {},
     onInsertAllSongsNext: (List<SongItem>) -> Unit = {},
     onAppendAllSongs: (List<SongItem>) -> Unit = {},
-    refreshTrigger: Int = 0
+    refreshTrigger: Int = 0,
+    // 会话失效横幅点击 → 走现有登录流程（窄屏网页登录 / 宽屏扫码）。
+    onRelogin: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val strings = LocalStrings.current
+    // 会话失效时顶部一条横幅：收藏刷不出来/只给试听的直接原因就在这里。
+    // 必须 collectAsState 订阅：直接读 StateFlow.value 不会建立快照依赖，横幅永远不刷新。
+    val sessionState by SessionMonitor.state.collectAsState()
+    val sessionExpired = sessionState is SessionState.Expired
 
     var savedSongs by remember { mutableStateOf(LibraryManager.getSavedSongs(context)) }
     var savedAlbums by remember { mutableStateOf(LibraryManager.getSavedAlbums(context)) }
@@ -212,6 +221,10 @@ fun LibraryScreen(
                 )
             }
             Spacer(Modifier.height(4.dp))
+            if (sessionExpired) {
+                SessionExpiredBanner(onRelogin = onRelogin)
+                Spacer(Modifier.height(4.dp))
+            }
             MetroTabRow(
                 selectedTabIndex = selectedCategory,
                 items = categories.map { MetroTabItem(it) },

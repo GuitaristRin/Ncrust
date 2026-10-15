@@ -31,6 +31,9 @@
 -keep class com.takahashirinta.ncrust.network.** { *; }
 -keep class com.takahashirinta.ncrust.network.model.** { *; }
 -keep class com.takahashirinta.ncrust.lyric.** { *; }
+# 权益模型：SongItem.privilege（SongPrivilege）随队列 / 收藏经 Gson 落盘，与 network.** 同理整包 keep，
+# 免得重演 da07bb0 那种 R8 剪掉反射字段后冷启动闪退。
+-keep class com.takahashirinta.ncrust.account.** { *; }
 
 # =============================================================================
 # Retrofit / OkHttp —— 保留 interface 上的 HTTP 注解

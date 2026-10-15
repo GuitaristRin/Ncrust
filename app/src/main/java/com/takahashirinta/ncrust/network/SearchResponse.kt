@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.network
 
 import androidx.compose.runtime.Immutable
 import com.google.gson.annotations.SerializedName
+import com.takahashirinta.ncrust.account.SongPrivilege
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 
@@ -24,7 +25,12 @@ data class SongItem(
     @SerializedName("name") val name: String,
     @SerializedName("ar") val artists: List<ArtistItem>?,
     @SerializedName("al") val album: AlbumItem?,
-    @SerializedName("dt") val duration: Long?
+    @SerializedName("dt") val duration: Long?,
+    // 歌曲详情带出的权益信息。无版权判定必须靠 privilege.st —— 取链响应的
+    // freeTrialPrivilege 里没有这个信号（spec/api/entitlement.md §单曲播放结果分类）。
+    // 详情接口把它放在与 songs[] 并列的 privileges[] 里，由 PlaylistApi 按 id 关联后填进来；
+    // 拿不到就是 null，判定规则已考虑 privilege 缺省。
+    @SerializedName("privilege") val privilege: SongPrivilege? = null
 )
 
 @Immutable
