@@ -124,13 +124,14 @@ UA 为桌面客户端（`Mozilla/5.0 (Windows NT 10.0; WOW64) … NeteaseMusicDe
 官方 Android 9.x 的请求加密层，协议全文与算法见 `spec/api/xeapi.md`（夹具
 `fixtures/crypto/xeapi.json`）。表单体 `C=<…>&S=<…>&R=<…>`，另有设备头
 `X-Client-Enc-State: ENCRYPTED`、`x-aeapi`、`x-deviceid`/`x-sdeviceid`、`x-os`/`x-osver`/`x-appver`/`x-buildver`、
-`x-music-u`、`X-antiCheatToken`，以及 Cookie 里追加的
+`x-music-u`、`X-antiCheatToken`（写入类接口的易盾 token，**同一 token 还要进加密体的 `checkToken` 字段**，见下），
+以及 Cookie 里追加的
 `os=android; osver=16; appver=9.1.65; buildver=<10 位秒级时间戳>; deviceId=<32 hex>; sDeviceId=<同上>`。
 
 | 路径 | 方法 | 参数 | 用途 |
 |---|---|---|---|
 | `/api/bsr/sk/get` | POST 明文表单（打 `API_URL`） | `appVersion=9.5.61`,`currentKeyVersion`,`deviceId`,`nonce`,`os=android`,`requestType=active`,`signature`,`t1=`,`t2=`,`timestamp`,`uid=` | 取公钥（`publicKey`/`version`/`sk`/`nextUpdateTime`），响应需验签 |
-| `/api/v1/radio/like` | POST xeapi（打 `INTERFACE_URL`，实际路径 `/xeapi/v1/radio/like`） | `alg=itembased`,`trackId`,`like`,`time=3`；带 `X-antiCheatToken` | 喜欢 / 取消喜欢（**主通道**，`code == 200` 即成功） |
+| `/api/v1/radio/like` | POST xeapi（打 `INTERFACE_URL`，实际路径 `/xeapi/v1/radio/like`） | `alg=itembased`,`trackId`,`like`,`time=3`,`checkToken`（易盾 token，进体）；另带同名 `X-antiCheatToken` 头 | 喜欢 / 取消喜欢（**主通道**，`code == 200` 即成功） |
 
 `deviceId` 每台设备生成一次（32 位小写 hex）后持久化，登出也不清；公钥状态落盘、按
 `nextUpdateTime` 或业务解密失败刷新（刷新时带旧 `version`）；`x-encr-ssid`/`x-encr-sskey` 会话只存内存。

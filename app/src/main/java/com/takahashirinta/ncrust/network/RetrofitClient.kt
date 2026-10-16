@@ -341,21 +341,25 @@ object RetrofitClient {
      *
      * @param uri `/api/...` 形式的接口路径，实际打到 `interface3/xeapi/<去掉 /api/ 的路径>`。
      * @param pairs 业务字段，**顺序即协议**：明文信封的 `content` 按这个顺序做表单编码。
-     * @param antiCheat 是否现取易盾 token 放 `X-antiCheatToken`（写入类接口需要；取不到发空串）。
+     * @param antiCheat 是否现取易盾 token（写入类接口需要；取不到发空串）。官方写入把同一份 token
+     *   **同时**放进加密体的 `checkToken` 字段与 `X-antiCheatToken` 头（`xeapi.md` §6）——
+     *   只放头、体里没有 `checkToken` 时，服务端把写入判为异常环境、事后回滚（「收藏隔天消失」）。
      */
     fun xeapiPost(uri: String, pairs: List<Pair<String, String>>, antiCheat: Boolean): String {
         val url = XEAPI_URL + "/xeapi/" + uri.removePrefix("/api/")
         // 易盾 token 每次写入现取、不缓存（xeapi.md §5）。
         val antiCheatToken = if (antiCheat) fetchAntiCheatToken() else null
+        // 官方在业务体末尾补 `checkToken`（顺序：… trackId, like, time, checkToken）。
+        val bodyPairs = if (antiCheatToken != null) pairs + ("checkToken" to antiCheatToken) else pairs
 
-        val first = executeXeapi(url, pairs, XeapiState.ensureKeyState(), antiCheatToken)
+        val first = executeXeapi(url, bodyPairs, XeapiState.ensureKeyState(), antiCheatToken)
         decryptXeapiBody(first)?.let { return it }
 
         // 解不开通常意味着服务端换了公钥：按「旧 version」重取一次再试。只重试一次——
         // 写入接口的重放本身就是风控特征，不能在这里死磕。
         Log.w(TAG, "xeapi response decrypt failed, refreshing public key (uri=$uri)")
         XeapiState.invalidateKeyState()
-        val second = executeXeapi(url, pairs, XeapiState.ensureKeyState(), antiCheatToken)
+        val second = executeXeapi(url, bodyPairs, XeapiState.ensureKeyState(), antiCheatToken)
         return decryptXeapiBody(second) ?: throw IOException("xeapi response decrypt failed: $uri")
     }
 

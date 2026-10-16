@@ -671,7 +671,9 @@ object PlaylistApi {
      * 收藏(like=true) / 取消收藏(false) 单曲（写入「我喜欢的音乐」）。
      *
      * 主通道是官方 Android 9.x 的 **xeapi** `/api/v1/radio/like`：
-     * `alg=itembased&trackId=<id>&like=<bool>&time=3`，带易盾 token。`time` 只是试听秒数（官方固定 3）。
+     * `alg=itembased&trackId=<id>&like=<bool>&time=3`，带易盾 token。
+     * `time` 只是试听秒数（官方固定 3）；`checkToken`（同一份易盾 token）由 `RetrofitClient.xeapiPost`
+     * 在 antiCheat 请求里补进业务体末尾——官方两端都把它放进体（`spec/api/xeapi.md` §6）。
      *
      * 为什么不再走老通道：weapi / eapi 的 `/api/radio/like` 写入的收藏当天在官方与两端都可见、
      * **隔天被服务端回滚**。de193ff / 25f0c39 把 `time` 从 Unix 时间戳改成 3 之后**仍复现**，

@@ -102,12 +102,27 @@ WHATWG `application/x-www-form-urlencoded`：字节集 `A–Z a–z 0–9 * - . 
 ## 5. 易盾反作弊 token（收藏写入用）
 
 `GET https://ac.dun.163yun.com/v3/b?pn=YD00000558929251`，响应形如 `null([200,<n>,"<token>"])`，
-取第三项作 `X-antiCheatToken`。**每次写入现取、不缓存**。取不到时发空串（上游同样处理），不阻断请求。
+取第三项。**每次写入现取、不缓存**。取不到时发空串（上游同样处理），不阻断请求。
+
+官方（Android 9.6.08 / Windows 3.1.40）把这份 token **同时放进两处**，缺一不可：
+
+- 加密业务体的 `checkToken` 字段（进 §3.1 的 `content`）；以及
+- `X-antiCheatToken` 请求头。
 
 ## 6. 收藏：`/api/v1/radio/like`
 
-业务字段（顺序固定）：`alg=itembased&trackId=<id>&like=<true|false>&time=3`。
-成功：响应 `code == 200`。随后照旧对红心歌单做读回校验。
+业务字段（顺序固定，顺序进加密体）：`alg=itembased&trackId=<id>&like=<true|false>&time=3&checkToken=<易盾 token>`。
+`checkToken` 放在末尾（官方顺序：`trackId, time, alg, like, …, checkToken`）。
+成功：响应 `code == 200`（`502` 也算成功——歌曲已在红心歌单）。随后照旧对红心歌单做读回校验。
+
+> **`checkToken` 必须进体**（2026-10-16 两端官方包实证）。REA 反编译 Android 9.6.08：
+> `NeteaseMusicApiImpl.Z6` 构造 `v1/radio/like` 的业务 map 时含 `checkToken = vz0.b.G0()`
+> （原生 `securityGetToken`），最终打到 `/eapi/v1/radio/like`。Windows 3.1.40 的
+> `orpheus.ntpk`（webpack `app.chunk.js`）请求拦截器对命中 businessId 的写入执行
+> `Object.assign(a,{checkToken:e})` **且** `headers["X-antiCheatToken"]=e`——同一 token 两处都发。
+> 只发 `X-antiCheatToken` 头、体里没有 `checkToken` 的写入，会被服务端判为异常环境、事后回滚
+> （即「收藏隔天消失」）。
+
 
 ### 为什么收藏要走 xeapi（2026-10-15 调研）
 
@@ -118,5 +133,7 @@ WHATWG `application/x-www-form-urlencoded`：字节集 `A–Z a–z 0–9 * - . 
   该项目改走 xeapi `/api/v1/radio/like` 后修复。
 - 同类「服务端先收下、事后丢弃」在播放上报上已被实测（api-enhanced#167：weapi/clientlogusf 返回
   200 但不入账）—— 网易对非官方指纹的写入做静默/延迟处理是一贯手法。
-- 结论（待对照实验最终确认）：老通道写入被风控判为异常环境，例行审核时回滚。修复方向是让写入与官方
-  Android 客户端同形：xeapi + 持久 deviceId + 易盾 token。对照实验：`spec/tools/like-experiment.mjs`。
+- 结论（2026-10-16 更新）：老通道写入被风控判为异常环境，例行审核时回滚。修复方向是让写入与官方
+  客户端同形——xeapi + 持久 deviceId + 易盾 token，**且易盾 token 必须同时进加密体的 `checkToken`**
+  （见 §6 实证；1.4.0 只发了 `X-antiCheatToken` 头，漏了体里的 `checkToken`）。对照实验：
+  `spec/tools/like-experiment.mjs`。

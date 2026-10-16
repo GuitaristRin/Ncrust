@@ -62,7 +62,11 @@ export async function antiCheatToken() {
 
 export async function xeapiPost(uri, pairs, { keyState, deviceId, cookie = {}, session, checkToken = false }) {
   const buildver = String(Date.now()).slice(0, 10)
-  const { body } = X.encryptRequest({ pairs, keyState, session, rng: X.randomRng() })
+  // 官方把易盾 token 同时放进加密体的 `checkToken` 字段与 `X-antiCheatToken` 头（xeapi.md §6）；
+  // 只放头、体里没有 checkToken 的写入会被服务端判为异常环境、事后回滚。
+  const token = checkToken ? await antiCheatToken() : null
+  const bodyPairs = token != null ? [...pairs, ['checkToken', token]] : pairs
+  const { body } = X.encryptRequest({ pairs: bodyPairs, keyState, session, rng: X.randomRng() })
   const headers = {
     'User-Agent': ANDROID_UA,
     'X-Client-Enc-State': 'ENCRYPTED',
@@ -77,7 +81,7 @@ export async function xeapiPost(uri, pairs, { keyState, deviceId, cookie = {}, s
     Cookie: cookieString({ ...cookie, os: 'android', osver: '16', appver: '9.1.65', buildver, deviceId, sDeviceId: deviceId }),
   }
   if (cookie.MUSIC_U) headers['x-music-u'] = cookie.MUSIC_U
-  if (checkToken) headers['X-antiCheatToken'] = await antiCheatToken()
+  if (token != null) headers['X-antiCheatToken'] = token
   const res = await fetch('https://interface3.music.163.com/xeapi/' + uri.slice(5), { method: 'POST', body, headers })
   const raw = Buffer.from(await res.arrayBuffer())
   let json
