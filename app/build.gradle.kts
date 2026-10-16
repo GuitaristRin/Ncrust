@@ -70,6 +70,11 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
+    testOptions {
+        // JVM 单测里 android.jar 的 org.json 是抛异常的桩；写接口的请求体构造 / 响应解析
+        // 需要真实的 JSONObject/JSONArray（配合下面的 org.json 测试依赖）。
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -134,6 +139,8 @@ dependencies {
     implementation("androidx.profileinstaller:profileinstaller:1.4.0")
 
     testImplementation("junit:junit:4.13.2")
+    // JVM 单测需要真实的 org.json（android.jar 里的实现是桩，方法直接抛异常）。
+    testImplementation("org.json:json:20231013")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
