@@ -83,10 +83,11 @@ public class LibraryApiTests
         Assert.Contains("deviceId=" + handler.DeviceId, like.Header("Cookie"));
         Assert.Contains("sDeviceId=" + handler.DeviceId, like.Header("Cookie"));
 
-        // 解开 C（用 S 里恢复出来的动态密钥），确认送上去的业务字段就是协议 §6 那一串。
+        // 解开 C（用 S 里恢复出来的动态密钥），确认送上去的业务字段就是协议 §6 那一串
+        // （易盾 token 同时进体的 checkToken 与 X-antiCheatToken 头）。
         var plaintext = FakeXeapiServer.DecryptBusinessPlaintext(like.Form("C"), like.Form("S"));
         Assert.Equal(
-            "{\"content\":\"alg=itembased&trackId=2754388325&like=true&time=3\",\"queryString\":\"e_r=true\"}",
+            "{\"content\":\"alg=itembased&trackId=2754388325&like=true&time=3&checkToken=test-anti-cheat-token\",\"queryString\":\"e_r=true\"}",
             plaintext);
     }
 
@@ -199,6 +200,10 @@ public class LibraryApiTests
         var like = Assert.Single(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
         Assert.True(like.HasHeader("X-antiCheatToken"));
         Assert.Equal(string.Empty, like.Header("X-antiCheatToken"));
+        // 体里也照样补一个空的 checkToken（官方两处都发，值同步）。
+        Assert.Contains(
+            "&checkToken=\"",
+            FakeXeapiServer.DecryptBusinessPlaintext(like.Form("C"), like.Form("S")));
     }
 
     /// <summary>响应头下发会话后，下一次请求要按会话模式走（<c>R = version|ssid</c>，动态密钥换成 sskey）。</summary>
@@ -222,7 +227,7 @@ public class LibraryApiTests
 
         // 会话模式下动态密钥是 sskey 的字节（32 → AES-256），业务字段照样能解开。
         Assert.Equal(
-            "{\"content\":\"alg=itembased&trackId=2&like=true&time=3\",\"queryString\":\"e_r=true\"}",
+            "{\"content\":\"alg=itembased&trackId=2&like=true&time=3&checkToken=test-anti-cheat-token\",\"queryString\":\"e_r=true\"}",
             FakeXeapiServer.DecryptBusinessPlaintext(second.Form("C"), second.Form("S")));
     }
 

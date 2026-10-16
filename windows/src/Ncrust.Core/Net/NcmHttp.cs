@@ -404,7 +404,9 @@ namespace Ncrust.Core.Net
         /// xeapi POST —— 官方 Android 9.x 的请求加密层（协议见 <c>spec/api/xeapi.md</c>）。
         /// <paramref name="uri"/> 是 <c>/api/…</c> 形态，会被改写成 <c>/xeapi/…</c> 并打到
         /// <see cref="InterfaceUrl"/>。<paramref name="antiCheat"/> 为 true 时现取易盾 token
-        /// （不缓存，取不到发空串，不阻断请求）。
+        /// （不缓存，取不到发空串，不阻断请求）。官方写入把同一份 token **同时**放进加密体的
+        /// <c>checkToken</c> 字段与 <c>X-antiCheatToken</c> 头（协议 §6）——只放头、体里没有
+        /// <c>checkToken</c> 时服务端把写入判为异常环境、事后回滚（「收藏隔天消失」）。
         ///
         /// 返回解密后的 JSON 文本。响应解不开说明公钥或会话已失效：清会话、强制刷新公钥
         /// （带上旧 version）后重试一次，再失败才抛 <see cref="HttpRequestException"/>。
@@ -422,6 +424,14 @@ namespace Ncrust.Core.Net
             }
 
             var pairs = new List<KeyValuePair<string, string>>(payload ?? EmptyPairs());
+            // 官方在业务体末尾补 `checkToken`（顺序：… trackId, like, time, checkToken）。
+            string? antiCheatToken = null;
+            if (antiCheat)
+            {
+                antiCheatToken = await FetchAntiCheatTokenAsync(cancellationToken).ConfigureAwait(false);
+                pairs.Add(new KeyValuePair<string, string>("checkToken", antiCheatToken));
+            }
+
             var keyState = await state
                 .EnsureKeyStateAsync(FetchPublicKeyAsync, false, cancellationToken)
                 .ConfigureAwait(false);
@@ -434,7 +444,7 @@ namespace Ncrust.Core.Net
             {
                 // 每次重试都要新的临时密钥对与 IV：旧的那份已经证明服务端不认。
                 var request = XeapiCrypto.EncryptRequest(pairs, keyState, XeapiRandom.Create(), state.Session);
-                using (var response = await SendXeapiAsync(uri, request.Body, state, antiCheat, cancellationToken)
+                using (var response = await SendXeapiAsync(uri, request.Body, state, antiCheatToken, cancellationToken)
                     .ConfigureAwait(false))
                 {
                     CaptureSession(state, response);
@@ -629,7 +639,7 @@ namespace Ncrust.Core.Net
             string uri,
             string body,
             XeapiState state,
-            bool antiCheat,
+            string? antiCheatToken,
             CancellationToken cancellationToken)
         {
             var buildver = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
@@ -664,11 +674,9 @@ namespace Ncrust.Core.Net
                 request.Headers.TryAddWithoutValidation("x-music-u", musicU);
             }
 
-            if (antiCheat)
+            if (antiCheatToken != null)
             {
-                request.Headers.TryAddWithoutValidation(
-                    "X-antiCheatToken",
-                    await FetchAntiCheatTokenAsync(cancellationToken).ConfigureAwait(false));
+                request.Headers.TryAddWithoutValidation("X-antiCheatToken", antiCheatToken);
             }
 
             request.Headers.TryAddWithoutValidation("Cookie", cookie.ToString());
