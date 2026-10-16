@@ -54,6 +54,13 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 | `/eapi/album/sublist` | `limit`,`offset`,`total=true` | 收藏专辑 |
 | `/eapi/album/sub` / `/eapi/album/unsub` | `id` | 收藏 / 取消收藏专辑 |
 | `/eapi/radio/like` | `alg=itembased`,`trackId`,`like`,`time=3`,`e_r=TRUE`,`csrf_token` | 喜欢 / 取消喜欢（**回退通道**，官方客户端指纹，见下） |
+| `/eapi/playlist/create` | `name`,`privacy`(0 公开 / 10 私密),`type=NORMAL`,`subType=NORMAL` | 创建歌单（响应顶层 `id` == `playlist.id`） |
+| `/eapi/playlist/manipulate/tracks` | `op`(`add`/`del`),`pid`,`trackIds`(JSON 串),`imme=true` | 歌单增 / 删曲 |
+| `/eapi/playlist/delete` | `pid` | 删除单个歌单（非本人 401） |
+| `/eapi/playlist/remove` | `ids`(JSON 串) | 批量删除歌单（对非本人**返回 200 却不生效**） |
+| `/eapi/playlist/update/name` | `id`,`name` | 歌单改名 |
+| `/eapi/playlist/desc/update` | `id`,`desc` | 改歌单简介 |
+| `/eapi/playlist/update/privacy` | `id`,`privacy`(0/10) | 改歌单隐私 |
 
 **官方客户端指纹**（`EapiPostOfficial`，用于 `/eapi/radio/like`）：iOS UA；设备字段
 `os=iphone`,`appver=8.9.60`,`deviceId`,`osver`,`versioncode=140`,`mobilename`,`buildver`,
@@ -63,6 +70,29 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 
 > 收藏写入已改走 xeapi（见下节）。`/eapi/radio/like` 与 weapi 的 `/api/radio/like` 只作回退：
 > 两者都是**老通道**，写入的收藏会被服务端事后回滚（「收藏隔天消失」，`spec/api/xeapi.md` 末节）。
+
+### eapi · 歌单写操作（`API_URL`，需客户端身份 cookie）
+
+七个写端点（上表）。三条硬约束，缺一不可：
+
+1. **HTTP 恒为 200，成败只看 `body.code`**：`200` 成功 / `502` 歌曲重复（`add` 语义下按幂等
+   成功）/ `405` 操作过于频繁 / `403` illegal request（身份或 `csrf_token` 缺失）/ `301` 未登录
+   （转 [SessionMonitor] `Expired`）。只看 HTTP 会把错误当成功。
+2. **必须带客户端身份 cookie**：请求 Cookie 需在登录字段之外追加 `os`/`appver`/`osver`/`deviceId`
+   （见 Android `ClientIdentity`）。只带 `MUSIC_U`/`__csrf` 会被回 `403 illegal request!`。
+3. **`op` 必须白名单化成 `add`/`del`**：实测任何非 `add` 的值（含空串、未知值）都被服务端
+   当成删除执行 —— 透传外部输入会静默删歌。
+
+补充约束：
+
+- **写闸门**：全局串行 + 最小间隔 2s（`PlaylistWriteGate`）。405 是「账号+动作」级限流且**按身份
+  维度计算**（换 `deviceId`/`os` 即刻通过），故手动提示等待、**不自动重试**。
+- **批量**：`manipulate/tracks` 单请求曲目上限 500。歌单 `>1000` 首时详情端点 `n=1000` 且
+  `s`/`offset` 无效、无可翻页的曲目端点，**无法可靠判重**；直接 add 让 502 兜底，UI 提示「已在歌单中」。
+- **归属判定**：`creator.userId == 我 && !subscribed`。收藏的他人歌单里 `creator.userId` 是原作者，
+  不能据此判归属。非本人 pid 删除回 401；`remove` 批删对非本人回 200 但不生效，不能拿它判权限。
+- **响应缓存**：写成功后必须失效本地 `ContentCache` 的歌单详情，否则「改名成功但详情仍是旧名」
+  （服务端 detail 本身有陈旧缓存）。
 
 ### eapi · PC 客户端指纹（扫码登录，打 `https://interfacepc.music.163.com`）
 
