@@ -135,7 +135,8 @@ object PlaylistApi {
                     trackCount = item.optInt("trackCount"),
                     creatorUserId = item.optJSONObject("creator")?.optLong("userId") ?: 0,
                     specialType = item.optInt("specialType"),
-                    privacy = item.optInt("privacy")
+                    privacy = item.optInt("privacy"),
+                    subscribed = item.optBoolean("subscribed", false)
                 )
             )
         }
@@ -296,8 +297,18 @@ object PlaylistApi {
         val trackCount: Int,
         val creatorUserId: Long,
         val specialType: Int,
-        val privacy: Int
-    )
+        val privacy: Int,
+        /** 是否为「收藏的他人歌单」。写接口只对本人自建（`!subscribed`）有效。 */
+        val subscribed: Boolean = false
+    ) {
+        /**
+         * 是否本人自建（可写）：`creator.userId == 我 && !subscribed`。
+         *
+         * **不能只看 `creatorUserId`**：收藏来的他人歌单里 `creator.userId` 是**原作者**，
+         * 据此判定会把他人歌单当自建，写操作要么 404（曲目操作）要么 401（删除）。
+         */
+        fun isOwnedBy(userId: Long): Boolean = !subscribed && creatorUserId == userId
+    }
 
     data class UserPlaylistResult(
         val playlists: List<PlaylistInfo>,

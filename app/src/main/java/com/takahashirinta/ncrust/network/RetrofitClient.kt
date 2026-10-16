@@ -250,7 +250,7 @@ object RetrofitClient {
         buildString(32) { repeat(32) { append("0123456789abcdef"[(0..15).random()]) } }
     }
 
-    private fun deviceId(): String =
+    fun deviceId(): String =
         runCatching { XeapiState.deviceId() }.getOrNull() ?: fallbackDeviceId
 
     /** 登录 Cookie 串 → 键值对（同名后者覆盖前者）；eapi 身份构造要按字段取值。 */
