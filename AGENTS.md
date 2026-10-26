@@ -72,7 +72,7 @@ Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` /
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
 - Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → upload `ncrust-android-universal-X.Y.Z.apk` to the current rolling release train (`CrateStack-*`), or open a new one if none exists today (`gh release create CrateStack-YYYYMMDD<A> --latest=false`) → user smoke-tests and publishes manually. Train/tag scheme and asset naming live in `docs/RELEASES.md`. Hotfixes may swap same-name assets in place without a version bump, provided the release notes say so.
-- Current: `versionName = "1.4.0"`, `versionCode = 8` (小屏高度档 + 上游焦点框 + 更新链路加固 + 无缝播放默认关闭；**尚未发布**). Latest release: Android 1.3.2 in train `CrateStack-20260928A` (2026-09-28).
+- Current: `versionName = "1.4.1"`, `versionCode = 9` (收藏写入 502 判成功 + 收藏态以红心 id 底表为准 + 主界面滑动切页；**尚未发布**). Latest release: Android 1.4.0 in train `CrateStack-20261015A` (2026-10-15) — 该 APK **不含** `4410100` 的「收藏写入体补 checkToken」修复（提交 2026-10-16，晚于资产上传），收藏隔天消失在 1.4.0 上依旧存在，修复随 1.4.1 发布。
 
 ## Commit Convention
 

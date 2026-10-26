@@ -218,15 +218,19 @@ app/src/main/java/com/takahashirinta/ncrust/
 Windows 客户端在本仓库的 [`windows/`](windows/) 目录，用 **C# + UWP + WinUI 2** 编写，与 Android 版不共享实现代码：
 控件从 Kanesumi-sec-a 移植，保证两端视觉一致；协议、音质阶梯、队列行为等由 [`spec/`](spec/) 里的共享规格与测试夹具约束。
 
-**当前版本 1.0.0**，功能已与 Android 主干基本对齐：首页（含私人 FM）/ 搜索 / 专辑·歌手·歌单详情 / 音乐库 /
+**当前版本 1.0.3**，功能已与 Android 主干基本对齐：首页（含私人 FM）/ 搜索 / 专辑·歌手·歌单详情 / 音乐库 /
 播放卡片与歌词·队列 / 5 种播放模式与 INFINITY 续播 / 7 级音质自动降档 / 播放上报 / 10 段均衡器（桌面独有）。
 
 ### 📥 下载安装（Windows 10 1809+ / x64）
 
-1. 打开 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 里的 **Windows 1.0.0**（tag `win-v1.0.0`）
-2. 下载 `Ncrust.appinstaller`（推荐：经它安装后**自动更新**），或 `Ncrust_1.0.0.0_x64.msix`（手动安装，不自动更新）
-3. 首次安装需先信任随附的自签证书 `Ncrust.cer`：右键 → 安装证书 → 本地计算机 → 受信任的根证书颁发机构
-4. 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（登录窗口使用）
+1. 打开 [Releases](https://github.com/GuitaristRin/Ncrust/releases) 里最新一班 `CrateStack-*`，下载
+   `ncrust-windows-x86_64-<版本>.appinstaller`（推荐：经它安装后**自动更新**）与同目录的 `.cer`；
+   各平台最新版索引见 [`docs/RELEASES.md`](docs/RELEASES.md)。
+2. 首次安装需先把自签证书装进**机器级**存储（MSIX 的签名校验由系统在本地计算机存储里查，
+   只装「当前用户」会以 `0x800B0109` 拒装）：**管理员** PowerShell 运行
+   `windows/tools/release/install-cert.ps1 -CerPath <下载的 .cer>`，
+   或 `certlm.msc` → 受信任人 → 导入。
+3. 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（登录窗口使用）
 
 > 各平台最新版索引见 [`docs/RELEASES.md`](docs/RELEASES.md)（GitHub 只有一个 Latest 徽章，不代表各平台最新版）。
 

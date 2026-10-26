@@ -13,11 +13,15 @@ Ncrust 在同一个仓库里发布多个平台，各平台**版本线独立**。
 
 | 平台 | 版本 | 所在班次 | 下载 | 日期 |
 |---|---|---|---|---|
-| Android（通用包） | 1.3.2 | [`CrateStack-20260928A`](https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20260928A) | [`ncrust-android-universal-1.3.2.apk`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20260928A/ncrust-android-universal-1.3.2.apk) | 2026-09-28 |
-| Windows（UWP，x64） | 1.0.0 | [`CrateStack-20260928A`](https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20260928A) | [`.appinstaller`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20260928A/ncrust-windows-x86_64-1.0.0.appinstaller) · [`.msix`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20260928A/ncrust-windows-x86_64-1.0.0.msix) · [`.cer`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20260928A/ncrust-windows-x86_64-1.0.0.cer) | 2026-09-27 |
+| Android（通用包） | 1.4.0 | [`CrateStack-20261015A`](https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A) | [`ncrust-android-universal-1.4.0.apk`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261015A/ncrust-android-universal-1.4.0.apk) | 2026-10-15 |
+| Windows（UWP，x64） | 1.0.2 | [`CrateStack-20261015A`](https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A) | [`.appinstaller`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261015A/ncrust-windows-x86_64-1.0.2.appinstaller) · [`.msix`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261015A/ncrust-windows-x86_64-1.0.2.msix) · [`.cer`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261015A/ncrust-windows-x86_64-1.0.2.cer) | 2026-10-15 |
 | Windows Phone（Lumia 950 等） | — | — | — | 计划中 |
 | Linux | — | — | — | 计划中 |
 | macOS | — | — | — | 计划中 |
+
+> 注意：`CrateStack-20261015A` 里的 Android 1.4.0 与 Windows 1.0.2 都**不含**次日提交的
+> 「收藏写入体补 checkToken」修复（`4410100` / `142e908`，2026-10-16）——这两个版本上
+> 「收藏隔天消失」依旧存在，修复随 1.4.1 / 1.0.3 发布。
 
 发布时更新本表。
 
@@ -45,9 +49,11 @@ Ncrust 在同一个仓库里发布多个平台，各平台**版本线独立**。
 - Windows 每班发布三样：**签名 MSIX** + **`.appinstaller`** + **公开证书 `.cer`**。
 - **请用 `.appinstaller` 安装**：只有经它安装的包，系统的 App Installer 才会自动更新；
   直接装 `.msix` 的没有更新源，永远不会自动更新。
-- 首次安装需要信任自签证书：把 `.cer` 导入「受信任人」（`install-cert.ps1`，或右键 →
-  安装证书 → 本地计算机 → 受信任的根证书颁发机构 / 受信任人）。若日后换成正规代码签名证书，
-  这一步就不需要了。
+- 首次安装需要信任自签证书，且必须装进**机器级**存储：MSIX 的签名校验由 SYSTEM 上下文
+  执行、查「本地计算机」证书存储，只装「当前用户」照样 `0x800B0109` 拒装（2026-10-21
+  事件日志实测）。用**管理员** PowerShell 运行
+  `windows/tools/release/install-cert.ps1 -CerPath <下载的 .cer>`，或 `certlm.msc` →
+  受信任人 → 导入。若日后换成正规代码签名证书，这一步就不需要了。
 - 应用内提供「**检查更新 + 一键安装**」：启动静默检查（6 小时缓存），或在「设置 → 关于」手动检查；
   发现新版会**下载 `.appinstaller` 并交给系统的 App Installer** 完成安装。UWP 无法静默自装，
   真正在后台自动更新的是 `.appinstaller` 的 `<UpdateSettings>`（所以务必用 `.appinstaller` 安装）。
