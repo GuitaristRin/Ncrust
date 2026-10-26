@@ -291,6 +291,12 @@ object LibraryManager {
             if (added) songs.add(0, song)
         }
         if (added) {
+            // 底表与已加载列表是两份缓存，乐观写必须同时动：isSongSaved 以底表为真源，
+            // 只写 cachedSongs 的话刷新前的判定会读到旧表（issue #33）。新收藏插头部，
+            // 与云端「最新在前」的顺序一致。
+            synchronized(idsLock) {
+                cachedLikedIds = listOf(song.id) + ensureLikedIdsLoaded(context)
+            }
             scheduleFlush(context)
             if (isLoggedIn(context)) pushLike(context, song.id, true)
         }
@@ -308,6 +314,9 @@ object LibraryManager {
             }
         }
         if (added.isNotEmpty()) {
+            synchronized(idsLock) {
+                cachedLikedIds = added.map { it.id } + ensureLikedIdsLoaded(context)
+            }
             scheduleFlush(context)
             if (isLoggedIn(context)) added.forEach { pushLike(context, it.id, true) }
         }
@@ -316,11 +325,19 @@ object LibraryManager {
     /** 取消收藏（或为取消收藏）单曲：移除本地缓存，异步同步云端。 */
     fun removeSong(context: Context, songId: Long) {
         val songs = ensureSongsLoaded(context)
-        val removed: Boolean
+        val removedFromSongs: Boolean
         synchronized(songsLock) {
-            removed = songs.removeAll { it.id == songId }
+            removedFromSongs = songs.removeAll { it.id == songId }
         }
-        if (removed) {
+        // 底表也要摘。歌在底表但不在已加载页时（issue #33 的场景），只清 cachedSongs 会：
+        // ① isSongSaved 仍返回 true；② removed=false 连取消收藏的云端写都不发。
+        val removedFromIds: Boolean
+        synchronized(idsLock) {
+            val ids = ensureLikedIdsLoaded(context)
+            removedFromIds = ids.contains(songId)
+            if (removedFromIds) cachedLikedIds = ids.filterNot { it == songId }
+        }
+        if (removedFromSongs || removedFromIds) {
             scheduleFlush(context)
             if (isLoggedIn(context)) pushLike(context, songId, false)
         }
@@ -332,8 +349,12 @@ object LibraryManager {
     }
 
     fun isSongSaved(context: Context, songId: Long): Boolean {
+        // 底表（红心全量 id）优先，cachedSongs 只兜底：后者只有已分页加载的前 N 首，
+        // 超出已加载页的红心歌会被误判成「未收藏」——播放器按钮显示白 +，点一下
+        // 反而走一次收藏写入（issue #33 的入口）。纯判定在 isSongSavedIn，JVM 单测锁定。
+        val likedIds = synchronized(idsLock) { ensureLikedIdsLoaded(context) }
         val songs = ensureSongsLoaded(context)
-        return synchronized(songsLock) { songs.any { it.id == songId } }
+        return isSongSavedIn(likedIds, synchronized(songsLock) { songs.toList() }, songId)
     }
 
     fun getSongsByAlbumId(context: Context, albumId: Long): List<SongItem> {
@@ -475,6 +496,14 @@ object LibraryManager {
     // （414/超时），500 是留了余量的可用上界。与分页首屏的 LIKED_BATCH_SIZE=50 不是一回事，
     // 后者是 UI 每屏渲染量，别拿它当网络批次。
     internal const val LIKED_FETCH_BATCH_SIZE = 500
+
+    /**
+     * 「这首歌算已收藏吗」的纯判定（JVM 单测锁定）：红心 id 底表（全量）命中即已收藏，
+     * 已加载列表只兜底（老数据里底表为空、但本地列表有歌的场景）。
+     * 缺陷背景：只看已加载列表时，超出分页加载范围的红心歌会被误判未收藏（issue #33）。
+     */
+    internal fun isSongSavedIn(likedIds: List<Long>, loadedSongs: List<SongItem>, songId: Long): Boolean =
+        songId in likedIds || loadedSongs.any { it.id == songId }
 
     /**
      * 「我喜欢的音乐」全量详情，供「播放全部 / 插播全部 / 追加到队列」用。
