@@ -20,6 +20,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -1309,9 +1311,22 @@ fun MainScreen(
         Icons.Default.Search to navStrings.tabSearch,
         Icons.Default.Person to navStrings.tabUser,
     )
+    // 选项卡横向翻页（issue #35）。selectedTab 仍是唯一真源：底部导航 / 侧栏高亮、
+    // onNavigateToUser 都读写它；Pager 只承担手势与滑动动画。点击导航 animateScrollToPage，
+    // 滑动 settle 后由 snapshotFlow 回写 selectedTab。
+    // 播放卡片展开时以更高 zIndex 盖住内容并吃掉手势（见下方 PlayerCardOverlay 注释），
+    // 可滑动区域恰好就是卡片没盖住的区域，因此不需要按 progress 关 userScrollEnabled——
+    // 那样反而要在阈值穿越处重组整个 MainScreen。
+    val tabPagerState = rememberPagerState(initialPage = selectedTab) { navTabs.size }
     val onNavSelected: (Int) -> Unit = { tab ->
         selectedTab = tab
+        coroutineScope.launch { tabPagerState.animateScrollToPage(tab) }
         if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
+    }
+    LaunchedEffect(tabPagerState) {
+        snapshotFlow { tabPagerState.currentPage }.collect { page ->
+            if (page != selectedTab) selectedTab = page
+        }
     }
     Box(
         modifier = Modifier
@@ -1374,6 +1389,7 @@ fun MainScreen(
             onSavePlaylist = { /* TODO: 保存歌单 */ },
             onNavigateToUser = {
                 selectedTab = 3
+                coroutineScope.launch { tabPagerState.animateScrollToPage(3) }
                 if (!isInMain) navController.popBackStack(NavRoutes.HOME, false)
                 coroutineScope.launch {
                     progress.animateTo(0f, tween(260, easing = FastOutSlowInEasing))
@@ -1424,7 +1440,11 @@ fun MainScreen(
                 // 从上层覆盖它，返回时 nav 只需 slide 详情页出去，tab 屏本来就在下面可见。
                 // 副作用：NavGraph 空 HOME destination 内容为空且不占布局，pointer 天然穿透。
                 Box(modifier = Modifier.fillMaxSize()) {
-                    when (selectedTab) {
+                    // 横向翻页承载四个 tab（issue #35）：内容按页号挂载（不再按 selectedTab 换
+                    // 分支），页的存活语义与原 when 等价——离屏页在 settle 后卸载，rememberSaveable
+                    // 照常恢复各屏自己的滚动位置。
+                    HorizontalPager(state = tabPagerState, modifier = Modifier.fillMaxSize()) { page ->
+                        when (page) {
                         0 -> HomeScreen(
                             onSongClick = { playSongItem(it) },
                             onRelogin = onRelogin,
@@ -1555,6 +1575,7 @@ fun MainScreen(
                             refreshTrigger = cookieRefreshTrigger,
                             onLanguageChange = onLanguageChange
                         )
+                        }
                     }
                 }
 
