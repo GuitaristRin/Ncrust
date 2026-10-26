@@ -671,9 +671,10 @@ object PlaylistApi {
      * 收藏(like=true) / 取消收藏(false) 单曲（写入「我喜欢的音乐」）。
      *
      * 主通道是官方 Android 9.x 的 **xeapi** `/api/v1/radio/like`：
-     * `alg=itembased&trackId=<id>&like=<bool>&time=3`，带易盾 token。
-     * `time` 只是试听秒数（官方固定 3）；`checkToken`（同一份易盾 token）由 `RetrofitClient.xeapiPost`
-     * 在 antiCheat 请求里补进业务体末尾——官方两端都把它放进体（`spec/api/xeapi.md` §6）。
+     * `trackId,time,alg,like,rqRefer,songRqRefer,mode,subMode,source`，带易盾 token。
+     * `time` 只是试听秒数（官方固定 3）；字段集与官方 9.6.13 反编译实证一致（spec/api/xeapi.md §6）；
+     * `checkToken`（同一份易盾 token）由 `RetrofitClient.xeapiPost` 在 antiCheat 请求里补进业务体，
+     * 官方两端都把它放进体。
      *
      * 为什么不再走老通道：weapi / eapi 的 `/api/radio/like` 写入的收藏当天在官方与两端都可见、
      * **隔天被服务端回滚**。de193ff / 25f0c39 把 `time` 从 Unix 时间戳改成 3 之后**仍复现**，
@@ -687,21 +688,40 @@ object PlaylistApi {
      * 注意：like 写操作历史上曾受网易账号/IP 级风险控制，本账号四种协议变体(eapi 最小/
      * eapi+PC 指纹/eapi+安卓身份/经典 weapi)均被 `-460「检测到您的网络环境存在风险」`或
      * 异常响应拦截而读取全部正常。该注释是既往观测，**不代表当前版本/当前账号的现状**——
-     * 以实际响应为准。成功与否只由 `code == 200` 判定，绝不把非 200 响应当成功。
+     * 以实际响应为准。成功判定见 [isLikeWriteAccepted]：xeapi 通道 200 与 502 都算成功，
+     * 其余一律失败；weapi/eapi 老通道从严只认 200。
      *
      * 只返回布尔结果不够：调用方（LibraryManager）需要据此决定是否标记"仅本地/待同步"，
      * 并在成功后再做一次读回校验。这里额外记录脱敏的 HTTP 状态、业务码与耗时，便于诊断；
      * **不记录** Cookie、易盾 token、CSRF token 或完整加密请求体。
      */
     suspend fun likeSong(songId: Long, like: Boolean): Boolean = withContext(Dispatchers.IO) {
-        if (tryXeapiLike(songId, like) == 200) return@withContext true
+        if (isLikeWriteAccepted(tryXeapiLike(songId, like))) return@withContext true
         if (tryWeapiLike(songId, like) == 200) return@withContext true
         tryEapiLike(songId, like) == 200
     }
 
     /**
+     * 收藏写入的业务码判定（纯函数，JVM 单测锁定）。
+     *
+     * 200 正常成功；502 = 歌曲已在期望状态（spec/api/xeapi.md §6，仅 xeapi 通道背书）。
+     * 若把 502 当失败，一次「歌其实已在红心歌单」的收藏会掉进 weapi 老通道，
+     * 老通道对这类写入可能触发风控 `524「当前环境异常，已取消喜欢」`——把本来就收藏着的歌
+     * 反手撤销（issue #33 里「点 + 号直接取消了喜欢」的实际机制）。weapi/eapi 不放行 502：
+     * 老通道语义没有 spec 背书，从严。
+     */
+    fun isLikeWriteAccepted(code: Int): Boolean = code == 200 || code == 502
+
+    /**
      * xeapi `/api/v1/radio/like`——与官方 Android 9.x 同形（xeapi 加密 + 持久 deviceId + 易盾 token）。
-     * 字段顺序固定，别改：顺序进加密体，换了顺序就是另一种指纹。
+     * 字段集按官方 9.6.13 反编译实证（`NeteaseMusicApiImpl.b7`，dexdump 见 spec/api/xeapi.md §6）：
+     * `trackId,time,alg,like,rqRefer,songRqRefer,mode,subMode,source,checkToken`。
+     * 官方用 HashMap 组字段，**顺序不参与指纹**；字段是否齐全才参与。
+     * `rqRefer/songRqRefer` 是"从哪个播放列表点的红心"的引用链，官方由调用场景传入、
+     * 可为空串；`mode/subMode` 是场景名（SIMILAR / aidj / FM 模式），无场景时官方也发空串；
+     * `source` 官方固定规则：调用方没给 point 就发 `userfm`。Ncrust 没有这些场景，按官方
+     * 空值/兜底形态原样发，不臆造场景名。
+     * `checkToken` 由 [RetrofitClient.xeapiPost] 在 antiCheat 请求里补进体末尾。
      */
     private fun tryXeapiLike(songId: Long, like: Boolean): Int {
         val startedAt = System.currentTimeMillis()
@@ -709,10 +729,17 @@ object PlaylistApi {
             val text = RetrofitClient.xeapiPost(
                 uri = "/api/v1/radio/like",
                 pairs = listOf(
-                    "alg" to "itembased",
                     "trackId" to songId.toString(),
+                    "time" to "3",
+                    "alg" to "itembased",
                     "like" to like.toString(),
-                    "time" to "3"
+                    // 以下五个字段官方每次必发（9.6.13 实证）。缺字段本身就是可识别指纹，
+                    // 这正是 1.4.0 之前"收藏隔天消失"仍可能复现的残余风险点。
+                    "rqRefer" to "",
+                    "songRqRefer" to "",
+                    "mode" to "",
+                    "subMode" to "",
+                    "source" to "userfm"
                 ),
                 antiCheat = true
             )

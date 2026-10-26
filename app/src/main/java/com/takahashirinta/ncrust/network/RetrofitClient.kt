@@ -349,7 +349,8 @@ object RetrofitClient {
         val url = XEAPI_URL + "/xeapi/" + uri.removePrefix("/api/")
         // 易盾 token 每次写入现取、不缓存（xeapi.md §5）。
         val antiCheatToken = if (antiCheat) fetchAntiCheatToken() else null
-        // 官方在业务体末尾补 `checkToken`（顺序：… trackId, like, time, checkToken）。
+        // 官方在业务体里补 `checkToken`（NeteaseMusicApiImpl.b7 实证；官方用 HashMap 组字段，
+        // 顺序不参与指纹，放末尾只是实现约定）。
         val bodyPairs = if (antiCheatToken != null) pairs + ("checkToken" to antiCheatToken) else pairs
 
         val first = executeXeapi(url, bodyPairs, XeapiState.ensureKeyState(), antiCheatToken)

@@ -111,9 +111,28 @@ WHATWG `application/x-www-form-urlencoded`：字节集 `A–Z a–z 0–9 * - . 
 
 ## 6. 收藏：`/api/v1/radio/like`
 
-业务字段（顺序固定，顺序进加密体）：`alg=itembased&trackId=<id>&like=<true|false>&time=3&checkToken=<易盾 token>`。
-`checkToken` 放在末尾（官方顺序：`trackId, time, alg, like, …, checkToken`）。
-成功：响应 `code == 200`（`502` 也算成功——歌曲已在红心歌单）。随后照旧对红心歌单做读回校验。
+业务字段（官方 9.6.13 反编译实证，**每次必发**，缺字段本身就是可识别指纹）：
+
+```
+trackId=<id>&time=3&alg=itembased&like=<true|false>
+&rqRefer=<playlist ref 链>&songRqRefer=<song ref>&mode=<场景名>&subMode=<子场景>&source=<point|userfm>
+&checkToken=<易盾 token>
+```
+
+- **用 `HashMap` 组字段，顺序不参与指纹**（`NeteaseMusicApiImpl.b7` 里逐项 `map.put`，
+  服务端看到的顺序由哈希迭代决定）；**字段是否齐全才参与**。旧版本文档把「写入顺序」当指纹
+  是错的，已被 9.6.13 dexdump 推翻。
+- 取值来源（9.6.13 实证）：
+  - `rqRefer` / `songRqRefer`：调用场景传入的播放列表引用链，可为空串。
+  - `mode` / `subMode`：场景名。已观测值：相似歌曲列表 `mode=SIMILAR`、AI DJ `mode=aidj`、
+    私人 FM 取 `FMModeScene.getMode()/getSubMode()`；`subMode` 各路径均为空串。
+    Ncrust 没有这些场景，按空串发，**不臆造场景名**。
+  - `source`：官方规则「调用方没给 point 就发 `userfm`」，Ncrust 照此发 `userfm`。
+  - `userActionMap`：可选，官方仅在非空时追加；Ncrust 不发。
+- `checkToken` 放在体里（官方 `securityGetToken` 原生 token），同时发 `X-antiCheatToken` 头。
+- 成功判定与官方代码一致：**`code == 200` 或 `502`**（502 = 歌曲已在期望状态，官方随后照常
+  读 `playlistId`）。`505` 在官方是独立分支（写 PageValue），不算成功。
+- 随后照旧对红心歌单做读回校验。
 
 > **`checkToken` 必须进体**（2026-10-16 两端官方包实证）。REA 反编译 Android 9.6.08：
 > `NeteaseMusicApiImpl.Z6` 构造 `v1/radio/like` 的业务 map 时含 `checkToken = vz0.b.G0()`
@@ -122,6 +141,12 @@ WHATWG `application/x-www-form-urlencoded`：字节集 `A–Z a–z 0–9 * - . 
 > `Object.assign(a,{checkToken:e})` **且** `headers["X-antiCheatToken"]=e`——同一 token 两处都发。
 > 只发 `X-antiCheatToken` 头、体里没有 `checkToken` 的写入，会被服务端判为异常环境、事后回滚
 > （即「收藏隔天消失」）。
+>
+> **2026-10-25 复核（Android 9.6.13，应用宝原包，签名 `CN=LiangJian, OU=Corp.Netease,
+> O=CloudMusic` 已验）**：`dexdump -d classes14.dex` → `com.netease.cloudmusic.api.impl.
+> NeteaseMusicApiImpl.b7` 的字段 assembly 与上文一致，且确认了完整字段集与 200/502 判定；
+> 调用点（classes18.dex，接口 `w6/l.z5`）给出 mode/subMode 的实观测值。上面「字段顺序固定、
+> 换顺序就是另一种指纹」的旧结论作废。
 
 
 ### 为什么收藏要走 xeapi（2026-10-15 调研）
