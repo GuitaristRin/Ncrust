@@ -83,12 +83,33 @@ public class LibraryApiTests
         Assert.Contains("deviceId=" + handler.DeviceId, like.Header("Cookie"));
         Assert.Contains("sDeviceId=" + handler.DeviceId, like.Header("Cookie"));
 
-        // 解开 C（用 S 里恢复出来的动态密钥），确认送上去的业务字段就是协议 §6 那一串
-        // （易盾 token 同时进体的 checkToken 与 X-antiCheatToken 头）。
+        // 解开 C（用 S 里恢复出来的动态密钥），确认送上去的业务字段就是官方 9.6.13
+        // NeteaseMusicApiImpl.b7 的完整字段集（spec §6）：九个业务字段一个不少，
+        // 易盾 token 同时进体的 checkToken 与 X-antiCheatToken 头。
+        // 官方用 HashMap 组字段、顺序不参与指纹，但这里的序列化顺序是稳定契约。
         var plaintext = FakeXeapiServer.DecryptBusinessPlaintext(like.Form("C"), like.Form("S"));
         Assert.Equal(
-            "{\"content\":\"alg=itembased&trackId=2754388325&like=true&time=3&checkToken=test-anti-cheat-token\",\"queryString\":\"e_r=true\"}",
+            "{\"content\":\"trackId=2754388325&time=3&alg=itembased&like=true" +
+            "&rqRefer=&songRqRefer=&mode=&subMode=&source=userfm" +
+            "&checkToken=test-anti-cheat-token\",\"queryString\":\"e_r=true\"}",
             plaintext);
+    }
+
+    [Fact]
+    public async Task LikeSong_TreatsXeapi502AsSuccess_NotFallingBackToLegacyChannels()
+    {
+        // 官方 9.6.13：code 200 与 502（歌曲已在期望状态）都算成功，且 502 后不再走老通道。
+        // 若把 502 当失败，会掉进 weapi 老通道；老通道对已收藏歌可能触发风控 524
+        // 「当前环境异常，已取消喜欢」，把收藏反手撤销。
+        var handler = new XeapiHandler(businessJson: _ => "{\"code\":502}");
+        var http = new NcmHttp(handler, handler.State);
+        var api = new LibraryApi(http);
+
+        Assert.True(await api.LikeSongAsync(123, like: true));
+
+        Assert.Contains(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
+        Assert.DoesNotContain(handler.Requests, r => r.Path == "/weapi/radio/like");
+        Assert.DoesNotContain(handler.Requests, r => r.Path == "/eapi/radio/like");
     }
 
     [Fact]

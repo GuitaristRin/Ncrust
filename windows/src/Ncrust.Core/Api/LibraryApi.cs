@@ -31,20 +31,26 @@ namespace Ncrust.Core.Api
         /// <summary>
         /// 收藏 / 取消收藏单曲。
         ///
-        /// 主通道走官方 Android 9.x 的 xeapi <c>/api/v1/radio/like</c>：
-        /// <c>alg=itembased&amp;trackId=&lt;id&gt;&amp;like=&lt;bool&gt;&amp;time=3</c>，带易盾 token。
+        /// 主通道走官方 Android 9.x 的 xeapi <c>/api/v1/radio/like</c>，字段集按官方 9.6.13
+        /// 反编译实证（<c>NeteaseMusicApiImpl.b7</c>）：<c>trackId,time,alg,like,rqRefer,
+        /// songRqRefer,mode,subMode,source,checkToken</c>。官方用 HashMap 组字段，顺序不参与
+        /// 指纹、字段齐全才参与；<c>rqRefer/songRqRefer</c> 是播放列表引用链（可为空串），
+        /// <c>mode/subMode</c> 是场景名（无场景时官方也发空串），<c>source</c> 官方兜底发
+        /// <c>userfm</c>。见 <c>spec/api/xeapi.md</c> §6。
         /// 老通道（weapi / eapi 的 <c>/api/radio/like</c>）会被服务端风控**事后回滚**：
         /// 收藏当天在官方与 Ncrust 两端都可见，例行审核时被取消，表现为「隔天消失」。
         /// gmg137/netease-cloud-music-gtk#410 实测老通道会返回 524「当前环境异常，已取消喜欢」，
         /// 改走 xeapi 后修复；Ncrust 的 de193ff / 25f0c39 只改了 <c>time</c>（时间戳 → 3）
         /// 仍复现，说明 <c>time</c> 不是诱因，通道才是。结论与取证见 <c>spec/api/xeapi.md</c> 末节。
         ///
-        /// weapi / eapi 保留为回退：xeapi 不可用（未配置状态、公钥取不到、网络异常、非 200）时
+        /// 成功判定与官方一致：<c>200</c> 与 <c>502</c>（歌曲已在期望状态）都算成功。
+        /// weapi / eapi 保留为回退：xeapi 不可用（未配置状态、公钥取不到、网络异常、非 200/502）时
         /// 依次尝试，但它们写进去的收藏仍可能被回滚，只是不让收藏功能整体不可用。
         /// </summary>
         public async Task<bool> LikeSongAsync(long songId, bool like, CancellationToken cancellationToken = default)
         {
-            if (await TryXeapiLikeAsync(songId, like, cancellationToken).ConfigureAwait(false) == 200)
+            var xeapiCode = await TryXeapiLikeAsync(songId, like, cancellationToken).ConfigureAwait(false);
+            if (xeapiCode == 200 || xeapiCode == 502)
             {
                 return true;
             }
@@ -61,10 +67,15 @@ namespace Ncrust.Core.Api
         {
             var pairs = new[]
             {
-                new KeyValuePair<string, string>("alg", "itembased"),
                 new KeyValuePair<string, string>("trackId", songId.ToString(CultureInfo.InvariantCulture)),
-                new KeyValuePair<string, string>("like", like ? "true" : "false"),
                 new KeyValuePair<string, string>("time", "3"),
+                new KeyValuePair<string, string>("alg", "itembased"),
+                new KeyValuePair<string, string>("like", like ? "true" : "false"),
+                new KeyValuePair<string, string>("rqRefer", string.Empty),
+                new KeyValuePair<string, string>("songRqRefer", string.Empty),
+                new KeyValuePair<string, string>("mode", string.Empty),
+                new KeyValuePair<string, string>("subMode", string.Empty),
+                new KeyValuePair<string, string>("source", "userfm"),
             };
 
             try
