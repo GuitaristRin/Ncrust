@@ -1,16 +1,5 @@
 # AGENTS.md
 
-<!-- BEGIN workbench-pointer · v1 · 勿手改本块（由 GuitaristRin/Projects 统一维护；改模板请改 templates/repo-AGENTS-block.md） -->
-> **本文件只写本仓特有的规则。跨仓通用约定不在本仓重复**，唯一真源是工作台文档库：
-> - Windows：`%USERPROFILE%\Documents\Projects\AGENTS.md`
-> - Linux：`~/projects/AGENTS.md` → `~/projects/Arcturius/AGENTS.md`（按序取第一个存在的）
-> - 远端：<https://github.com/GuitaristRin/Projects/blob/main/AGENTS.md>
->
-> 动手之前先读它。**读不到就在报告里写明「工作台未读到」**，然后按本文件执行，不要猜。
-> 新发现的通用规则先回流工作台（`docs/09-回流与同步.md`），本文件只留引用，不抄正文。
-> 冲突优先级：用户当前明确指令 > 本仓特有规则 > 工作台通用规则。
-<!-- END workbench-pointer -->
-
 This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. It reflects the code as of **v1.4.0** (`versionCode = 8`). When in doubt, the source wins — update this file if you find a stale claim.
 
 **Monorepo.** This repository now hosts more than the Android app: `windows/` (the Windows client, UWP + WinUI 2) and `spec/` (cross-platform spec + test fixtures). Everything below except *Repository Layout* and *Commit Convention* describes the **Android app** only. Working in `windows/`? Read **`windows/AGENTS.md`** — it is canonical there.
