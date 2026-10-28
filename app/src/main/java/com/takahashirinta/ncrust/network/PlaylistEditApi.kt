@@ -2,6 +2,8 @@ package com.takahashirinta.ncrust.network
 
 import android.util.Log
 import com.takahashirinta.ncrust.account.SessionMonitor
+import com.takahashirinta.ncrust.playlist.PlaylistAction
+import com.takahashirinta.ncrust.playlist.PlaylistCommand
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -93,6 +95,29 @@ object PlaylistEditApi {
 
     /** 单请求曲目上限；超过就分批（`>1000` 首的歌单判重不可靠，见 [addSongs]）。 */
     private const val TRACK_BATCH = 500
+
+    /** 新协调层的传输入口：动作与路径固定，结果逐次返回，不读取共享 lastError。 */
+    suspend fun execute(command: PlaylistCommand, cookie: String): PlaylistWriteResult {
+        val needsDraft = command.action in listOf(PlaylistAction.CREATE, PlaylistAction.NAME, PlaylistAction.DESCRIPTION, PlaylistAction.PRIVACY)
+        if ((needsDraft && command.draft?.valid != true) ||
+            (command.action != PlaylistAction.CREATE && command.playlistId <= 0) ||
+            (command.action in listOf(PlaylistAction.ADD, PlaylistAction.REMOVE) &&
+                (command.songIds.isEmpty() || command.songIds.size > TRACK_BATCH || command.songIds.any { it <= 0 }))) {
+            return PlaylistWriteResult.Failure(-1, "invalid command")
+        }
+        val id = command.playlistId.toString()
+        val draft = command.draft
+        val (path, payload) = when (command.action) {
+            PlaylistAction.CREATE -> CREATE_PATH to mapOf("name" to draft!!.name.trim(), "privacy" to "${draft.privacy}", "type" to "NORMAL", "subType" to "NORMAL")
+            PlaylistAction.ADD -> TRACKS_PATH to addSongsPayload(command.playlistId, command.songIds)
+            PlaylistAction.REMOVE -> TRACKS_PATH to removeSongsPayload(command.playlistId, command.songIds)
+            PlaylistAction.NAME -> UPDATE_NAME_PATH to mapOf("id" to id, "name" to draft!!.name.trim())
+            PlaylistAction.DESCRIPTION -> UPDATE_DESC_PATH to mapOf("id" to id, "desc" to draft!!.description)
+            PlaylistAction.PRIVACY -> UPDATE_PRIVACY_PATH to privacyPayload(command.playlistId, draft!!.privacy)
+            PlaylistAction.DELETE -> DELETE_PATH to mapOf("pid" to id)
+        }
+        return write(path, payload, cookie)
+    }
 
     // ==================== 端点 ====================
 
@@ -223,23 +248,24 @@ object PlaylistEditApi {
     var lastError: PlaylistWriteResult? = null
         private set
 
-    private suspend fun write(path: String, payload: Map<String, String>): PlaylistWriteResult =
+    private suspend fun write(path: String, payload: Map<String, String>, cookie: String? = RetrofitClient.getCookie()): PlaylistWriteResult =
         PlaylistWriteGate.run {
             withContext(Dispatchers.IO) {
+                // 排队限速期间可能退出登录，不能在等待结束后继续提交旧账号写入。
+                if (cookie != RetrofitClient.getCookie()) return@withContext PlaylistWriteResult.Failure(301, "account changed")
                 val body = payload.toMutableMap()
                 // csrf_token 服务端不校验值，但带上最稳；身份 cookie 与它缺一不可，
                 // 否则 403 illegal request!（实测：只带原 cookie 必 403）。
-                RetrofitClient.getCsrfToken()?.takeIf { it.isNotEmpty() }?.let { body["csrf_token"] = it }
+                cookie?.split(';')?.map { it.trim() }?.firstOrNull { it.startsWith("__csrf=") }
+                    ?.substringAfter('=')?.takeIf { it.isNotEmpty() }?.let { body["csrf_token"] = it }
                 Log.i(TAG, "write " + path + " keys=" + body.keys.sorted())
                 try {
-                    val response = RetrofitClient.eapiPost(
+                    val result = RetrofitClient.eapiPost(
                         path,
                         body,
-                        cookieOverride = ClientIdentity.withIdentity(RetrofitClient.getCookie()),
-                    )
-                    val text = response.body?.string()
-                    val result = parseWriteResponse(response.code, text)
-                    SessionMonitor.reportApiCode(result.businessCode)
+                        cookieOverride = ClientIdentity.withIdentity(cookie),
+                    ).use { response -> parseWriteResponse(response.code, response.body?.string()) }
+                    if (cookie == RetrofitClient.getCookie()) SessionMonitor.reportApiCode(result.businessCode)
                     result
                 } catch (e: IOException) {
                     Log.w(TAG, "write " + path + " failed", e)
@@ -255,9 +281,10 @@ object PlaylistEditApi {
      * 无任何报错信息，排查时先怀疑加密而不是网络。
      */
     fun parseWriteResponse(httpCode: Int, body: String?): PlaylistWriteResult {
+        if (httpCode !in 200..299) return PlaylistWriteResult.Failure(-httpCode, "http error", httpCode)
         if (body.isNullOrBlank()) return PlaylistWriteResult.Failure(-1, "empty body", httpCode)
-        val json = runCatching { JSONObject(body) }.getOrElse { e ->
-            Log.w(TAG, "write response is not json: " + body.take(120), e)
+        val json = runCatching { JSONObject(body) }.getOrElse {
+            Log.w(TAG, "write response is not json")
             return PlaylistWriteResult.Failure(-1, "invalid json", httpCode)
         }
         val code = json.optInt("code", -1)

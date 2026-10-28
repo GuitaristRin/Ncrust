@@ -164,16 +164,19 @@ object PlaylistApi {
         response.body?.string() ?: throw Exception("empty response")
     }
 
-    suspend fun getPlaylistDetail(playlistId: Long): List<SongItem> = withContext(Dispatchers.IO) {
-        // n=1000 requests more full-detail tracks; server still caps at ~20 in `tracks`,
-        // but always returns the complete list in `trackIds`.
+    suspend fun getPlaylistDetail(playlistId: Long, cookieOverride: String? = null): List<SongItem> = withContext(Dispatchers.IO) {
+        // tracks 可能截断；完整性由调用方比对 trackIds 与 trackCount，参 spec/api/playlists.md。
+        val credential = cookieOverride ?: RetrofitClient.getCookie().orEmpty()
         val payload = mapOf(
             "id" to playlistId.toString(),
             "n" to "1000",
             "s" to "0"
         )
-        val response = RetrofitClient.eapiPost(PLAYLIST_DETAIL_PATH, payload)
-        val body = response.body?.string() ?: throw Exception("empty response")
+        val body = RetrofitClient.eapiPost(PLAYLIST_DETAIL_PATH, payload,
+            cookieOverride = ClientIdentity.withIdentity(credential)).use { response ->
+            if (!response.isSuccessful) throw java.io.IOException("playlist read failed")
+            response.body?.string() ?: throw java.io.IOException("empty response")
+        }
         val json = JSONObject(body)
         val code = json.optInt("code", -1)
         if (code != 200) throw Exception("API error: code=$code")
@@ -192,7 +195,7 @@ object PlaylistApi {
             }
         }
 
-        // Collect every ID in playlist order from the always-complete `trackIds` array.
+        // 保留声明的原顺序；缺失曲目由调用方标为未加载完整。
         val allIds = mutableListOf<Long>()
         val trackIdsArray = playlistObj.optJSONArray("trackIds")
         if (trackIdsArray != null) {
@@ -208,8 +211,10 @@ object PlaylistApi {
         val missingIds = allIds.filter { it !in tracksMap }
         val batchSize = 500
         for (start in missingIds.indices step batchSize) {
+            if (credential != RetrofitClient.getCookie().orEmpty()) throw com.takahashirinta.ncrust.playlist.PlaylistRequestException(
+                com.takahashirinta.ncrust.playlist.PlaylistProblem.ACCOUNT_CHANGED)
             val batch = missingIds.subList(start, minOf(start + batchSize, missingIds.size))
-            val fetched = fetchSongDetails(batch)
+            val fetched = fetchSongDetails(batch, credential)
             if (fetched.isEmpty() && batch.isNotEmpty()) {
                 Log.w("PlaylistApi", "batch of ${batch.size} songs returned empty from server")
             }
@@ -262,23 +267,26 @@ object PlaylistApi {
         return map
     }
 
-    private suspend fun fetchSongDetails(ids: List<Long>): List<SongItem> = withContext(Dispatchers.IO) {        val cArray = JSONArray()
+    private suspend fun fetchSongDetails(ids: List<Long>, cookie: String? = RetrofitClient.getCookie()): List<SongItem> = withContext(Dispatchers.IO) {        val cArray = JSONArray()
         ids.forEach { id -> cArray.put(JSONObject().put("id", id)) }
         val payload = mapOf("c" to cArray.toString())
         // Single retry with 500ms delay to survive transient network blips on large playlists.
         var lastError: Exception? = null
         repeat(2) { attempt ->
             try {
-                val response = RetrofitClient.eapiPost("/eapi/v3/song/detail", payload)
-                val body = response.body?.string() ?: return@repeat
+                val body = RetrofitClient.eapiPost("/eapi/v3/song/detail", payload, cookieOverride = ClientIdentity.withIdentity(cookie)).use { response ->
+                    if (!response.isSuccessful) throw java.io.IOException("song detail read failed")
+                    response.body?.string()
+                } ?: return@repeat
                 val json = JSONObject(body)
-                reportBusinessCode(json.optInt("code", -1))
+                if (cookie == RetrofitClient.getCookie()) reportBusinessCode(json.optInt("code", -1))
                 val songArray = json.optJSONArray("songs") ?: return@repeat
                 val privileges = parsePrivileges(json.optJSONArray("privileges"))
                 return@withContext (0 until songArray.length()).map { i ->
                     val song = parseSongTrack(songArray.getJSONObject(i))
                     privileges[song.id]?.let { song.copy(privilege = it) } ?: song
                 }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (e: Exception) {
                 lastError = e
                 Log.w("PlaylistApi", "fetchSongDetails attempt ${attempt + 1} failed: ${e.message}")
@@ -299,7 +307,8 @@ object PlaylistApi {
         val specialType: Int,
         val privacy: Int,
         /** 是否为「收藏的他人歌单」。写接口只对本人自建（`!subscribed`）有效。 */
-        val subscribed: Boolean = false
+        val subscribed: Boolean = false,
+        val description: String = ""
     ) {
         /**
          * 是否本人自建（可写）：`creator.userId == 我 && !subscribed`。
@@ -307,7 +316,7 @@ object PlaylistApi {
          * **不能只看 `creatorUserId`**：收藏来的他人歌单里 `creator.userId` 是**原作者**，
          * 据此判定会把他人歌单当自建，写操作要么 404（曲目操作）要么 401（删除）。
          */
-        fun isOwnedBy(userId: Long): Boolean = !subscribed && creatorUserId == userId
+        fun isOwnedBy(userId: Long): Boolean = userId > 0 && id > 0 && specialType == 0 && !subscribed && creatorUserId == userId
     }
 
     data class UserPlaylistResult(

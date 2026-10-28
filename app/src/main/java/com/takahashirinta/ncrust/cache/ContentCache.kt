@@ -47,6 +47,7 @@ object ContentCache {
 
     fun getPlaylistSongs(id: Long): List<SongItem>? = playlistCache[id]
     fun putPlaylistSongs(id: Long, data: List<SongItem>) { playlistCache.put(id, data) }
+    fun invalidatePlaylist(id: Long) { playlistCache.remove(id) }
 
     fun getArtistAlbums(id: Long): ArtistAlbumsResponse? = artistCache[id]
     fun putArtistAlbums(id: Long, data: ArtistAlbumsResponse) { artistCache.put(id, data) }

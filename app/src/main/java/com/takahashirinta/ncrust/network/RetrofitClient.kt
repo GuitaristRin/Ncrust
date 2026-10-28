@@ -60,6 +60,7 @@ object RetrofitClient {
 
     fun updateCookie(cookie: String?) {
         currentCookie = cookie
+        com.takahashirinta.ncrust.playlist.PlaylistManager.accountChanged()
         // 换登录态后旧的内存会话不再属于当前 cookie，清掉重取。
         XeapiState.clearSession()
     }
