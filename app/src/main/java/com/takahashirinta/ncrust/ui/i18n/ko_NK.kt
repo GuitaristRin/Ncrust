@@ -1,6 +1,23 @@
 package com.takahashirinta.ncrust.ui.i18n
 
 val koNK = Strings(
+    playlists = PlaylistStrings(
+        selectTracks = "곡 선택", selectAll = "모두 선택", selectionCount = { "${it}곡 선택됨" },
+        stopTracking = "추적 끝내기",
+        experimental = "재생목록 관리 (시험)", experimentalDescription = "목록 작성, 편집 및 공개설정. 처음에는 꺼져 있으며 서버 쓰기는 검증 중입니다.",
+        create = "재생목록 만들기", edit = "재생목록 편집", add = "재생목록에 추가", name = "이름", description = "설명", visibility = "공개설정",
+        public = "공개", private = "비공개", unknown = "알 수 없음", owned = "내가 만든 목록", subscribed = "보관한 목록",
+        remove = "목록에서 삭제", delete = "재생목록 삭제", save = "보존", done = "완료",
+        confirmed = "변경 확인됨", pending = "요청 전송됨, 확인 대기", partial = { a, b -> "${a}개 확인됨, ${b}개 확인 대기" },
+        failed = "작업이 완료되지 않았습니다", verify = "상태 다시 확인", backToEdit = "편집으로 돌아가기", login = "먼저 로그인하십시오",
+        permission = "직접 만든 일반 목록만 관리할 수 있습니다", rateLimit = "조작이 너무 잦습니다. 잠시 후 다시 시도하십시오",
+        network = "통신 또는 읽기에 실패했습니다. 나중에 상태를 확인하십시오", accountChanged = "계정이 바뀌여 이 작업의 추적을 마쳤습니다",
+        invalid = "이름, 설명과 공개설정을 확인하십시오", incomplete = "내용이 완전히 읽히지 않았습니다. 새로 고치십시오",
+        unknownCreate = "작성 결과를 알 수 없습니다. 다시 만들기 전에 목록을 확인하십시오",
+        deleteHint = { "《$it》을 삭제합니까? 먼저 곡목기록을 보존합니다. 재생대기렬은 유지됩니다." },
+        removeHint = { "${it}곡을 이 목록에서 삭제합니까? 좋아하는 곡과 재생대기렬은 유지됩니다." },
+        backup = { "곡목기록 보존 위치: $it" }, open = "재생목록 보기"
+    ),
     tabHome = "처음",
     tabLibrary = "저장소",
     tabSearch = "찾기",

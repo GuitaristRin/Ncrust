@@ -1,6 +1,23 @@
 package com.takahashirinta.ncrust.ui.i18n
 
 val jpJP = Strings(
+    playlists = PlaylistStrings(
+        selectTracks = "曲を選択", selectAll = "すべて選択", selectionCount = { "$it 曲を選択中" },
+        stopTracking = "追跡を終了",
+        experimental = "プレイリスト管理（試験中）", experimentalDescription = "作成・編集・公開設定。初期状態はオフで、クラウドへの書き込みは検証中です。",
+        create = "プレイリストを作成", edit = "プレイリストを編集", add = "プレイリストに追加",
+        name = "名前", description = "説明", visibility = "公開設定", public = "公開", private = "非公開", unknown = "不明",
+        owned = "作成したリスト", subscribed = "保存したリスト", remove = "リストから削除", delete = "プレイリストを削除", save = "保存", done = "完了",
+        confirmed = "変更を確認しました", pending = "送信済み・確認待ち", partial = { a, b -> "$a 件確認済み・$b 件未確認" },
+        failed = "操作は完了していません", verify = "状態を再確認", backToEdit = "編集に戻る", login = "ログインしてください",
+        permission = "自分が作成した通常のリストのみ編集できます", rateLimit = "操作が多すぎます。しばらくお待ちください",
+        network = "通信または読み込みに失敗しました。後で状態をご確認ください", accountChanged = "アカウントが変わったため追跡を終了しました",
+        invalid = "名前・説明・公開設定をご確認ください", incomplete = "読み込みが不完全です。更新してください",
+        unknownCreate = "作成結果は不明です。再作成する前にリストをご確認ください",
+        deleteHint = { "「$it」を削除しますか？先に曲目記録を保存します。再生キューは維持されます。" },
+        removeHint = { "$it 曲をこのリストから削除しますか？お気に入りと再生キューは維持されます。" },
+        backup = { "リスト記録の保存先：$it" }, open = "プレイリストを開く"
+    ),
     tabHome = "ホーム",
     tabLibrary = "ライブラリ",
     tabSearch = "検索",

@@ -18,6 +18,28 @@ object PlaybackQueueLogic {
     /** 队列 + 当前索引的一次快照。纯值类型，便于单测与整块回写。 */
     data class QueueState(val queue: List<SongItem>, val currentIndex: Int)
 
+    /** 从歌单中的指定歌曲开始，保留原顺序；重复 ID 只保留第一次出现。 */
+    fun playlistStart(songs: List<SongItem>, startId: Long): QueueState {
+        val queue = songs.filter { it.id > 0 }.distinctBy { it.id }
+        return QueueState(queue, queue.indexOfFirst { it.id == startId })
+    }
+
+    /** 自然结束与手动下一首分开：单曲循环仅重复自然结束，LINE 始终不伪装首曲。 */
+    fun advanceIndex(size: Int, index: Int, mode: Int, natural: Boolean): Int {
+        if (index !in 0 until size) return -1
+        if (mode == QueueModes.SINGLE && natural) return index
+        if (mode in listOf(QueueModes.LINE, QueueModes.INFINITY) && index == size - 1) return -1
+        return (index + 1) % size
+    }
+
+    fun newShuffleRound(size: Int, previous: Int, random: kotlin.random.Random = kotlin.random.Random.Default): List<Int> {
+        val round = (0 until size).shuffled(random).toMutableList()
+        if (round.size > 1 && round.first() == previous) {
+            val other = round[1]; round[1] = round[0]; round[0] = other
+        }
+        return round
+    }
+
     /**
      * 把播放器回报的 [actualSongId] 映射回应用队列索引。
      * 映射不到（队列被外部替换/歌曲已移除）时退回 [fallbackIndex]，并夹到合法范围。

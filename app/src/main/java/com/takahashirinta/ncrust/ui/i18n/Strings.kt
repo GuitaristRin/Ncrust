@@ -1,6 +1,7 @@
 package com.takahashirinta.ncrust.ui.i18n
 
 data class Strings(
+    val playlists: PlaylistStrings,
     // Navigation tabs
     val tabHome: String,
     val tabLibrary: String,

@@ -1,6 +1,24 @@
 package com.takahashirinta.ncrust.ui.i18n
 
 val zhTW = Strings(
+    playlists = PlaylistStrings(
+        selectTracks = "選擇歌曲", selectAll = "全選", selectionCount = { "已選擇 $it 首" },
+        stopTracking = "結束追蹤",
+        experimental = "歌單管理（實驗）", experimentalDescription = "新增、編輯與設定可見性。預設關閉，雲端寫入仍待驗證。",
+        create = "新增歌單", edit = "編輯歌單", add = "加入歌單",
+        name = "名稱", description = "簡介", visibility = "可見性",
+        public = "公開", private = "私密", unknown = "未知",
+        owned = "自建歌單", subscribed = "收藏的歌單", remove = "從歌單移除", delete = "刪除歌單", save = "儲存", done = "完成",
+        confirmed = "已確認完成", pending = "請求已送出，狀態待確認", partial = { a, b -> "已確認 $a 項，仍有 $b 項待確認" },
+        failed = "操作未完成", verify = "重新讀取狀態", backToEdit = "返回編輯",
+        login = "請先登入", permission = "只能管理本人建立的一般歌單", rateLimit = "操作過於頻繁，請稍後再試",
+        network = "網路或讀取失敗，請稍後核對狀態", accountChanged = "帳號已切換，已停止追蹤此操作",
+        invalid = "請檢查名稱、簡介和可見性", incomplete = "內容尚未載入完整，請重新整理",
+        unknownCreate = "建立結果不明，請先在歌單列表核對，勿重複建立",
+        deleteHint = { "刪除「$it」？刪除前會儲存歌單資訊與曲目記錄，目前播放佇列不受影響。" },
+        removeHint = { "從本歌單移除 $it 首歌曲？紅心與目前播放佇列不受影響。" },
+        backup = { "歌單記錄已備份至 $it" }, open = "檢視歌單"
+    ),
     tabHome = "首頁",
     tabLibrary = "庫房",
     tabSearch = "尋覓",

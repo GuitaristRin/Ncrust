@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -35,6 +36,8 @@ import com.takahashirinta.ncrust.auth.CookieManager
 import com.takahashirinta.ncrust.library.AlbumInfo
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.network.PlaylistApi
+import com.takahashirinta.ncrust.network.RetrofitClient
+import com.takahashirinta.ncrust.playlist.*
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
@@ -43,6 +46,7 @@ import com.takahashirinta.ncrust.ui.components.SessionExpiredBanner
 import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
 import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
+import com.takahashirinta.ncrust.ui.components.PlaylistButton
 import io.github.takahashirinta.kanesumi.controls.MetroTabItem
 import io.github.takahashirinta.kanesumi.controls.MetroTabRow
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
@@ -92,6 +96,12 @@ fun LibraryScreen(
     val categories = listOf(strings.categoryTracks, strings.categoryAlbums, strings.categoryPlaylists)
 
     var playlists by remember { mutableStateOf<List<PlaylistApi.PlaylistInfo>>(emptyList()) }
+    var playlistOwnerId by remember { mutableLongStateOf(0) }
+    var playlistComplete by remember { mutableStateOf(true) }
+    var playlistLoadGeneration by remember { mutableIntStateOf(0) }
+    var playlistCredential by remember { mutableStateOf(RetrofitClient.getCookie().orEmpty()) }
+    val playlistRevision by PlaylistManager.revision.collectAsState()
+    val playlistManagement by PlaylistManager.enabled.collectAsState()
     var isLoadingPlaylists by remember { mutableStateOf(false) }
     var playlistError by remember { mutableStateOf<String?>(null) }
 
@@ -128,23 +138,39 @@ fun LibraryScreen(
     }
 
     fun loadPlaylists() {
+        val token = ++playlistLoadGeneration
         coroutineScope.launch {
+            val credential = RetrofitClient.getCookie().orEmpty()
+            if (playlistCredential != credential) {
+                playlists = emptyList()
+                playlistOwnerId = 0
+                playlistComplete = false
+                playlistCredential = credential
+            }
             isLoadingPlaylists = true
             playlistError = null
             try {
                 if (!CookieManager.hasCookie(context)) {
+                    playlists = emptyList()
+                    playlistOwnerId = 0
                     playlistError = strings.notLoggedInForPlaylists
                 } else {
-                    val userId = PlaylistApi.getCurrentUserId()
-                    val result = PlaylistApi.getUserPlaylists(userId)
-                    playlists = result.playlists
+                    val gateway = NetworkPlaylistGateway(credential)
+                    val userId = gateway.userId()
+                    val result = gateway.collection(userId)
+                    if (token != playlistLoadGeneration || credential != RetrofitClient.getCookie().orEmpty()) return@launch
+                    playlistOwnerId = userId
+                    playlists = result.items
+                    playlistComplete = result.complete
                 }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (e: Exception) {
+                if (token != playlistLoadGeneration || credential != RetrofitClient.getCookie().orEmpty()) return@launch
                 playlistError = if (!CookieManager.hasCookie(context))
                     strings.notLoggedInForPlaylists
                 else strings.loadFailed(e.message)
             } finally {
-                isLoadingPlaylists = false
+                if (token == playlistLoadGeneration && credential == RetrofitClient.getCookie().orEmpty()) isLoadingPlaylists = false
             }
         }
     }
@@ -155,9 +181,9 @@ fun LibraryScreen(
         pendingSyncCount = LibraryManager.getPendingSyncSongIds(context).size
     }
 
-    LaunchedEffect(selectedCategory) {
+    LaunchedEffect(selectedCategory, playlistRevision, refreshTrigger) {
         reloadLocal()
-        if (selectedCategory == 2 && playlists.isEmpty() && !isLoadingPlaylists) {
+        if (selectedCategory == 2) {
             loadPlaylists()
         }
     }
@@ -363,13 +389,21 @@ fun LibraryScreen(
                 }
 
                 2 -> {
+                    Column(Modifier.fillMaxSize()) {
+                    if (playlistManagement) PlaylistButton(strings.playlists.create,
+                        { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.CREATE)) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    if (!playlistComplete && playlists.isNotEmpty()) {
+                        MetroText(strings.playlists.incomplete, modifier = Modifier.padding(16.dp))
+                    }
+                    if (playlistError != null && playlists.isNotEmpty()) MetroText(playlistError!!, modifier = Modifier.padding(16.dp))
                     when {
-                        isLoadingPlaylists -> {
+                        isLoadingPlaylists && playlists.isEmpty() -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 MetroProgressIndicator(color = LocalMetroColors.current.primary)
                             }
                         }
-                        playlistError != null -> {
+                        playlistError != null && playlists.isEmpty() -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     MetroText(playlistError!!, color = Color.Red, style = LocalMetroTypography.current.bodyMedium)
@@ -398,7 +432,15 @@ fun LibraryScreen(
                                 contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
                                 flingBehavior = rememberMetroFlingBehavior()
                             ) {
-                                items(playlists, key = { it.id }) { pl ->
+                                val groups = listOf(
+                                    strings.playlists.owned to playlists.filter { it.isOwnedBy(playlistOwnerId) },
+                                    strings.playlists.subscribed to playlists.filterNot { it.isOwnedBy(playlistOwnerId) }
+                                )
+                                groups.forEach { (title, group) ->
+                                if (group.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                                    MetroText(title, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = LocalMetroTypography.current.bodyLarge)
+                                }
+                                items(group, key = { it.id }) { pl ->
                                     PlaylistGridItem(
                                         playlist = pl,
                                         modifier = Modifier.fillMaxWidth().animateItem(
@@ -410,8 +452,10 @@ fun LibraryScreen(
                                         onPlayAll = { onPlayPlaylist(pl.id) }
                                     )
                                 }
+                                }
                             }
                         }
+                    }
                     }
                 }
             } }
@@ -494,7 +538,8 @@ fun PlaylistGridItem(
         }
         Spacer(Modifier.height(6.dp))
         MetroText(playlist.name, color = LocalMetroColors.current.onBackground, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-        MetroText(strings.trackCount(playlist.trackCount), color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
+        MetroText(if (playlist.trackCount >= 0) strings.trackCount(playlist.trackCount) else strings.playlists.unknown,
+            color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
         Spacer(Modifier.height(6.dp))
     }
 }

@@ -54,6 +54,7 @@ import com.takahashirinta.ncrust.ui.theme.ThemeMode
 import com.takahashirinta.ncrust.ui.theme.themeColorPresets
 import com.takahashirinta.ncrust.ui.viewmodel.PlayerViewModel
 import com.takahashirinta.ncrust.update.UpdateService
+import com.takahashirinta.ncrust.playlist.PlaylistManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -342,6 +343,17 @@ fun UserScreen(
                     // 本首歌的预载状态与开关不一致, 要等下一首歌才对上
                     playerViewModel.refreshGaplessSetting()
                 }
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+
+        item {
+            val playlistManagement by PlaylistManager.enabled.collectAsState()
+            SettingSwitchRow(
+                title = strings.playlists.experimental,
+                description = strings.playlists.experimentalDescription,
+                checked = playlistManagement,
+                onCheckedChange = { PlaylistManager.setEnabled(context, it) }
             )
             Spacer(Modifier.height(24.dp))
         }

@@ -1,6 +1,23 @@
 package com.takahashirinta.ncrust.ui.i18n
 
 val deDE = Strings(
+    playlists = PlaylistStrings(
+        selectTracks = "Titel auswählen", selectAll = "Alle auswählen", selectionCount = { "$it Titel ausgewählt" },
+        stopTracking = "Nachverfolgung beenden",
+        experimental = "Wiedergabelisten verwalten (experimentell)", experimentalDescription = "Erstellen, bearbeiten und Sichtbarkeit ändern. Standardmäßig aus; Cloud-Schreibzugriffe sind noch zu prüfen.",
+        create = "Neue Wiedergabeliste", edit = "Wiedergabeliste bearbeiten", add = "Zur Wiedergabeliste hinzufügen", name = "Name", description = "Beschreibung", visibility = "Sichtbarkeit",
+        public = "Öffentlich", private = "Privat", unknown = "Unbekannt", owned = "Eigene Listen", subscribed = "Gespeicherte Listen",
+        remove = "Aus Liste entfernen", delete = "Wiedergabeliste löschen", save = "Speichern", done = "Fertig",
+        confirmed = "Änderungen bestätigt", pending = "Gesendet; Bestätigung ausstehend", partial = { a, b -> "$a bestätigt; $b noch unbestätigt" },
+        failed = "Vorgang nicht abgeschlossen", verify = "Status erneut prüfen", backToEdit = "Zurück zur Bearbeitung", login = "Bitte zuerst anmelden",
+        permission = "Nur eigene normale Listen sind bearbeitbar", rateLimit = "Zu viele Vorgänge. Bitte später erneut versuchen",
+        network = "Netzwerk oder Lesen fehlgeschlagen. Status später prüfen", accountChanged = "Konto gewechselt; dieser Vorgang wird nicht mehr verfolgt",
+        invalid = "Name, Beschreibung und Sichtbarkeit prüfen", incomplete = "Inhalt unvollständig. Bitte aktualisieren",
+        unknownCreate = "Erstellungsstatus unbekannt. Vor erneutem Erstellen die Listen prüfen",
+        deleteHint = { "„$it“ löschen? Titel-IDs und Metadaten werden zuvor gesichert. Die Wiedergabewarteschlange bleibt erhalten." },
+        removeHint = { "$it Titel aus dieser Liste entfernen? Favoriten und Wiedergabewarteschlange bleiben erhalten." },
+        backup = { "Listensicherung: $it" }, open = "Wiedergabeliste öffnen"
+    ),
     tabHome = "Startseite",
     tabLibrary = "Bibliothek",
     tabSearch = "Suche",

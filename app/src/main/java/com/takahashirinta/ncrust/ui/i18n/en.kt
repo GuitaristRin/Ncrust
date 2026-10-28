@@ -1,6 +1,24 @@
 package com.takahashirinta.ncrust.ui.i18n
 
 val en = Strings(
+    playlists = PlaylistStrings(
+        selectTracks = "Select tracks", selectAll = "Select all", selectionCount = { "$it tracks selected" },
+        stopTracking = "Stop tracking",
+        experimental = "Playlist management (experimental)", experimentalDescription = "Create, edit and set visibility. Off by default; cloud writes still need verification.",
+        create = "New playlist", edit = "Edit playlist", add = "Add to playlist",
+        name = "Name", description = "Description", visibility = "Visibility",
+        public = "Public", private = "Private", unknown = "Unknown",
+        owned = "Created playlists", subscribed = "Saved playlists", remove = "Remove from playlist", delete = "Delete playlist", save = "Save", done = "Done",
+        confirmed = "Changes confirmed", pending = "Request sent; confirmation pending", partial = { a, b -> "$a confirmed; $b still unconfirmed" },
+        failed = "Operation not completed", verify = "Check status again", backToEdit = "Back to editing",
+        login = "Sign in first", permission = "Only your own ordinary playlists can be managed", rateLimit = "Too many operations. Try again later",
+        network = "Network or read failed. Check the status later", accountChanged = "Account changed; this operation is no longer tracked",
+        invalid = "Check the name, description and visibility", incomplete = "Content is incomplete. Refresh and try again",
+        unknownCreate = "Creation status is unknown. Check your playlists before creating again",
+        deleteHint = { "Delete “$it”? Playlist details and track IDs will be backed up first. The current playback queue is kept." },
+        removeHint = { "Remove $it tracks from this playlist? Likes and the playback queue are kept." },
+        backup = { "Playlist record backed up to $it" }, open = "View playlist"
+    ),
     tabHome = "Home",
     tabLibrary = "Library",
     tabSearch = "Search",

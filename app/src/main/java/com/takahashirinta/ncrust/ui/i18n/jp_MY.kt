@@ -1,6 +1,22 @@
 package com.takahashirinta.ncrust.ui.i18n
 
 val jpMY = Strings(
+    playlists = PlaylistStrings(
+        selectTracks = "曲乎選択", selectAll = "全乎選択", selectionCount = { "$it 曲乎選択中" },
+        stopTracking = "於布許登乎登豆",
+        experimental = "宇多阿豆麻利 乎佐牟（多米之）", experimentalDescription = "阿良多爾都久理、乎佐米、見由流佐麻乎佐太牟。波自米波登豆。",
+        create = "宇多阿豆麻利乎都久流", edit = "宇多阿豆麻利乎佐牟", add = "宇多阿豆麻利爾加布",
+        name = "奈麻倍", description = "許登婆", visibility = "見由流佐麻", public = "比良久", private = "加久須", unknown = "之良受",
+        owned = "和我都久理之宇多", subscribed = "多久波倍之宇多", remove = "宇多乎乃曾久", delete = "宇多阿豆麻利乎計須", save = "多久波布", done = "乎波利",
+        confirmed = "多之加米多利", pending = "於久理多利、多之加米麻知", partial = { a, b -> "$a 多之加米多利、$b 麻多受" },
+        failed = "乎波良受", verify = "麻多多之加牟", backToEdit = "乎佐米爾毛杼流", login = "麻豆波比流倍之",
+        permission = "和我都久理之宇多乃未乎佐牟", rateLimit = "之婆良久麻都倍之", network = "都奈我良受、乃知爾多之加牟",
+        accountChanged = "比等可波理多利、於布許登乎登豆", invalid = "奈麻倍等許登婆乎多之加牟", incomplete = "宇多麻多佐太麻良受、与美奈保須倍之",
+        unknownCreate = "都久理之佐麻之良受、麻豆宇多阿豆麻利乎多之加牟",
+        deleteHint = { "「$it」乎計須加。麻豆宇多乃之流之乎乃許須。奈我流流宇多波佐波良受。" },
+        removeHint = { "$it 宇多乎乃曾久加。須伎奈宇多等奈我流流宇多波佐波良受。" },
+        backup = { "宇多乃之流之乎乃許須：$it" }, open = "宇多阿豆麻利乎比良久"
+    ),
     tabHome = "登布",
     tabLibrary = "久良",
     tabSearch = "佐久知",
