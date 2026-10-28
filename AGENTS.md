@@ -135,6 +135,7 @@ Under `com.takahashirinta.ncrust/`:
 | `player/` | `PlaybackService` (MediaLibraryService + ExoPlayer), `PlaybackStateManager`, `SongUrlFetcher`, `PlayReporter` |
 | `auth/` | `CookieManager` (SharedPreferences), `QrPair` / `QrPairClient` / `QrPairServer` (LAN QR handoff) |
 | `library/` | `LibraryManager` (cloud-synced liked songs + subscribed albums), `SearchHistoryManager` |
+| `playlist/` | Account-bound reads, verified write orchestration, pending journal and experimental management state (`PlaylistManager`) |
 | `update/` | In-app update from GitHub Releases: version/asset resolution (same rules as Windows, fixtures `spec/fixtures/update/`), resumable download, APK signature/version check, install via `FileProvider` |
 | `cache/` | `ContentCache` — in-memory network snapshot (home + LRU detail caches + user profile) |
 | `lyric/` | `LrcParser` (`[MM:SS.mm]` → `LrcLine.timeMs`), `LyricsCache` (200-entry persistent cache) |
@@ -254,6 +255,10 @@ Defaults: Wi-Fi = 3 (lossless), Mobile = 1 (higher). The selected label shows as
 `PlayReporter` feeds local listening back to NetEase (「最近播放」/「听歌排行」/ recommendations). The old plain-form webLog to `clientlogusf` returns 200 but is **silently dropped** (api-enhanced#167), so it now posts **eapi** to `https://clientlog.music.163.com/eapi/feedback/weblog` with an **`os=osx`** client identity (the deciding variable; see `spec/api/endpoints.md`). Two reports per song: `startplay` when playback starts, `play` (with `time` in **seconds**, `end:"playend"`) on natural end **or** progress ≥ 80%. Trial clips (`account/` entitlement = trial) send neither. Fire-and-forget on a `ncrust-scrobble` thread, deduped per song, never blocks playback.
 
 ### Queue Management
+
+**Playlist management (2026-10-28, unreleased):** Profile settings expose an explicit `playlist_management_enabled` opt-in, default **false** until real-account writes are verified. Library → playlists supports create and owned/saved grouping; song menus support adding; own ordinary playlist details support name/description/privacy editing, multiselect removal and single deletion. Queue's existing save button creates a playlist from the queue. `PlaylistRepository` reads ownership, writes fixed actions in batches up to 500, and reads back exact target fields/IDs; unknown results only re-read, never replay. Pending commands use explicit JSON keys under `playlist_pending_<uid>` in `ncrust_settings`. Delete requires a complete snapshot backed up, synced and reread under internal `files/playlist-backups/` first. No automatic backup restore or cloud reorder. This implementation has only fake-gateway and emulator evidence, **no real-account write verification**; see `docs/playlists/implementation.md`.
+
+Playlist detail taps create an ordered local snapshot and locate the selected ID; incomplete content cannot replace the queue. Entering an ordinary playlist clears FM and resets INFINITY to CYCLE. SINGLE advances on manual next and repeats on natural end; LINE retains the actual last index; SHUFFLE preloading and tail transitions share one prepared next round. Cloud edits leave the current local queue intact.
 
 All queue operations live in `MainScreen` (not `PlayerViewModel`): `replaceQueueAndPlay`, `playSongItem`, `insertNext`, `appendToQueue`, `insertAllNext`, `appendAllToQueue`, `removeFromQueue`, `moveInQueue`, `playFromQueue`, `playNext`, `playPrevious`, `generateShuffledIndices`, `launchInfinity`, `startFm`.
 
