@@ -1,0 +1,88 @@
+{
+  "checkedAt": "2026-10-28T09:07:32.388Z",
+  "host": "https://interface.music.163.com",
+  "anonymous": true,
+  "writes": 0,
+  "playlistId": "3778678",
+  "reads": [
+    {
+      "path": "/eapi/v6/playlist/detail",
+      "n": "1",
+      "httpStatus": 200,
+      "code": 200,
+      "trackCount": 200,
+      "trackIdsPresent": true,
+      "trackIdsCount": 200,
+      "uniqueCount": 200,
+      "tracksCount": 1,
+      "completeIdSnapshot": true,
+      "orderedIdsDigest": "fe7fcf9b51505aed4364d44c27d41f0cb899938fe3b2c4f9afb50a0370dd0175"
+    },
+    {
+      "path": "/eapi/v3/song/detail",
+      "httpStatus": 200,
+      "code": 200,
+      "returnedSongs": 1,
+      "requestedSongPresent": true
+    },
+    {
+      "path": "/eapi/v6/playlist/detail",
+      "n": "1000",
+      "httpStatus": 200,
+      "code": 200,
+      "trackCount": 200,
+      "trackIdsPresent": true,
+      "trackIdsCount": 200,
+      "uniqueCount": 200,
+      "tracksCount": 200,
+      "completeIdSnapshot": true,
+      "orderedIdsDigest": "fe7fcf9b51505aed4364d44c27d41f0cb899938fe3b2c4f9afb50a0370dd0175"
+    },
+    {
+      "path": "/eapi/v6/playlist/detail",
+      "n": "100000",
+      "httpStatus": 200,
+      "code": 200,
+      "trackCount": 200,
+      "trackIdsPresent": true,
+      "trackIdsCount": 200,
+      "uniqueCount": 200,
+      "tracksCount": 200,
+      "completeIdSnapshot": true,
+      "orderedIdsDigest": "fe7fcf9b51505aed4364d44c27d41f0cb899938fe3b2c4f9afb50a0370dd0175"
+    },
+    {
+      "path": "/eapi/user/playlist",
+      "limit": "2",
+      "offset": "0",
+      "httpStatus": 200,
+      "code": 200,
+      "returnedPlaylists": 3,
+      "specialPlaylists": 1,
+      "overlapWithPreviousPages": 0,
+      "more": true
+    },
+    {
+      "path": "/eapi/user/playlist",
+      "limit": "2",
+      "offset": "2",
+      "httpStatus": 200,
+      "code": 200,
+      "returnedPlaylists": 2,
+      "specialPlaylists": 0,
+      "overlapWithPreviousPages": 0,
+      "more": true
+    },
+    {
+      "path": "/eapi/user/playlist",
+      "limit": "2",
+      "offset": "4",
+      "httpStatus": 200,
+      "code": 200,
+      "returnedPlaylists": 2,
+      "specialPlaylists": 0,
+      "overlapWithPreviousPages": 0,
+      "more": true
+    }
+  ]
+}
