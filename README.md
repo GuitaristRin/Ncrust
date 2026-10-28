@@ -8,6 +8,8 @@
 
 Android · Kotlin + Jetpack Compose + Media3 ｜ Windows · C# + UWP + WinUI 2 ｜ eapi 加密直连 · 无中间服务器
 
+平台主线：Windows（C#/WinUI）、Android（Kotlin）、Linux（Rust/Kanesumi）、Lumia 950（C++/WinUI）、Android 4 极简版。当前实现与计划状态见 [平台规划](docs/PLATFORMS.md)；Lumia 原型在 `lumia/`，Linux 与 Android 4 尚未形成可发行应用。当前先推进 Ncrust，Ritsudou 的独立技术方向暂缓。
+
 [![Version](https://img.shields.io/badge/version-1.3.2-brightgreen?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
 [![APK](https://img.shields.io/badge/APK-3.9%20MB-blue?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
 [![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)](https://developer.android.com)

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Core">
+      <UniqueIdentifier>{29b1c2d6-1a35-4d2f-9d47-4ce8c4e7a1f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Crypto">
+      <UniqueIdentifier>{b0a5e6d1-6c2e-4a1a-9f3b-6d1f8a9c2b44}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Net">
+      <UniqueIdentifier>{d2a5f7c0-5d3b-4b2a-9c1e-7e2f8a9b1c55}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Model">
+      <UniqueIdentifier>{e3a6f8d1-6e4c-4c3b-8d2f-8f3a9b0c2d66}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Api">
+      <UniqueIdentifier>{f4a7e9e2-7f5d-4d4c-9e3a-9a4b1c0d3e77}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Lyric">
+      <UniqueIdentifier>{05a8fae3-8a6e-4e5d-af4b-ab5c2d1e4f88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Player">
+      <UniqueIdentifier>{16b90c4f-9b7f-5f6e-0c5c-bc6d3e2f5a99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Queue">
+      <UniqueIdentifier>{27ca1d5a-ac8a-6a7f-1d6d-cd7e4f3a6bab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Themes">
+      <UniqueIdentifier>{27ca1d5a-ac8a-6a7f-1d6d-cd7e4f3a6bab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{38db2e6b-bd9b-7b8a-2e7e-de8f5a4b7cac}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="App.xaml.h" />
+    <ClInclude Include="ShellPage.xaml.h" />
+    <ClInclude Include="HomePage.xaml.h" />
+    <ClInclude Include="MainPage.xaml.h" />
+    <ClInclude Include="PlayerPage.xaml.h" />
+    <ClInclude Include="DetailPage.xaml.h" />
+    <ClInclude Include="LibraryPage.xaml.h" />
+    <ClInclude Include="Core\crypto\EapiCrypto.h">
+      <Filter>Core\Crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\net\NcmHttp.h">
+      <Filter>Core\Net</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\model\Models.h">
+      <Filter>Core\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\api\NcmApi.h">
+      <Filter>Core\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\lyric\LrcParser.h">
+      <Filter>Core\Lyric</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\player\PlayerEngine.h">
+      <Filter>Core\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\player\PlaybackController.h">
+      <Filter>Core\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\queue\PlayQueue.h">
+      <Filter>Core\Queue</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\library\LibraryManager.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\util\Text.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="App.xaml.cpp" />
+    <ClCompile Include="ShellPage.xaml.cpp" />
+    <ClCompile Include="HomePage.xaml.cpp" />
+    <ClCompile Include="MainPage.xaml.cpp" />
+    <ClCompile Include="PlayerPage.xaml.cpp" />
+    <ClCompile Include="DetailPage.xaml.cpp" />
+    <ClCompile Include="LibraryPage.xaml.cpp" />
+    <ClCompile Include="Core\crypto\EapiCrypto.cpp">
+      <Filter>Core\Crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\net\NcmHttp.cpp">
+      <Filter>Core\Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\api\NcmApi.cpp">
+      <Filter>Core\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\lyric\LrcParser.cpp">
+      <Filter>Core\Lyric</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\player\PlayerEngine.cpp">
+      <Filter>Core\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\player\PlaybackController.cpp">
+      <Filter>Core\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\queue\PlayQueue.cpp">
+      <Filter>Core\Queue</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\library\LibraryManager.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Ritsudou_TemporaryKey.pfx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainPage.xaml" />
+    <Page Include="ShellPage.xaml" />
+    <Page Include="HomePage.xaml" />
+    <Page Include="LibraryPage.xaml" />
+    <Page Include="PlayerPage.xaml" />
+    <Page Include="DetailPage.xaml" />
+    <Page Include="Themes\Metro.xaml">
+      <Filter>Themes</Filter>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Content>
+    <Content Include="Assets\Square44x44Logo.png">
+      <Filter>Assets</Filter>
+    </Content>
+    <Content Include="Assets\Square71x71Logo.png">
+      <Filter>Assets</Filter>
+    </Content>
+    <Content Include="Assets\Square150x150Logo.png">
+      <Filter>Assets</Filter>
+    </Content>
+    <Content Include="Assets\Square310x310Logo.png">
+      <Filter>Assets</Filter>
+    </Content>
+    <Content Include="Assets\Wide310x150Logo.png">
+      <Filter>Assets</Filter>
+    </Content>
+    <Content Include="Assets\SplashScreen.png">
+      <Filter>Assets</Filter>
+    </Content>
+  </ItemGroup>
+</Project>

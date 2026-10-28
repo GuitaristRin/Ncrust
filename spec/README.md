@@ -1,6 +1,6 @@
 # spec/ —— 跨平台标准答案
 
-Ncrust 的三个端（Android `app/`、Windows `windows/`、以后的 Linux）**不共享实现代码，
+Ncrust 各平台线（Android `app/`、Windows `windows/`、Lumia 原型 `lumia/`、Android 4 计划 `walkman/`、以后的 Rust/Kanesumi Linux）**不共享实现代码，
 共享答案**。本目录存放与语言无关的规格与测试夹具：协议怎么调、加密该出什么 hex、
 音质阶梯怎么降、队列操作后索引落在哪、LRC 怎么解析、设计 token 取什么值。
 

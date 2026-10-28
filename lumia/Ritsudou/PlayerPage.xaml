@@ -1,0 +1,202 @@
+<Page
+    x:Class="Ritsudou.PlayerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource RitsudouBackgroundBrush}"
+    Loaded="OnLoaded"
+    Unloaded="OnUnloaded">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶栏：返回 + 标题 -->
+        <Grid Grid.Row="0" Padding="8,12,16,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Style="{StaticResource RitsudouIconButton}"
+                    Click="OnBackClick">
+                <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+            </Button>
+            <TextBlock Grid.Column="1"
+                       Text="正在播放"
+                       Style="{StaticResource RitsudouHeaderText}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+            <Button Grid.Column="2"
+                    Style="{StaticResource RitsudouIconButton}"
+                    Click="OnQueueClick">
+                <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+            </Button>
+            <Button Grid.Column="3"
+                    Style="{StaticResource RitsudouIconButton}"
+                    Click="OnToggleViewClick">
+                <FontIcon x:Name="ViewToggleGlyph"
+                          Glyph="&#xE8B9;"
+                          FontFamily="Segoe MDL2 Assets"
+                          FontSize="18"/>
+            </Button>
+        </Grid>
+
+        <!-- 封面 / 歌词 内容区 -->
+        <Grid Grid.Row="1" Margin="0,8,0,0">
+            <Grid x:Name="CoverArea" Visibility="Visible">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Margin="24,0,24,16">
+                    <Image x:Name="CoverImage"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Row="1" Margin="24,0,24,8" Spacing="2">
+                    <TextBlock x:Name="SongTitle" Style="{StaticResource RitsudouPageTitleText}"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="SongSubtitle" Style="{StaticResource RitsudouSubtitleText}"/>
+                </StackPanel>
+            </Grid>
+
+            <Grid x:Name="LyricsArea" Visibility="Collapsed">
+                <ScrollViewer x:Name="LyricsScroll"
+                              VerticalScrollBarVisibility="Hidden"
+                              VerticalScrollMode="Enabled"
+                              ZoomMode="Disabled"
+                              ManipulationMode="System,TranslateY">
+                    <StackPanel x:Name="LyricsPanel"
+                                Padding="24,40,24,80"
+                                Spacing="8"/>
+                </ScrollViewer>
+                <TextBlock x:Name="LyricsHint"
+                           Text="暂无歌词"
+                           Style="{StaticResource RitsudouSubtitleText}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsHitTestVisible="False"/>
+            </Grid>
+        </Grid>
+
+        <!-- 进度条 -->
+        <Grid Grid.Row="2" Padding="16,0,16,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="PositionText"
+                       Grid.Column="0"
+                       Style="{StaticResource RitsudouSubtitleText}"
+                       FontSize="10"
+                       VerticalAlignment="Center"/>
+            <Slider x:Name="ProgressSlider"
+                    Grid.Column="1"
+                    Margin="8,0"
+                    Minimum="0"
+                    Maximum="1"
+                    StepFrequency="0.001"
+                    Foreground="{StaticResource RitsudouAccentBrush}"
+                    Background="{StaticResource RitsudouDividerBrush}"
+                    PointerPressed="OnSliderPointerPressed"
+                    PointerCaptureLost="OnSliderPointerCaptureLost"
+                    VerticalAlignment="Center"/>
+            <TextBlock x:Name="DurationText"
+                       Grid.Column="2"
+                       Style="{StaticResource RitsudouSubtitleText}"
+                       FontSize="10"
+                       VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 控制区 -->
+        <Grid Grid.Row="3" Padding="24,4,24,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Style="{StaticResource RitsudouIconButton}"
+                    HorizontalAlignment="Center"
+                    Click="OnModeClick">
+                <FontIcon x:Name="ModeGlyph"
+                          Glyph="&#xE1CD;"
+                          FontFamily="Segoe MDL2 Assets"
+                          FontSize="20"/>
+            </Button>
+            <Button Grid.Column="1"
+                    Style="{StaticResource RitsudouIconButton}"
+                    HorizontalAlignment="Center"
+                    Click="OnPrevClick">
+                <FontIcon Glyph="&#xE100;" FontFamily="Segoe MDL2 Assets" FontSize="26"/>
+            </Button>
+            <Button Grid.Column="2"
+                    x:Name="PlayPauseButton"
+                    Style="{StaticResource RitsudouIconButton}"
+                    HorizontalAlignment="Center"
+                    Click="OnPlayPauseClick">
+                <FontIcon x:Name="PlayGlyph"
+                          Glyph="&#xE102;"
+                          FontFamily="Segoe MDL2 Assets"
+                          FontSize="30"/>
+            </Button>
+            <Button Grid.Column="3"
+                    Style="{StaticResource RitsudouIconButton}"
+                    HorizontalAlignment="Center"
+                    Click="OnNextClick">
+                <FontIcon Glyph="&#xE101;" FontFamily="Segoe MDL2 Assets" FontSize="26"/>
+            </Button>
+            <Button Grid.Column="4"
+                    Style="{StaticResource RitsudouIconButton}"
+                    HorizontalAlignment="Center"
+                    Click="OnQualityClick">
+                <TextBlock x:Name="QualityBadge"
+                           Style="{StaticResource RitsudouSubtitleText}"
+                           Text="无损"
+                           FontSize="10"
+                           Foreground="{StaticResource RitsudouAccentBrush}"
+                           VerticalAlignment="Center"/>
+            </Button>
+        </Grid>
+
+        <!-- 队列覆盖层：全页，默认隐藏 -->
+        <Grid x:Name="QueueOverlay"
+              Grid.RowSpan="4"
+              Background="{StaticResource RitsudouBackgroundBrush}"
+              Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0" Padding="16,12,16,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button Style="{StaticResource RitsudouIconButton}"
+                        Click="OnQueueCloseClick">
+                    <FontIcon Glyph="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+                </Button>
+                <TextBlock Grid.Column="1"
+                           Text="播放队列"
+                           Style="{StaticResource RitsudouHeaderText}"
+                           VerticalAlignment="Center"/>
+            </Grid>
+            <ListView x:Name="QueueList"
+                      Grid.Row="1"
+                      Style="{StaticResource RitsudouList}"
+                      ItemContainerStyle="{StaticResource RitsudouListItem}"
+                      SelectionMode="None"/>
+        </Grid>
+    </Grid>
+</Page>

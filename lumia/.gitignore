@@ -1,0 +1,27 @@
+# Visual Studio / MSBuild
+.vs/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+
+# Build outputs
+build/
+obj/
+Debug/
+Release/
+x64/
+ARM/
+Win32/
+AppPackages/
+*.obj
+*.pdb
+*.ilk
+
+# Signing cert (private key — regenerate locally, see README §三)
+*.pfx
+*.pfx.cer
+
+# NuGet
+packages/
+*.nupkg

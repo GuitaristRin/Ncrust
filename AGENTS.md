@@ -4,6 +4,8 @@ This file provides guidance to coding agents (Codex, Claude Code, opencode, …)
 
 **Monorepo.** This repository now hosts more than the Android app: `windows/` (the Windows client, UWP + WinUI 2) and `spec/` (cross-platform spec + test fixtures). Everything below except *Repository Layout* and *Commit Convention* describes the **Android app** only. Working in `windows/`? Read **`windows/AGENTS.md`** — it is canonical there.
 
+**Platform direction (2026-10-28):** prioritize Ncrust across five lines: C#/WinUI Windows, Kotlin/Android, Rust/Kanesumi Linux, C++/UWP Windows.UI.Xaml Lumia 950, and an Android 4 minimal client. The former Ritsudou Lumia prototype now lives in `lumia/` (read `lumia/AGENTS.md`); `walkman/` contains the Android 4 taskbook only; Linux has no app implementation yet. Ritsudou's independent direction is deferred. Current status and boundaries: `docs/PLATFORMS.md`.
+
 ## Build & Test Commands
 
 ```bash
@@ -40,6 +42,8 @@ Ncrust/
 ├── app/                  # the Android application (Kotlin + Jetpack Compose)
 ├── benchmark/            # macrobenchmark module (3 benchmarks + run_benchmark.sh)
 ├── windows/              # the Windows client (C# + UWP + WinUI 2) — see windows/AGENTS.md
+├── lumia/                # imported C++/UWP Lumia 950 prototype — see lumia/AGENTS.md
+├── walkman/              # Android 4 minimal client taskbook (implementation not yet present)
 ├── spec/                 # cross-platform source of truth: API docs, test fixtures, design tokens
 ├── ncrust-api/           # standalone Go reverse proxy — orphaned, not wired into the app
 ├── build.gradle.kts      # top-level plugin declarations
@@ -84,6 +88,7 @@ Conventional Commits, lowercase type prefix, Chinese subject:
 - **One logical section = one commit, committed proactively without waiting to be asked.** Don't batch unrelated changes (e.g. "extract txt + fix color + update docs") into one commit. Split by logical unit, not by file count: changes that must compile together are one section; independently revertable changes are separate.
 - Multiple related fixes may share a commit only when they are the same logical change; pick the dominant type by user impact.
 - **Scopes (monorepo):** Android commits stay unscoped (matches existing history). Changes under `windows/` use `(windows)`, e.g. `feat(windows): …`; changes under `spec/` use `docs(spec): …`. A commit touching `spec/` plus one platform takes that platform's scope and states the other platform's follow-up status in the body.
+  Lumia changes use `(lumia)`; the Android 4 line uses `(walkman)`. Linux scope is reserved until its implementation is established.
 - **Tags:** releases ride a rolling multi-platform train tagged `CrateStack-YYYYMMDD<A..Z>` (assets named `ncrust-[platform]-[arch]-[version]`, indexed by the train's `manifest.json`); legacy per-platform tags (`v1.3.1`, `win-v1.0.0`, …) stay untouched for history.
 
 ## What This App Is

@@ -1,8 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code when working in this repository. It is a mirror of **`AGENTS.md`** — that file is the canonical agent guide and the single source of truth. **When the two disagree, `AGENTS.md` wins** (or just re-copy it). Reflects the code as of **v1.4.0** (`versionCode = 8`). When in doubt, the source wins — update `AGENTS.md` first, then sync this file.
+This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. It reflects the code as of **v1.4.0** (`versionCode = 8`). When in doubt, the source wins — update this file if you find a stale claim.
 
 **Monorepo.** This repository now hosts more than the Android app: `windows/` (the Windows client, UWP + WinUI 2) and `spec/` (cross-platform spec + test fixtures). Everything below except *Repository Layout* and *Commit Convention* describes the **Android app** only. Working in `windows/`? Read **`windows/AGENTS.md`** — it is canonical there.
+
+**Platform direction (2026-10-28):** prioritize Ncrust across five lines: C#/WinUI Windows, Kotlin/Android, Rust/Kanesumi Linux, C++/UWP Windows.UI.Xaml Lumia 950, and an Android 4 minimal client. The former Ritsudou Lumia prototype now lives in `lumia/` (read `lumia/AGENTS.md`); `walkman/` contains the Android 4 taskbook only; Linux has no app implementation yet. Ritsudou's independent direction is deferred. Current status and boundaries: `docs/PLATFORMS.md`.
 
 ## Build & Test Commands
 
@@ -40,6 +42,8 @@ Ncrust/
 ├── app/                  # the Android application (Kotlin + Jetpack Compose)
 ├── benchmark/            # macrobenchmark module (3 benchmarks + run_benchmark.sh)
 ├── windows/              # the Windows client (C# + UWP + WinUI 2) — see windows/AGENTS.md
+├── lumia/                # imported C++/UWP Lumia 950 prototype — see lumia/AGENTS.md
+├── walkman/              # Android 4 minimal client taskbook (implementation not yet present)
 ├── spec/                 # cross-platform source of truth: API docs, test fixtures, design tokens
 ├── ncrust-api/           # standalone Go reverse proxy — orphaned, not wired into the app
 ├── build.gradle.kts      # top-level plugin declarations
@@ -60,8 +64,8 @@ Ncrust/
 Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` / `versionCode`.
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
-- Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → publish into the rolling **CrateStack** release train (tag `CrateStack-YYYYMMDD<A..Z>`, asset `ncrust-android-universal-X.Y.Z.apk`, plus the train's `manifest.json`) → user smoke-tests and publishes manually. Full scheme: `docs/RELEASES.md` (canonical; the in-app updaters scan these asset names, never the Latest badge).
-- Current: `versionName = "1.4.0"`, `versionCode = 8` (小屏高度档 + 上游焦点框 + 更新链路加固 + 无缝播放默认关闭；**尚未发布**). Latest release: Android 1.3.2 in train `CrateStack-20260928A` (2026-09-28).
+- Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → upload `ncrust-android-universal-X.Y.Z.apk` to the current rolling release train (`CrateStack-*`), or open a new one if none exists today (`gh release create CrateStack-YYYYMMDD<A> --latest=false`) → user smoke-tests and publishes manually. Train/tag scheme and asset naming live in `docs/RELEASES.md`. Hotfixes may swap same-name assets in place without a version bump, provided the release notes say so.
+- Current: `versionName = "1.4.1"`, `versionCode = 9` (收藏写入 502 判成功 + 收藏态以红心 id 底表为准 + 主界面滑动切页；**尚未发布**). Latest release: Android 1.4.0 in train `CrateStack-20261015A` (2026-10-15) — 该 APK **不含** `4410100` 的「收藏写入体补 checkToken」修复（提交 2026-10-16，晚于资产上传），收藏隔天消失在 1.4.0 上依旧存在，修复随 1.4.1 发布。
 
 ## Commit Convention
 
@@ -84,7 +88,8 @@ Conventional Commits, lowercase type prefix, Chinese subject:
 - **One logical section = one commit, committed proactively without waiting to be asked.** Don't batch unrelated changes (e.g. "extract txt + fix color + update docs") into one commit. Split by logical unit, not by file count: changes that must compile together are one section; independently revertable changes are separate.
 - Multiple related fixes may share a commit only when they are the same logical change; pick the dominant type by user impact.
 - **Scopes (monorepo):** Android commits stay unscoped (matches existing history). Changes under `windows/` use `(windows)`, e.g. `feat(windows): …`; changes under `spec/` use `docs(spec): …`. A commit touching `spec/` plus one platform takes that platform's scope and states the other platform's follow-up status in the body.
-- **Tags:** releases ship in rolling multi-platform trains `CrateStack-YYYYMMDD<A..Z>` (see `docs/RELEASES.md`); older per-platform tags (`vX.Y.Z`, `win-vX.Y.Z`) stay valid for history.
+  Lumia changes use `(lumia)`; the Android 4 line uses `(walkman)`. Linux scope is reserved until its implementation is established.
+- **Tags:** releases ride a rolling multi-platform train tagged `CrateStack-YYYYMMDD<A..Z>` (assets named `ncrust-[platform]-[arch]-[version]`, indexed by the train's `manifest.json`); legacy per-platform tags (`v1.3.1`, `win-v1.0.0`, …) stay untouched for history.
 
 ## What This App Is
 
@@ -252,7 +257,7 @@ Defaults: Wi-Fi = 3 (lossless), Mobile = 1 (higher). The selected label shows as
 
 All queue operations live in `MainScreen` (not `PlayerViewModel`): `replaceQueueAndPlay`, `playSongItem`, `insertNext`, `appendToQueue`, `insertAllNext`, `appendAllToQueue`, `removeFromQueue`, `moveInQueue`, `playFromQueue`, `playNext`, `playPrevious`, `generateShuffledIndices`, `launchInfinity`, `startFm`.
 
-**Critical invariant:** `playbackQueue[currentQueueIndex]` must always equal the currently playing song. When deduping a queue mutation, record the current song's id first, filter, then re-locate the index — a naive `.filter` can drop an earlier duplicate and point `currentQueueIndex` at the wrong item. Every mutation calls `PlaybackStateManager.saveQueue(...)`, and any mutation in SHUFFLE mode regenerates the shuffled-index list.
+**Critical invariant:** `playbackQueue[currentQueueIndex]` must always equal the currently playing song. When deduping a queue mutation, record the current song's id first, filter, then re-locate the index — a naive `.filter` can drop an earlier duplicate and point `currentQueueIndex` at the wrong item. Every mutation calls `PlaybackStateManager.saveSession(...)`, which atomically persists the whole `PlaybackSession` (queue + index + mode + FM + shuffled indices); any mutation in SHUFFLE mode regenerates the shuffled-index list.
 
 5 playback modes (`QueueModes`): `CYCLE` (0), `SINGLE` (1), `SHUFFLE` (2), `LINE` (3, stops at tail), `INFINITY` (4, FM radio / similar-song continuation). `launchInfinity()` appends at the tail from `getPersonalFm` (FM mode) or `getSimilarSongs(seed)`, falling back to `getDailyRecommendSongs`, deduped and in-flight guarded.
 
@@ -281,7 +286,7 @@ SharedPreferences files:
 | `ncrust_prefs` | `CookieManager` | `user_cookie` |
 | `ncrust_settings` | `ThemeManager`, `LanguageManager`, `PlayerViewModel`, `UserScreen`, `MainActivity` | theme index/mode, language, quality, gapless, lyrics translation, `battery_prompt_done`, update: `update_auto_check` / `update_last_check_at` / `update_dismissed_version` / `update_found_*` |
 | `ncrust_library` | `LibraryManager` | `saved_songs`, `saved_albums`, `liked_ids` |
-| `ncrust_playback_state` | `PlaybackStateManager` | last song + `queue` / `queue_index` |
+| `ncrust_playback_state` | `PlaybackStateManager` | last song + `session` (explicit-key envelope: queue + index + mode + FM + shuffled indices, one atomic write; pre-1.3.2-fix payloads under obfuscated keys `a`–`f` are read back once via the legacy branch) |
 | `ncrust_lyrics_cache` | `LyricsCache` | `entries` (≤ 200) |
 | `search_history` | `SearchHistoryManager` | `songs`, `albums`, `artists` (≤ 10 each, 14-day TTL) |
 
@@ -326,6 +331,7 @@ To add a locale: create `xx_XX.kt` with a `Strings(...)` and add a `LanguagePres
 - **System-bar compensation**: `collapsedOffsetY = contentHeightPx - sysNavPx - navBarHeightPx(56/0) - miniBarHeightPx(56) - sysStatusPx`. `sysStatusPx` cancels the `.statusBarsPadding()` applied inside `PlayerCard` to the mini-bar overlay. **Automotive (AAOS) caveat**: CarSystemUI does not deliver WindowInsets, so on `UI_MODE_TYPE_CAR` the content height comes from the measured root height (`rootHeightPx`), not `screenHeightDp`; phone/tablet keep `screenHeightDp` so car changes don't leak. Touch any of these values carefully.
 - **Search debounce**: 500 ms in `SearchViewModel` — do not remove.
 - **No explicit coroutines dependency**: coroutines ship with the Kotlin stdlib configuration here.
+- **Gson 反射 vs R8（v1.3.2 首版启动闪退的根因）**: R8 会剪掉未被 `-keep` 的类的字段 `Signature` 注解，Gson 反序列化时泛型字段退化为裸 `List`，元素全部变成 `LinkedTreeMap`，第一次按真实类型访问元素就 `ClassCastException`。含泛型字段的持久化模型，元素类型必须由「匿名 `TypeToken`」显式携带（`PlaybackStateManager` 的 `songListType`、`LibraryManager` 的各 `*Type` 同此），或把模型加进 `-keep` 规则；**绝不让 Gson 反射整个未 keep 的 data class**。播放会话落盘用显式键信封（`PlaybackStateManager.serializeSession`/`parseSession`，键名写死在代码里），`PlaybackSessionStoreTest` 锁住该格式。
 - **`ContentCache` is not persisted**; `LibraryManager` is the persistence layer.
 - **Gapless preload is opt-in (1.4.0)**: `gapless_playback` defaults to **false** in both `PlayerViewModel.refreshGaplessSetting()` and `preloadNext()`. The feature is advertised as experimental (`gaplessBetaNote`: 「测试中，可能不稳定」) and its switch sits last in the playback settings section. Do not flip the default back to `true`, and never treat a missing key as enabled — only an explicit user opt-in may preload into the ExoPlayer queue.
 - **Stale comments**: some comments say "last 20 s" for the gapless preload window (actual 60 s) and "4 Hz" for progress ticks (actual 2 Hz). Trust the code.

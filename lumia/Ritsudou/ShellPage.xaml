@@ -1,0 +1,55 @@
+<Page
+    x:Class="Ritsudou.ShellPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource RitsudouBackgroundBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 内容区：承载 首页/搜索/收藏 子页面 -->
+        <Frame x:Name="ContentFrame" Grid.Row="0"/>
+
+        <!-- 底部导航条：直角 / 高 56 -->
+        <Grid Grid.Row="1"
+              Background="{StaticResource RitsudouSurfaceBrush}"
+              Height="56">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Button x:Name="HomeNav"
+                    Grid.Column="0"
+                    Style="{StaticResource RitsudouNavButton}"
+                    Click="OnHomeNavClick">
+                <StackPanel Spacing="2">
+                    <FontIcon Glyph="&#xE80F;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+                    <TextBlock Text="首页" FontSize="10" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="SearchNav"
+                    Grid.Column="1"
+                    Style="{StaticResource RitsudouNavButton}"
+                    Click="OnSearchNavClick">
+                <StackPanel Spacing="2">
+                    <FontIcon Glyph="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+                    <TextBlock Text="搜索" FontSize="10" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="LibraryNav"
+                    Grid.Column="2"
+                    Style="{StaticResource RitsudouNavButton}"
+                    Click="OnLibraryNavClick">
+                <StackPanel Spacing="2">
+                    <FontIcon Glyph="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+                    <TextBlock Text="收藏" FontSize="10" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+    </Grid>
+</Page>
