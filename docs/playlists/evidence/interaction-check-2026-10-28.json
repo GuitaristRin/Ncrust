@@ -1,0 +1,23 @@
+{
+  "checksPassed": 16,
+  "checks": [
+    "playlist click preserves full order and starts at B",
+    "cycle wraps C to A",
+    "single repeats naturally but manual next advances",
+    "linear ending keeps real final song",
+    "shuffle round has no duplicates and avoids immediate repeat",
+    "infinite mode does not fake local wraparound",
+    "song picker confirms add locally",
+    "duplicate add does not duplicate the song",
+    "readback failure stays unconfirmed",
+    "rate limit preserves pending interaction",
+    "playlist removal leaves active playback snapshot unchanged",
+    "create then add preserves existing playback queue",
+    "standalone creation keeps the new playlist empty and preserves privacy",
+    "320/360/736px layouts fit in both themes",
+    "alternative click inserts B into X,Y without replacing it",
+    "explicit play playlist replaces queue in both variants"
+  ],
+  "pageErrors": [],
+  "accountApiRequests": 0
+}

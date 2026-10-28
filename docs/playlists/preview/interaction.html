@@ -1,0 +1,139 @@
+<style>
+#ncrust-playlist-demo .np-app{--np-bg:light-dark(#f6f2e9,#000);--np-panel:light-dark(#e5e0d8,#14181f);--np-fg:light-dark(#171717,#f0f0f0);--np-muted:light-dark(#57534e,#a9afb9);--np-accent:light-dark(#2364c4,#3b82f6);--np-on-accent:light-dark(#fff,#000);--np-error:light-dark(#a61b1b,#ff9999);color-scheme:light dark;background:var(--np-bg);color:var(--np-fg);font:16px/1.5 system-ui,sans-serif;max-width:390px;min-height:640px;margin:16px auto;display:flex;flex-direction:column}
+#ncrust-playlist-demo .np-top,#ncrust-playlist-demo .np-content{padding:16px 20px}
+#ncrust-playlist-demo .np-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+#ncrust-playlist-demo .np-top b{font-weight:500}
+#ncrust-playlist-demo .np-content{flex:1}
+#ncrust-playlist-demo .np-app h2{font-size:30px;font-weight:400;margin:0 0 6px}
+#ncrust-playlist-demo .np-app p{margin:6px 0 16px;color:var(--np-muted)}
+#ncrust-playlist-demo .np-app button,#ncrust-playlist-demo .np-app select,#ncrust-playlist-demo .np-app input{font:inherit;color:var(--np-fg);border:1px solid var(--np-panel);border-radius:0;background:var(--np-panel);padding:10px 12px;min-height:44px;max-width:100%}
+#ncrust-playlist-demo .np-app button:disabled{opacity:.45;cursor:not-allowed}
+#ncrust-playlist-demo .np-app button:hover{background:var(--np-panel)}
+#ncrust-playlist-demo .np-app .np-primary{background:var(--np-accent);color:var(--np-on-accent);border-color:var(--np-accent)}
+#ncrust-playlist-demo .np-app .np-text{background:transparent;border-color:transparent;padding:8px 0;color:var(--np-accent)}
+#ncrust-playlist-demo .np-actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+#ncrust-playlist-demo .np-songs{list-style:none;margin:16px 0;padding:0}
+#ncrust-playlist-demo .np-songs li{display:flex;align-items:center;gap:12px;min-height:64px}
+#ncrust-playlist-demo .np-app .np-song{flex:1;display:flex;gap:16px;text-align:left;background:transparent;border:0;padding:12px 0}
+#ncrust-playlist-demo .np-number{color:var(--np-muted);min-width:18px}
+#ncrust-playlist-demo .np-current{color:var(--np-accent)}
+#ncrust-playlist-demo .np-footer{padding:16px 20px;background:var(--np-panel);min-width:0}
+#ncrust-playlist-demo .np-footer select{width:100%;border-color:var(--np-muted);margin:10px 0}
+#ncrust-playlist-demo .np-queue{display:flex;gap:6px;flex-wrap:wrap;list-style:none;padding:0;margin:8px 0}
+#ncrust-playlist-demo .np-queue li{padding:3px 7px;border:1px solid var(--np-muted)}
+#ncrust-playlist-demo .np-queue li[aria-current=true]{background:var(--np-accent);color:var(--np-on-accent);border-color:var(--np-accent)}
+#ncrust-playlist-demo .np-field{display:grid;gap:6px;margin:16px 0}
+#ncrust-playlist-demo .np-field input{width:100%;box-sizing:border-box}
+#ncrust-playlist-demo .np-status{min-height:48px;padding:8px 0;color:var(--np-accent);overflow-wrap:anywhere}
+#ncrust-playlist-demo .np-status[data-error=true]{color:var(--np-error)}
+#ncrust-playlist-demo .np-demo-controls{max-width:390px;margin:8px auto 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#ncrust-playlist-demo .np-app label{display:block}
+#ncrust-playlist-demo .np-app .np-choice{display:block;width:100%;text-align:left;margin:10px 0;background:transparent;border-color:var(--np-muted)}
+#ncrust-playlist-demo .np-app small{font-size:14px;color:var(--np-muted)}
+</style>
+<div id="ncrust-playlist-demo">
+  <div class="text-small">交互提案 · 示意数据 · 不访问账号</div>
+  <div class="viz-carousel viz-dotted-background" aria-label="歌单点歌行为比较" data-previous-label="上一方案" data-next-label="下一方案">
+    <section data-variant="歌单上下文（推荐）" data-policy="context" aria-label="歌单上下文">
+      <div class="np-app"></div>
+      <div class="np-demo-controls"><button type="button" class="btn" data-demo="end">自然播完一首</button><label class="form-label">添加结果<select class="form-select" data-demo="outcome"><option value="ok">读回确认</option><option value="pending">读回失败</option><option value="limited">操作过频</option></select></label></div>
+    </section>
+    <section data-variant="保留当前队列" data-policy="insert" aria-label="保持现有单曲插播" hidden>
+      <div class="np-app"></div>
+      <div class="np-demo-controls"><button type="button" class="btn" data-demo="end">自然播完一首</button><label class="form-label">添加结果<select class="form-select" data-demo="outcome"><option value="ok">读回确认</option><option value="pending">读回失败</option><option value="limited">操作过频</option></select></label></div>
+    </section>
+  </div>
+</div>
+<script>
+(() => {
+  const root=document.getElementById('ncrust-playlist-demo');
+  const modes={cycle:'列表循环',single:'单曲循环',shuffle:'随机播放',line:'顺序一次',infinity:'无限续播（主动开启）'};
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const sessions=[];
+  root.querySelectorAll('[data-policy]').forEach(section=>{
+    const policy=section.dataset.policy;
+    const saved=window.openai?.widgetState?.modelContent||window.openai?.widgetState||{};
+    const s={active:'夜行',privacy:'私密',awaitingRead:false,createWithSong:true,songs:['A','B','C'],queue:['X','Y'],index:0,mode:saved.clickPolicy===policy&&modes[saved.playMode]?saved.playMode:'cycle',view:'detail',pending:'B',target:'通勤',name:'',outcome:'ok',status:'',error:false,playing:true,shuffle:[],pos:0,lists:{'夜行':['A','B','C'],'通勤':[]},privacies:{'夜行':'公开','通勤':'私密'}};
+    function save(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{clickPolicy:policy,playMode:s.mode},privateContent:null}).catch(()=>{});}
+    function shuffled(ids,current){const a=[...ids];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}if(a.length>1&&a[0]===current)[a[0],a[1]]=[a[1],a[0]];return a;}
+    function initShuffle(){const current=s.queue[s.index];s.shuffle=[current,...shuffled(s.queue.filter(x=>x!==current),null)];s.pos=0;}
+    function play(id,whole=false){
+      if(whole||policy==='context'){s.queue=[...s.songs];s.index=Math.max(0,s.queue.indexOf(id));}
+      else{const current=s.queue[s.index];if(id!==current){s.queue=s.queue.filter(x=>x!==id);s.index=s.queue.indexOf(current);s.queue.splice(s.index+1,0,id);s.index++;}}
+      s.playing=true;s.status='';if(s.mode==='shuffle')initShuffle();render();save();
+    }
+    function advance(natural){
+      if(!s.queue.length)return;
+      if(natural&&s.mode==='single'){s.playing=true;s.status='曲目 '+s.queue[s.index]+' 重新播放';}
+      else if(s.mode==='shuffle'){if(s.pos>=s.shuffle.length-1){s.shuffle=shuffled(s.queue,s.queue[s.index]);s.pos=0;}else s.pos++;s.index=s.queue.indexOf(s.shuffle[s.pos]);s.playing=true;}
+      else if(s.index<s.queue.length-1){s.index++;s.playing=true;s.status='';}
+      else if(s.mode==='line'){s.playing=false;s.status='已播完，停在末曲';}
+      else if(s.mode==='infinity'){s.playing=false;s.status='等待相似歌曲，不自动回到首曲';}
+      else{s.index=0;s.playing=true;s.status='';}render();save();
+    }
+    function applyAdd(){
+      s.error=false;
+      if(s.outcome==='limited'){s.error=true;s.status='操作过于频繁，请稍后再试';return render();}
+      if(s.outcome==='pending'){s.awaitingRead=true;s.status='请求已提交，状态待确认';return render();}
+      const name=s.view==='create'?s.name.trim():s.target;
+      if(!name){s.error=true;s.status='请输入歌单名称';return render();}
+      if(s.view==='create'&&s.lists[name]){s.error=true;s.status='演示中已存在此名称，请换一个名称';return render();}
+      s.lists[name]||=[];
+      if(s.view==='create')s.privacies[name]=s.privacy;
+      if(s.view==='create'&&!s.createWithSong){s.active=name;s.songs=[];s.view='detail';s.status='已新建「'+name+'」';return render();}
+      const existed=s.lists[name].includes(s.pending);if(!existed)s.lists[name].push(s.pending);
+      s.songs=[...s.lists[s.active]];s.awaitingRead=false;
+      s.status=existed?'已在「'+name+'」中':'已加入「'+name+'」';s.view='detail';render();
+    }
+    function render(){
+      const app=root.querySelector('[data-policy="'+policy+'"] .np-app');
+      const current=s.queue[s.index],names=Object.keys(s.lists);
+      let content='';
+      if(s.view==='detail')content=`<h2>${esc(s.active)}</h2><p>自建 · ${s.privacies[s.active]} · ${s.songs.length} 首</p><div class="np-actions"><button class="np-primary cursor-interaction" data-action="playall" ${s.songs.length?'':'disabled'}>播放歌单</button><button class="cursor-interaction" data-action="library">我的歌单</button></div><ol class="np-songs">${s.songs.map((id,i)=>`<li><button class="np-song cursor-interaction" data-song="${id}" aria-label="播放曲目 ${id}"><span class="np-number">${i+1}</span><span class="${current===id?'np-current':''}">曲目 ${id}</span></button><button class="cursor-interaction" data-menu="${id}" aria-label="曲目 ${id} 的菜单">更多</button></li>`).join('')}</ol>`;
+      if(s.view==='menu')content=`<h2>曲目 ${s.pending}</h2><div class="np-actions"><button class="np-choice cursor-interaction" data-action="picker">添加到歌单</button><button class="np-choice cursor-interaction" data-action="insert">下一首播放</button><button class="np-choice cursor-interaction" data-action="remove">从「${esc(s.active)}」移除</button></div>`;
+      if(s.view==='picker'||s.view==='library')content=`<h2>${s.view==='picker'?'添加到歌单':'我的歌单'}</h2><p>${s.view==='picker'?'曲目 '+s.pending:'自建歌单'}</p>${names.map(name=>`<button class="np-choice cursor-interaction" data-list="${esc(name)}">${esc(name)} <small>· ${s.lists[name].length} 首</small></button>`).join('')}<button class="np-text cursor-interaction" data-action="create">＋ 新建歌单</button>`;
+      if(s.view==='confirm')content=`<h2>添加到「${esc(s.target)}」</h2><p>曲目 ${s.pending}</p><button class="np-primary cursor-interaction" data-action="submit">${s.awaitingRead?'重新确认状态':'确认添加'}</button>`;
+      if(s.view==='create')content=`<h2>${s.createWithSong?'新建歌单并添加':'新建歌单'}</h2><label class="np-field">名称<input data-name aria-label="歌单名称" maxlength="40" value="${esc(s.name)}"></label><label class="np-field">隐私<select data-privacy aria-label="歌单隐私"><option ${s.privacy==='私密'?'selected':''}>私密</option><option ${s.privacy==='公开'?'selected':''}>公开</option></select></label><button class="np-primary cursor-interaction" data-action="submit">${s.createWithSong?'新建并加入曲目 '+s.pending:'新建歌单'}</button>`;
+      app.innerHTML=`<header class="np-top"><b>Ncrust</b>${s.view==='detail'?'<small>歌单</small>':'<button class="np-text cursor-interaction" data-action="back">返回</button>'}</header><div class="np-content">${content}<div class="np-status" role="status" aria-live="polite" data-error="${s.error}">${esc(s.status)}</div></div><footer class="np-footer"><label>播放方式<select data-mode aria-label="播放方式">${Object.entries(modes).map(([v,k])=>`<option value="${v}" ${v===s.mode?'selected':''}>${k}</option>`).join('')}</select></label><div>正在播放：曲目 ${current||'—'}${s.playing?'':' · 已停止'}</div><ol class="np-queue" aria-label="当前播放队列">${s.queue.map((id,i)=>`<li aria-current="${i===s.index}">${id}</li>`).join('')}</ol><button class="cursor-interaction" data-action="next">下一首</button></footer>`;
+    }
+    root.addEventListener('input',event=>{if(event.target.closest('[data-policy]')?.dataset.policy===policy&&event.target.matches('[data-name]'))s.name=event.target.value;});
+    root.addEventListener('change',event=>{
+      if(event.target.closest('[data-policy]')?.dataset.policy!==policy)return;
+      if(event.target.matches('[data-mode]')){s.mode=event.target.value;if(s.mode==='shuffle')initShuffle();s.status='';render();save();}
+      if(event.target.matches('[data-demo=outcome]'))s.outcome=event.target.value;
+      if(event.target.matches('[data-privacy]'))s.privacy=event.target.value;
+    });
+    root.addEventListener('click',event=>{
+      if(event.target.closest('[data-policy]')?.dataset.policy!==policy)return;
+      const button=event.target.closest('button');if(!button)return;
+      s.error=false;
+      if(button.dataset.demo==='end')return advance(true);
+      if(button.dataset.song)return play(button.dataset.song);
+      if(button.dataset.menu){s.pending=button.dataset.menu;s.awaitingRead=false;s.view='menu';s.status='';return render();}
+      if(button.dataset.list){s.target=button.dataset.list;s.status='';if(s.view==='library'){s.active=s.target;s.songs=[...s.lists[s.target]];s.view='detail';}else s.view='confirm';return render();}
+      const action=button.dataset.action;
+      if(action==='playall'){if(s.songs.length)play(s.songs[0],true);return;}
+      if(action==='next')return advance(false);
+      if(action==='back'){s.view='detail';s.status='';}
+      if(action==='library'){s.view='library';s.status='';}
+      if(action==='picker'){s.view='picker';s.status='';}
+      if(action==='create'){s.createWithSong=s.view!=='library';s.name='';s.privacy='私密';s.view='create';s.status='';}
+      if(action==='submit')return applyAdd();
+      if(action==='insert'){
+        const current=s.queue[s.index];
+        if(s.pending!==current){s.queue=s.queue.filter(x=>x!==s.pending);s.index=s.queue.indexOf(current);s.queue.splice(s.index+1,0,s.pending);}
+        s.view='detail';s.status='已插入下一首';if(s.mode==='shuffle')initShuffle();
+      }
+      if(action==='remove'){s.songs=s.songs.filter(x=>x!==s.pending);s.lists[s.active]=[...s.songs];s.view='detail';s.status='已从歌单移除，播放队列保持原样';}
+      render();
+    });
+    sessions.push({policy,s,render,initShuffle});render();
+  });
+  window.addEventListener('openai:set_globals',event=>{
+    const saved=event.detail?.globals?.widgetState?.modelContent||event.detail?.globals?.widgetState;
+    if(!saved)return;
+    sessions.forEach(({policy,s,render,initShuffle})=>{if(saved.clickPolicy===policy&&modes[saved.playMode]&&s.mode!==saved.playMode){s.mode=saved.playMode;if(s.mode==='shuffle')initShuffle();render();}});
+  });
+  root.dataset.ready='true';
+})();
+</script>
