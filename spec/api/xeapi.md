@@ -134,6 +134,16 @@ trackId=<id>&time=3&alg=itembased&like=<true|false>
   读 `playlistId`）。`505` 在官方是独立分支（写 PageValue），不算成功。
 - 随后照旧对红心歌单做读回校验。
 
+### Android 写入失败与待确认状态（2026-10-29）
+
+Android 收藏只允许提交 xeapi `/api/v1/radio/like`。网络、公钥、解密或业务码失败均保留待同步，
+不得回退 weapi/eapi 的旧 `radio/like`。解不开响应只标记公钥失效供下次请求刷新，
+不自动重放本次写入；服务端可能已接收第一次请求。Windows 当前仍有旧通道回退，尚待跟进。
+
+同一设备的收藏写入按序执行，排队时已被更新意图替代的请求不发送；旧请求不得清除新意图。
+刷新展示保留尚未确认的收藏/取消方向。立即读回一致仅证明当时可见，不能证明隔日不会回滚。
+应用内部保留有限的脱敏事件记录用于后续调查，不含凭证、token 或设备标识。
+
 > **`checkToken` 必须进体**（2026-10-16 两端官方包实证）。REA 反编译 Android 9.6.08：
 > `NeteaseMusicApiImpl.Z6` 构造 `v1/radio/like` 的业务 map 时含 `checkToken = vz0.b.G0()`
 > （原生 `securityGetToken`），最终打到 `/eapi/v1/radio/like`。Windows 3.1.40 的

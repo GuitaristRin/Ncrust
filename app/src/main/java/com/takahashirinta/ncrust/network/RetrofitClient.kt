@@ -74,6 +74,12 @@ object RetrofitClient {
             .build()
     }
 
+    // 收藏响应丢失属于待确认，底层连接重试也不能悄悄重放写入。
+    private val xeapiWriteClient: OkHttpClient by lazy {
+        plainClient.newBuilder().retryOnConnectionFailure(false)
+            .followRedirects(false).followSslRedirects(false).build()
+    }
+
     /**
      * 易盾 token 只是写入请求的加分项，不值得为它把一次收藏拖上 30 秒：单独一个短超时 client。
      * 取不到就发空串（上游同样处理），绝不阻断写入。
@@ -338,38 +344,43 @@ object RetrofitClient {
      * （「收藏隔天消失」，见 xeapi.md 末节）。
      *
      * 阻塞，调用方自己在 IO 线程调用。成功返回**已解密**的响应 JSON 文本；网络失败、公钥取不到
-     * 或解密失败抛异常，由调用方决定是否回退到老通道。
+     * 或解密失败抛异常，写入调用方保留待确认，不改用旧通道或重放。
      *
      * @param uri `/api/...` 形式的接口路径，实际打到 `interface3/xeapi/<去掉 /api/ 的路径>`。
-     * @param pairs 业务字段，**顺序即协议**：明文信封的 `content` 按这个顺序做表单编码。
+     * @param pairs 业务字段；明文信封的 `content` 按给定顺序编码，字段顺序不参与客户端指纹。
      * @param antiCheat 是否现取易盾 token（写入类接口需要；取不到发空串）。官方写入把同一份 token
      *   **同时**放进加密体的 `checkToken` 字段与 `X-antiCheatToken` 头（`xeapi.md` §6）——
      *   只放头、体里没有 `checkToken` 时，服务端把写入判为异常环境、事后回滚（「收藏隔天消失」）。
      */
-    fun xeapiPost(uri: String, pairs: List<Pair<String, String>>, antiCheat: Boolean): String {
+    fun xeapiPost(
+        uri: String,
+        pairs: List<Pair<String, String>>,
+        antiCheat: Boolean,
+        cookieOverride: String = currentCookie.orEmpty()
+    ): String {
         val url = XEAPI_URL + "/xeapi/" + uri.removePrefix("/api/")
         // 易盾 token 每次写入现取、不缓存（xeapi.md §5）。
         val antiCheatToken = if (antiCheat) fetchAntiCheatToken() else null
+        if (antiCheat) Log.i(TAG, "xeapi antiCheat present=${!antiCheatToken.isNullOrEmpty()}")
         // 官方在业务体里补 `checkToken`（NeteaseMusicApiImpl.b7 实证；官方用 HashMap 组字段，
         // 顺序不参与指纹，放末尾只是实现约定）。
         val bodyPairs = if (antiCheatToken != null) pairs + ("checkToken" to antiCheatToken) else pairs
 
-        val first = executeXeapi(url, bodyPairs, XeapiState.ensureKeyState(), antiCheatToken)
+        val first = executeXeapi(url, bodyPairs, XeapiState.ensureKeyState(), antiCheatToken, cookieOverride)
         decryptXeapiBody(first)?.let { return it }
 
-        // 解不开通常意味着服务端换了公钥：按「旧 version」重取一次再试。只重试一次——
-        // 写入接口的重放本身就是风控特征，不能在这里死磕。
-        Log.w(TAG, "xeapi response decrypt failed, refreshing public key (uri=$uri)")
+        // 服务端可能已经完成写入。不能因响应不可读就再次提交同一操作。
+        Log.w(TAG, "xeapi response decrypt failed, invalidate key without replay (uri=$uri)")
         XeapiState.invalidateKeyState()
-        val second = executeXeapi(url, bodyPairs, XeapiState.ensureKeyState(), antiCheatToken)
-        return decryptXeapiBody(second) ?: throw IOException("xeapi response decrypt failed: $uri")
+        throw IOException("xeapi response decrypt failed: $uri")
     }
 
     private fun executeXeapi(
         url: String,
         pairs: List<Pair<String, String>>,
         keyState: XeapiCrypto.KeyState,
-        antiCheatToken: String?
+        antiCheatToken: String?,
+        credential: String
     ): ByteArray {
         val deviceId = XeapiState.deviceId()
         val buildver = (System.currentTimeMillis() / 1000).toString().take(10)
@@ -384,7 +395,7 @@ object RetrofitClient {
         // 设备字段要「同名以后者为准」地压过登录 cookie 里的旧值：先收成 map 再覆盖，
         // 同一个键只出现一次，免得服务端读到登录时留下的旧 os/appver/deviceId。
         val cookiePairs = LinkedHashMap<String, String>()
-        (currentCookie ?: "").split(';').forEach { part ->
+        credential.split(';').forEach { part ->
             val sep = part.indexOf('=')
             if (sep > 0) cookiePairs[part.substring(0, sep).trim()] = part.substring(sep + 1).trim()
         }
@@ -413,19 +424,20 @@ object RetrofitClient {
         if (!musicU.isNullOrEmpty()) builder.header("x-music-u", musicU)
         if (antiCheatToken != null) builder.header("X-antiCheatToken", antiCheatToken)
 
-        return plainClient.newCall(builder.build()).execute().use { response ->
+        return xeapiWriteClient.newCall(builder.build()).execute().use { response ->
             // 响应头带 x-encr-ssid/x-encr-sskey 时记下，之后的请求走会话模式（只存内存）。
             XeapiState.updateSession(response.header("x-encr-ssid"), response.header("x-encr-sskey"))
             val raw = response.body?.bytes() ?: ByteArray(0)
             // 脱敏日志：只记路径、HTTP 码与长度，不记 cookie / 易盾 token / 加密体。
             Log.i(TAG, "xeapi $url http=${response.code} bytes=${raw.size}")
+            if (!response.isSuccessful) throw IOException("xeapi http=${response.code}")
             raw
         }
     }
 
     /**
      * 解密 xeapi 响应体。解不开时若原文本身就是 JSON（服务端在参数错 / 风控时会直接回未加密
-     * JSON），照原样返回让调用方拿得到业务码；否则返回 null，交给上层刷新公钥后重试。
+     * JSON），照原样返回让调用方拿得到业务码；否则返回 null，仅让下一次请求刷新公钥。
      */
     private fun decryptXeapiBody(raw: ByteArray): String? {
         if (raw.isEmpty()) return null

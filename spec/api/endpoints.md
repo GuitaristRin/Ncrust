@@ -68,7 +68,7 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 同时整体作为 `header` 字段写进加密 body。写接口在 `BASE_URL` 之外的 host 上可能被判
 `-460 风险`，故固定打 `API_URL`。
 
-> 收藏写入已改走 xeapi（见下节）。`/eapi/radio/like` 与 weapi 的 `/api/radio/like` 只作回退：
+> 收藏写入已改走 xeapi（见下节）。Android 不再回退 `/eapi/radio/like` 或 weapi `/api/radio/like`；Windows 仍保留回退，待跟进：
 > 两者都是**老通道**，写入的收藏会被服务端事后回滚（「收藏隔天消失」，`spec/api/xeapi.md` 末节）。
 
 ### eapi · 歌单写操作（`API_URL`，需客户端身份 cookie）

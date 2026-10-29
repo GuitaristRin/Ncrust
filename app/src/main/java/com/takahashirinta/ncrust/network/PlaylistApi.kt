@@ -8,7 +8,6 @@ import com.takahashirinta.ncrust.account.AccountGetResponse
 import com.takahashirinta.ncrust.account.SessionMonitor
 import com.takahashirinta.ncrust.account.SongPrivilege
 import com.takahashirinta.ncrust.account.VipInfoResponse
-import com.takahashirinta.ncrust.network.crypto.EapiCrypto
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
 import kotlinx.coroutines.Dispatchers
@@ -691,23 +690,24 @@ object PlaylistApi {
      * 例行审核时回滚（gmg137/netease-cloud-music-gtk#410 实测到 `524「当前环境异常，已取消喜欢」`）。
      * 调研与对照实验见 `spec/api/xeapi.md` 末节。
      *
-     * weapi / eapi **只作回退**：两者都还在老通道上，**同样有被事后回滚的风险**；xeapi 失败时用它们
-     * 只是「至少这次点亮了」的兜底，不是长久的修复。
+     * xeapi 失败保留待同步，不再触发有已知回滚风险的 weapi/eapi 老通道。
      *
      * 注意：like 写操作历史上曾受网易账号/IP 级风险控制，本账号四种协议变体(eapi 最小/
      * eapi+PC 指纹/eapi+安卓身份/经典 weapi)均被 `-460「检测到您的网络环境存在风险」`或
      * 异常响应拦截而读取全部正常。该注释是既往观测，**不代表当前版本/当前账号的现状**——
      * 以实际响应为准。成功判定见 [isLikeWriteAccepted]：xeapi 通道 200 与 502 都算成功，
-     * 其余一律失败；weapi/eapi 老通道从严只认 200。
+     * 其余一律未确认。
      *
      * 只返回布尔结果不够：调用方（LibraryManager）需要据此决定是否标记"仅本地/待同步"，
      * 并在成功后再做一次读回校验。这里额外记录脱敏的 HTTP 状态、业务码与耗时，便于诊断；
      * **不记录** Cookie、易盾 token、CSRF token 或完整加密请求体。
      */
-    suspend fun likeSong(songId: Long, like: Boolean): Boolean = withContext(Dispatchers.IO) {
-        if (isLikeWriteAccepted(tryXeapiLike(songId, like))) return@withContext true
-        if (tryWeapiLike(songId, like) == 200) return@withContext true
-        tryEapiLike(songId, like) == 200
+    suspend fun likeSong(
+        songId: Long, like: Boolean, credential: String = RetrofitClient.getCookie().orEmpty()
+    ): Boolean = withContext(Dispatchers.IO) {
+        isLikeWriteAccepted(writeLikeOnce(songId, like) { uri, pairs, antiCheat ->
+            RetrofitClient.xeapiPost(uri, pairs, antiCheat, credential)
+        })
     }
 
     /**
@@ -732,12 +732,18 @@ object PlaylistApi {
      * 空值/兜底形态原样发，不臆造场景名。
      * `checkToken` 由 [RetrofitClient.xeapiPost] 在 antiCheat 请求里补进体末尾。
      */
-    private fun tryXeapiLike(songId: Long, like: Boolean): Int {
+    internal fun writeLikeOnce(
+        songId: Long,
+        like: Boolean,
+        post: (String, List<Pair<String, String>>, Boolean) -> String = { uri, pairs, antiCheat ->
+            RetrofitClient.xeapiPost(uri, pairs, antiCheat)
+        }
+    ): Int {
         val startedAt = System.currentTimeMillis()
         return try {
-            val text = RetrofitClient.xeapiPost(
-                uri = "/api/v1/radio/like",
-                pairs = listOf(
+            val text = post(
+                "/api/v1/radio/like",
+                listOf(
                     "trackId" to songId.toString(),
                     "time" to "3",
                     "alg" to "itembased",
@@ -750,7 +756,7 @@ object PlaylistApi {
                     "subMode" to "",
                     "source" to "userfm"
                 ),
-                antiCheat = true
+                true
             )
             val code = JSONObject(text).optInt("code", -1)
             Log.i(
@@ -758,73 +764,16 @@ object PlaylistApi {
                 "likeSong(xeapi) id=$songId like=$like code=$code elapsedMs=${System.currentTimeMillis() - startedAt}"
             )
             code
-        } catch (e: Throwable) {
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
             Log.w(
                 "PlaylistApi",
                 "likeSong(xeapi) req failed id=$songId like=$like " +
-                    "elapsedMs=${System.currentTimeMillis() - startedAt}: ${e.message}"
+                    "elapsedMs=${System.currentTimeMillis() - startedAt} error=${e.javaClass.simpleName}"
             )
             -1
         }
-    }
-
-    /** 回退通道 1：经典 weapi `/api/radio/like`。**老通道，收藏可能被服务端事后回滚**。 */
-    private fun tryWeapiLike(songId: Long, like: Boolean): Int {
-        return try {
-            val payload = JSONObject()
-                .put("alg", "itembased")
-                .put("trackId", songId)
-                .put("like", like)
-                .put("time", "3")
-                .toString()
-            val response = RetrofitClient.weapiPost("/api/radio/like", payload)
-            val body = response.body?.string() ?: return -1
-            JSONObject(body).optInt("code", -1).also {
-                Log.i("PlaylistApi", "likeSong(weapi) id=$songId like=$like code=$it")
-            }
-        } catch (e: Throwable) {
-            Log.w("PlaylistApi", "likeSong(weapi) req failed id=$songId like=$like", e)
-            -1
-        }
-    }
-
-    /** 回退通道 2：eapi「官方 iPhone 指纹」`/eapi/radio/like`。**同样是老通道，可能被事后回滚**。 */
-    private fun tryEapiLike(songId: Long, like: Boolean): Int {
-        val payload = mapOf(
-            "alg" to "itembased",
-            "trackId" to songId.toString(),
-            "like" to like.toString(),
-            "time" to "3",
-            "e_r" to "TRUE",
-            "csrf_token" to (RetrofitClient.getCsrfToken().orEmpty())
-        )
-        val startedAt = System.currentTimeMillis()
-        val http = try {
-            RetrofitClient.eapiPostOfficial("/eapi/radio/like", payload)
-        } catch (e: Throwable) {
-            Log.w("PlaylistApi", "likeSong(eapi) req failed id=$songId like=$like", e)
-            return -1
-        }
-        val elapsed = System.currentTimeMillis() - startedAt
-        val raw = try { http.body?.bytes() } catch (_: Throwable) { null }
-        if (raw == null) {
-            Log.w("PlaylistApi", "likeSong(eapi) id=$songId like=$like http=${http.code} no body elapsedMs=$elapsed")
-            return -1
-        }
-        val plain = EapiCrypto.decryptResponse(java.util.Base64.getEncoder().encodeToString(raw))
-        val jsonText = plain.ifEmpty { String(raw) }
-        var code = -1
-        var parseOk = false
-        try {
-            code = JSONObject(jsonText).optInt("code", -1)
-            parseOk = true
-        } catch (_: Throwable) { /* parseOk stays false */ }
-        Log.i(
-            "PlaylistApi",
-            "likeSong(eapi/client) id=$songId like=$like http=${http.code} " +
-                "code=$code parsed=$parseOk elapsedMs=$elapsed"
-        )
-        return code
     }
 
     /** 收藏的专辑（云端的「我收藏的专辑」，weapi）。 */

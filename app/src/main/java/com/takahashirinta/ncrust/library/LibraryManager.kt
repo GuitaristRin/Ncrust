@@ -21,7 +21,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * 云同步收藏库。
  *
  * 语义（与网易云官方一致）：
- *  - 「收藏单曲」 = 网易云「收藏/我喜欢」（xeapi `/api/v1/radio/like`，失败才回退 weapi/eapi）；
+ *  - 「收藏单曲」 = 网易云「收藏/我喜欢」（仅 xeapi `/api/v1/radio/like`）；
  *  - 「收藏专辑」 = 网易云「我收藏的专辑」（weapi /api/album/sub），与单曲解耦。
  *
  * 本地用 SharedPreferences 缓存云端状态（收藏单曲 + 收藏专辑），保证：
@@ -57,7 +57,7 @@ object LibraryManager {
     @Volatile private var cachedLikedIds: List<Long>? = null
     private val idsLock = Any()
     // 未获云端确认的点赞操作（见 KEY_PENDING_SONGS）。
-    @Volatile private var cachedPendingSongs: MutableMap<Long, Boolean>? = null
+    @Volatile private var cachedPendingSongs: PendingLikeWrites? = null
     private val pendingLock = Any()
 
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -116,7 +116,7 @@ object LibraryManager {
         }
     }
 
-    private fun ensurePendingLoaded(context: Context): MutableMap<Long, Boolean> {
+    private fun ensurePendingLoaded(context: Context): PendingLikeWrites {
         val current = cachedPendingSongs
         if (current != null) return current
         return synchronized(pendingLock) {
@@ -127,8 +127,7 @@ object LibraryManager {
                     else (gson.fromJson<MutableMap<Long, Boolean>>(json, pendingSongsType)
                         ?: mutableMapOf())
                 }.getOrDefault(mutableMapOf())
-                cachedPendingSongs = parsed
-                parsed
+                PendingLikeWrites(parsed).also { cachedPendingSongs = it }
             }
         }
     }
@@ -149,7 +148,6 @@ object LibraryManager {
         val songsSnapshot: List<SongItem>
         val albumsSnapshot: List<AlbumInfo>
         val likedIdsSnapshot: List<Long>
-        val pendingSnapshot: Map<Long, Boolean>
         synchronized(flushLock) {
             ctx = pendingAppContext ?: return
             pendingAppContext = null
@@ -158,13 +156,11 @@ object LibraryManager {
         synchronized(songsLock) { songsSnapshot = cachedSongs?.toList() ?: emptyList() }
         synchronized(albumsLock) { albumsSnapshot = cachedAlbums?.toList() ?: emptyList() }
         synchronized(idsLock) { likedIdsSnapshot = cachedLikedIds?.toList() ?: emptyList() }
-        synchronized(pendingLock) { pendingSnapshot = cachedPendingSongs?.toMap() ?: emptyMap() }
         runCatching {
             prefs(ctx).edit()
                 .putString(KEY_SONGS, gson.toJson(songsSnapshot))
                 .putString(KEY_ALBUMS, gson.toJson(albumsSnapshot))
                 .putString(KEY_LIKED_IDS, gson.toJson(likedIdsSnapshot))
-                .putString(KEY_PENDING_SONGS, gson.toJson(pendingSnapshot))
                 .apply()
         }
     }
@@ -185,10 +181,10 @@ object LibraryManager {
 
     private fun isLoggedIn(context: Context) = CookieManager.hasCookie(context)
 
-    private fun markPending(context: Context, songId: Long, desired: Boolean?) {
-        val pending = ensurePendingLoaded(context)
+    private fun persistPending(context: Context) {
+        // 请求发出前即交给 SharedPreferences，不能等 300ms 防抖才记录用户意图。
         synchronized(pendingLock) {
-            if (desired == null) pending.remove(songId) else pending[songId] = desired
+            prefs(context).edit().putString(KEY_PENDING_SONGS, gson.toJson(pendingSnapshot(context))).apply()
         }
         scheduleFlush(context)
     }
@@ -197,50 +193,64 @@ object LibraryManager {
     fun getPendingSyncSongIds(context: Context): Set<Long> = pendingSnapshot(context).keys
 
     fun isSongPendingSync(context: Context, songId: Long): Boolean =
-        synchronized(pendingLock) { ensurePendingLoaded(context).containsKey(songId) }
+        ensurePendingLoaded(context).snapshot().containsKey(songId)
 
     /**
      * 待同步表的快照（songId -> 期望红心状态）。必须用副本：pushLikeBlocking 成功后会改写
-     * 待同步表（markPending(..., null)），直接在原表上迭代会 ConcurrentModificationException。
+     * 待同步表，直接在原表上迭代会 ConcurrentModificationException。
      */
     private fun pendingSnapshot(context: Context): Map<Long, Boolean> =
-        synchronized(pendingLock) { ensurePendingLoaded(context).toMap() }
+        ensurePendingLoaded(context).snapshot()
 
     /**
      * 推送一次点赞/取消到云端。返回 true 仅当服务端业务码成功**且**随后的读回校验一致。
-     * 结果决定 [markPending]：不一致则保留待同步标记，绝不冒充"云端已同步"。
+     * 不一致或已被新意图替代则保留待同步标记，绝不冒充"云端已同步"。
      */
-    private suspend fun pushLikeBlocking(context: Context, songId: Long, like: Boolean): Boolean {
-        markPending(context, songId, like)
+    private suspend fun pushLikeBlocking(context: Context, intent: PendingLikeWrites.Intent): Boolean {
         val startedAt = System.currentTimeMillis()
-        val ok = runCatching { PlaylistApi.likeSong(songId, like) }.getOrDefault(false)
+        val ok = ensurePendingLoaded(context).submit(
+            intent,
+            currentCredential = { com.takahashirinta.ncrust.network.RetrofitClient.getCookie().orEmpty() },
+            write = {
+                val accepted = PlaylistApi.likeSong(it.songId, it.desired, it.credential)
+                LikeSyncAudit.record(context, it.songId, it.desired, "write", accepted)
+                accepted
+            },
+            verify = {
+                val matched = verifyLikeState(it.songId, it.desired)
+                LikeSyncAudit.record(context, it.songId, it.desired, "readback", matched)
+                matched
+            }
+        )
+        persistPending(context)
         Log.i(
             TAG,
-            "pushLike songId=$songId like=$like ok=$ok elapsedMs=${System.currentTimeMillis() - startedAt}"
+            "pushLike songId=${intent.songId} like=${intent.desired} ok=$ok elapsedMs=${System.currentTimeMillis() - startedAt}"
         )
-        if (!ok) return false
-        val verified = verifyLikeState(context, songId, like)
-        if (verified) markPending(context, songId, null)
-        else Log.w(TAG, "pushLike read-back mismatch songId=$songId like=$like, keep pending")
-        return verified
+        return ok
     }
 
     private fun pushLike(context: Context, songId: Long, like: Boolean) {
         val app = context.applicationContext
-        ioScope.launch { pushLikeBlocking(app, songId, like) }
+        val intent = ensurePendingLoaded(app).record(songId, like,
+            com.takahashirinta.ncrust.network.RetrofitClient.getCookie().orEmpty())
+        persistPending(app)
+        ioScope.launch { pushLikeBlocking(app, intent) }
     }
 
     /**
      * 写后读回校验：重新读红心歌单 ids，检查目标歌是否落在期望状态。
      * 读端失败视为"未确认"（保留待同步），不误判为成功。
      */
-    private suspend fun verifyLikeState(context: Context, songId: Long, like: Boolean): Boolean {
+    private suspend fun verifyLikeState(songId: Long, like: Boolean): Boolean {
         return try {
             val uid = PlaylistApi.getCurrentUserId()
             when (val result = PlaylistApi.getLikedTrackIds(uid)) {
                 is PlaylistApi.LikedIdsResult.Success -> (songId in result.ids) == like
                 is PlaylistApi.LikedIdsResult.Failure -> false
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "verifyLikeState failed songId=$songId: ${e.message}")
             false
@@ -260,7 +270,10 @@ object LibraryManager {
         val plans = planPendingLikeRetries(pendingSnapshot(context))
         if (plans.isEmpty()) return@withContext
         for ((songId, desired) in plans) {
-            pushLikeBlocking(context, songId, desired)
+            val intent = ensurePendingLoaded(context).retry(songId, desired,
+                com.takahashirinta.ncrust.network.RetrofitClient.getCookie().orEmpty()) ?: continue
+            persistPending(context)
+            pushLikeBlocking(context, intent)
         }
     }
 
@@ -418,26 +431,36 @@ object LibraryManager {
         // 单曲：先拉全量有序 trackIds 作底表，只需首屏分批详情即可渲染(懒加载)。
         // 关键：只有服务端**权威确认**（Success）才覆盖本地；Failure（网络/业务码/结构异常）
         // 时保留现有本地收藏，绝不把一次抖动折叠成空列表覆盖用户数据。
+        val pendingWrites = ensurePendingLoaded(context)
+        val refreshRevision = pendingWrites.revision()
         when (val liked = PlaylistApi.getLikedTrackIds(uid)) {
             is PlaylistApi.LikedIdsResult.Failure -> {
                 Log.w(TAG, "refreshFromCloud: liked read failed (${liked.reason}); keep local cache")
             }
             is PlaylistApi.LikedIdsResult.Success -> {
-                val likedIds = liked.ids
+                val likedIds = mergePendingLikeIds(liked.ids, pendingSnapshot(context))
                 Log.i(TAG, "refreshFromCloud: likedIds=${likedIds.size}")
-                synchronized(idsLock) { cachedLikedIds = likedIds }
                 val firstBatch = if (likedIds.size > LIKED_BATCH_SIZE) likedIds.take(LIKED_BATCH_SIZE) else likedIds
                 val firstSongs = runCatching {
                     if (firstBatch.isNotEmpty()) PlaylistApi.getSongsByIds(firstBatch) else emptyList()
                 }.getOrDefault(emptyList())
                 // 详情批量拉取失败时不要用空列表覆盖（firstBatch 非空却拿到空 = 异常）；
                 // 云端确认"收藏为空"（firstBatch 为空）时才允许清空。
-                if (firstBatch.isEmpty() || firstSongs.isNotEmpty()) {
-                    synchronized(songsLock) { cachedSongs = firstSongs.toMutableList() }
-                } else {
-                    Log.w(TAG, "refreshFromCloud: liked detail fetch empty for ${firstBatch.size} ids, keep local")
+                val applied = pendingWrites.applySnapshotIfUnchanged(refreshRevision) { pending ->
+                    if (firstBatch.isEmpty() || firstSongs.isNotEmpty()) {
+                        synchronized(songsLock) {
+                            val retained = ensureSongsLoaded(context).filter { pending[it.id] == true }
+                            cachedSongs = (retained + firstSongs).distinctBy { it.id }
+                                .filter { pending[it.id] != false }.toMutableList()
+                        }
+                    } else {
+                        Log.w(TAG, "refreshFromCloud: liked detail fetch empty for ${firstBatch.size} ids, keep local")
+                    }
+                    synchronized(idsLock) { cachedLikedIds = mergePendingLikeIds(liked.ids, pending) }
                 }
-                reconcilePending(context, likedIds)
+                if (!applied) Log.i(TAG, "refreshFromCloud: local intent changed during read; keep newer state")
+                // 普通刷新不能确认在途写入：它可能读到写入前的旧状态。
+                // 只有串行写任务自己的读回才清除与该任务身份一致的意图。
                 anySuccess = true
             }
         }
@@ -463,30 +486,6 @@ object LibraryManager {
 
         if (anySuccess) scheduleFlush(context)
         anySuccess
-    }
-
-    /**
-     * 用云端权威红心集合收敛待同步表：期望状态与云端一致的操作视为已确认，移出待同步。
-     * 不一致的（写失败 / 最终一致尚未生效 / 取消被拒）继续保留，等待重试。
-     */
-    private fun reconcilePending(context: Context, cloudLikedIds: List<Long>) {
-        val cloudSet = cloudLikedIds.toHashSet()
-        val pending = ensurePendingLoaded(context)
-        var resolved = 0
-        synchronized(pendingLock) {
-            val it = pending.entries.iterator()
-            while (it.hasNext()) {
-                val (id, desired) = it.next()
-                if (desired == (id in cloudSet)) {
-                    it.remove()
-                    resolved++
-                }
-            }
-        }
-        if (resolved > 0) {
-            Log.i(TAG, "refreshFromCloud: reconciled $resolved pending like ops")
-            scheduleFlush(context)
-        }
     }
 
     /** 红心歌单全部单曲 id（有序），供收藏页做分页懒加载的底表。 */
