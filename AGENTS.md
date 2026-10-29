@@ -65,7 +65,7 @@ Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` /
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
 - Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → upload `ncrust-android-universal-X.Y.Z.apk` to the current rolling release train (`CrateStack-*`), or open a new one if none exists today (`gh release create CrateStack-YYYYMMDD<A> --latest=false`) → user smoke-tests and publishes manually. Train/tag scheme and asset naming live in `docs/RELEASES.md`. Hotfixes may swap same-name assets in place without a version bump, provided the release notes say so.
-- Current: `versionName = "1.4.1"`, `versionCode = 9` (收藏写入 502 判成功 + 收藏态以红心 id 底表为准 + 主界面滑动切页；**尚未发布**). Latest release: Android 1.4.0 in train `CrateStack-20261015A` (2026-10-15) — 该 APK **不含** `4410100` 的「收藏写入体补 checkToken」修复（提交 2026-10-16，晚于资产上传），收藏隔天消失在 1.4.0 上依旧存在，修复随 1.4.1 发布。
+- Current: `versionName = "1.4.2"`, `versionCode = 10` (收藏禁用旧通道回退与未知响应重放，串行写入及刷新竞争保护；包含显式开关的实验歌单管理；**尚未发布**). Android 1.4.1 already contains the checkToken / official-field / 502 fixes, but retains legacy fallbacks and has no playlist management entry. This investigation does **not** establish which historical request caused the user's rollback; overnight persistence remains unverified. See `docs/playlists/android-like-audit.md` for evidence and installation results.
 
 ## Commit Convention
 
@@ -198,7 +198,7 @@ Two API styles coexist:
 
 - `init(context)` loads the cookie from `CookieManager`; `updateCookie(...)` replaces it (login/logout).
 - `eapiPost(path, payload, useInterface)` encrypts via `EapiCrypto`, sends form `params=<hex>`, PC UA + Referer + Cookie.
-- `eapiPostOfficial(path, payload)` mimics the official iPhone client (header with `os=iphone`, `appver=8.9.60`, deviceId/osver from cookie, random `requestId`); used for `likeSong`. Encrypted write responses are decrypted with `EapiCrypto.decryptResponse`.
+- `eapiPostOfficial(path, payload)` retains the legacy iPhone-shaped helper; Android likes no longer call it. xeapi likes require a freshly fetched nonblank anti-cheat token, sent identically in the encrypted body and header; missing token leaves the intent pending.
 - `weapiPost(path, payloadJson, extraCookies)` produces `params` + `encSecKey` via `WeapiCrypto`.
 - `get(path)` plain GET; `postWeblog(url, logsJson)` form POST for playback reporting.
 - A cookie interceptor injects `Cookie`/`User-Agent`/`Referer`; `HttpLoggingInterceptor` is `BuildConfig.DEBUG`-only.
