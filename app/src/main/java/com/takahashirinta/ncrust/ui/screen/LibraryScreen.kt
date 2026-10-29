@@ -11,7 +11,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -46,7 +45,7 @@ import com.takahashirinta.ncrust.ui.components.SessionExpiredBanner
 import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
 import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
-import com.takahashirinta.ncrust.ui.components.PlaylistButton
+import com.takahashirinta.ncrust.ui.components.PlaylistCollectionContent
 import io.github.takahashirinta.kanesumi.controls.MetroTabItem
 import io.github.takahashirinta.kanesumi.controls.MetroTabRow
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
@@ -388,76 +387,13 @@ fun LibraryScreen(
                     }
                 }
 
-                2 -> {
-                    Column(Modifier.fillMaxSize()) {
-                    if (playlistManagement) PlaylistButton(strings.playlists.create,
-                        { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.CREATE)) },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                    if (!playlistComplete && playlists.isNotEmpty()) {
-                        MetroText(strings.playlists.incomplete, modifier = Modifier.padding(16.dp))
-                    }
-                    if (playlistError != null && playlists.isNotEmpty()) MetroText(playlistError!!, modifier = Modifier.padding(16.dp))
-                    when {
-                        isLoadingPlaylists && playlists.isEmpty() -> {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                MetroProgressIndicator(color = LocalMetroColors.current.primary)
-                            }
-                        }
-                        playlistError != null && playlists.isEmpty() -> {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    MetroText(playlistError!!, color = Color.Red, style = LocalMetroTypography.current.bodyMedium)
-                                    Spacer(Modifier.height(8.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clickable(onClick = { loadPlaylists() })
-                                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    ) {
-                                        MetroText(strings.retry, color = LocalMetroColors.current.primary)
-                                    }
-                                }
-                            }
-                        }
-                        playlists.isEmpty() -> {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                MetroText(strings.noPlaylists, color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodyLarge)
-                            }
-                        }
-                        else -> {
-                            LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = 160.dp),
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
-                                flingBehavior = rememberMetroFlingBehavior()
-                            ) {
-                                val groups = listOf(
-                                    strings.playlists.owned to playlists.filter { it.isOwnedBy(playlistOwnerId) },
-                                    strings.playlists.subscribed to playlists.filterNot { it.isOwnedBy(playlistOwnerId) }
-                                )
-                                groups.forEach { (title, group) ->
-                                if (group.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-                                    MetroText(title, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = LocalMetroTypography.current.bodyLarge)
-                                }
-                                items(group, key = { it.id }) { pl ->
-                                    PlaylistGridItem(
-                                        playlist = pl,
-                                        modifier = Modifier.fillMaxWidth().animateItem(
-                                            fadeInSpec = tween(150, easing = MetroDefault),
-                                            placementSpec = tween(220, easing = MetroDefault),
-                                            fadeOutSpec = tween(120, easing = MetroDefault)
-                                        ),
-                                        onClick = { onPlaylistClick(pl) },
-                                        onPlayAll = { onPlayPlaylist(pl.id) }
-                                    )
-                                }
-                                }
-                            }
-                        }
-                    }
-                    }
-                }
+                2 -> PlaylistCollectionContent(
+                    collection = PlaylistCollection(playlists, playlistComplete),
+                    ownerId = playlistOwnerId, loading = isLoadingPlaylists,
+                    error = playlistError, management = playlistManagement,
+                    onCreate = { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.CREATE)) },
+                    onRetry = { loadPlaylists() }, onOpen = onPlaylistClick, onPlay = onPlayPlaylist
+                )
             } }
         }
     }
@@ -512,35 +448,6 @@ private fun LibraryPlayAllRow(
                 strokeDp = 2.dp
             )
         }
-    }
-}
-
-@Composable
-fun PlaylistGridItem(
-    playlist: PlaylistApi.PlaylistInfo,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    onPlayAll: () -> Unit
-) {
-    val strings = LocalStrings.current
-    Column(modifier = modifier.clickable { onClick() }) {
-        Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
-            AsyncImage(
-                model = CoverUrls.small(playlist.coverImgUrl),
-                contentDescription = strings.playlistCoverDesc,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            PlayAllButton(
-                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
-                onClick = onPlayAll
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        MetroText(playlist.name, color = LocalMetroColors.current.onBackground, style = LocalMetroTypography.current.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-        MetroText(if (playlist.trackCount >= 0) strings.trackCount(playlist.trackCount) else strings.playlists.unknown,
-            color = LocalMetroColors.current.onSurfaceVariant, style = LocalMetroTypography.current.bodySmall, modifier = Modifier.padding(horizontal = 6.dp))
-        Spacer(Modifier.height(6.dp))
     }
 }
 

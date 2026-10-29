@@ -2,7 +2,7 @@ package com.takahashirinta.ncrust.ui.i18n
 
 data class PlaylistStrings(
     val experimental: String, val experimentalDescription: String,
-    val create: String, val edit: String, val add: String,
+    val create: String, val edit: String, val add: String, val manage: String,
     val name: String, val description: String, val visibility: String,
     val public: String, val private: String, val unknown: String,
     val owned: String, val subscribed: String,

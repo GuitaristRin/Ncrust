@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.ui.i18n
 
 val en = Strings(
     playlists = PlaylistStrings(
+        manage = "Manage",
         selectTracks = "Select tracks", selectAll = "Select all", selectionCount = { "$it tracks selected" },
         stopTracking = "Stop tracking",
         experimental = "Playlist management (experimental)", experimentalDescription = "Create, edit and set visibility. Off by default; cloud writes still need verification.",

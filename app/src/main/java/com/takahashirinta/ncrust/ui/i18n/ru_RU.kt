@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.ui.i18n
 
 val ruRU = Strings(
     playlists = PlaylistStrings(
+        manage = "Управление",
         selectTracks = "Выбрать треки", selectAll = "Выбрать все", selectionCount = { "Выбрано треков: $it" },
         stopTracking = "Прекратить отслеживание",
         experimental = "Управление плейлистами (эксперимент)", experimentalDescription = "Создание, редактирование и видимость. По умолчанию выключено; запись в облако ещё проверяется.",

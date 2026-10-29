@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.ui.i18n
 
 val deDE = Strings(
     playlists = PlaylistStrings(
+        manage = "Verwalten",
         selectTracks = "Titel auswählen", selectAll = "Alle auswählen", selectionCount = { "$it Titel ausgewählt" },
         stopTracking = "Nachverfolgung beenden",
         experimental = "Wiedergabelisten verwalten (experimentell)", experimentalDescription = "Erstellen, bearbeiten und Sichtbarkeit ändern. Standardmäßig aus; Cloud-Schreibzugriffe sind noch zu prüfen.",

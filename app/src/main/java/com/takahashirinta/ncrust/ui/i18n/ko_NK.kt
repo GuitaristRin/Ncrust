@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.ui.i18n
 
 val koNK = Strings(
     playlists = PlaylistStrings(
+        manage = "관리",
         selectTracks = "곡 선택", selectAll = "모두 선택", selectionCount = { "${it}곡 선택됨" },
         stopTracking = "추적 끝내기",
         experimental = "재생목록 관리 (시험)", experimentalDescription = "목록 작성, 편집 및 공개설정. 처음에는 꺼져 있으며 서버 쓰기는 검증 중입니다.",

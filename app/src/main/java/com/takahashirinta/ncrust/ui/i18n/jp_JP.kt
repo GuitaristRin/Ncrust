@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.ui.i18n
 
 val jpJP = Strings(
     playlists = PlaylistStrings(
+        manage = "管理",
         selectTracks = "曲を選択", selectAll = "すべて選択", selectionCount = { "$it 曲を選択中" },
         stopTracking = "追跡を終了",
         experimental = "プレイリスト管理（試験中）", experimentalDescription = "作成・編集・公開設定。初期状態はオフで、クラウドへの書き込みは検証中です。",

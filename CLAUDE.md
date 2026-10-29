@@ -65,7 +65,7 @@ Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` /
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
 - Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → upload `ncrust-android-universal-X.Y.Z.apk` to the current rolling release train (`CrateStack-*`), or open a new one if none exists today (`gh release create CrateStack-YYYYMMDD<A> --latest=false`) → user smoke-tests and publishes manually. Train/tag scheme and asset naming live in `docs/RELEASES.md`. Hotfixes may swap same-name assets in place without a version bump, provided the release notes say so.
-- Current: `versionName = "1.4.1"`, `versionCode = 9` (收藏写入 502 判成功 + 收藏态以红心 id 底表为准 + 主界面滑动切页；**尚未发布**). Latest release: Android 1.4.0 in train `CrateStack-20261015A` (2026-10-15) — 该 APK **不含** `4410100` 的「收藏写入体补 checkToken」修复（提交 2026-10-16，晚于资产上传），收藏隔天消失在 1.4.0 上依旧存在，修复随 1.4.1 发布。
+- Current: `versionName = "1.4.2"`, `versionCode = 10` (收藏禁用旧通道回退与未知响应重放，串行写入及刷新竞争保护；包含显式开关的实验歌单管理；**尚未发布**). Android 1.4.1 already contains the checkToken / official-field / 502 fixes, but retains legacy fallbacks and has no playlist management entry. This investigation does **not** establish which historical request caused the user's rollback; overnight persistence remains unverified. See `docs/playlists/android-like-audit.md` for evidence and installation results.
 
 ## Commit Convention
 
@@ -186,7 +186,7 @@ For anything that is *not* the player card, use the Kanesumi `sokuou` presets (`
 Two API styles coexist:
 
 - **REST via Retrofit** (`NcmApi`, base `https://music.163.com/`): search (`api/cloudsearch/pc`, types 1/10/100), song detail (`api/v3/song/detail`), lyrics (`api/song/lyric`), album detail (`api/v1/album/{id}`), artist albums (`api/artist/albums/{id}`).
-- **eapi via manual OkHttp POST** (`PlaylistApi` + `RetrofitClient.eapiPost`): playlists, recommendations, daily songs, personal FM, similar songs, song URL, album sub/unsub, like. **weapi** (`RetrofitClient.weapiPost`) is used for the similar-song fallback. **QR login** uses eapi with a PC client identity on `interfacepc.music.163.com` (`/eapi/login/qrcode/unikey` + `client/login`, `type=3`) — weapi `type=1` now returns `-462` (see `spec/api/endpoints.md`, `spec/api/login.md`). **Likes** go through **xeapi** `/api/v1/radio/like` (`RetrofitClient.xeapiPost`, `spec/api/xeapi.md`); weapi/eapi `radio/like` are fallbacks only.
+- **eapi via manual OkHttp POST** (`PlaylistApi` + `RetrofitClient.eapiPost`): playlists, recommendations, daily songs, personal FM, similar songs, song URL, album sub/unsub, like. **weapi** (`RetrofitClient.weapiPost`) is used for the similar-song fallback. **QR login** uses eapi with a PC client identity on `interfacepc.music.163.com` (`/eapi/login/qrcode/unikey` + `client/login`, `type=3`) — weapi `type=1` now returns `-462` (see `spec/api/endpoints.md`, `spec/api/login.md`). **Likes** go through **xeapi** `/api/v1/radio/like` (`RetrofitClient.xeapiPost`, `spec/api/xeapi.md`); Android must not fall back to legacy weapi/eapi `radio/like` or automatically replay an unreadable write response. Pending intents are persisted before dispatch and serialized by `PendingLikeWrites`; only the current intent's own read-back can clear it. Refreshes merge pending intents and discard snapshots started before a local change. A bounded private `files/like-sync-audit.jsonl` records write/read-back outcomes without credentials.
 
 `RetrofitClient` hosts:
 
@@ -198,7 +198,7 @@ Two API styles coexist:
 
 - `init(context)` loads the cookie from `CookieManager`; `updateCookie(...)` replaces it (login/logout).
 - `eapiPost(path, payload, useInterface)` encrypts via `EapiCrypto`, sends form `params=<hex>`, PC UA + Referer + Cookie.
-- `eapiPostOfficial(path, payload)` mimics the official iPhone client (header with `os=iphone`, `appver=8.9.60`, deviceId/osver from cookie, random `requestId`); used for `likeSong`. Encrypted write responses are decrypted with `EapiCrypto.decryptResponse`.
+- `eapiPostOfficial(path, payload)` retains the legacy iPhone-shaped helper; Android likes no longer call it. xeapi likes require a freshly fetched nonblank anti-cheat token, sent identically in the encrypted body and header; missing token leaves the intent pending.
 - `weapiPost(path, payloadJson, extraCookies)` produces `params` + `encSecKey` via `WeapiCrypto`.
 - `get(path)` plain GET; `postWeblog(url, logsJson)` form POST for playback reporting.
 - A cookie interceptor injects `Cookie`/`User-Agent`/`Referer`; `HttpLoggingInterceptor` is `BuildConfig.DEBUG`-only.
@@ -314,6 +314,8 @@ Runtime-based (not Android resource strings), under `ui/i18n/`:
 - `LanguageManager.kt` — `languagePresets`, `LocalStrings` (default `zhCN`), SharedPreferences helpers.
 
 **8 locales:** `zh-CN` 简体中文, `zh-TW` 繁體中文, `en-US` English, `ja-JP` 日本語, `ja-MY` 万葉仮名, `ko-KP` 조선어, `de-DE` Deutsch, `ru-RU` Русский. (The legacy `en-UK` code maps to `en`.)
+
+**Chinese product terminology:** Android uses 「播放列表」 (`zh-CN`) / 「播放清單」 (`zh-TW`) for playlist, and 「播放队列」 / 「播放佇列」 for the temporary queue. Keep protocol paths, identifiers and user-created names unchanged. Library playlist rows live in `PlaylistCollectionContent`, detail composition in `PlaylistDetailHeader`; form width/keyboard behavior and SDK rendering evidence are documented in `docs/playlists/implementation.md`.
 
 To add a locale: create `xx_XX.kt` with a `Strings(...)` and add a `LanguagePreset` to `languagePresets`. To add a string: add the property to `Strings.kt` and to **every** locale file. Composables read `val s = LocalStrings.current` — never hardcode UI strings.
 

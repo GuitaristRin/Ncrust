@@ -2,22 +2,23 @@ package com.takahashirinta.ncrust.ui.i18n
 
 val zhCN = Strings(
     playlists = PlaylistStrings(
+        manage = "管理",
         selectTracks = "选择歌曲", selectAll = "全选", selectionCount = { "已选择 $it 首" },
         stopTracking = "结束跟踪",
-        experimental = "歌单管理（实验）", experimentalDescription = "新建、编辑与设置可见性。默认关闭，云端写入仍待验证。",
-        create = "新建歌单", edit = "编辑歌单", add = "添加到歌单",
+        experimental = "播放列表管理（实验）", experimentalDescription = "新建、编辑与设置可见性。默认关闭，云端写入仍待验证。",
+        create = "新建播放列表", edit = "编辑播放列表", add = "添加到播放列表",
         name = "名称", description = "简介", visibility = "可见性",
         public = "公开", private = "私密", unknown = "未知",
-        owned = "自建歌单", subscribed = "收藏的歌单", remove = "从歌单移除", delete = "删除歌单", save = "保存", done = "完成",
+        owned = "我创建的", subscribed = "已收藏", remove = "从播放列表移除", delete = "删除播放列表", save = "保存", done = "完成",
         confirmed = "已确认完成", pending = "请求已提交，状态待确认", partial = { a, b -> "已确认 $a 项，仍有 $b 项待确认" },
         failed = "操作未完成", verify = "重新读取状态", backToEdit = "返回编辑",
-        login = "请先登录", permission = "只能管理本人创建的普通歌单", rateLimit = "操作过于频繁，请稍后再试",
+        login = "请先登录", permission = "只能管理本人创建的普通播放列表", rateLimit = "操作过于频繁，请稍后再试",
         network = "网络或读取失败，请稍后核对状态", accountChanged = "账号已切换，此操作已停止跟踪",
         invalid = "请检查名称、简介和可见性", incomplete = "内容尚未加载完整，请刷新后再试",
-        unknownCreate = "创建结果未知，请先在歌单列表中核对，不要重复创建",
-        deleteHint = { "删除「$it」？删除前会保存歌单信息和曲目记录，当前播放队列不受影响。" },
-        removeHint = { "从本歌单移除 $it 首歌曲？红心与当前播放队列不受影响。" },
-        backup = { "歌单记录已备份至 $it" }, open = "查看歌单"
+        unknownCreate = "创建结果未知，请先在播放列表列表中核对，不要重复创建",
+        deleteHint = { "删除「$it」？删除前会保存播放列表信息和曲目记录，当前播放队列不受影响。" },
+        removeHint = { "从本播放列表移除 $it 首歌曲？红心与当前播放队列不受影响。" },
+        backup = { "播放列表记录已备份至 $it" }, open = "查看播放列表"
     ),
     tabHome = "首页",
     tabLibrary = "库",
@@ -61,7 +62,7 @@ val zhCN = Strings(
     cacheCleared = "缓存已清除",
 
     dailySongsTitle = "每日推荐",
-    recommendPlaylistTitle = "推荐歌单",
+    recommendPlaylistTitle = "推荐播放列表",
     newSongsTitle = "新歌速递",
 
     refreshLabel = "刷新",
@@ -73,10 +74,10 @@ val zhCN = Strings(
 
     categoryTracks = "单曲",
     categoryAlbums = "专辑",
-    categoryPlaylists = "歌单",
+    categoryPlaylists = "播放列表",
     noSavedSongs = "暂无收藏歌曲",
     noSavedAlbums = "暂无收藏专辑",
-    noPlaylists = "暂无歌单",
+    noPlaylists = "暂无播放列表",
     notLoggedInForPlaylists = "未登录！请前往用户页登录",
     loadFailed = { msg -> if (msg != null) "加载失败: $msg" else "加载失败" },
     trackCount = { "${it}首" },
@@ -168,7 +169,7 @@ val zhCN = Strings(
 
     artistDetailTitle = "艺人详情",
     albumDetailTitle = "专辑详情",
-    playlistDetailTitle = "歌单详情",
+    playlistDetailTitle = "播放列表详情",
     unknownArtistName = "未知艺人",
     noAlbums = "暂无专辑",
     noHotSongs = "暂无单曲",
@@ -182,7 +183,7 @@ val zhCN = Strings(
     coverDesc = "封面",
     albumCoverDesc = "专辑封面",
     artistAvatarDesc = "艺人头像",
-    playlistCoverDesc = "歌单封面",
+    playlistCoverDesc = "播放列表封面",
     userAvatarDesc = "头像",
 
     clearSearchButton = "清空",
@@ -193,7 +194,7 @@ val zhCN = Strings(
 
     queueTitle = "播放列表",
     playModeButton = "播放模式",
-    saveAsPlaylist = "保存为歌单",
+    saveAsPlaylist = "保存为播放列表",
     noSongPlaying = "暂无播放",
     queueSectionPast = "过去播放",
     queueSectionNow = "现在播放",

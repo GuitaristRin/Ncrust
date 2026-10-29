@@ -315,6 +315,8 @@ Runtime-based (not Android resource strings), under `ui/i18n/`:
 
 **8 locales:** `zh-CN` 简体中文, `zh-TW` 繁體中文, `en-US` English, `ja-JP` 日本語, `ja-MY` 万葉仮名, `ko-KP` 조선어, `de-DE` Deutsch, `ru-RU` Русский. (The legacy `en-UK` code maps to `en`.)
 
+**Chinese product terminology:** Android uses 「播放列表」 (`zh-CN`) / 「播放清單」 (`zh-TW`) for playlist, and 「播放队列」 / 「播放佇列」 for the temporary queue. Keep protocol paths, identifiers and user-created names unchanged. Library playlist rows live in `PlaylistCollectionContent`, detail composition in `PlaylistDetailHeader`; form width/keyboard behavior and SDK rendering evidence are documented in `docs/playlists/implementation.md`.
+
 To add a locale: create `xx_XX.kt` with a `Strings(...)` and add a `LanguagePreset` to `languagePresets`. To add a string: add the property to `Strings.kt` and to **every** locale file. Composables read `val s = LocalStrings.current` — never hardcode UI strings.
 
 ### Theming & Responsive Layout

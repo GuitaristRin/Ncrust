@@ -2,6 +2,7 @@ package com.takahashirinta.ncrust.ui.i18n
 
 val jpMY = Strings(
     playlists = PlaylistStrings(
+        manage = "管理",
         selectTracks = "曲乎選択", selectAll = "全乎選択", selectionCount = { "$it 曲乎選択中" },
         stopTracking = "於布許登乎登豆",
         experimental = "宇多阿豆麻利 乎佐牟（多米之）", experimentalDescription = "阿良多爾都久理、乎佐米、見由流佐麻乎佐太牟。波自米波登豆。",

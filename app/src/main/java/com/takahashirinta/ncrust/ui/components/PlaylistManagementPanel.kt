@@ -56,21 +56,22 @@ fun PlaylistManagementPanel(
     val colors = LocalMetroColors.current
     val mode = state.request?.mode ?: return
     BackHandler(onBack = onClose)
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding().navigationBarsPadding().imePadding()) {
-        Column(Modifier.fillMaxWidth().padding(20.dp)) {
-            PlaylistButton(strings.cancel, onClose, containerColor = colors.surfaceVariant, contentColor = colors.onBackground)
-            Spacer(Modifier.height(16.dp))
+    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding().navigationBarsPadding().imePadding(),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetroText(when (mode) {
                 PlaylistPanelMode.ADD -> p.add
                 PlaylistPanelMode.CREATE -> p.create
                 PlaylistPanelMode.EDIT -> p.edit
                 PlaylistPanelMode.REMOVE -> p.remove
                 PlaylistPanelMode.DELETE -> p.delete
-            }, style = LocalMetroTypography.current.title.copy(fontSize = 30.sp))
+            }, style = LocalMetroTypography.current.title.copy(fontSize = 24.sp), modifier = Modifier.weight(1f))
+            PlaylistButton(strings.cancel, onClose, containerColor = colors.background, contentColor = colors.onBackground)
         }
         when {
             state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { MetroProgressIndicator() }
-            state.result != null -> Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp)) {
+            state.result != null -> Column(Modifier.weight(1f).widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp)) {
                 val result = state.result
                 MetroText(when (result.outcome) {
                     PlaylistOutcome.CONFIRMED -> p.confirmed
@@ -98,12 +99,12 @@ fun PlaylistManagementPanel(
                     onFinish, enabled = !state.busy, modifier = Modifier.fillMaxWidth(),
                     containerColor = colors.surfaceVariant, contentColor = colors.onBackground)
             }
-            state.problem != null -> Column(Modifier.weight(1f).padding(20.dp)) {
+            state.problem != null -> Column(Modifier.weight(1f).widthIn(max = 640.dp).fillMaxWidth().padding(20.dp)) {
                 MetroText(playlistProblemText(state.problem, p))
                 Spacer(Modifier.height(16.dp))
                 PlaylistButton(strings.retry, onReload)
             }
-            mode == PlaylistPanelMode.ADD -> LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(20.dp)) {
+            mode == PlaylistPanelMode.ADD -> LazyColumn(Modifier.weight(1f).widthIn(max = 640.dp).fillMaxWidth(), contentPadding = PaddingValues(20.dp)) {
                 item { PlaylistButton(p.create, onCreate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()); Spacer(Modifier.height(16.dp)) }
                 val owned = state.collection.items.filter { it.isOwnedBy(state.ownerId) }
                 if (owned.isEmpty()) item { MetroText(strings.noPlaylists) }
@@ -130,38 +131,54 @@ private fun PlaylistEditorBody(state: PlaylistPanelState, onDraft: ((PlaylistDra
     val p = strings.playlists
     val colors = LocalMetroColors.current
     val mode = state.request!!.mode
-    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp)) {
-        if (mode == PlaylistPanelMode.CREATE || mode == PlaylistPanelMode.EDIT) {
-            MetroText(p.name)
-            Spacer(Modifier.height(8.dp))
-            MetroTextField(state.draft.name, { value -> if (value.length <= 40) onDraft { it.copy(name = value) } },
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = p.name }, enabled = !state.busy, singleLine = true)
-            Spacer(Modifier.height(20.dp))
-            MetroText(p.description)
-            Spacer(Modifier.height(8.dp))
-            MetroTextField(state.draft.description, { value -> if (value.length <= 1000) onDraft { it.copy(description = value) } },
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = p.description }, enabled = !state.busy, minLines = 3)
-            Spacer(Modifier.height(20.dp))
-            MetroText(p.visibility)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0 to p.public, 10 to p.private).forEach { (value, label) ->
-                    val selected = state.draft.privacy == value
-                    PlaylistButton(label, { onDraft { it.copy(privacy = value) } }, enabled = !state.busy,
-                        modifier = Modifier.weight(1f), selected = selected, containerColor = if (selected) colors.primary else colors.surfaceVariant,
-                        contentColor = if (selected) playlistTextColor(colors.primary) else colors.onBackground)
+    Column(modifier.widthIn(max = 640.dp).fillMaxWidth()) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp)) {
+            if (mode == PlaylistPanelMode.CREATE || mode == PlaylistPanelMode.EDIT) {
+                PlaylistFieldLabel(p.name, "${state.draft.name.length}/40")
+                Spacer(Modifier.height(8.dp))
+                MetroTextField(state.draft.name, { value -> if (value.length <= 40) onDraft { it.copy(name = value) } },
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = p.name }, enabled = !state.busy, singleLine = true)
+                Spacer(Modifier.height(24.dp))
+                PlaylistFieldLabel(p.description, "${state.draft.description.length}/1000")
+                Spacer(Modifier.height(8.dp))
+                MetroTextField(state.draft.description, { value -> if (value.length <= 1000) onDraft { it.copy(description = value) } },
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = p.description }, enabled = !state.busy, minLines = 3, maxLines = 6)
+                Spacer(Modifier.height(24.dp))
+                PlaylistFieldLabel(p.visibility)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0 to p.public, 10 to p.private).forEach { (value, label) ->
+                        val selected = state.draft.privacy == value
+                        PlaylistButton(label, { onDraft { it.copy(privacy = value) } }, enabled = !state.busy,
+                            modifier = Modifier.weight(1f), selected = selected,
+                            containerColor = if (selected) colors.primary else colors.surfaceVariant,
+                            contentColor = if (selected) playlistTextColor(colors.primary) else colors.onBackground)
+                    }
                 }
+            } else {
+                MetroText(if (mode == PlaylistPanelMode.DELETE) p.deleteHint(state.snapshot?.info?.name.orEmpty()) else p.removeHint(state.request.songIds.size))
             }
-            Spacer(Modifier.height(24.dp))
-            PlaylistButton(if (mode == PlaylistPanelMode.CREATE) p.create else p.save, { onSubmit(0) },
-                enabled = !state.busy && state.draft.valid, modifier = Modifier.fillMaxWidth())
-        } else {
-            MetroText(if (mode == PlaylistPanelMode.DELETE) p.deleteHint(state.snapshot?.info?.name.orEmpty()) else p.removeHint(state.request.songIds.size))
-            Spacer(Modifier.height(24.dp))
-            PlaylistButton(if (mode == PlaylistPanelMode.DELETE) p.delete else p.remove, { onSubmit(0) },
-                enabled = !state.busy && state.snapshot?.info?.isOwnedBy(state.ownerId) == true,
-                modifier = Modifier.fillMaxWidth())
         }
+        val editing = mode == PlaylistPanelMode.CREATE || mode == PlaylistPanelMode.EDIT
+        val label = when (mode) {
+            PlaylistPanelMode.CREATE -> p.create
+            PlaylistPanelMode.EDIT -> p.save
+            PlaylistPanelMode.DELETE -> p.delete
+            else -> p.remove
+        }
+        PlaylistButton(label, { onSubmit(0) },
+            enabled = !state.busy && if (editing) state.draft.valid else state.snapshot?.info?.isOwnedBy(state.ownerId) == true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp))
+    }
+}
+
+@Composable
+private fun PlaylistFieldLabel(label: String, value: String? = null) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        MetroText(label, modifier = Modifier.weight(1f), color = LocalMetroColors.current.onSurfaceVariant,
+            style = LocalMetroTypography.current.caption)
+        if (value != null) MetroText(value, color = LocalMetroColors.current.onSurfaceVariant,
+            style = LocalMetroTypography.current.caption)
     }
 }
 
@@ -183,8 +200,10 @@ fun PlaylistSelectionActions(count: Int, owned: Boolean, onAll: () -> Unit, onCa
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         MetroText(s.playlists.selectionCount(count))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PlaylistButton(s.playlists.selectAll, onAll, Modifier.weight(1f))
-            PlaylistButton(s.cancel, onCancel, Modifier.weight(1f))
+            PlaylistButton(s.playlists.selectAll, onAll, Modifier.weight(1f),
+                containerColor = LocalMetroColors.current.surfaceVariant, contentColor = LocalMetroColors.current.onBackground)
+            PlaylistButton(s.cancel, onCancel, Modifier.weight(1f),
+                containerColor = LocalMetroColors.current.surfaceVariant, contentColor = LocalMetroColors.current.onBackground)
         }
         PlaylistButton(s.playlists.add, onAdd, Modifier.fillMaxWidth(), enabled = count > 0)
         if (owned) PlaylistButton(s.playlists.remove, onRemove, Modifier.fillMaxWidth(), enabled = count > 0)

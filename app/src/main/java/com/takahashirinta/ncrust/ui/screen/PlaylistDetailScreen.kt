@@ -21,7 +21,7 @@ import com.takahashirinta.ncrust.network.PlaylistApi
 import com.takahashirinta.ncrust.network.RetrofitClient
 import com.takahashirinta.ncrust.playlist.*
 import com.takahashirinta.ncrust.network.SongItem
-import com.takahashirinta.ncrust.ui.components.DetailHeader
+import com.takahashirinta.ncrust.ui.components.PlaylistDetailHeader
 import com.takahashirinta.ncrust.ui.components.DetailScaffold
 import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongCard
@@ -31,7 +31,6 @@ import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
 import android.widget.Toast
 import kotlinx.coroutines.CancellationException
-import com.takahashirinta.ncrust.ui.components.PlaylistButton
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import com.takahashirinta.ncrust.ui.components.PlaylistSelectionActions
@@ -123,30 +122,23 @@ fun PlaylistDetailScreen(
         error = error,
         onRetry = { loadSongs() },
         header = {
-            DetailHeader(
+            PlaylistDetailHeader(
                 coverUrl = coverUrl,
                 title = snapshot?.info?.name ?: playlistName.ifEmpty { strings.categoryPlaylists },
-                subtitle = snapshot?.info?.let { if (it.privacy == 10) strings.playlists.private else if (it.privacy == 0) strings.playlists.public else strings.playlists.unknown },
-                infoLines = listOfNotNull(strings.trackCountSongs(snapshot?.info?.trackCount?.takeIf { it >= 0 } ?: songs.size),
-                    snapshot?.description?.takeIf { it.isNotBlank() }),
-                onPlayAll = if (complete && songs.isNotEmpty()) ({ showPlayAllDialog = true }) else null,
-                headerActions = {
-                    if (!complete && snapshot != null) MetroText(strings.playlists.incomplete)
-                    if (management && owned) {
-                        Spacer(Modifier.height(12.dp))
-                        PlaylistButton(strings.playlists.edit, { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.EDIT, playlistId = playlistId)) }, modifier = Modifier.fillMaxWidth())
-                        Spacer(Modifier.height(8.dp))
-                        PlaylistButton(strings.playlists.delete, { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.DELETE, playlistId = playlistId)) }, modifier = Modifier.fillMaxWidth())
-                    }
-                    if (management && songs.isNotEmpty()) {
-                        Spacer(Modifier.height(12.dp))
-                        if (!selecting) PlaylistButton(strings.playlists.selectTracks, { selecting = true }, modifier = Modifier.fillMaxWidth())
-                        else PlaylistSelectionActions(selectedIds.size, owned,
-                            onAll = { selectedIds = songs.map { it.id }.toSet() },
-                            onCancel = { selecting = false; selectedIds = emptySet() },
-                            onAdd = { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.ADD, songs.filter { it.id in selectedIds }.map { it.id })) },
-                            onRemove = { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.REMOVE, songs.filter { it.id in selectedIds }.map { it.id }, playlistId)) })
-                    }
+                privacy = snapshot?.info?.let { if (it.privacy == 10) strings.playlists.private else if (it.privacy == 0) strings.playlists.public else strings.playlists.unknown },
+                trackCount = snapshot?.info?.trackCount?.takeIf { it >= 0 } ?: songs.size,
+                description = snapshot?.description.orEmpty(), complete = complete,
+                management = management, owned = owned, selecting = selecting,
+                onPlay = if (complete && songs.isNotEmpty()) ({ showPlayAllDialog = true }) else null,
+                onSelect = if (songs.isNotEmpty()) ({ selecting = true }) else null,
+                onEdit = { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.EDIT, playlistId = playlistId)) },
+                onDelete = { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.DELETE, playlistId = playlistId)) },
+                selection = {
+                    PlaylistSelectionActions(selectedIds.size, owned,
+                        onAll = { selectedIds = songs.map { it.id }.toSet() },
+                        onCancel = { selecting = false; selectedIds = emptySet() },
+                        onAdd = { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.ADD, songs.filter { it.id in selectedIds }.map { it.id })) },
+                        onRemove = { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.REMOVE, songs.filter { it.id in selectedIds }.map { it.id }, playlistId)) })
                 }
             )
         },
