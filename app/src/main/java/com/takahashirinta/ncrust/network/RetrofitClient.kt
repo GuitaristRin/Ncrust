@@ -81,8 +81,7 @@ object RetrofitClient {
     }
 
     /**
-     * 易盾 token 只是写入请求的加分项，不值得为它把一次收藏拖上 30 秒：单独一个短超时 client。
-     * 取不到就发空串（上游同样处理），绝不阻断写入。
+     * 使用短超时获取写入必需的 token；取不到就保留待同步，不发送缺少 token 的收藏。
      */
     private val antiCheatClient: OkHttpClient by lazy {
         plainClient.newBuilder()
@@ -348,7 +347,7 @@ object RetrofitClient {
      *
      * @param uri `/api/...` 形式的接口路径，实际打到 `interface3/xeapi/<去掉 /api/ 的路径>`。
      * @param pairs 业务字段；明文信封的 `content` 按给定顺序编码，字段顺序不参与客户端指纹。
-     * @param antiCheat 是否现取易盾 token（写入类接口需要；取不到发空串）。官方写入把同一份 token
+     * @param antiCheat 是否现取易盾 token（写入类接口需要；取不到则不提交）。官方写入把同一份 token
      *   **同时**放进加密体的 `checkToken` 字段与 `X-antiCheatToken` 头（`xeapi.md` §6）——
      *   只放头、体里没有 `checkToken` 时，服务端把写入判为异常环境、事后回滚（「收藏隔天消失」）。
      */
@@ -359,20 +358,31 @@ object RetrofitClient {
         cookieOverride: String = currentCookie.orEmpty()
     ): String {
         val url = XEAPI_URL + "/xeapi/" + uri.removePrefix("/api/")
-        // 易盾 token 每次写入现取、不缓存（xeapi.md §5）。
-        val antiCheatToken = if (antiCheat) fetchAntiCheatToken() else null
-        if (antiCheat) Log.i(TAG, "xeapi antiCheat present=${!antiCheatToken.isNullOrEmpty()}")
-        // 官方在业务体里补 `checkToken`（NeteaseMusicApiImpl.b7 实证；官方用 HashMap 组字段，
-        // 顺序不参与指纹，放末尾只是实现约定）。
-        val bodyPairs = if (antiCheatToken != null) pairs + ("checkToken" to antiCheatToken) else pairs
+        return xeapiPostOnce(pairs, antiCheat, ::fetchAntiCheatToken,
+            execute = { bodyPairs, token ->
+                executeXeapi(url, bodyPairs, XeapiState.ensureKeyState(), token, cookieOverride)
+            }, invalidate = XeapiState::invalidateKeyState)
+    }
 
-        val first = executeXeapi(url, bodyPairs, XeapiState.ensureKeyState(), antiCheatToken, cookieOverride)
-        decryptXeapiBody(first)?.let { return it }
-
-        // 服务端可能已经完成写入。不能因响应不可读就再次提交同一操作。
-        Log.w(TAG, "xeapi response decrypt failed, invalidate key without replay (uri=$uri)")
-        XeapiState.invalidateKeyState()
-        throw IOException("xeapi response decrypt failed: $uri")
+    /** 生产请求共用的单次提交边界；测试替换传输，不替换 token 与解密策略。 */
+    internal fun xeapiPostOnce(
+        pairs: List<Pair<String, String>>,
+        antiCheat: Boolean,
+        fetchToken: () -> String,
+        execute: (List<Pair<String, String>>, String?) -> ByteArray,
+        invalidate: () -> Unit
+    ): String {
+        val token = if (antiCheat) fetchToken() else null
+        if (antiCheat && token.isNullOrBlank()) {
+            Log.w(TAG, "xeapi antiCheat unavailable; write not submitted")
+            throw IOException("xeapi antiCheat unavailable")
+        }
+        val bodyPairs = if (token != null) pairs.filterNot { it.first == "checkToken" } + ("checkToken" to token) else pairs
+        val raw = execute(bodyPairs, token)
+        decryptXeapiBody(raw)?.let { return it }
+        // 响应不可读并不能证明服务器未执行写入。
+        invalidate()
+        throw IOException("xeapi response decrypt failed; write not replayed")
     }
 
     private fun executeXeapi(
@@ -451,7 +461,7 @@ object RetrofitClient {
 
     /**
      * 易盾反作弊 token：`GET .../v3/b?pn=...` → `null([200,<n>,"<token>"])`，取第三项。
-     * 取不到返回空串——缺 token 只是少一层客户端指纹，不该阻断写入。
+     * 取不到返回空串，提交边界据此保留待同步，绝不记录 token 的值。
      */
     private fun fetchAntiCheatToken(): String {
         return try {
