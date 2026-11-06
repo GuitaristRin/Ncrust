@@ -746,6 +746,8 @@ fun MainScreen(
     // 设置播放器回调。
     LaunchedEffect(Unit) {
         playerViewModel.setOnSongPreviousCallback { playPrevious() }
+        // 与上一首一样直接推进，后台通知栏操作不等待 Compose 重组后运行 Effect。
+        playerViewModel.setOnSongNextCallback { playNext() }
         playerViewModel.setOnSongEndedCallback { songEnded = true }
         playerViewModel.setOnSongTransitionedCallback { auto ->
             transitionIsAuto = auto
