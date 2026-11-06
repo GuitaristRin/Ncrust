@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Ncrust.Core.Api;
@@ -247,9 +248,30 @@ public class LibraryApiTests
             second.Form("R"));
 
         // 会话模式下动态密钥是 sskey 的字节（32 → AES-256），业务字段照样能解开。
-        Assert.Equal(
-            "{\"content\":\"alg=itembased&trackId=2&like=true&time=3&checkToken=test-anti-cheat-token\",\"queryString\":\"e_r=true\"}",
+        using var plaintext = JsonDocument.Parse(
             FakeXeapiServer.DecryptBusinessPlaintext(second.Form("C"), second.Form("S")));
+        var envelope = plaintext.RootElement;
+        Assert.Equal(new[] { "content", "queryString" }, envelope.EnumerateObject().Select(p => p.Name).OrderBy(n => n));
+        Assert.Equal("e_r=true", envelope.GetProperty("queryString").GetString());
+
+        // 官方业务 map 的顺序不参与指纹（spec/api/xeapi.md §6）；字段集和值必须完整，包含空值。
+        var fields = envelope.GetProperty("content").GetString()!.Split('&')
+            .Select(pair => pair.Split('=', 2))
+            .ToDictionary(pair => WebUtility.UrlDecode(pair[0]), pair => WebUtility.UrlDecode(pair[1]));
+        var expected = new Dictionary<string, string>
+        {
+            ["trackId"] = "2",
+            ["time"] = "3",
+            ["alg"] = "itembased",
+            ["like"] = "true",
+            ["rqRefer"] = string.Empty,
+            ["songRqRefer"] = string.Empty,
+            ["mode"] = string.Empty,
+            ["subMode"] = string.Empty,
+            ["source"] = "userfm",
+            ["checkToken"] = "test-anti-cheat-token",
+        };
+        Assert.Equal(expected.OrderBy(p => p.Key), fields.OrderBy(p => p.Key));
     }
 
     [Fact]
