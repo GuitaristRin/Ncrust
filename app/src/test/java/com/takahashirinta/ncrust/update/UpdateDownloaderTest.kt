@@ -9,6 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import java.io.IOException
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -76,6 +77,115 @@ class UpdateDownloaderTest {
         assertNull("首次下载不该带 Range", server.rangeHeaders.single())
         assertEquals(body.size.toLong(), progress.last().first)
         assertEquals(body.size.toLong(), progress.last().second)
+    }
+
+    @Test
+    fun `an interrupted first download preserves its response identity for resume`() {
+        server.etag = "same-etag"
+        server.truncateAfterBytes = 400
+
+        assertThrows(IOException::class.java) {
+            UpdateDownloader(directory).download(url("/asset.apk"), fileName) { _, _ -> }
+        }
+        assertEquals(400L, target().length())
+        val marker = ResumeMarker.decode(File(directory, "$fileName.identity").readText())!!
+        assertEquals("same-etag", marker.etag)
+        assertEquals(body.size.toLong(), marker.expectedSize)
+
+        server.truncateAfterBytes = null
+        val file = UpdateDownloader(directory).download(url("/asset.apk"), fileName) { _, _ -> }
+
+        assertEquals(listOf(null, "bytes=400-"), server.rangeHeaders)
+        assertEquals(listOf(null, "same-etag"), server.ifRangeHeaders)
+        assertArrayEquals(body, file.readBytes())
+    }
+
+    @Test
+    fun `a second interruption resumes from all bytes received across both attempts`() {
+        server.etag = "same-etag"
+        server.truncateAfterBytes = 400
+        assertThrows(IOException::class.java) {
+            UpdateDownloader(directory).download(url("/asset.apk"), fileName) { _, _ -> }
+        }
+
+        // 206 没有重发 ETag 时，仍应保留首个响应留下的 If-Range。
+        server.etag = null
+        server.truncateAfterBytes = 200
+        assertThrows(IOException::class.java) {
+            UpdateDownloader(directory).download(url("/asset.apk"), fileName) { _, _ -> }
+        }
+        assertEquals(600L, target().length())
+
+        server.etag = "same-etag"
+        server.truncateAfterBytes = null
+        val file = UpdateDownloader(directory).download(url("/asset.apk"), fileName) { _, _ -> }
+
+        assertEquals(listOf(null, "bytes=400-", "bytes=600-"), server.rangeHeaders)
+        assertEquals(listOf(null, "same-etag", "same-etag"), server.ifRangeHeaders)
+        assertArrayEquals(body, file.readBytes())
+    }
+
+    @Test
+    fun `failure before receiving headers leaves a trusted partial and marker intact`() {
+        target().writeBytes(body.copyOfRange(0, 400))
+        writeMarker(size = body.size.toLong(), etag = "same-etag")
+        val markerFile = File(directory, "$fileName.identity")
+        val markerBefore = markerFile.readText()
+        server.disconnectBeforeHeaders = true
+
+        assertThrows(IOException::class.java) {
+            UpdateDownloader(directory).download(url("/asset.apk"), fileName) { _, _ -> }
+        }
+
+        assertEquals(markerBefore, markerFile.readText())
+        assertArrayEquals(body.copyOfRange(0, 400), target().readBytes())
+        server.disconnectBeforeHeaders = false
+        server.etag = "same-etag"
+        val file = UpdateDownloader(directory).download(url("/asset.apk"), fileName) { _, _ -> }
+        assertEquals("bytes=400-", server.rangeHeaders.last())
+        assertEquals("same-etag", server.ifRangeHeaders.last())
+        assertArrayEquals(body, file.readBytes())
+    }
+
+    @Test
+    fun `cancelling after receiving bytes preserves resume metadata`() {
+        server.etag = "same-etag"
+        server.truncateAfterBytes = 400
+        val downloader = UpdateDownloader(directory)
+
+        assertThrows(DownloadCancelledException::class.java) {
+            downloader.download(url("/asset.apk"), fileName) { done, _ ->
+                if (done > 0L) downloader.cancel()
+            }
+        }
+        assertEquals(400L, target().length())
+
+        server.truncateAfterBytes = null
+        val file = UpdateDownloader(directory).download(url("/asset.apk"), fileName) { _, _ -> }
+        assertEquals(listOf(null, "bytes=400-"), server.rangeHeaders)
+        assertEquals(listOf(null, "same-etag"), server.ifRangeHeaders)
+        assertArrayEquals(body, file.readBytes())
+    }
+
+    @Test
+    fun `a short 200 response cannot override the known asset size`() {
+        server.body = body.copyOfRange(0, 400)
+
+        assertThrows(IOException::class.java) {
+            UpdateDownloader(directory).download(
+                url("/asset.apk"), fileName, expectedSize = body.size.toLong()
+            ) { _, _ -> }
+        }
+    }
+
+    @Test
+    fun `Content-Range rejects negative reversed and out of total bounds`() {
+        for (header in listOf(
+            "bytes -1-999/1000", "bytes 400--1/1000", "bytes 999-400/1000",
+            "bytes 400-1000/1000", "bytes 400-999/-1", "bytes 400-999/0"
+        )) {
+            assertNull(header, parseContentRange(header))
+        }
     }
 
     @Test
@@ -235,6 +345,13 @@ class UpdateDownloaderTest {
         @Volatile
         var honorIfRange = false
 
+        /** 发出完整 Content-Length，但只写这些字节就断开连接。 */
+        @Volatile
+        var truncateAfterBytes: Int? = null
+
+        @Volatile
+        var disconnectBeforeHeaders = false
+
         val port: Int get() = socket.localPort
 
         fun start() = thread.start()
@@ -271,6 +388,7 @@ class UpdateDownloaderTest {
                 }
                 rangeHeaders += range
                 ifRangeHeaders += ifRange
+                if (disconnectBeforeHeaders) return
 
                 val serverBody = body
                 var start = if (honorRange) {
@@ -307,7 +425,7 @@ class UpdateDownloaderTest {
                     append("Connection: close\r\n\r\n")
                 }
                 out.write(header.toByteArray(Charsets.ISO_8859_1))
-                out.write(slice)
+                out.write(slice, 0, truncateAfterBytes?.coerceAtMost(slice.size) ?: slice.size)
                 out.flush()
             }
         }
