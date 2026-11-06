@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. It reflects the code as of **v1.4.0** (`versionCode = 8`). When in doubt, the source wins — update this file if you find a stale claim.
+This file provides guidance to coding agents (Codex, Claude Code, opencode, …) working in this repository. The Android source declares **v1.4.1** (`versionCode = 9`); see Versioning & Release below for the recorded release status. When in doubt, the source wins — update this file if you find a stale claim.
 
 **Monorepo.** This repository now hosts more than the Android app: `windows/` (the Windows client, UWP + WinUI 2) and `spec/` (cross-platform spec + test fixtures). Everything below except *Repository Layout* and *Commit Convention* describes the **Android app** only. Working in `windows/`? Read **`windows/AGENTS.md`** — it is canonical there.
 
@@ -25,9 +25,10 @@ Toolchain:
 
 | | |
 |---|---|
-| compileSdk / targetSdk | 36 (Android 15) |
+| compileSdk / targetSdk | API 36 |
 | minSdk | 24 |
-| Java / jvmTarget | 11 |
+| Gradle daemon JDK | 21 (`gradle/gradle-daemon-jvm.properties`: `toolchainVersion=21`; AGP 8.5 itself requires at least 17) |
+| Java source/target / Kotlin jvmTarget | 11 |
 | Kotlin | 1.9.24 |
 | Compose BOM | 2024.12.01 (compiler ext 1.5.14) |
 | Android Gradle Plugin | 8.5.0 |
@@ -65,7 +66,7 @@ Single source of truth: `app/build.gradle.kts` → `defaultConfig.versionName` /
 
 - `AboutScreen.kt` reads `BuildConfig.VERSION_NAME` — **never hardcode a version constant**. This needs `buildFeatures.buildConfig = true`.
 - Release flow: bump `versionCode` + `versionName` → commit `build: 升级至 vX.Y.Z ...` → `./gradlew assembleRelease` → upload `ncrust-android-universal-X.Y.Z.apk` to the current rolling release train (`CrateStack-*`), or open a new one if none exists today (`gh release create CrateStack-YYYYMMDD<A> --latest=false`) → user smoke-tests and publishes manually. Train/tag scheme and asset naming live in `docs/RELEASES.md`. Hotfixes may swap same-name assets in place without a version bump, provided the release notes say so.
-- Current: `versionName = "1.4.1"`, `versionCode = 9` (收藏写入 502 判成功 + 收藏态以红心 id 底表为准 + 主界面滑动切页；**尚未发布**). Latest release: Android 1.4.0 in train `CrateStack-20261015A` (2026-10-15) — 该 APK **不含** `4410100` 的「收藏写入体补 checkToken」修复（提交 2026-10-16，晚于资产上传），收藏隔天消失在 1.4.0 上依旧存在，修复随 1.4.1 发布。
+- Current Android source: `versionName = "1.4.1"`, `versionCode = 9`. Latest published assets are Android **1.4.1** and Windows **1.0.3** in train `CrateStack-20261025A` (published 2026-10-28 08:04:44 UTC), verified from GitHub Releases on 2026-11-06. See `docs/RELEASES.md` for download links. A matching source version does not establish which later master changes are included in that APK; check the release notes and the actual asset before claiming feature coverage.
 
 ## Commit Convention
 

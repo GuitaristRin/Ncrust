@@ -13,8 +13,8 @@ Ncrust 在同一个仓库里发布多个平台，各平台**版本线独立**。
 
 | 平台 | 版本 | 所在班次 | 下载 | 日期 |
 |---|---|---|---|---|
-| Android（通用包） | 1.4.0 | [`CrateStack-20261015A`](https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A) | [`ncrust-android-universal-1.4.0.apk`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261015A/ncrust-android-universal-1.4.0.apk) | 2026-10-15 |
-| Windows（UWP，x64） | 1.0.2 | [`CrateStack-20261015A`](https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A) | [`.appinstaller`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261015A/ncrust-windows-x86_64-1.0.2.appinstaller) · [`.msix`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261015A/ncrust-windows-x86_64-1.0.2.msix) · [`.cer`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261015A/ncrust-windows-x86_64-1.0.2.cer) | 2026-10-15 |
+| Android（通用包） | 1.4.1 | [`CrateStack-20261025A`](https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261025A) | [`ncrust-android-universal-1.4.1.apk`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261025A/ncrust-android-universal-1.4.1.apk) | 2026-10-28 |
+| Windows（UWP，x64） | 1.0.3 | [`CrateStack-20261025A`](https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261025A) | [`.appinstaller`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261025A/ncrust-windows-x86_64-1.0.3.appinstaller) · [`.msix`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261025A/ncrust-windows-x86_64-1.0.3.msix) · [`.cer`](https://github.com/GuitaristRin/Ncrust/releases/download/CrateStack-20261025A/ncrust-windows-x86_64-1.0.3.cer) | 2026-10-28 |
 | Windows Phone（Lumia 950 等） | — | — | — | 计划中 |
 | Linux | — | — | — | 计划中 |
 | macOS | — | — | — | 计划中 |
@@ -23,7 +23,7 @@ Ncrust 在同一个仓库里发布多个平台，各平台**版本线独立**。
 > 「收藏写入体补 checkToken」修复（`4410100` / `142e908`，2026-10-16）——这两个版本上
 > 「收藏隔天消失」依旧存在，修复随 1.4.1 / 1.0.3 发布。
 
-发布时更新本表。
+本表于 2026-11-06 按 GitHub Releases 核对；日期列为实际发布时间。相同版本号的主干源码可能继续变化，具体功能以班次说明与发布资产为准。发布时更新本表。
 
 ## 版本与班次
 

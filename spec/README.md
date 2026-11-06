@@ -26,23 +26,23 @@ Ncrust 各平台线（Android `app/`、Windows `windows/`、Lumia 原型 `lumia/
 |---|---|---|
 | `design/tokens.json` | 颜色（6 强调色 × 明/暗）、字号、缓动曲线、动画时长、布局常量 | ✅ 已落地（取自 Android + Kanesumi-sec-a） |
 | `api/endpoints.md` | 端点目录：路径、加密方式（REST / eapi / weapi）、参数、所用 host | ✅ 已落地（Windows M1，覆盖 Android 现行端点） |
-| `api/playlists.md` | 歌单主机/路径、匿名读取证据、分页与完整性判定、写操作待验证边界 | 📝 2026-10-28，只读探针通过；交互提案见 `docs/playlists/interaction.md` |
-| `fixtures/crypto/` | eapi / weapi / xeapi 固定输入 → 固定输出（随机量全部固定以保证可复现） | eapi/weapi ✅；xeapi 夹具已落地，两端实现进行中 |
-| `api/xeapi.md` | 官方 Android 9.x 请求加密层 + 收藏新通道 `/api/v1/radio/like` | 📝 2026-10-15 调研，线上探针通过 |
-| `fixtures/update/` | 应用内更新：跨班次按资产名找严格更高版本、忽略 draft / prerelease、资产名与扩展名校验；含已知两端差异说明 | ✅ Android 全覆盖；Windows 跑同一份夹具（两条规则待补齐） |
-| `api/entitlement.md` + `fixtures/entitlement/` | 登录失效 / VIP / 试听 / 无版权 / 音质受限的判定规则与界面要求，及三组判定夹具 | 📝 2026-10-15 实测落地，两端实现待做 |
+| `api/playlists.md` | 歌单主机/路径、匿名读取证据、分页与完整性判定、写操作待验证边界 | Android 实验入口已接入；fake-gateway 与模拟器验收记录见 [实施说明](../docs/playlists/implementation.md)，真实账号写入仍待验证 |
+| `fixtures/crypto/` | eapi / weapi / xeapi 固定输入 → 固定输出（随机量全部固定以保证可复现） | Windows 已接入三组夹具；Android 已接入 xeapi，eapi/weapi 夹具测试待补 |
+| `api/xeapi.md` | 官方 Android 9.x 请求加密层 + 收藏新通道 `/api/v1/radio/like` | 两端已接入实现与 xeapi 夹具测试；真实账号收藏持久性仍待验证 |
+| `fixtures/update/` | 应用内更新：跨班次按资产名找严格更高版本、忽略 draft / prerelease、资产名与扩展名校验 | ✅ 两端消费同一份夹具，prerelease 与扩展名的历史差异已消除 |
+| `api/entitlement.md` + `fixtures/entitlement/` | 登录失效 / VIP / 试听 / 无版权 / 音质受限的判定规则与界面要求，及三组判定夹具 | 两端实现及三组夹具测试已接入；真机与真实账号验收仍待完成 |
 | `tools/` | 零依赖 Node 参考实现与调研脚本：`xeapi.mjs`、`gen-xeapi-fixtures.mjs`、`probe-xeapi.mjs`（匿名探针）、`like-experiment.mjs`（收藏回滚对照实验，**会改账号数据，须账号主人同意**） | 📝 |
 | `tools/probe-playlists.mjs` + `.test.mjs` | 白名单匿名只读探针；`node --test spec/tools/probe-playlists.test.mjs` 校验读写边界与完整性摘要 | ✅ 4 项离线测试；公开样本 7 次读取通过，不证明账号写入 |
 | `fixtures/quality/` | 7 级音质阶梯、各起点的降级序列、FLAC 门控规则 | ✅ 已落地（Windows Core + 测试） |
-| `fixtures/queue/` | 队列操作用例：初始队列 + 模式 + 操作 → 期望队列与索引 | ✅ 已落地（Windows Core + 测试） |
-| `fixtures/lrc/` | LRC 时间戳解析、`tlyric` 双语合并用例 | ✅ 已落地（Windows Core + 测试） |
+| `fixtures/queue/` | 队列操作用例：初始队列 + 模式 + 操作 → 期望队列与索引 | Windows 全量接入；Android 已接入 remove 用例，其余操作夹具待补 |
+| `fixtures/lrc/` | LRC 时间戳解析、`tlyric` 双语合并用例 | Windows 全量接入；Android 已接入 parse 用例，merge 待补 |
 
 消费方：
 
-| 端 | 测试位置 | 接入时间 |
+| 端 | 测试位置 | 接入状态 |
 |---|---|---|
-| Windows | `windows/tests/Ncrust.Core.Tests`（net9.0 + xUnit） | M1，与 Core 同步编写 |
-| Android | `app/src/test`（JUnit） | Windows M3 |
+| Windows | `windows/tests/Ncrust.Core.Tests`（net9.0 + xUnit） | crypto、quality、queue、lrc、update、entitlement |
+| Android | `app/src/test`（JUnit） | xeapi、entitlement、update、queue 的 remove、lrc 的 parse；其余夹具待补 |
 
 ## 夹具格式约定
 
@@ -64,6 +64,6 @@ Ncrust 各平台线（Android `app/`、Windows `windows/`、Lumia 原型 `lumia/
   `insertNext` / `appendToQueue` / `playSongItem` / `insertAllNext` / `appendAllToQueue` /
   `moveInQueue` 等，并覆盖关键不变量 —— `queue[current]` 必须始终是正在播放的歌
   （去重时先记下当前歌 id，过滤后重新定位索引）。
-- **唯一有意偏差**：Android `removeFromQueue` 只做 clamp，删当前曲之前的歌会让当前索引
-  错位（破坏上述不变量）。queue 夹具按正确行为定义「删除后按歌曲身份重新定位当前索引」，
-  Android 侧在 M3 接入夹具时同步修正；细节见 `fixtures/queue/README.md`。
+- **已修正的历史偏差**：Android `removeFromQueue` 曾只做 clamp，删除当前曲之前的歌后索引
+  会错位。现已由 `PlaybackQueueLogic.removeAt` 按歌曲身份重新定位，
+  `PlaybackQueueSpecFixtureTest` 直接读取共享 remove 用例；细节见 `fixtures/queue/README.md`。
