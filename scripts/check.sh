@@ -18,124 +18,66 @@ echo ""
 echo -e "${BOLD}📊 Ncrust 项目代码行数统计 (纯 Kotlin)${RESET}"
 echo "==========================================="
 
-# ─── 分类累加 ───
-auth=0
-crypto=0
-library=0
-lyric=0
-network=0
-player=0
-ui_components=0
-ui_navigation=0
-ui_player=0
-ui_screen=0
-ui_theme=0
-ui_viewmodel=0
-ui_root=0
-main=0
-
-# 使用 glob 精确匹配，避免路径前缀冲突
-for f in \
-    auth/*.kt \
-    crypto/*.kt \
-    library/*.kt \
-    lyric/*.kt \
-    network/*.kt network/crypto/*.kt network/model/*.kt \
-    player/*.kt \
-    ui/components/*.kt \
-    ui/navigation/*.kt \
-    ui/player/*.kt \
-    ui/screen/*.kt \
-    ui/theme/*.kt \
-    ui/viewmodel/*.kt \
-    ui/*.kt \
-    *.kt
-do
-    [ -f "$f" ] || continue
+# 一次递归枚举统一模块、总行数、文件数与 Top 10 的统计范围。
+file_rows=()
+kt_total=0
+file_count=0
+while IFS= read -r -d '' f; do
+    f=${f#./}
     lines=$(wc -l < "$f")
-    case "$f" in
-        auth/*)             auth=$((auth + lines)) ;;
-        crypto/*)           crypto=$((crypto + lines)) ;;
-        library/*)          library=$((library + lines)) ;;
-        lyric/*)            lyric=$((lyric + lines)) ;;
-        network/crypto/*)   network=$((network + lines)) ;;
-        network/model/*)    network=$((network + lines)) ;;
-        network/*)          network=$((network + lines)) ;;
-        player/*)           player=$((player + lines)) ;;
-        ui/components/*)    ui_components=$((ui_components + lines)) ;;
-        ui/navigation/*)    ui_navigation=$((ui_navigation + lines)) ;;
-        ui/player/PlayerCardOverlay.kt) ui_player=$((ui_player + lines)) ;;
-        ui/player/PlayerCard.kt)        ui_player=$((ui_player + lines)) ;;
-        ui/player/FullPlayerControls.kt) ui_player=$((ui_player + lines)) ;;
-        ui/player/LyricsView.kt)        ui_player=$((ui_player + lines)) ;;
-        ui/player/QueueView.kt)         ui_player=$((ui_player + lines)) ;;
-        ui/player/SlimProgressBar.kt)   ui_player=$((ui_player + lines)) ;;
-        ui/player/*)        ui_player=$((ui_player + lines)) ;;
-        ui/screen/*)        ui_screen=$((ui_screen + lines)) ;;
-        ui/theme/*)         ui_theme=$((ui_theme + lines)) ;;
-        ui/viewmodel/*)     ui_viewmodel=$((ui_viewmodel + lines)) ;;
-        ui/*)               ui_root=$((ui_root + lines)) ;;
-        *.kt)               main=$((main + lines)) ;;
-    esac
-done
+    file_rows+=("$lines"$'\t'"$f")
+    kt_total=$((kt_total + lines))
+    file_count=$((file_count + 1))
+done < <(find . -type f -name '*.kt' -print0)
 
-kt_total=$((auth + crypto + library + lyric + network + player +
-            ui_components + ui_navigation + ui_player + ui_screen +
-            ui_theme + ui_viewmodel + ui_root + main))
+module_rows=""
+if [ "$file_count" -gt 0 ]; then
+    # 按一级包分组，ui 按二级包；新增包自动出现，不维护目录白名单。
+    module_rows=$(printf '%s\n' "${file_rows[@]}" | awk -F '\t' '
+        {
+            depth = split($2, parts, "/")
+            if (depth == 1) module = "(根目录)"
+            else if (parts[1] == "ui") module = depth > 2 ? "ui/" parts[2] : "ui/root"
+            else module = parts[1]
+            totals[module] += $1
+        }
+        END { for (module in totals) printf "%s\t%d\n", module, totals[module] }
+    ' | sort)
+fi
 
 # ─── 输出 ───
 echo ""
 echo -e "${GREEN}■■■ 按包/目录统计${RESET}"
-printf "  %-25s %s\n" "auth"                    "${auth}"
-printf "  %-25s %s\n" "crypto"                  "${crypto}"
-printf "  %-25s %s\n" "library"                 "${library}"
-printf "  %-25s %s\n" "lyric"                   "${lyric}"
-printf "  %-25s %s\n" "network"                 "${network}"
-printf "  %-25s %s\n" "player"                  "${player}"
-printf "  %-25s %s\n" "ui/components"           "${ui_components}"
-printf "  %-25s %s\n" "ui/navigation"           "${ui_navigation}"
-printf "  %-25s %s\n" "ui/player (播放卡片)"    "${ui_player}"
-printf "  %-25s %s\n" "ui/screen"               "${ui_screen}"
-printf "  %-25s %s\n" "ui/theme"                "${ui_theme}"
-printf "  %-25s %s\n" "ui/viewmodel"            "${ui_viewmodel}"
-printf "  %-25s %s\n" "ui/ResponsiveContent"    "${ui_root}"
-printf "  %-25s %s\n" "MainActivity.kt"         "${main}"
-printf "  %-25s ${YELLOW}%s${RESET}\n" "合计"   "${kt_total}"
+if [ "$file_count" -gt 0 ]; then
+    while IFS=$'\t' read -r module lines; do
+        printf "  %-25s %s\n" "$module" "$lines"
+    done <<< "$module_rows"
+fi
+printf "  %-25s ${YELLOW}%s${RESET}\n" "合计" "$kt_total"
 
-# 文件数
-file_count=$(find . -name '*.kt' -not -name 'check.sh' | wc -l)
 echo ""
 echo "==========================================="
-printf "${BOLD}  总计: ${YELLOW}%s${RESET} 行  /  %d 个文件${RESET}\n" "${kt_total}" "${file_count}"
+printf "${BOLD}  总计: ${YELLOW}%s${RESET} 行  /  %d 个文件${RESET}\n" "$kt_total" "$file_count"
 echo "==========================================="
 
 # ─── 占比 ───
 if [ "$kt_total" -gt 0 ]; then
     echo ""
     echo -e "${BOLD}各模块占比${RESET}"
-    for mod in auth crypto library lyric network player ui_components ui_navigation ui_player ui_screen ui_theme ui_viewmodel ui_root main; do
-        val=${!mod}
-        name=$mod
-        case "$mod" in
-            ui_components) name="ui/components" ;;
-            ui_navigation) name="ui/navigation" ;;
-            ui_player)     name="ui/player" ;;
-            ui_screen)     name="ui/screen" ;;
-            ui_theme)      name="ui/theme" ;;
-            ui_viewmodel)  name="ui/viewmodel" ;;
-            ui_root)       name="ui/root" ;;
-            main)          name="MainActivity" ;;
-        esac
-        pct=$(awk "BEGIN {printf \"%.1f\", ${val}*100/${kt_total}}")
-        printf "  %-25s %s%%\n" "$name" "$pct"
-    done
+    while IFS=$'\t' read -r module lines; do
+        pct=$(awk "BEGIN {printf \"%.1f\", $lines*100/$kt_total}")
+        printf "  %-25s %s%%\n" "$module" "$pct"
+    done <<< "$module_rows"
 fi
 
 # ─── Top 10 文件 ───
 echo ""
 echo -e "${BOLD}📄 最大文件 Top 10${RESET}"
-find . -name '*.kt' -exec wc -l {} \; | sort -nr | head -10 | while read -r lines path; do
-    printf "  %5d  %s\n" "$lines" "${path#./}"
-done
+if [ "$file_count" -gt 0 ]; then
+    # sed 读取完整排序结果，避免 head 提前关闭管道被 pipefail 误判为失败。
+    printf '%s\n' "${file_rows[@]}" | sort -nr | sed -n '1,10p' | while IFS=$'\t' read -r lines path; do
+        printf "  %5d  %s\n" "$lines" "$path"
+    done
+fi
 
 echo ""
