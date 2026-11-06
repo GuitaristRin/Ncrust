@@ -17,9 +17,10 @@ Android 专属的章节不适用于这里。
   `MetroLyricsPanel`。
 
 与 Android 主干功能已基本对齐（见「Android → Windows 映射」）；验收记录见 `docs/PLAN.md`。
-下一步：搜索历史入口、窄窗口的歌词 / 队列、多选批量操作、8 种语言。
+搜索历史入口、窄窗口的歌词 / 队列已接入（`ShellPage.ShowHistoryAsync`、`PlayerHost` 的 Narrow 布局）；
+多选批量操作与 8 种语言仍待实现。源码接入状态不等于设备验收通过，验收边界见 `docs/PLAN.md`。
 
-本文描述的是**已定的架构**，除「目录结构」里列出的现有文件外，其余都是待实现的设计。
+本文描述架构与现有实现；尚未落地的设计以明确标注及 `docs/PLAN.md` 的未完成条目为准。
 写代码时如果发现与本文冲突，先改本文、再改代码，并在 commit 里说明原因。
 
 相关文档：
@@ -150,7 +151,7 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 | `Lyrics/` | `LrcParser`、双语歌词合并、`LyricsCache`（200 条） | `lyric/` |
 | `Cache/` | `ContentCache`：首页快照（15s 新鲜期）+ 专辑 / 歌单 / 歌手的 LRU-32 | `cache/` |
 | `Search/` | 搜索历史（每类最多 10 条，14 天过期） | `SearchHistoryManager` |
-| `Update/` | `AppVersion`（版本比较）+ `UpdateChecker`（从 GitHub Releases JSON 里按 `ncrust-[平台]-[架构]-[版本]` 命名找更新，纯函数零反射） | —— Android 没有 |
+| `Update/` | `AppVersion`（版本比较）+ `UpdateChecker`（从 GitHub Releases JSON 里按 `ncrust-[平台]-[架构]-[版本]` 命名找更新，纯函数零反射） | `update/`（`AppVersion`、`UpdateChecker`） |
 | `Audio/` | 10 段均衡器：`EqualizerBands`（31 Hz ~ 16 kHz，Q 1.41，±12 dB）、`BiquadCoefficients`（RBJ peaking）、`EqualizerProcessor`（原地处理、参数快照无锁切换）、内置 / 命名预设、`EqualizerStore`（设置键 `eq_*` + `eq_presets.json`） | —— Android 没有 |
 | `Platform/` | 接口：`ISettingsStore`、`IFileStore`、`ICredentialStore`、`ICodecProbe`、`INetworkInfo` | —— |
 
@@ -465,7 +466,7 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 ### M2 · 与 Android 主干功能对齐
 
 音乐库云同步、专辑与歌手页、私人 FM 与 INFINITY、音质设置（✅）、明暗 3 模式（✅，强调色跟随系统）、
-多选、窄窗口细节（导航已由 NavigationView 最小模式覆盖）、Kanesumi.Xaml 的 M2 控件、dolby / jyeffect 解码实测。
+多选、窄窗口细节（导航与歌词 / 队列布局已接入，设备验收待补）、Kanesumi.Xaml 的 M2 控件、dolby / jyeffect 解码实测。
 
 ### M3 · 收尾
 
@@ -476,19 +477,18 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
 **多平台版本线相互独立**，跨平台最新版以仓库根 `docs/RELEASES.md` 为准（GitHub 一个仓库只有一个
 「Latest」徽章，不要靠它判断某平台最新版）。
 
-- 每个平台一条独立版本线，tag 前缀区分：`android-vX.Y.Z` / `win-vX.Y.Z` / `wp-vX.Y.Z` /
-  `linux-vX.Y.Z` / `macos-vX.Y.Z`。已发布的 Android 旧 tag（`v1.3.1` 等）保持不动，下一个版本起改用
-  `android-vX.Y.Z`。
+- 各平台版本线独立，发布共用滚动班次 tag `CrateStack-YYYYMMDD<A..Z>`；资产名为
+  `ncrust-[平台]-[架构]-[版本]`。旧 tag（`v1.3.1`、`win-v1.0.0` 等）保持不动，详见根 `docs/RELEASES.md`。
 - 版本号唯一来源是 `Package.appxmanifest` 里的 `Identity Version`
   （`Major.Minor.Build.Revision`）。About 页读取 `Package.Current.Id.Version`，**不要写死版本常量**。
   - 发布用 `X.Y.Z.0`；第 4 段（Revision）留作**开发构建号**，开发期自增即可，避免同版本不同内容
     被拒装（`0x80073CFB`）。Windows 发布线从 `1.0.0` 起。
-- Release 标题带平台名（`Windows 1.0.0` / `Android 1.3.2`）；创建时一律 `--latest=false`，
-  不让任意一端霸占 Latest 徽章。
+- 每班可包含多个平台，创建草稿时使用 `--latest=false`；负责人完成冒烟测试后手动发布，
+  各平台最新版仍按发布索引与资产名判断。
 
 ### Windows 产物与更新
 
-每个 `win-vX.Y.Z` 发布三样：**签名 MSIX**、**`.appinstaller`**、**公开证书 `.cer`**。
+每班的 Windows 版本发布三样：**签名 MSIX**、**`.appinstaller`**、**公开证书 `.cer`**。
 
 - **`.appinstaller` 是主入口**：只有经它安装的包，系统的 App Installer 才会按 `<UpdateSettings>`
   自动更新；直接装 `.msix` 的没有更新源，永远不会自动更新。所以 README / `docs/RELEASES.md` 的下载
