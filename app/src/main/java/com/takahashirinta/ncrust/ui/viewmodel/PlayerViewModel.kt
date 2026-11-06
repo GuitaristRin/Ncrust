@@ -63,6 +63,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val currentSongArtwork = MutableStateFlow<String?>(null)
 
     private var onSongEndedCallback: (() -> Unit)? = null
+    private var onSongNextCallback: (() -> Unit)? = null
     private var onSongPreviousCallback: (() -> Unit)? = null
     // 参数 = 本次过渡是否为 ExoPlayer 自然衔接（AUTO）。UI 层据此决定"队列索引能不能
     // 拿模式推断兜底"：非 AUTO（手动/系统控件/车机 seek）时应用队列并没有推进。
@@ -162,6 +163,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
             onSongEndedCallback?.invoke()
         }
+        // 系统手动切歌不算自然结束：不补报整首播放，单曲循环也必须前进。
+        PlaybackService.onPlaybackNext = { onSongNextCallback?.invoke() }
         PlaybackService.onPlaybackPrevious = { onSongPreviousCallback?.invoke() }
         PlaybackService.onIsPlayingChanged = { playing -> isPlaying.value = playing }
         PlaybackService.onBufferingChanged = { buffering -> isBuffering.value = buffering }
@@ -250,6 +253,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setOnSongEndedCallback(callback: () -> Unit) { onSongEndedCallback = callback }
+    fun setOnSongNextCallback(callback: () -> Unit) { onSongNextCallback = callback }
     fun setOnSongPreviousCallback(callback: () -> Unit) { onSongPreviousCallback = callback }
     fun setOnSongTransitionedCallback(callback: (Boolean) -> Unit) { onSongTransitionedCallback = callback }
     fun setOnUnplayableCallback(callback: () -> Unit) { onUnplayableCallback = callback }
@@ -907,6 +911,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         PlaybackService.onProgressUpdate = null
         PlaybackService.onPlaybackEnded = null
+        PlaybackService.onPlaybackNext = null
         PlaybackService.onPlaybackPrevious = null
         PlaybackService.onIsPlayingChanged = null
         PlaybackService.onSongTransitioned = null

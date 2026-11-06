@@ -66,7 +66,7 @@ internal data class ContentRange(val start: Long, val end: Long, val total: Long
 internal fun parseContentRange(header: String?): ContentRange? {
     if (header.isNullOrBlank()) return null
     val value = header.trim()
-    if (!value.startsWith("bytes", ignoreCase = true)) return null
+    if (!value.startsWith("bytes ", ignoreCase = true)) return null
     val rest = value.substringAfter(' ').trim()
     val slash = rest.indexOf('/')
     if (slash <= 0) return null
@@ -77,6 +77,7 @@ internal fun parseContentRange(header: String?): ContentRange? {
     val start = rangePart.substring(0, dash).trim().toLongOrNull() ?: return null
     val end = rangePart.substring(dash + 1).trim().toLongOrNull() ?: return null
     val total = if (totalPart == "*") -1L else totalPart.toLongOrNull() ?: return null
+    if (start < 0L || end < start || (totalPart != "*" && total <= end)) return null
     return ContentRange(start, end, total)
 }
 
@@ -138,7 +139,8 @@ class UpdateDownloader(private val directory: File) {
         if (localBytes > 0L && !canResume) {
             target.delete() // 无元数据 / 身份不符的旧残包：安全重下，绝不拼接
         }
-        markerFile.delete()
+        // 请求尚未得到有效响应时，原残包与身份仍可信；连接失败或取消不能丢掉它。
+        if (!canResume) markerFile.delete()
 
         var resumeFrom = if (canResume) localBytes else 0L
         var ifRange = if (canResume) stored?.etag else null
@@ -153,6 +155,7 @@ class UpdateDownloader(private val directory: File) {
                 if (response.code == 416 && resumeFrom > 0L) {
                     // 本地残留已经超过服务端那份（资产被换过）→ 清掉重来。
                     target.delete()
+                    markerFile.delete()
                     resumeFrom = 0L
                     ifRange = null
                     restart = true
@@ -163,14 +166,20 @@ class UpdateDownloader(private val directory: File) {
 
                 val append = response.code == 206 && resumeFrom > 0L
                 val range = if (append) parseContentRange(response.header("Content-Range")) else null
+                val knownTotal = when {
+                    expectedSize > 0L -> expectedSize
+                    append && stored != null -> stored.expectedSize
+                    else -> 0L
+                }
                 if (append) {
-                    val totalOk = expectedSize <= 0L ||
+                    val totalOk = knownTotal <= 0L ||
                         range == null ||
                         range.total <= 0L ||
-                        range.total == expectedSize
+                        range.total == knownTotal
                     // 206 的起点必须正是请求的续传点；总量若双方都知道也要吻合。
                     if (range == null || range.start != resumeFrom || !totalOk) {
                         target.delete()
+                        markerFile.delete()
                         resumeFrom = 0L
                         ifRange = null
                         restart = true
@@ -185,6 +194,7 @@ class UpdateDownloader(private val directory: File) {
 
                 val contentLength = body.contentLength()
                 val total = when {
+                    knownTotal > 0L -> knownTotal
                     append && range != null && range.total > 0L -> range.total
                     append && contentLength > 0L -> resumeFrom + contentLength
                     contentLength > 0L -> contentLength
@@ -192,8 +202,13 @@ class UpdateDownloader(private val directory: File) {
                 }
 
                 var downloaded = if (append) resumeFrom else 0L
-                onProgress(downloaded, total)
                 FileOutputStream(target, append).use { out ->
+                    // 先截断旧包（200）或保留已校验前缀（206），再记录本次响应身份。
+                    // 必须在读正文前落盘：断流 / 取消留下的每一段都要能安全续传。
+                    writeMarker(markerFile, ResumeMarker(
+                        url, identity, total, response.header("ETag") ?: if (append) ifRange else null
+                    ))
+                    onProgress(downloaded, total)
                     val buffer = ByteArray(64 * 1024)
                     body.byteStream().use { input ->
                         while (true) {
@@ -213,7 +228,6 @@ class UpdateDownloader(private val directory: File) {
                 }
                 if (cancelled) throw DownloadCancelledException()
 
-                writeMarker(markerFile, ResumeMarker(url, identity, expectedSize, response.header("ETag")))
                 return target
             }
             if (!restart) throw IOException("下载状态异常")
@@ -244,7 +258,7 @@ class UpdateDownloader(private val directory: File) {
     }
 
     private fun writeMarker(file: File, marker: ResumeMarker) {
-        runCatching { file.writeText(marker.encode()) }
+        file.writeText(marker.encode())
     }
 
     private companion object {

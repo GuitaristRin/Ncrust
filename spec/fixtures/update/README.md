@@ -69,7 +69,9 @@ Android 侧另外断言 `assetName` / `assetUrl` / `assetSize` / `publishedAt` /
    解析失败（缺版本段、`1.4.0.apk.sha256` 这种把扩展名当版本段的写法）→ 该资产忽略，绝不猜。
    不合规范的旧资产（`app-release.apk`、`app-debug.apk`、`manifest.json`）一律忽略。
 3. **draft 忽略**；**prerelease 忽略**（`docs/PLAN_2026-10.md` §1）。
-4. **班次内取最高**：一个 release 里若有多个合规资产，取其中版本最高者，URL 也跟随该版本。
+4. **班次内取最高**：一个 release 里若有多个合规资产，取其中版本最高者，URL 也跟随该版本，
+   不依赖资产排列顺序。Windows 的 `.appinstaller` / `.msix` / `.cer` 必须来自同一最高版本；
+   该版本缺少某类资产时对应 URL 为 `null`，不得借用旧版本资产补齐。
 5. **跨班次取最高**：遍历所有可见 release，取**严格大于当前版本**的最高者；同版本不算更新。
 6. **不依赖 Latest 徽章**，也不依赖 release 在数组里的顺序（班次是滚动的，顺序即发布时间）。
 

@@ -138,7 +138,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] 卡片不再重复传输控件；封面落在左栏；全屏时传输栏关闭命中测试
 - [x] 卡片右栏歌词 / 播放队列（原生 Pivot 切换，代替 `QueueSlide` 标量）：`LyricsController` + `MetroLyricsPanel`、
       `QueuePresenter`（三分区、点播、移除、将要播放区内拖动排序、清空）；收藏按钮；传输栏「词」/ 队列按钮
-- [ ] 窄窗口（< 600）的歌词 / 队列（目前卡片只有封面）
+- [x] 窄窗口（< 600）的歌词 / 队列：`PlayerHost.xaml` 的 Narrow 状态将 `SideTabs` 放入中间行，
+      `ApplyCardLayout` 配置小封面与歌词字号；目标窗口尺寸下的设备验收仍待补
 - [ ] 触屏拖拽（25% 阈值）；`Progress < 0.05` 重子树 `x:Load` 门控；全屏控件闲置自动隐藏
 - [ ] 进度条两次 tick 之间的 Composition 插值（目前是 2Hz 跳动）
 - [ ] **M0 #1 实测**：Release 下展开收起无掉帧、拖拽跟手、收起后重子树卸载
@@ -152,7 +153,8 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] Search：面板搜索框即时建议（500ms 防抖，选中即播）+ 搜索页三类 Tab、并发请求、取消过期查询、
       点歌记历史；共享模板字典 `Resources/Templates.xaml`
 - [x] 专辑 / 歌手结果可点进详情页（并记入搜索历史）
-- [ ] 搜索历史的展示入口（空查询时显示历史）
+- [x] 搜索历史的展示入口：`ShellPage.SearchGotFocus` / `SearchTextChanged` 在空查询时调用
+      `ShowHistoryAsync`，支持历史歌曲 / 专辑 / 歌手与查询词、单条移除及全部清除；设备交互验收待补
 - [x] 设置页（移植 Android「我的」+ About：账户 / 音质 / 播放 / 音效 / 外观 / 缓存 / 关于）
 - [x] 均衡器子页面（开关、预设、前级 + 10 段、命名保存 / 删除 / 重置）
 - [x] 专辑 / 歌手 / 歌单详情页（共用 `DetailHeader`：全部播放 / 插播 / 最后播放；专辑可收藏整张）
@@ -167,14 +169,14 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] 音质设置（7 档，不计费 / 计费两档默认 3 / 1）、歌词翻译开关、gapless 开关（设置页）
 - [x] 主题：强调色跟随 Windows 系统强调色（`KanesumiAccent`，不再做 6 色预设）；
       明暗 3 模式（`AppTheme`，键 `theme_mode` 同 Android）
-- [ ] 多选批量操作、窄窗口细节（导航已由 NavigationView 最小模式覆盖）
+- [ ] 多选批量操作、窄窗口细节验收（导航与歌词 / 队列布局已接入）
 - [ ] dolby / jyeffect 在 Windows 上的解码实测（解不了靠自动降级兜底）
 
 ## 阶段 9 · M3 收尾与发布
 
 - [ ] 8 种语言（`Strings` 一一对应英文；运行时切换 + `Bindings.Update()`）
 - [ ] `QrPair` 被扫端、`ncrust://` 协议、剪贴板链接
-- [ ] Android 端接入 `spec/fixtures` 测试
+- [~] Android 已接入 xeapi、权益、更新、队列 remove 及 LRC parse 夹具；其余夹具待补，详见根 `spec/README.md`
 - [x] 应用内更新：`Ncrust.Core.Update`（版本比较 + GitHub Releases 资产扫描，单测覆盖）+
       `Ncrust.App.Update.UpdateService`（启动静默检查 6h 缓存 + 设置页「检查更新」+ 下载 `.appinstaller`
       交 App Installer）；`tools/release/` 提供 `release.ps1` / `make-appinstaller.ps1` / `install-cert.ps1`
@@ -232,6 +234,6 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - **阶段 1（Ncrust.Core）全部完成**，Core 测试 230 个通过（含均衡器、INFINITY 续播）；阶段 2 平台层 + 独立登录窗口完成；
   阶段 3 PlaybackEngine 经 review 修正并上机验证可播放。Release|x64 + .NET Native 构建零警告。
 - 外壳（标准汉堡菜单 + 自定义标题栏）、Groove 式传输栏、搜索页（原生 Pivot）、首页均已上机验证（见上节）。
-- 设置页与 10 段均衡器已落地（包版本 0.1.2.0），均衡器负责人已验。
+- 设置页与 10 段均衡器已落地，均衡器负责人已验（历史记录见上节）；当前清单版本为 1.0.3.0。
 - 歌词 / 队列、详情页、音乐库、右键菜单、私人 FM / INFINITY 已落地，与 Android 主干基本对齐。
-- 下一步：搜索历史入口 → 窄窗口歌词 / 队列 → 多选批量 → i18n。
+- 搜索历史入口与窄窗口歌词 / 队列已有源码实现；设备交互验收仍待补。后续功能包括多选批量与 i18n。

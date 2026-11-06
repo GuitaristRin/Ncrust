@@ -96,6 +96,7 @@ class PlaybackService : MediaLibraryService() {
 
         var onProgressUpdate: ((Long, Long) -> Unit)? = null
         var onPlaybackEnded: (() -> Unit)? = null
+        var onPlaybackNext: (() -> Unit)? = null
         var onPlaybackPrevious: (() -> Unit)? = null
         var onIsPlayingChanged: ((Boolean) -> Unit)? = null
         // Fired on the main thread when ExoPlayer reports a playback error (decode/source
@@ -198,7 +199,7 @@ class PlaybackService : MediaLibraryService() {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() { resumePlayback() }
                 override fun onPause() { player.pause() }
-                override fun onSkipToNext() { onPlaybackEnded?.invoke() }
+                override fun onSkipToNext() { onPlaybackNext?.invoke() }
                 override fun onSkipToPrevious() { onPlaybackPrevious?.invoke() }
                 override fun onSeekTo(pos: Long) { player.seekTo(pos) }
             })
@@ -365,7 +366,7 @@ class PlaybackService : MediaLibraryService() {
                 player.seekTo(pos)
             }
             "previous" -> onPlaybackPrevious?.invoke()
-            "next" -> onPlaybackEnded?.invoke()
+            "next" -> onPlaybackNext?.invoke()
         }
 
         val url = intent?.getStringExtra("url")

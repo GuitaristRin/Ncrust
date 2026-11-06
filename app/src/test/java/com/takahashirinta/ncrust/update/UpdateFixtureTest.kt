@@ -79,6 +79,9 @@ class UpdateFixtureTest {
             "Android 跳过的应只有 Windows 专有用例（platforms 里没有 android）",
             listOf(
                 "update.windows.highest-across-trains",
+                "update.windows.highest-within-train",
+                "update.windows.highest-within-train-appinstaller-only",
+                "update.windows.highest-within-train-msix-only",
                 "update.windows.same-version",
                 "update.windows.train.higher-version"
             ),

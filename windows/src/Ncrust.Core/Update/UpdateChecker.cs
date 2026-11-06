@@ -127,8 +127,29 @@ namespace Ncrust.Core.Update
 
                     // 只有认得的三样资产才算数：否则一个只带签名 / 校验文件（如 .asc）的班次会被当成
                     // 「有更新但三样 URL 全空」，用户点了也装不了。
+                    var extension = rest.Substring(dot + 1).ToLowerInvariant();
+                    if (extension != "appinstaller" && extension != "msix" && extension != "cer" && extension != "apk")
+                    {
+                        continue;
+                    }
+
+                    var comparison = version.CompareTo(releaseVersion);
+                    if (comparison < 0)
+                    {
+                        continue;
+                    }
+
+                    if (comparison > 0)
+                    {
+                        // 三样 URL 只属于最高版本：升档时清空旧槽，缺项也不能借旧版本补齐。
+                        releaseVersion = version;
+                        appInstaller = null;
+                        msix = null;
+                        cer = null;
+                    }
+
                     var url = asset.GetString("browser_download_url");
-                    switch (rest.Substring(dot + 1).ToLowerInvariant())
+                    switch (extension)
                     {
                         case "appinstaller":
                             appInstaller = url;
@@ -143,13 +164,6 @@ namespace Ncrust.Core.Update
                             // 共享夹具（spec/fixtures/update）也拿 Android 平台的用例喂本函数：.apk 计入版本，
                             // 本端没有对应的 URL 槽，Windows 应用本身永远不会以 android 平台调用它。
                             break;
-                        default:
-                            continue;
-                    }
-
-                    if (releaseVersion == null || version.CompareTo(releaseVersion) > 0)
-                    {
-                        releaseVersion = version;
                     }
                 }
 

@@ -4,13 +4,13 @@
 
 ### 把网易云的曲库，装进一块直角玻璃
 
-**Kanesumi Design · GPU 零重组动画 · 无缝播放 · 7 级音质 · 车机适配 · 8 语言**
+**Kanesumi Design · GPU 零重组动画 · 无缝播放（实验） · 7 级音质 · 车机适配 · 8 语言**
 
 Android · Kotlin + Jetpack Compose + Media3 ｜ Windows · C# + UWP + WinUI 2 ｜ eapi 加密直连 · 无中间服务器
 
 平台主线：Windows（C#/WinUI）、Android（Kotlin）、Linux（Rust/Kanesumi）、Lumia 950（C++/WinUI）、Android 4 极简版。当前实现与计划状态见 [平台规划](docs/PLATFORMS.md)；Lumia 原型在 `lumia/`，Linux 与 Android 4 尚未形成可发行应用。当前先推进 Ncrust，Ritsudou 的独立技术方向暂缓。
 
-[![Version](https://img.shields.io/badge/version-1.3.2-brightgreen?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
+[![Version](https://img.shields.io/badge/version-1.4.1-brightgreen?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
 [![APK](https://img.shields.io/badge/APK-3.9%20MB-blue?style=flat-square)](https://github.com/GuitaristRin/Ncrust/releases)
 [![API](https://img.shields.io/badge/API-24%2B-green?style=flat-square&logo=android)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.24-purple?style=flat-square&logo=kotlin)](https://kotlinlang.org)
@@ -76,7 +76,7 @@ Android · Kotlin + Jetpack Compose + Media3 ｜ Windows · C# + UWP + WinUI 2 �
 
 - **7 级音质**：压缩 → 较好 → 更好 → 无损 → 高解析 → 高清环绕声 → 杜比全景声
 - **分网络偏好**：Wi-Fi 与移动数据独立设置，默认无损 / 较好
-- **无缝播放（gapless）**：进入最后 60 秒预加载下一首，切歌即播
+- **无缝播放（gapless，实验）**：默认关闭；在播放设置中手动开启后，进入最后 60 秒预加载下一首。目前仍可能出现交接不稳定，详见设置页实验提示
 - **自动降档**：解码失败或音频输出故障时同曲降一档重试，避免「进度在走但没声音」
 - **三区队列**：已播 / 当前 / 待播，触摸即拖重排、边缘自动滚动、清空队列
 - **播放上报**：复刻官方 `webLog`，本地收听计入推荐与听歌指数
@@ -136,7 +136,7 @@ App 不提供手动粘贴 Cookie，登录方式：
 
 ### 环境要求
 
-Android Studio Hedgehog+ · JDK 11 · Kotlin 1.9.24 · Gradle 9.3.1 · Android SDK 36（minSdk 24）
+Android Studio Hedgehog+ · JDK 21（`gradle/gradle-daemon-jvm.properties` 固定 Gradle daemon 使用 21）· Kotlin 1.9.24 · Gradle 9.3.1 · Android SDK 36（minSdk 24）。AGP 8.5 本身最低要求 JDK 17；本项目按 daemon 配置准备 JDK 21，Java / Kotlin 编译目标仍为 11。
 
 ### ⚠️ 必须先克隆 Kanesumi
 
