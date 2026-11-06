@@ -622,6 +622,143 @@
     }
   },
   {
+    "id": "update.windows.highest-within-train",
+    "description": "同一班次新旧 Windows 三件套交错排列 → 版本与三样 URL 都取最高版本，旧资产不得覆盖新资产。",
+    "source": "fixtures/update/README.md 规则 4；UpdateChecker.cs 版本取最高但 URL 按顺序覆盖的回归",
+    "platforms": ["windows"],
+    "input": {
+      "currentVersion": "1.0.0",
+      "platform": "windows",
+      "arch": "x86_64",
+      "releases": [
+        {
+          "tag_name": "CrateStack-20261015A",
+          "html_url": "https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A",
+          "draft": false,
+          "prerelease": false,
+          "assets": [
+            {
+              "name": "ncrust-windows-x86_64-1.0.2.appinstaller",
+              "browser_download_url": "https://d/1.0.2.appinstaller"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.1.appinstaller",
+              "browser_download_url": "https://d/1.0.1.appinstaller"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.1.msix",
+              "browser_download_url": "https://d/1.0.1.msix"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.2.msix",
+              "browser_download_url": "https://d/1.0.2.msix"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.2.cer",
+              "browser_download_url": "https://d/1.0.2.cer"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.1.cer",
+              "browser_download_url": "https://d/1.0.1.cer"
+            }
+          ]
+        }
+      ]
+    },
+    "expect": {
+      "version": "1.0.2",
+      "releaseTag": "CrateStack-20261015A",
+      "releasePageUrl": "https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A",
+      "windowsAssets": {
+        "appInstallerUrl": "https://d/1.0.2.appinstaller",
+        "msixUrl": "https://d/1.0.2.msix",
+        "cerUrl": "https://d/1.0.2.cer"
+      }
+    }
+  },
+  {
+    "id": "update.windows.highest-within-train-msix-only",
+    "description": "最高 Windows 版本只有 msix → appinstaller 与 cer 保持空，不能从同班次旧版本补齐。",
+    "source": "fixtures/update/README.md 规则 4；UpdateService.cs 优先 appinstaller、缺失才退回 msix",
+    "platforms": ["windows"],
+    "input": {
+      "currentVersion": "1.0.0",
+      "platform": "windows",
+      "arch": "x86_64",
+      "releases": [
+        {
+          "tag_name": "CrateStack-20261015A",
+          "html_url": "https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A",
+          "assets": [
+            {
+              "name": "ncrust-windows-x86_64-1.0.1.appinstaller",
+              "browser_download_url": "https://d/1.0.1.appinstaller"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.2.msix",
+              "browser_download_url": "https://d/1.0.2.msix"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.1.cer",
+              "browser_download_url": "https://d/1.0.1.cer"
+            }
+          ]
+        }
+      ]
+    },
+    "expect": {
+      "version": "1.0.2",
+      "releaseTag": "CrateStack-20261015A",
+      "releasePageUrl": "https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A",
+      "windowsAssets": {
+        "appInstallerUrl": null,
+        "msixUrl": "https://d/1.0.2.msix",
+        "cerUrl": null
+      }
+    }
+  },
+  {
+    "id": "update.windows.highest-within-train-appinstaller-only",
+    "description": "最高 Windows 版本只有 appinstaller → msix 与 cer 保持空，不能从同班次旧版本补齐。",
+    "source": "fixtures/update/README.md 规则 4；UpdateChecker.cs 只保留最高版本的三样 URL",
+    "platforms": ["windows"],
+    "input": {
+      "currentVersion": "1.0.0",
+      "platform": "windows",
+      "arch": "x86_64",
+      "releases": [
+        {
+          "tag_name": "CrateStack-20261015A",
+          "html_url": "https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A",
+          "assets": [
+            {
+              "name": "ncrust-windows-x86_64-1.0.1.msix",
+              "browser_download_url": "https://d/1.0.1.msix"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.2.appinstaller",
+              "browser_download_url": "https://d/1.0.2.appinstaller"
+            },
+            {
+              "name": "ncrust-windows-x86_64-1.0.1.cer",
+              "browser_download_url": "https://d/1.0.1.cer"
+            }
+          ]
+        }
+      ]
+    },
+    "expect": {
+      "version": "1.0.2",
+      "releaseTag": "CrateStack-20261015A",
+      "releasePageUrl": "https://github.com/GuitaristRin/Ncrust/releases/tag/CrateStack-20261015A",
+      "windowsAssets": {
+        "appInstallerUrl": "https://d/1.0.2.appinstaller",
+        "msixUrl": null,
+        "cerUrl": null
+      }
+    }
+  },
+  {
     "id": "update.windows.same-version",
     "description": "Windows 侧：班次里就是当前版本 → 无更新。",
     "source": "UpdateChecker.cs：严格大于当前版本",

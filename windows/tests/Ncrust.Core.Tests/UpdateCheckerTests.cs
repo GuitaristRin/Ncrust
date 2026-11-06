@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Ncrust.Core.Update;
 using Xunit;
 
@@ -14,8 +15,10 @@ public class UpdateCheckerTests
     /// 夹具用例目前全部两端适用（prerelease 与扩展名两条已在 Windows 补齐）；若将来有用例只标了
     /// 一端，这里会显式跳过并断言出来，不假装覆盖。
     /// </summary>
-    [Fact]
-    public void Find_MatchesUpdateFixture()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Find_MatchesUpdateFixture(bool reverseAssets)
     {
         using var doc = Spec.LoadJson("fixtures", "update", "releases.json");
         var cases = doc.RootElement;
@@ -37,10 +40,20 @@ public class UpdateCheckerTests
             var current = AppVersion.Parse(input.GetProperty("currentVersion").GetString()!);
             var platform = input.GetProperty("platform").GetString()!;
             var arch = input.GetProperty("arch").GetString()!;
-            // 夹具里存的是结构化 JSON，UpdateChecker 收的是 API 原文，所以取原始文本。
-            var releasesJson = input.GetProperty("releases").GetRawText();
+            // 同一份夹具正序、倒序各跑一次，资产顺序不能改变版本与下载地址的对应关系。
+            var releases = JsonNode.Parse(input.GetProperty("releases").GetRawText())!.AsArray();
+            if (reverseAssets)
+            {
+                foreach (var release in releases)
+                {
+                    if (release?["assets"] is JsonArray assets)
+                    {
+                        release["assets"] = new JsonArray(assets.Reverse().Select(a => a?.DeepClone()).ToArray());
+                    }
+                }
+            }
 
-            var info = UpdateChecker.Find(releasesJson, current, platform, arch);
+            var info = UpdateChecker.Find(releases.ToJsonString(), current, platform, arch);
 
             var expect = testCase.GetProperty("expect");
             if (expect.ValueKind == JsonValueKind.Null)
