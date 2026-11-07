@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -9,7 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{C4CD3872
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ncrust.Core", "src\Ncrust.Core\Ncrust.Core.csproj", "{E99C94D7-402D-42AD-9A4D-C5B03D6AE99E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kanesumi.Xaml", "src\Kanesumi.Xaml\Kanesumi.Xaml.csproj", "{3F1B6C2E-8A47-4D05-9E3B-5C7A2D8F41E6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kanesumi.Xaml", "..\..\Kanesumi-xaml\Kanesumi.Xaml.csproj", "{3F1B6C2E-8A47-4D05-9E3B-5C7A2D8F41E6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ncrust.App", "src\Ncrust.App\Ncrust.App.csproj", "{9D4E7A21-6B3C-4F58-A1E2-7C5B3D9F0A48}"
 EndProject

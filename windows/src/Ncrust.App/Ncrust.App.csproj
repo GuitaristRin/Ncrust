@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
 
@@ -217,7 +217,7 @@
       <Project>{143062E4-C049-48B6-83A3-D47F66BCACCE}</Project>
       <Name>Ncrust.Audio</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Kanesumi.Xaml\Kanesumi.Xaml.csproj">
+    <ProjectReference Include="..\..\..\..\Kanesumi-xaml\Kanesumi.Xaml.csproj">
       <Project>{3F1B6C2E-8A47-4D05-9E3B-5C7A2D8F41E6}</Project>
       <Name>Kanesumi.Xaml</Name>
     </ProjectReference>
