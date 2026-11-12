@@ -412,8 +412,10 @@ fun PlayerCard(
                         }
                     }
                     coroutineScope.launch {
+                        // 上拉进入全屏的阈值刻意放宽：以展开态为基准，往上 20% 就落定，
+                        // 不再要求拖过一半——否则手一松就弹回迷你栏。收起方向仍要拖掉 25%。
                         val target = if (startProgress < 0.5f) {
-                            if (progress.value >= 0.5f) 1f else 0f
+                            if (progress.value >= 0.2f) 1f else 0f
                         } else {
                             if (progress.value >= 0.75f) 1f else 0f
                         }
