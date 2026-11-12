@@ -59,13 +59,16 @@ class NcrustApplication : Application(), ImageLoaderFactory {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        when {
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
+        // 只能用精确匹配：`level >= TRIM_MEMORY_RUNNING_LOW` 会把 UI_HIDDEN(20) 和 BACKGROUND(40/60/80)
+        // 也算进来，于是每次锁屏都清空图片缓存 —— 熄屏边听边播时，下一首封面只能冷解码（实测数百毫秒
+        // 的 CPU/分配尖峰），正好落在蓝牙最容易被饿死的窗口里。
+        when (level) {
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE -> ContentCache.clearAll()
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL,
+            ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
                 ContentCache.clearAll()
                 Coil.imageLoader(this).memoryCache?.clear()
-            }
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE -> {
-                ContentCache.clearAll()
             }
         }
     }

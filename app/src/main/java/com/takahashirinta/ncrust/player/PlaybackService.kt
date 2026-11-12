@@ -170,9 +170,11 @@ class PlaybackService : MediaLibraryService() {
                     )
                     .build()
             )
-            // 动态调度：缓冲充足时播放线程按需唤醒，而不是固定每 10ms 跑一次 doSomeWork。
-            // 实测（Xperia 10 VII，熄屏放 MP3）播放线程 + 解码线程约占一个核的 10%，是熄屏耗电的大头。
-            .experimentalSetDynamicSchedulingEnabled(true)
+            // 动态调度是默认关闭的实验项：它把播放线程的 doSomeWork 从固定节拍改成「按渲染器
+            // 下次可继续的时间点再唤醒」，于是 sink 补给时机取决于内核唤醒延迟 —— 熄屏 + 系统负载高
+            // 时（深睡 cgroup、CPU 抢占）正是它掉链子的场景，实测表现为蓝牙 A2DP 断续。
+            // 省电收益（约一个核的 10%）不值得用爆音换，保持关闭。
+            .experimentalSetDynamicSchedulingEnabled(false)
             .build()
 
         // 音频 offload：把 MP3/AAC 解码交给硬件 DSP，熄屏长听时 CPU 可以真正睡下去。
@@ -777,7 +779,10 @@ class PlaybackService : MediaLibraryService() {
         progressJob = scope.launch {
             while (isActive && player.isPlaying) {
                 onProgressUpdate?.invoke(player.currentPosition, player.duration)
-                updatePlaybackState()
+                // 不再每 tick 推 updatePlaybackState()：PlaybackStateCompat 已带
+                // setState(state, position, speed=1f)，锁屏/通知会按速度自己外推位置；每 ~900ms 一次的
+                // 跨进程 Binder 写只会让锁屏媒体卡片每秒被两个 session 各刷几次。位置跳变仍由
+                // onPositionDiscontinuity / onPlaybackStateChanged 主动推。
                 // 500 ms tick：歌词滚动/进度条精度感知不到差异，但把 UI 层 4Hz
                 // 广播降到 2Hz，PlayerViewModel 的三个 StateFlow / SlimProgressBar
                 // 每秒重绘次数直接减半，低端机主线程 snapshot 广播压力显著下降
