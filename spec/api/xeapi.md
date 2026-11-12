@@ -84,6 +84,21 @@ Cookie: <登录 cookie>; os=android; osver=16; appver=9.1.65; buildver=<同上>;
 `deviceId` 每台设备生成一次后持久化（32 位小写 hex），公钥请求与业务请求用同一个。
 **不要每次请求换 deviceId** —— 那正是风控画像里「非真实设备」的特征。
 
+**身份必须自洽**（2026-11-12 官方 9.6.22 复核）。官方 UA 由
+`NeteaseMusic/<版本>.<构建后缀>(<buildNo>);<系统 http.agent>` 现拼（`y22/b.java`），
+`x-appver` / cookie `appver` / 公钥请求的 `appVersion` 取**同一个**版本号，`x-osver` 取真实系统版本
+（`icustomconfig/j0.java`、`AbsCookieStore`）。三者互相矛盾的组合（例：UA 说 9.5.61、`x-appver` 说 9.1.65、
+UA 里机型说 Android 12 而 `x-osver` 说 16）在真实客户端不可能出现。Ncrust 1.4.2 及更早正是这种组合，
+收藏写入被回 `524「当前环境异常，已取消喜欢」`；读取完全正常。因此 UA / 头 / cookie / 公钥 version
+必须有单一版本来源，系统维度取设备真值。
+
+设备 cookie 也不止 `deviceId`：官方 `AbsCookieStore.initDevicesCookie` 还写 `mobilename`、`brand`、
+`resolution`、`channel`、`versioncode`、`packageType`、`screenType`、`fortest`（值经
+`validateAndEncode`：去控制字符 + UTF-8 URL 编码，空值落 `unknown`）。Android 端只补语义明确的四项
+（机型 / 品牌 / 分辨率 / versioncode）；`channel`、`packageType`、`screenType` 是网易内部取值，臆造等于
+制造新的不一致，故不发送。`x-music-a` / `x-music-tu` 仅在 cookie 里存在时镜像成请求头；`x-appkey`
+在云音乐 App 里 `appKey()` 恒为空，官方同样不发。
+
 ### 3.4 响应与会话
 
 - 响应体：`AES-128-ECB-decrypt(EAPI_KEY, body)`；结果以 `1f 8b` 开头时再 gunzip；得到 JSON。

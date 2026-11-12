@@ -32,8 +32,8 @@ object XeapiState {
     private const val KEY_SK = "xeapi_sk"
     private const val KEY_NEXT_UPDATE = "xeapi_next_update_time"
 
-    /** 公钥接口的 `appVersion`（官方 9.5.61，xeapi.md §2）。 */
-    private const val KEY_APP_VERSION = "9.5.61"
+    /** 公钥接口的 `appVersion`：与 UA / `x-appver` 同源，见 [XeapiIdentity]。 */
+    private const val KEY_APP_VERSION = XeapiIdentity.APP_VERSION
 
     /** 响应没给 `nextUpdateTime`（或已过期）时的兜底有效期，避免每次请求都打公钥接口。 */
     private const val FALLBACK_KEY_TTL_MS = 12 * 60 * 60 * 1000L

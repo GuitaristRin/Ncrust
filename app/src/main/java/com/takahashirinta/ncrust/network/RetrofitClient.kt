@@ -39,11 +39,13 @@ object RetrofitClient {
     private const val CLIENT_LOG_URL = "https://clientlog.music.163.com"
     // os=osx 身份专用的 Mac Chrome UA：参考实现的 eapi 分支里 `cookie.os === 'osx'` 时才用它。
     private const val OSX_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    // 官方 Android 9.5.61 的 UA 与设备字段，xeapi 的公钥请求与业务请求共用同一套指纹。
-    private const val ANDROID_UA = "NeteaseMusic/9.5.61.260802021928(9005061);Dalvik/2.1.0 (Linux; U; Android 12; HBN-AL00 Build/cd737a2.0)"
+    // xeapi 的 Android 身份：UA / x-appver / osver / 公钥请求 version 必须同源（XeapiIdentity）。
+    // 历史上这里硬编码成「UA 9.5.61 + appver 9.1.65 + osver 16 + Android 12 机型」的自相矛盾组合，
+    // 服务端会把收藏写入判成「当前环境异常，已取消喜欢」（524）。
+    private val ANDROID_UA: String = XeapiIdentity.userAgent
     private const val XEAPI_OS = "android"
-    private const val XEAPI_OSVER = "16"
-    private const val XEAPI_APPVER = "9.1.65"
+    private val XEAPI_OSVER: String = XeapiIdentity.osVersion
+    private const val XEAPI_APPVER = XeapiIdentity.APP_VERSION
     private const val ANTI_CHEAT_URL = "https://ac.dun.163yun.com/v3/b?pn=YD00000558929251"
     private val FORM_CONTENT_TYPE = "application/x-www-form-urlencoded;charset=utf-8".toMediaType()
 
@@ -416,6 +418,8 @@ object RetrofitClient {
         cookiePairs["buildver"] = buildver
         cookiePairs["deviceId"] = deviceId
         cookiePairs["sDeviceId"] = deviceId
+        // 官方 initDevicesCookie 还会带机型 / 品牌 / 分辨率 / versioncode；缺这些同样是可识别指纹。
+        XeapiIdentity.deviceCookies().forEach { (key, value) -> cookiePairs[key] = value }
 
         val builder = Request.Builder()
             .url(url)
@@ -432,6 +436,9 @@ object RetrofitClient {
             .header("Cookie", cookiePairs.entries.joinToString("; ") { "${it.key}=${it.value}" })
         // 已登录时 x-music-u 与 Cookie 里的 MUSIC_U 同值（xeapi.md §3.3）。
         if (!musicU.isNullOrEmpty()) builder.header("x-music-u", musicU)
+        // 官方 icustomconfig/j0 把 MUSIC_A / MUSIC_TU 也镜像成头；有 cookie 才发，没有就不发。
+        cookiePairs["MUSIC_A"]?.takeIf { it.isNotEmpty() }?.let { builder.header("x-music-a", it) }
+        cookiePairs["MUSIC_TU"]?.takeIf { it.isNotEmpty() }?.let { builder.header("x-music-tu", it) }
         if (antiCheatToken != null) builder.header("X-antiCheatToken", antiCheatToken)
 
         return xeapiWriteClient.newCall(builder.build()).execute().use { response ->
