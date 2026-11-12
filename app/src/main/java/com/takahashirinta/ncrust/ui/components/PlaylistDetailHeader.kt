@@ -17,14 +17,13 @@ import io.github.takahashirinta.kanesumi.core.theme.*
 @Composable
 fun PlaylistDetailHeader(
     coverUrl: String?, title: String, privacy: String?, trackCount: Int, description: String,
-    complete: Boolean, management: Boolean, owned: Boolean, selecting: Boolean,
-    onPlay: (() -> Unit)?, onSelect: (() -> Unit)?, onEdit: () -> Unit, onDelete: () -> Unit,
-    selection: @Composable ColumnScope.() -> Unit = {}
+    complete: Boolean, management: Boolean, owned: Boolean,
+    onPlay: (() -> Unit)?, onEditTracks: (() -> Unit)?, onEdit: () -> Unit, onDelete: () -> Unit
 ) {
     val s = LocalStrings.current
     val colors = LocalMetroColors.current
     var menu by remember { mutableStateOf(false) }
-    LaunchedEffect(management, owned, selecting) { menu = false }
+    LaunchedEffect(management, owned) { menu = false }
     val metadata: @Composable ColumnScope.() -> Unit = {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
@@ -48,22 +47,19 @@ fun PlaylistDetailHeader(
             MetroText(s.playlists.incomplete, style = LocalMetroTypography.current.caption,
                 color = colors.onSurfaceVariant)
         }
-        if (management) {
-            if (selecting) {
-                Spacer(Modifier.height(16.dp))
-                selection()
-            } else if (onSelect != null || owned) {
-                Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (onSelect != null) PlaylistButton(s.playlists.selectTracks, onSelect, Modifier.weight(1f),
+        if (management && (onEditTracks != null || owned)) {
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // 本人歌单进「编辑」；别人的歌单同一入口只做选择（把歌加进自己的歌单）。
+                if (onEditTracks != null) PlaylistButton(if (owned) s.playlists.edit else s.playlists.selectTracks,
+                    onEditTracks, Modifier.weight(1f),
+                    containerColor = colors.surfaceVariant, contentColor = colors.onBackground)
+                if (owned) Box {
+                    PlaylistButton(s.playlists.manage, { menu = true },
                         containerColor = colors.surfaceVariant, contentColor = colors.onBackground)
-                    if (owned) Box {
-                        PlaylistButton(s.playlists.manage, { menu = true },
-                            containerColor = colors.surfaceVariant, contentColor = colors.onBackground)
-                        MetroDropdownMenu(menu, { menu = false }, alignment = Alignment.BottomEnd) {
-                            MetroDropdownMenuItem(s.playlists.edit, { menu = false; onEdit() })
-                            MetroDropdownMenuItem(s.playlists.delete, { menu = false; onDelete() })
-                        }
+                    MetroDropdownMenu(menu, { menu = false }, alignment = Alignment.BottomEnd) {
+                        MetroDropdownMenuItem(s.playlists.edit, { menu = false; onEdit() })
+                        MetroDropdownMenuItem(s.playlists.delete, { menu = false; onDelete() })
                     }
                 }
             }

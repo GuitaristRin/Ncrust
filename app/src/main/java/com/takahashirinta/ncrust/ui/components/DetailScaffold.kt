@@ -58,6 +58,8 @@ fun DetailScaffold(
     hasCachedContent: Boolean = false,
     error: String? = null,
     onRetry: (() -> Unit)? = null,
+    // 上下文工具条（如歌单编辑态）。绘制在返回箭头之上，非空时由调用方自带返回/退出入口。
+    topBar: (@Composable BoxScope.() -> Unit)? = null,
     header: @Composable () -> Unit,
     content: LazyListScope.() -> Unit
 ) {
@@ -143,6 +145,8 @@ fun DetailScaffold(
             contentDescription = strings.back,
             onClick = onBack
         )
+
+        if (topBar != null) topBar()
     }
 }
 
