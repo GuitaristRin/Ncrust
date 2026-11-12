@@ -8,11 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlaylistPlay
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.runtime.*
@@ -147,57 +144,37 @@ fun PlaylistDetailScreen(
         },
         content = {
             items(songs, key = { it.id }) { song ->
-                // 自己的歌单：长按直接进多选（与官方一致）；菜单挪到行尾的 ⋮，不丢失原有动作。
-                val canSelect = management && owned && !selecting
-                fun openMenu() {
-                    onShowSongMenu(song, listOf(
-                        SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
-                            LibraryManager.saveSong(context, song)
-                            Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
-                        },
-                        SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
-                            onSongInsertNext(song)
-                        },
-                        SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
-                            onSongAppendToQueue(song)
-                        }
-                    ) + if (management && owned) listOf(
-                        SongMenuAction(Icons.Default.LibraryAdd, strings.playlists.remove) {
-                            PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.REMOVE, listOf(song.id), playlistId))
-                        }
-                    ) else emptyList())
-                }
                 SongCard(
                     song = song,
                     style = SongCardStyle.COMPACT,
                     modifier = Modifier.semantics { if (selecting) selected = song.id in selectedIds },
-                    actions = when {
-                        selecting -> ({
-                            MetroIcon(if (song.id in selectedIds) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                                contentDescription = null, sizeDp = 24.dp)
-                        })
-                        canSelect -> ({
-                            Box(
-                                modifier = Modifier.size(40.dp).clickable { openMenu() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                MetroIcon(Icons.Default.MoreVert, contentDescription = null, sizeDp = 20.dp)
-                            }
-                        })
-                        else -> null
-                    },
+                    actions = if (selecting) ({
+                        MetroIcon(if (song.id in selectedIds) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                            contentDescription = null, sizeDp = 24.dp)
+                    }) else null,
                     onClick = {
                         if (selecting) selectedIds = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
                         else if (complete) onPlayPlaylist(songs, song.id)
                         else Toast.makeText(context, strings.playlists.incomplete, Toast.LENGTH_SHORT).show()
                     },
+                    // 长按仍是歌曲菜单：多选 / 编辑走显式入口，不抢占长按手势。
                     onShowMenu = {
-                        if (canSelect) {
-                            selecting = true
-                            selectedIds = setOf(song.id)
-                        } else {
-                            openMenu()
-                        }
+                        onShowSongMenu(song, listOf(
+                            SongMenuAction(Icons.Default.LibraryAdd, strings.actionAddToLibrary) {
+                                LibraryManager.saveSong(context, song)
+                                Toast.makeText(context, strings.addedToLibrary, Toast.LENGTH_SHORT).show()
+                            },
+                            SongMenuAction(Icons.Default.PlaylistPlay, strings.actionInsertNext) {
+                                onSongInsertNext(song)
+                            },
+                            SongMenuAction(Icons.Default.PlaylistAdd, strings.actionAppendToQueue) {
+                                onSongAppendToQueue(song)
+                            }
+                        ) + if (management && owned) listOf(
+                            SongMenuAction(Icons.Default.LibraryAdd, strings.playlists.remove) {
+                                PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.REMOVE, listOf(song.id), playlistId))
+                            }
+                        ) else emptyList())
                     }
                 )
             }
@@ -205,3 +182,4 @@ fun PlaylistDetailScreen(
         }
     )
 }
+
