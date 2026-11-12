@@ -4,6 +4,9 @@ import android.graphics.Bitmap
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -47,16 +50,12 @@ class PlaylistCollectionRenderingTest {
 
     @Test fun collectionUsesReadableRowsAndIndependentOpenPlayCreateActions() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            var opened = 0L; var played = 0L; var created = false
+            var opened = 0L; var longPressed = 0L; var created = false
             render(scenario, false) {
                 PlaylistCollectionContent(PlaylistCollection(items, true), 9, false, null, true,
-                    { created = true }, {}, { opened = it.id }, { played = it })
+                    { created = true }, {}, { opened = it.id })
             }
             click(longTitle)
-            assertEquals(42L, opened)
-            val play = nodes().first { it.contentDescription?.toString() == zhCN.playAllButton }
-            activate(play)
-            assertEquals(42L, played)
             assertEquals(42L, opened)
             click(zhCN.playlists.create)
             assertTrue(created)
@@ -64,9 +63,49 @@ class PlaylistCollectionRenderingTest {
             assertTrue(bounds.left >= 72 && bounds.right <= view!!.width)
             screenshot("collection-light")
             render(scenario, true) {
-                PlaylistCollectionContent(PlaylistCollection(items, true), 9, false, null, true, {}, {}, {}, {})
+                PlaylistCollectionContent(PlaylistCollection(items, true), 9, false, null, true,
+                    {}, {}, {}, selecting = true, selectedIds = setOf(42L))
             }
             screenshot("collection-dark")
+        }
+    }
+
+    @Test fun editModeRowRevealsRemoveActionAndKeepsBatchBar() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val songs = listOf(
+                com.takahashirinta.ncrust.network.SongItem(1, "夜行", null, null, 214_000),
+                com.takahashirinta.ncrust.network.SongItem(2, "归途", null, null, 198_000),
+                com.takahashirinta.ncrust.network.SongItem(3, "海边", null, null, 240_000)
+            )
+            render(scenario, false) {
+                Column(Modifier.fillMaxSize()) {
+                    PlaylistEditBar(
+                        selectionCount = 1, owned = true, sorting = false, canSort = true, busy = false,
+                        onExit = {}, onSelectAll = {}, onRemove = {}, onAddTo = {},
+                        onStartSorting = {}, onSaveOrder = {}, onCancelSorting = {}
+                    )
+                    songs.forEachIndexed { index, song ->
+                        SwipeRevealRow(
+                            open = index == 1,
+                            onOpenChange = {},
+                            actionLabel = zhCN.playlists.removeShort,
+                            onAction = {}
+                        ) {
+                            SongCard(song = song, style = SongCardStyle.COMPACT,
+                                actions = ({
+                                    MetroIcon(
+                                        if (index == 0) Icons.Default.CheckBox
+                                        else Icons.Default.CheckBoxOutlineBlank,
+                                        contentDescription = null, sizeDp = 24.dp
+                                    )
+                                }),
+                                onClick = {})
+                        }
+                    }
+                }
+            }
+            awaitUi { nodes().any { it.text?.toString() == zhCN.playlists.removeShort } }
+            screenshot("edit-row-swipe")
         }
     }
 
@@ -75,7 +114,7 @@ class PlaylistCollectionRenderingTest {
             val error = mutableStateOf<String?>(null)
             val data = mutableStateOf(PlaylistCollection(items, true))
             render(scenario, false) {
-                PlaylistCollectionContent(data.value, 9, true, error.value, true, {}, {}, {}, {})
+                PlaylistCollectionContent(data.value, 9, true, error.value, true, {}, {}, {})
             }
             awaitUi { nodes().any { it.text?.toString() == longTitle } }
             error.value = zhCN.playlists.network
@@ -84,7 +123,7 @@ class PlaylistCollectionRenderingTest {
             screenshot("collection-error-cached")
             data.value = PlaylistCollection(emptyList(), true)
             render(scenario, true) {
-                PlaylistCollectionContent(data.value, 9, false, null, true, {}, {}, {}, {})
+                PlaylistCollectionContent(data.value, 9, false, null, true, {}, {}, {})
             }
             assertTrue(nodes().any { it.text?.toString() == zhCN.playlists.create && it.isEnabled })
             assertTrue(nodes().any { it.text?.toString() == zhCN.noPlaylists })
@@ -98,7 +137,7 @@ class PlaylistCollectionRenderingTest {
             render(scenario, false) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                     PlaylistDetailHeader(null, "夜行与城市", zhCN.playlists.private, 128,
-                        "在城市安静下来之后，留给归途的音乐。", true, true, true, false,
+                        "在城市安静下来之后，留给归途的音乐。", true, true, true,
                         {}, {}, {}, { deleteRequests++ })
                 }
             }
@@ -112,7 +151,7 @@ class PlaylistCollectionRenderingTest {
             assertEquals(1, deleteRequests)
             render(scenario, true) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    PlaylistDetailHeader(null, "海边的旧时光", zhCN.playlists.public, 36, "", true, true, false, false,
+                    PlaylistDetailHeader(null, "海边的旧时光", zhCN.playlists.public, 36, "", true, true, false,
                         {}, {}, { fail("another owner's editor") }, { fail("another owner's delete") })
                 }
             }
@@ -121,7 +160,7 @@ class PlaylistCollectionRenderingTest {
             screenshot("detail-subscribed")
             render(scenario, false) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    PlaylistDetailHeader(null, "尚在读取的列表", zhCN.playlists.private, 128, "", false, true, true, false,
+                    PlaylistDetailHeader(null, "尚在读取的列表", zhCN.playlists.private, 128, "", false, true, true,
                         null, null, {}, {})
                 }
             }

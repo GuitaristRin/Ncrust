@@ -21,7 +21,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.takahashirinta.ncrust.network.PlaylistApi.PlaylistInfo
 import com.takahashirinta.ncrust.playlist.*
 import com.takahashirinta.ncrust.ui.components.PlaylistManagementPanel
-import com.takahashirinta.ncrust.ui.components.PlaylistSelectionActions
+import com.takahashirinta.ncrust.ui.components.PlaylistEditBar
 import com.takahashirinta.ncrust.ui.i18n.*
 import com.takahashirinta.ncrust.ui.theme.*
 import io.github.takahashirinta.kanesumi.core.theme.MetroTheme
@@ -113,7 +113,13 @@ class PlaylistManagementRenderingTest {
             var submitted = 0
             render(scenario, mutableStateOf(seed(PlaylistPanelMode.EDIT)), zhCN, true, body = {
                 Box(Modifier.statusBarsPadding().padding(20.dp)) {
-                    PlaylistSelectionActions(count.value, true, { count.value = 2 }, { count.value = 0 }, { submitted = count.value }, {})
+                    // 选择入口已并入页内编辑态工具条：批量动作只在有选中项时可用。
+                    PlaylistEditBar(
+                        selectionCount = count.value, owned = true, sorting = false, canSort = true, busy = false,
+                        onExit = { count.value = 0 }, onSelectAll = { count.value = 2 },
+                        onRemove = { submitted = count.value }, onAddTo = { submitted = count.value },
+                        onStartSorting = {}, onSaveOrder = {}, onCancelSorting = {}
+                    )
                 }
             }) {}
             assertFalse(nodes().first { it.text?.toString() == zhCN.playlists.add }.isEnabled)
@@ -123,7 +129,11 @@ class PlaylistManagementRenderingTest {
             assertEquals(2, submitted)
             screenshot("batch-selection")
             render(scenario, mutableStateOf(seed(PlaylistPanelMode.EDIT)), zhCN, true, body = {
-                PlaylistSelectionActions(2, false, {}, {}, {}, {})
+                PlaylistEditBar(
+                    selectionCount = 2, owned = false, sorting = false, canSort = false, busy = false,
+                    onExit = {}, onSelectAll = {}, onRemove = {}, onAddTo = {},
+                    onStartSorting = {}, onSaveOrder = {}, onCancelSorting = {}
+                )
             }) {}
             assertFalse(nodes().any { it.text?.toString() == zhCN.playlists.remove })
         }
@@ -164,6 +174,7 @@ class PlaylistManagementRenderingTest {
                 PlaylistPanelMode.EDIT -> strings.playlists.edit
                 PlaylistPanelMode.REMOVE -> strings.playlists.remove
                 PlaylistPanelMode.DELETE -> strings.playlists.delete
+                PlaylistPanelMode.REORDER -> strings.playlists.sortTracks
             }
             awaitUi { nodes().any { it.text?.toString() == title } }
         }

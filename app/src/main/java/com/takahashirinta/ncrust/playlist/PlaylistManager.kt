@@ -24,6 +24,13 @@ data class PlaylistPanelState(
     val backupFile: File? = null
 )
 
+/** 批量删除的进度与汇总。逐个歌单走完整的「备份 → 提交 → 读回」，不并发、不合并请求。 */
+data class PlaylistBatch(
+    val visible: Boolean = false, val running: Boolean = false,
+    val total: Int = 0, val done: Int = 0, val deleted: Int = 0, val failed: Int = 0,
+    val problem: PlaylistProblem? = null
+)
+
 /** 页面只观察任务；关闭面板或导航离开不会取消已经发出的写入。 */
 object PlaylistManager {
     private var app: Context? = null
@@ -32,6 +39,8 @@ object PlaylistManager {
     val enabled = _enabled.asStateFlow()
     private val _state = MutableStateFlow(PlaylistPanelState())
     val state = _state.asStateFlow()
+    private val _batch = MutableStateFlow(PlaylistBatch())
+    val batch = _batch.asStateFlow()
     private val _revision = MutableStateFlow(0L)
     val revision = _revision.asStateFlow()
     @Volatile private var cookie = ""
@@ -114,6 +123,62 @@ object PlaylistManager {
         clearPending(_state.value.ownerId)
         pendingCommand = null
         _state.value = PlaylistPanelState()
+    }
+
+    /**
+     * 批量删除歌单。**逐个**执行完整的「备份 → 提交 → 读回」：没有批量删除端点，
+     * `playlist/remove` 只是从「我的歌单」移出（对非本人歌单还返回 200 却不做事），
+     * 不能拿它冒充删除。失败项只统计不重试，结果里保留第一个失败原因。
+     */
+    fun deletePlaylists(ids: List<Long>) {
+        if (!_enabled.value || ids.isEmpty() || _batch.value.running) return
+        accountChanged()
+        if (app == null) return
+        cookie = RetrofitClient.getCookie().orEmpty()
+        val credential = cookie
+        val token = ++generation
+        _batch.value = PlaylistBatch(visible = true, running = true, total = ids.size)
+        scope.launch {
+            fun fail(problem: PlaylistProblem) {
+                _batch.update { it.copy(running = false, problem = problem, failed = it.total) }
+            }
+            if (credential.isEmpty()) { fail(PlaylistProblem.LOGIN); return@launch }
+            val gateway = NetworkPlaylistGateway(credential)
+            val uid = try { gateway.userId() } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { 0L }
+            if (uid <= 0) { fail(PlaylistProblem.LOGIN); return@launch }
+            val repository = PlaylistRepository(gateway,
+                accountCurrent = { current(token, credential) },
+                backupSnapshot = { snapshot -> backup(uid, snapshot) })
+            var deleted = 0
+            var failed = 0
+            var problem: PlaylistProblem? = null
+            for ((index, id) in ids.withIndex()) {
+                if (!current(token, credential)) break
+                val result = try {
+                    repository.execute(PlaylistCommand(PlaylistAction.DELETE, id))
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    null
+                }
+                if (result?.outcome == PlaylistOutcome.CONFIRMED) {
+                    deleted++
+                    ContentCache.invalidatePlaylist(id)
+                } else {
+                    failed++
+                    if (problem == null) problem = result?.problem ?: PlaylistProblem.NETWORK
+                }
+                _batch.update { it.copy(done = index + 1, deleted = deleted, failed = failed, problem = problem) }
+            }
+            _batch.update { it.copy(running = false) }
+            _revision.update { it + 1 }
+        }
+    }
+
+    fun dismissBatch() {
+        if (_batch.value.running) return
+        _batch.value = PlaylistBatch()
     }
 
     fun backToEditor() {

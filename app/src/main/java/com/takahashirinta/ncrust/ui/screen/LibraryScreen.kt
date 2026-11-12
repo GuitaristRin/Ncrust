@@ -46,6 +46,8 @@ import io.github.takahashirinta.kanesumi.anim.sokuou.MetroDefault
 import io.github.takahashirinta.kanesumi.anim.sokuou.rememberMetroFlingBehavior
 import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
 import com.takahashirinta.ncrust.ui.components.PlaylistCollectionContent
+import com.takahashirinta.ncrust.ui.components.PlaylistBatchDialog
+import com.takahashirinta.ncrust.ui.components.PlaylistConfirmDialog
 import io.github.takahashirinta.kanesumi.controls.MetroTabItem
 import io.github.takahashirinta.kanesumi.controls.MetroTabRow
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
@@ -103,6 +105,11 @@ fun LibraryScreen(
     val playlistManagement by PlaylistManager.enabled.collectAsState()
     var isLoadingPlaylists by remember { mutableStateOf(false) }
     var playlistError by remember { mutableStateOf<String?>(null) }
+    // 播放列表批量选择：长按任意本人歌单进入，勾选后一次性删除（逐个走完整备份+读回）。
+    var selectingPlaylists by remember { mutableStateOf(false) }
+    var selectedPlaylistIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var confirmingBatchDelete by remember { mutableStateOf(false) }
+    val playlistBatch by PlaylistManager.batch.collectAsState()
 
     // 整列播放：全量详情按红心 id 表分批补齐（N 首可能上千，非瞬时），期间按钮禁用 + 文案变化，
     // 结束后才弹 PlayAllDialog——绝不让对话框里出现"点了没反应"的空白期。
@@ -227,6 +234,21 @@ fun LibraryScreen(
             onAppendToQueue = { onAppendAllSongs(songs) }
         )
     }
+
+    if (confirmingBatchDelete) {
+        PlaylistConfirmDialog(
+            text = strings.playlists.batchDeleteHint(selectedPlaylistIds.size),
+            confirmLabel = strings.playlists.delete,
+            onConfirm = {
+                confirmingBatchDelete = false
+                PlaylistManager.deletePlaylists(selectedPlaylistIds.toList())
+                selectingPlaylists = false
+                selectedPlaylistIds = emptySet()
+            },
+            onDismiss = { confirmingBatchDelete = false }
+        )
+    }
+    PlaylistBatchDialog(playlistBatch, PlaylistManager::dismissBatch)
 
     Box(modifier = Modifier.fillMaxSize()) {
     ResponsiveContent {
@@ -392,7 +414,25 @@ fun LibraryScreen(
                     ownerId = playlistOwnerId, loading = isLoadingPlaylists,
                     error = playlistError, management = playlistManagement,
                     onCreate = { PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.CREATE)) },
-                    onRetry = { loadPlaylists() }, onOpen = onPlaylistClick, onPlay = onPlayPlaylist
+                    onRetry = { loadPlaylists() }, onOpen = onPlaylistClick,
+                    selecting = selectingPlaylists,
+                    selectedIds = selectedPlaylistIds,
+                    onToggleSelect = { item ->
+                        selectedPlaylistIds = if (item.id in selectedPlaylistIds) selectedPlaylistIds - item.id
+                        else selectedPlaylistIds + item.id
+                    },
+                    // 只有本人歌单可被管理；收藏来的歌单长按不进入选择态，避免给出做不到的操作。
+                    onLongPress = { item ->
+                        if (playlistManagement && item.isOwnedBy(playlistOwnerId)) {
+                            selectingPlaylists = true
+                            selectedPlaylistIds = setOf(item.id)
+                        }
+                    },
+                    onSelectAll = {
+                        selectedPlaylistIds = playlists.filter { it.isOwnedBy(playlistOwnerId) }.map { it.id }.toSet()
+                    },
+                    onCancelSelect = { selectingPlaylists = false; selectedPlaylistIds = emptySet() },
+                    onDeleteSelected = { if (selectedPlaylistIds.isNotEmpty()) confirmingBatchDelete = true }
                 )
             } }
         }

@@ -15,5 +15,8 @@ data class PlaylistStrings(
     val backup: (String) -> String, val open: String, val stopTracking: String,
     val selectTracks: String, val selectAll: String, val selectionCount: (Int) -> String,
     val sortTracks: String, val saveOrder: String, val reorderHint: (Int) -> String,
-    val moveUp: String, val moveDown: String, val dragSelectHint: String
+    val moveUp: String, val moveDown: String, val editHint: String, val removeShort: String,
+    val playlistSelectionCount: (Int) -> String,
+    val batchDeleteHint: (Int) -> String, val batchProgress: (Int, Int) -> String,
+    val batchSummary: (Int, Int) -> String
 )
