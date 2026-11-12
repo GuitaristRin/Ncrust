@@ -32,6 +32,7 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession as M3MediaSession
+import androidx.media3.session.SessionResult
 import androidx.palette.graphics.Palette
 import coil.Coil
 import coil.request.ImageRequest
@@ -406,6 +407,29 @@ class PlaybackService : MediaLibraryService() {
      * 车机点播时经 [onAddMediaItems] 把 song:<id> 解析成可播放 URL。
      */
     private fun libraryCallback() = object : MediaLibrarySession.Callback {
+        /**
+         * 系统媒体键 / 通知栏 / 蓝牙的「上一首/下一首」有两套会话可以落到这里：老的通知栏
+         * 走 [mediaSessionCompat]，而 media3 这条会话默认把命令直接交给 ExoPlayer ——
+         * `seekToNextMediaItem()` 只会在播放器内部那 1~2 个预载项之间移动，既绕过队列与
+         * 播放模式，预载项不存在时更是「点了没反应」（issue #36 里 One UI 的媒体键会话
+         * 正是在两条会话之间来回切换）。这里把两条会话统一收敛到 MainScreen 的队列推进。
+         */
+        override fun onPlayerCommandRequest(
+            session: M3MediaSession,
+            controller: M3MediaSession.ControllerInfo,
+            @Player.Command playerCommand: Int
+        ): Int = when (playerCommand) {
+            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
+                onPlaybackNext?.invoke()
+                SessionResult.RESULT_SUCCESS
+            }
+            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
+                onPlaybackPrevious?.invoke()
+                SessionResult.RESULT_SUCCESS
+            }
+            else -> super.onPlayerCommandRequest(session, controller, playerCommand)
+        }
+
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: M3MediaSession.ControllerInfo,

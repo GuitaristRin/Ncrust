@@ -419,7 +419,6 @@ fun MainScreen(
 
     var playbackQueue by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var currentQueueIndex by remember { mutableIntStateOf(-1) }
-    var songEnded by remember { mutableStateOf(false) }
     var songTransitioned by remember { mutableStateOf(false) }
     // 本次过渡是不是 ExoPlayer 自然衔接（AUTO）。手动 setMediaItem / 系统媒体控件与车机
     // 经 media3 会话 seek 过来的过渡不是 AUTO，那时应用队列本身没有推进，索引只能按
@@ -748,7 +747,19 @@ fun MainScreen(
         playerViewModel.setOnSongPreviousCallback { playPrevious() }
         // 与上一首一样直接推进，后台通知栏操作不等待 Compose 重组后运行 Effect。
         playerViewModel.setOnSongNextCallback { playNext() }
-        playerViewModel.setOnSongEndedCallback { songEnded = true }
+        // 自然结束同样不能经 LaunchedEffect：窗口 stopped（后台/锁屏）时 Compose 不再出帧，
+        // Effect 不会被消费，歌播完就停在那里（issue #36 真机日志实证：STATE_ENDED 打出来了，
+        // 但 songEnded -> playNext 要等窗口重新可见后 50ms 才补打）。这里与手动切歌一致直接推进。
+        playerViewModel.setOnSongEndedCallback {
+            // #29 的关键观测点：ExoPlayer 走到末尾的 STATE_ENDED 是否真到了 UI 层。
+            // 队列推进逻辑长在 MainScreen 里，Activity 被回收（组合已销毁）时这条日志不会出现，
+            // 而音频还在后台播——真机上"播完没下一首"要先用这条日志区分这两种情形。
+            Log.d(
+                "MainScreen",
+                "songEnded -> playNext queue=${playbackQueue.size} index=$currentQueueIndex mode=$playMode"
+            )
+            if (playbackQueue.isNotEmpty()) playNext(natural = true)
+        }
         playerViewModel.setOnSongTransitionedCallback { auto ->
             transitionIsAuto = auto
             songTransitioned = true
@@ -880,22 +891,8 @@ fun MainScreen(
         progress.snapTo(0f)
     }
 
-    // 歌曲结束后自动播放下一首。
-    LaunchedEffect(songEnded) {
-        if (songEnded) {
-            songEnded = false
-            // #29 的关键观测点：ExoPlayer 走到末尾的 STATE_ENDED 是否真到了 UI 层。
-            // 队列推进逻辑长在 MainScreen 里，Activity 被回收（组合已销毁）时这条日志不会出现，
-            // 而音频还在后台播——真机上"播完没下一首"要先用这条日志区分这两种情形。
-            Log.d(
-                "MainScreen",
-                "songEnded -> playNext queue=${playbackQueue.size} index=$currentQueueIndex mode=$playMode"
-            )
-            if (playbackQueue.isNotEmpty()) {
-                playNext(natural = true)
-            }
-        }
-    }
+    // 歌曲结束后自动播放下一首的逻辑在 PlaybackService 回调里直接推进（见上方
+    // setOnSongEndedCallback）：经 LaunchedEffect 会在窗口 stopped 时被挂起到回前台。
 
     fun expandCard() {
         coroutineScope.launch {
