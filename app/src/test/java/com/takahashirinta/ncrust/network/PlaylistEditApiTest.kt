@@ -32,6 +32,18 @@ class PlaylistEditApiTest {
     }
 
     @Test
+    fun `reorder payload mirrors the official update variant`() {
+        val p = PlaylistEditApi.reorderSongsPayload(42L, listOf(3L, 1L, 2L))
+        assertEquals("update", p["op"])
+        assertEquals("42", p["pid"])
+        // 官方 I3() 传的是 Collection<Long>，所以数组元素不带引号。
+        assertEquals("[3,1,2]", p["trackIds"])
+        assertEquals("false", p["imme"])
+        assertEquals("false", p["ex"])
+        assertEquals(setOf("op", "pid", "trackIds", "imme", "ex"), p.keys)
+    }
+
+    @Test
     fun `privacy payload carries id and privacy`() {
         val p = PlaylistEditApi.privacyPayload(7L, PlaylistEditApi.PRIVACY_PRIVATE)
         assertEquals("7", p["id"])

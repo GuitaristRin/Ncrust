@@ -4,6 +4,9 @@ val koNK = Strings(
     playlists = PlaylistStrings(
         manage = "관리",
         selectTracks = "곡 선택", selectAll = "모두 선택", selectionCount = { "${it}곡 선택됨" },
+        sortTracks = "순서 바꾸기", saveOrder = "순서 보존", moveUp = "우로 옮기기", moveDown = "아래로 옮기기",
+        reorderHint = { "전부 ${it}곡을 새 순서로 보냅니다(전부 바꾸기, 시험적)." },
+        dragSelectHint = "눌러서 선택, 누른채 우아래로 끌면 련속 선택됩니다",
         stopTracking = "추적 끝내기",
         experimental = "재생목록 관리 (시험)", experimentalDescription = "목록 작성, 편집 및 공개설정. 처음에는 꺼져 있으며 서버 쓰기는 검증 중입니다.",
         create = "재생목록 만들기", edit = "재생목록 편집", add = "재생목록에 추가", name = "이름", description = "설명", visibility = "공개설정",

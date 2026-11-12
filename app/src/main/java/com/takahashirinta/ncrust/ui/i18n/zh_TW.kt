@@ -4,6 +4,9 @@ val zhTW = Strings(
     playlists = PlaylistStrings(
         manage = "管理",
         selectTracks = "選擇歌曲", selectAll = "全選", selectionCount = { "已選擇 $it 首" },
+        sortTracks = "調整順序", saveOrder = "儲存順序", moveUp = "上移", moveDown = "下移",
+        reorderHint = { "將按新順序送出全部 $it 首歌曲（整表取代，實驗性）。" },
+        dragSelectHint = "點按選擇，按住上下滑動可連續選擇",
         stopTracking = "結束追蹤",
         experimental = "播放清單管理（實驗）", experimentalDescription = "新增、編輯與設定可見性。預設關閉，雲端寫入仍待驗證。",
         create = "新增播放清單", edit = "編輯播放清單", add = "加入播放清單",

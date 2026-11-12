@@ -11,7 +11,11 @@ data class PlaylistSnapshot(
 
 data class PlaylistCollection(val items: List<PlaylistInfo>, val complete: Boolean)
 
-enum class PlaylistAction { CREATE, ADD, REMOVE, NAME, DESCRIPTION, PRIVACY, DELETE }
+/**
+ * [REORDER] 没有独立端点：它复用 `manipulate/tracks` 的 `op="update"` 变体提交**整表顺序**，
+ * 语义属推断（见 `spec/api/playlist-edit.md`），因此只能在内容完整时使用，且必须整表读回。
+ */
+enum class PlaylistAction { CREATE, ADD, REMOVE, REORDER, NAME, DESCRIPTION, PRIVACY, DELETE }
 enum class PlaylistProblem { LOGIN, PERMISSION, RATE_LIMIT, NETWORK, REJECTED, INCOMPLETE, ACCOUNT_CHANGED, INVALID }
 enum class PlaylistOutcome { CONFIRMED, PENDING, PARTIAL, FAILED }
 

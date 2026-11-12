@@ -32,6 +32,7 @@ class PlaylistRepositoryTest {
                 PlaylistAction.PRIVACY -> data = data.copy(info = data.info.copy(privacy = command.draft!!.privacy))
                 PlaylistAction.ADD -> data = data.copy(trackIds = (data.trackIds + command.songIds).distinct())
                 PlaylistAction.REMOVE -> data = data.copy(trackIds = data.trackIds - command.songIds.toSet())
+                PlaylistAction.REORDER -> data = data.copy(trackIds = command.songIds)
                 PlaylistAction.DELETE -> deleted = true
             }
             return PlaylistWriteResult.Success(JSONObject().put("code", 200).put("id", 42))
@@ -102,8 +103,60 @@ class PlaylistRepositoryTest {
         assertEquals(PlaylistOutcome.FAILED, PlaylistRepository(gateway).execute(PlaylistCommand(PlaylistAction.DELETE, 42)).outcome)
         assertTrue(gateway.writes.isEmpty())
         var backedUp = false
-        val result = PlaylistRepository(gateway, backupBeforeDelete = { backedUp = true }).execute(PlaylistCommand(PlaylistAction.DELETE, 42))
+        val result = PlaylistRepository(gateway, backupSnapshot = { backedUp = true }).execute(PlaylistCommand(PlaylistAction.DELETE, 42))
         assertTrue(backedUp)
+        assertEquals(PlaylistOutcome.CONFIRMED, result.outcome)
+    }
+
+    /** 排序是整表替换（推断），所以「同集」是唯一的安全前提：少一首、多一首都不能提交。 */
+    @Test fun `reorder rejects partial or extra id sets without writing`() = runBlocking {
+        val gateway = Gateway()
+        var backedUp = false
+        val repo = PlaylistRepository(gateway, backupSnapshot = { backedUp = true })
+        for (order in listOf(listOf(1L), listOf(1L, 2L, 3L), listOf(1L, 1L), emptyList())) {
+            val result = repo.execute(PlaylistCommand(PlaylistAction.REORDER, 42, songIds = order))
+            assertEquals(PlaylistOutcome.FAILED, result.outcome)
+            assertEquals(PlaylistProblem.INVALID, result.problem)
+        }
+        assertTrue(gateway.writes.isEmpty())
+        assertFalse(backedUp)
+    }
+
+    @Test fun `reorder is refused on an incomplete snapshot`() = runBlocking {
+        val gateway = Gateway().apply { data = data.copy(idsComplete = false) }
+        val result = PlaylistRepository(gateway, backupSnapshot = {}).execute(PlaylistCommand(PlaylistAction.REORDER, 42, songIds = listOf(2, 1)))
+        assertEquals(PlaylistProblem.INCOMPLETE, result.problem)
+        assertTrue(gateway.writes.isEmpty())
+    }
+
+    @Test fun `reorder backs up first and confirms only the exact readback order`() = runBlocking {
+        val gateway = Gateway()
+        var backedUp = false
+        val result = PlaylistRepository(gateway, backupSnapshot = { backedUp = true })
+            .execute(PlaylistCommand(PlaylistAction.REORDER, 42, songIds = listOf(2, 1)))
+        assertTrue(backedUp)
+        assertEquals(PlaylistOutcome.CONFIRMED, result.outcome)
+        assertEquals(listOf(2L, 1L), result.snapshot!!.trackIds)
+        assertEquals(listOf(PlaylistAction.REORDER), gateway.writes.map { it.action })
+    }
+
+    /** 官方对 514/518 也不报错，因此业务码不能当成功依据——读回顺序不一致就必须判失败。 */
+    @Test fun `reorder success response without matching readback cannot confirm`() = runBlocking {
+        val gateway = Gateway().apply { handler = { PlaylistWriteResult.Success(JSONObject().put("code", 200)) } }
+        val result = PlaylistRepository(gateway, backupSnapshot = {})
+            .execute(PlaylistCommand(PlaylistAction.REORDER, 42, songIds = listOf(2, 1)))
+        assertEquals(PlaylistOutcome.FAILED, result.outcome)
+        assertEquals(PlaylistProblem.REJECTED, result.problem)
+    }
+
+    @Test fun `reorder accepts 514 when the readback already matches`() = runBlocking {
+        val gateway = Gateway()
+        gateway.handler = { command ->
+            gateway.data = gateway.data.copy(trackIds = command.songIds)
+            PlaylistWriteResult.Failure(514, "partial")
+        }
+        val result = PlaylistRepository(gateway, backupSnapshot = {})
+            .execute(PlaylistCommand(PlaylistAction.REORDER, 42, songIds = listOf(2, 1)))
         assertEquals(PlaylistOutcome.CONFIRMED, result.outcome)
     }
     @Test fun `account switch after write prevents remaining mutations`() = runBlocking {

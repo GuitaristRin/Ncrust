@@ -4,6 +4,9 @@ val en = Strings(
     playlists = PlaylistStrings(
         manage = "Manage",
         selectTracks = "Select tracks", selectAll = "Select all", selectionCount = { "$it tracks selected" },
+        sortTracks = "Reorder", saveOrder = "Save order", moveUp = "Move up", moveDown = "Move down",
+        reorderHint = { "Submit all $it tracks in the new order (whole-list replace, experimental)." },
+        dragSelectHint = "Tap to select; press and drag to select a run of tracks",
         stopTracking = "Stop tracking",
         experimental = "Playlist management (experimental)", experimentalDescription = "Create, edit and set visibility. Off by default; cloud writes still need verification.",
         create = "New playlist", edit = "Edit playlist", add = "Add to playlist",

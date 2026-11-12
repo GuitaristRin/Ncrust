@@ -4,6 +4,9 @@ val jpJP = Strings(
     playlists = PlaylistStrings(
         manage = "管理",
         selectTracks = "曲を選択", selectAll = "すべて選択", selectionCount = { "$it 曲を選択中" },
+        sortTracks = "順序を変更", saveOrder = "順序を保存", moveUp = "上へ", moveDown = "下へ",
+        reorderHint = { "全 $it 曲を新しい順序で送信します（全置き換え・試験中）。" },
+        dragSelectHint = "タップで選択、押したまま上下になぞると連続選択できます",
         stopTracking = "追跡を終了",
         experimental = "プレイリスト管理（試験中）", experimentalDescription = "作成・編集・公開設定。初期状態はオフで、クラウドへの書き込みは検証中です。",
         create = "プレイリストを作成", edit = "プレイリストを編集", add = "プレイリストに追加",

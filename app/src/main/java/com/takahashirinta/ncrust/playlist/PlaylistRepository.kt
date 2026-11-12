@@ -24,7 +24,7 @@ class NetworkPlaylistGateway(private val cookie: String) : PlaylistGateway {
 class PlaylistRepository(
     private val gateway: PlaylistGateway,
     private val accountCurrent: () -> Boolean = { true },
-    private val backupBeforeDelete: suspend (PlaylistSnapshot) -> Unit = { throw PlaylistRequestException(PlaylistProblem.INVALID) }
+    private val backupSnapshot: suspend (PlaylistSnapshot) -> Unit = { throw PlaylistRequestException(PlaylistProblem.INVALID) }
 ) {
     private fun guard() {
         if (!accountCurrent()) throw PlaylistRequestException(PlaylistProblem.ACCOUNT_CHANGED)
@@ -73,10 +73,11 @@ class PlaylistRepository(
             guard()
             return when (command.action) {
                 PlaylistAction.ADD, PlaylistAction.REMOVE -> tracks(command, snapshot, uid)
+                PlaylistAction.REORDER -> reorder(command, snapshot, uid)
                 PlaylistAction.NAME, PlaylistAction.DESCRIPTION, PlaylistAction.PRIVACY -> edit(command, snapshot)
                 PlaylistAction.DELETE -> {
                     if (!snapshot.idsComplete) return failed(PlaylistProblem.INCOMPLETE, target)
-                    backupBeforeDelete(snapshot)
+                    backupSnapshot(snapshot)
                     guard()
                     val written = submit(command)
                     verify(command, target, problemOf(written))
@@ -136,6 +137,38 @@ class PlaylistRepository(
         return trackResult(command, snapshot, null)
     }
 
+    /**
+     * 排序：官方 `op="update"` 是**整表替换**（推断，见 `spec/api/playlist-edit.md`），因此只接受
+     * 与当前内容**完全同集的全量顺序** —— 内容不完整、多一首或少一首都直接拒绝，避免「只提交了
+     * 部分 ID」被服务端当成删除。写前落盘备份；官方对 514/518 也不报错，所以写后不看业务码，
+     * 一律读回比对完整顺序。
+     */
+    private suspend fun reorder(command: PlaylistCommand, initial: PlaylistSnapshot, uid: Long): PlaylistResult {
+        val order = command.songIds
+        if (order.isEmpty() || order.any { it <= 0 } || order.size != order.distinct().size) return failed(PlaylistProblem.INVALID, command.playlistId)
+        if (!initial.idsComplete) return failed(PlaylistProblem.INCOMPLETE, command.playlistId)
+        if (order.size != initial.trackIds.size || order.toSet() != initial.trackIds.toSet()) return failed(PlaylistProblem.INVALID, command.playlistId)
+        backupSnapshot(initial)
+        guard()
+        val written = submit(command)
+        return reorderVerify(command, uid, problemOf(written))
+    }
+
+    private suspend fun reorderVerify(command: PlaylistCommand, uid: Long, failure: PlaylistProblem?): PlaylistResult {
+        val snapshot = owned(command.playlistId, uid)
+        val matches = snapshot.idsComplete && snapshot.trackIds == command.songIds
+        return PlaylistResult(
+            when {
+                matches -> PlaylistOutcome.CONFIRMED
+                !snapshot.idsComplete -> PlaylistOutcome.PENDING
+                else -> PlaylistOutcome.FAILED
+            },
+            command.playlistId, snapshot,
+            confirmedIds = if (matches) command.songIds.toSet() else emptySet(),
+            problem = if (matches) null else failure ?: PlaylistProblem.REJECTED
+        )
+    }
+
     private fun trackResult(command: PlaylistCommand, snapshot: PlaylistSnapshot, problem: PlaylistProblem?, forcePending: Boolean = false): PlaylistResult {
         val targets = command.songIds.toSet()
         val confirmed = if (command.action == PlaylistAction.REMOVE && !snapshot.idsComplete) emptySet()
@@ -155,6 +188,7 @@ class PlaylistRepository(
             val uid = gateway.userId()
             if (uid <= 0) return failed(PlaylistProblem.LOGIN, id)
             if (command.action == PlaylistAction.DELETE) return verifyDelete(id, uid, failure)
+            if (command.action == PlaylistAction.REORDER) return reorderVerify(command, uid, failure)
             val snapshot = owned(id, uid)
             if (command.action == PlaylistAction.ADD || command.action == PlaylistAction.REMOVE) {
                 return trackResult(command, snapshot, failure, forcePending = !snapshot.idsComplete)

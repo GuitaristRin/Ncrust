@@ -13,5 +13,7 @@ data class PlaylistStrings(
     val accountChanged: String, val invalid: String, val incomplete: String, val unknownCreate: String,
     val deleteHint: (String) -> String, val removeHint: (Int) -> String,
     val backup: (String) -> String, val open: String, val stopTracking: String,
-    val selectTracks: String, val selectAll: String, val selectionCount: (Int) -> String
+    val selectTracks: String, val selectAll: String, val selectionCount: (Int) -> String,
+    val sortTracks: String, val saveOrder: String, val reorderHint: (Int) -> String,
+    val moveUp: String, val moveDown: String, val dragSelectHint: String
 )

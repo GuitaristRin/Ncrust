@@ -4,6 +4,9 @@ val jpMY = Strings(
     playlists = PlaylistStrings(
         manage = "管理",
         selectTracks = "曲乎選択", selectAll = "全乎選択", selectionCount = { "$it 曲乎選択中" },
+        sortTracks = "順序乎佐太牟", saveOrder = "順序乎多久波布", moveUp = "上邊爾宇都須", moveDown = "下邊爾宇都須",
+        reorderHint = { "全 $it 曲乎新之伎順序爾於久理麻須（全乎多久波倍、多米之）。" },
+        dragSelectHint = "宇都爾天選択、押之多久麻萬上下爾奈曾禮婆連続選択",
         stopTracking = "於布許登乎登豆",
         experimental = "宇多阿豆麻利 乎佐牟（多米之）", experimentalDescription = "阿良多爾都久理、乎佐米、見由流佐麻乎佐太牟。波自米波登豆。",
         create = "宇多阿豆麻利乎都久流", edit = "宇多阿豆麻利乎佐牟", add = "宇多阿豆麻利爾加布",

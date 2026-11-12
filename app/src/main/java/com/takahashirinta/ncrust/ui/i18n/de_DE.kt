@@ -4,6 +4,9 @@ val deDE = Strings(
     playlists = PlaylistStrings(
         manage = "Verwalten",
         selectTracks = "Titel auswählen", selectAll = "Alle auswählen", selectionCount = { "$it Titel ausgewählt" },
+        sortTracks = "Reihenfolge ändern", saveOrder = "Reihenfolge speichern", moveUp = "Nach oben", moveDown = "Nach unten",
+        reorderHint = { "Alle $it Titel in der neuen Reihenfolge senden (vollständiges Ersetzen, experimentell)." },
+        dragSelectHint = "Tippen zum Auswählen, gedrückt nach oben/unten ziehen für einen Bereich",
         stopTracking = "Nachverfolgung beenden",
         experimental = "Wiedergabelisten verwalten (experimentell)", experimentalDescription = "Erstellen, bearbeiten und Sichtbarkeit ändern. Standardmäßig aus; Cloud-Schreibzugriffe sind noch zu prüfen.",
         create = "Neue Wiedergabeliste", edit = "Wiedergabeliste bearbeiten", add = "Zur Wiedergabeliste hinzufügen", name = "Name", description = "Beschreibung", visibility = "Sichtbarkeit",

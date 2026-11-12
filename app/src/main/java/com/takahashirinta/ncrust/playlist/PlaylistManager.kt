@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
-enum class PlaylistPanelMode { ADD, CREATE, EDIT, REMOVE, DELETE }
+enum class PlaylistPanelMode { ADD, CREATE, EDIT, REMOVE, DELETE, REORDER }
 data class PlaylistPanelRequest(val mode: PlaylistPanelMode, val songIds: List<Long> = emptyList(), val playlistId: Long = 0)
 data class PlaylistPanelState(
     val visible: Boolean = false, val request: PlaylistPanelRequest? = null,
@@ -131,7 +131,9 @@ object PlaylistManager {
             PlaylistPanelMode.EDIT -> PlaylistAction.NAME
             PlaylistPanelMode.REMOVE -> PlaylistAction.REMOVE
             PlaylistPanelMode.DELETE -> PlaylistAction.DELETE
+            PlaylistPanelMode.REORDER -> PlaylistAction.REORDER
         }
+        // 排序带的是整个歌单的新顺序：和其他动作一样走 request.songIds，但不带 draft。
         val command = PlaylistCommand(action, if (action == PlaylistAction.ADD) targetId else request.playlistId,
             if (action == PlaylistAction.CREATE || action == PlaylistAction.NAME) state.draft else null, request.songIds)
         run(command, verifyOnly = false)
@@ -151,7 +153,7 @@ object PlaylistManager {
                 if (!verifyOnly) persist(owner, command)
                 val repository = PlaylistRepository(NetworkPlaylistGateway(credential),
                     accountCurrent = { current(token, credential) },
-                    backupBeforeDelete = { snapshot ->
+                    backupSnapshot = { snapshot ->
                         val file = backup(owner, snapshot)
                         publish(token, credential) { it.copy(backupFile = file) }
                     })
@@ -177,6 +179,7 @@ object PlaylistManager {
         PlaylistAction.ADD -> PlaylistPanelMode.ADD
         PlaylistAction.REMOVE -> PlaylistPanelMode.REMOVE
         PlaylistAction.DELETE -> PlaylistPanelMode.DELETE
+        PlaylistAction.REORDER -> PlaylistPanelMode.REORDER
         else -> PlaylistPanelMode.EDIT
     }, command.songIds, command.playlistId)
 

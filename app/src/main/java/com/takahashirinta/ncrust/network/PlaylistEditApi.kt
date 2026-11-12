@@ -96,13 +96,21 @@ object PlaylistEditApi {
     /** 单请求曲目上限；超过就分批（`>1000` 首的歌单判重不可靠，见 [addSongs]）。 */
     private const val TRACK_BATCH = 500
 
+    /** `op` 只允许这三个字面量出现在线上：服务端把**任何非 `add`/`del`/`update` 的值**当删除执行。 */
+    private const val OP_ADD = "add"
+    private const val OP_REMOVE = "del"
+    private const val OP_REORDER = "update"
+
     /** 新协调层的传输入口：动作与路径固定，结果逐次返回，不读取共享 lastError。 */
     suspend fun execute(command: PlaylistCommand, cookie: String): PlaylistWriteResult {
         val needsDraft = command.action in listOf(PlaylistAction.CREATE, PlaylistAction.NAME, PlaylistAction.DESCRIPTION, PlaylistAction.PRIVACY)
         if ((needsDraft && command.draft?.valid != true) ||
             (command.action != PlaylistAction.CREATE && command.playlistId <= 0) ||
             (command.action in listOf(PlaylistAction.ADD, PlaylistAction.REMOVE) &&
-                (command.songIds.isEmpty() || command.songIds.size > TRACK_BATCH || command.songIds.any { it <= 0 }))) {
+                (command.songIds.isEmpty() || command.songIds.size > TRACK_BATCH || command.songIds.any { it <= 0 })) ||
+            // 排序提交整表，不能分批：只接受非空、无重复、全正的完整列表。
+            (command.action == PlaylistAction.REORDER &&
+                (command.songIds.isEmpty() || command.songIds.any { it <= 0 } || command.songIds.size != command.songIds.distinct().size))) {
             return PlaylistWriteResult.Failure(-1, "invalid command")
         }
         val id = command.playlistId.toString()
@@ -111,6 +119,7 @@ object PlaylistEditApi {
             PlaylistAction.CREATE -> CREATE_PATH to mapOf("name" to draft!!.name.trim(), "privacy" to "${draft.privacy}", "type" to "NORMAL", "subType" to "NORMAL")
             PlaylistAction.ADD -> TRACKS_PATH to addSongsPayload(command.playlistId, command.songIds)
             PlaylistAction.REMOVE -> TRACKS_PATH to removeSongsPayload(command.playlistId, command.songIds)
+            PlaylistAction.REORDER -> TRACKS_PATH to reorderSongsPayload(command.playlistId, command.songIds)
             PlaylistAction.NAME -> UPDATE_NAME_PATH to mapOf("id" to id, "name" to draft!!.name.trim())
             PlaylistAction.DESCRIPTION -> UPDATE_DESC_PATH to mapOf("id" to id, "desc" to draft!!.description)
             PlaylistAction.PRIVACY -> UPDATE_PRIVACY_PATH to privacyPayload(command.playlistId, draft!!.privacy)
@@ -221,7 +230,7 @@ object PlaylistEditApi {
      * 都会被服务端当成删除执行**，透传外部输入会静默删歌。
      */
     fun addSongsPayload(playlistId: Long, songIds: List<Long>): Map<String, String> = mapOf(
-        "op" to "add",
+        "op" to OP_ADD,
         "pid" to playlistId.toString(),
         "trackIds" to JSONArray(songIds).toString(),
         "imme" to "true",
@@ -229,10 +238,26 @@ object PlaylistEditApi {
 
     /** 移除歌曲请求体。同上，`op` 固定为 `del`。 */
     fun removeSongsPayload(playlistId: Long, songIds: List<Long>): Map<String, String> = mapOf(
-        "op" to "del",
+        "op" to OP_REMOVE,
         "pid" to playlistId.toString(),
         "trackIds" to JSONArray(songIds).toString(),
         "imme" to "true",
+    )
+
+    /**
+     * 排序请求体 —— 逐字段对齐官方 `NeteaseMusicApiImpl.I3(Collection<Long>, long)`（实证）：
+     * `op="update"`、`trackIds` 是**不带引号**的 Long 数组（`[123,456]`，因为 collection 是 Long）、
+     * `imme`/`ex` 恒 `"false"`、带 `checkToken`。官方对这三个业务码（200/514/518）都不当失败。
+     *
+     * **语义是推断**：官方调用方不在已 dump 的 dex 里，「整表替换」没有读回证据。因此这条路径
+     * 必须整表提交、写后按响应重新读取并比对完整顺序，见 `PlaylistRepository.reorder`。
+     */
+    fun reorderSongsPayload(playlistId: Long, orderedIds: List<Long>): Map<String, String> = mapOf(
+        "op" to OP_REORDER,
+        "pid" to playlistId.toString(),
+        "trackIds" to orderedIds.joinToString(separator = ",", prefix = "[", postfix = "]"),
+        "imme" to "false",
+        "ex" to "false",
     )
 
     /** 改隐私请求体；`privacy` 只接受 0/10，其它值由 [updatePlaylistPrivacy] 提前拒绝。 */

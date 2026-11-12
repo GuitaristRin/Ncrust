@@ -27,13 +27,30 @@
   「非本人 / 歌单满 / 已存在」的对应关系属**推断**。
 - 写后不再发 GET：**响应体自带的 `trackIds` 就是权威读回**，客户端按它算 `state`。
 
-## 排序（实证 + 推断）
+## 排序 —— 同一条 `manipulate/tracks` 的 `op="update"`（实证 + 推断）
 
 - **没有独立的曲目排序接口**（有界否定）：26 个 playlist 端点里没有 order / move / position。
   `playlist/order/update` 排的是**用户歌单列表**（字段 `ids` + `self`），不是歌单内曲目。
-- **推断**：唯一能表达曲目顺序的是同一条 `manipulate/tracks` 的旧变体 `op="update"`，
-  `trackIds` 传 `[123,456]`（**不加引号**，因为collection 是 `Long`），语义是**整表替换**；
-  成功判定放宽到 `200 / 514 / 518`，且没有读回。
+- 官方 `NeteaseMusicApiImpl.I3(Collection<Long> collection, long pid)`（`classes14`）实证：
+
+  | 项 | 值 |
+  |---|---|
+  | 路径 | **`playlist/manipulate/tracks`（不带 `v1`）** —— 与 `add`/`del` 同一方法族 |
+  | `op` | `DAITaskInfo.ACTION_UPGRADE`，常量值为 **`"update"`** |
+  | `trackIds` | `String.format("[%s]", join(collection, ","))` —— 集合是 `Long`，元素**不加引号** |
+  | `imme` / `ex` | 硬编码 `"false"` / `"false"`（`add`/`del` 的 `imme` 由调用方给） |
+  | `checkToken` | 有 |
+  | 成功判定 | **200 / 514 / 518 都不报错**，其它码走 `ha(code)` |
+  | 读回 | **没有**，`state` 与 `trackIds` 都不解析 |
+
+- **推断**：`I3` 收的是整个 `Collection<Long>`，最符合的解释是「把歌单曲目设为这个集合，
+  顺序即传入顺序」（整表替换）。它的调用方不在已 dump 的三份 dex 里（有界否定），
+  因此这条语义没有读回证据。
+- **客户端安全约束**（由上面的不确定性与「`op` 非 `add` 被当删除」的实测共同决定）：
+  1. 只在内容完整时可用；
+  2. 传入集合必须与当前曲目**完全同集**（同数量、同成员），绝不提交部分列表；
+  3. 提交前落盘备份；
+  4. 提交后一律重新读取并比对完整顺序，业务码只用来选失败文案，不能当成功依据。
 
 ## 权限与前置检查
 
@@ -54,3 +71,4 @@
 - 易盾 token 有两条独立通道：**body `checkToken`**（`manipulate/tracks`、`create`、`desc/update`、
   `subscribe` 有；`update/name`、`order/update`、`delete`、`remove` 没有），以及
   **`X-antiCheatToken` 头**（按服务端下发的 `antiSpamUrl` 列表动态加，静态不可判定）。
+- `I3`（`op="update"`）同样没有加密标志，走明文 `/eapi/`。

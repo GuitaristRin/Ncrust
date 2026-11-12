@@ -4,6 +4,9 @@ val zhCN = Strings(
     playlists = PlaylistStrings(
         manage = "管理",
         selectTracks = "选择歌曲", selectAll = "全选", selectionCount = { "已选择 $it 首" },
+        sortTracks = "调整顺序", saveOrder = "保存顺序", moveUp = "上移", moveDown = "下移",
+        reorderHint = { "将按新顺序提交全部 $it 首歌曲（整表替换，实验性）。" },
+        dragSelectHint = "点按选择，按住上下滑动可连续选择",
         stopTracking = "结束跟踪",
         experimental = "播放列表管理（实验）", experimentalDescription = "新建、编辑与设置可见性。默认关闭，云端写入仍待验证。",
         create = "新建播放列表", edit = "编辑播放列表", add = "添加到播放列表",

@@ -66,6 +66,7 @@ fun PlaylistManagementPanel(
                 PlaylistPanelMode.EDIT -> p.edit
                 PlaylistPanelMode.REMOVE -> p.remove
                 PlaylistPanelMode.DELETE -> p.delete
+                PlaylistPanelMode.REORDER -> p.sortTracks
             }, style = LocalMetroTypography.current.title.copy(fontSize = 24.sp), modifier = Modifier.weight(1f))
             PlaylistButton(strings.cancel, onClose, containerColor = colors.background, contentColor = colors.onBackground)
         }
@@ -156,7 +157,11 @@ private fun PlaylistEditorBody(state: PlaylistPanelState, onDraft: ((PlaylistDra
                     }
                 }
             } else {
-                MetroText(if (mode == PlaylistPanelMode.DELETE) p.deleteHint(state.snapshot?.info?.name.orEmpty()) else p.removeHint(state.request.songIds.size))
+                MetroText(when (mode) {
+                    PlaylistPanelMode.DELETE -> p.deleteHint(state.snapshot?.info?.name.orEmpty())
+                    PlaylistPanelMode.REORDER -> p.reorderHint(state.request.songIds.size)
+                    else -> p.removeHint(state.request.songIds.size)
+                })
             }
         }
         val editing = mode == PlaylistPanelMode.CREATE || mode == PlaylistPanelMode.EDIT
@@ -164,10 +169,16 @@ private fun PlaylistEditorBody(state: PlaylistPanelState, onDraft: ((PlaylistDra
             PlaylistPanelMode.CREATE -> p.create
             PlaylistPanelMode.EDIT -> p.save
             PlaylistPanelMode.DELETE -> p.delete
+            PlaylistPanelMode.REORDER -> p.saveOrder
             else -> p.remove
         }
-        PlaylistButton(label, { onSubmit(0) },
-            enabled = !state.busy && if (editing) state.draft.valid else state.snapshot?.info?.isOwnedBy(state.ownerId) == true,
+        val owned = state.snapshot?.info?.isOwnedBy(state.ownerId) == true
+        val enabled = !state.busy && when {
+            editing -> state.draft.valid
+            mode == PlaylistPanelMode.REORDER -> owned && state.request.songIds.isNotEmpty()
+            else -> owned
+        }
+        PlaylistButton(label, { onSubmit(0) }, enabled = enabled,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp))
     }
 }
@@ -191,23 +202,6 @@ fun playlistProblemText(problem: PlaylistProblem, p: PlaylistStrings): String = 
     PlaylistProblem.INVALID -> p.invalid
     PlaylistProblem.INCOMPLETE -> p.incomplete
     PlaylistProblem.REJECTED -> p.failed
-}
-
-@Composable
-fun PlaylistSelectionActions(count: Int, owned: Boolean, onAll: () -> Unit, onCancel: () -> Unit,
-    onAdd: () -> Unit, onRemove: () -> Unit) {
-    val s = LocalStrings.current
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        MetroText(s.playlists.selectionCount(count))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PlaylistButton(s.playlists.selectAll, onAll, Modifier.weight(1f),
-                containerColor = LocalMetroColors.current.surfaceVariant, contentColor = LocalMetroColors.current.onBackground)
-            PlaylistButton(s.cancel, onCancel, Modifier.weight(1f),
-                containerColor = LocalMetroColors.current.surfaceVariant, contentColor = LocalMetroColors.current.onBackground)
-        }
-        PlaylistButton(s.playlists.add, onAdd, Modifier.fillMaxWidth(), enabled = count > 0)
-        if (owned) PlaylistButton(s.playlists.remove, onRemove, Modifier.fillMaxWidth(), enabled = count > 0)
-    }
 }
 
 /** 强调色可由用户任意选择，白字在云杉绿或素白上不可读。只为本次新增按钮选择前景。 */
