@@ -817,8 +817,25 @@ object PlaylistApi {
         }
     }
 
-    /** 收藏(sub=true) / 取消收藏(false) 专辑（eapi，与客户端一致）。 */
-    suspend fun subAlbum(albumId: Long, sub: Boolean): Boolean = withContext(Dispatchers.IO) {
+    /**
+     * 拉取**全部**收藏专辑：`album/sublist` 单次只返回一页，早前实现只取 offset=0 的第一页，
+     * 收藏数超过一页时最早的若干张既不显示、也让「专辑详情」把它判成未收藏（搜索结果同样）。
+     * 这里按 limit 翻页到短页为止，`maxPages` 只是防服务端异常时不封顶翻下去。
+     */
+    suspend fun getAllSubscribedAlbums(pageSize: Int = 100, maxPages: Int = 30): List<CloudAlbum> =
+        withContext(Dispatchers.IO) {
+            val all = ArrayList<CloudAlbum>(pageSize)
+            var offset = 0
+            repeat(maxPages) {
+                val page = getSubscribedAlbums(limit = pageSize, offset = offset)
+                all += page
+                if (page.size < pageSize) return@withContext all
+                offset += page.size
+            }
+            all
+        }
+
+    /** 收藏(sub=true) / 取消收藏(false) 专辑（eapi，与客户端一致）。 */    suspend fun subAlbum(albumId: Long, sub: Boolean): Boolean = withContext(Dispatchers.IO) {
         val action = if (sub) "sub" else "unsub"
         val payload = mapOf("id" to albumId.toString())
         val response = RetrofitClient.eapiPost("/eapi/album/$action", payload)

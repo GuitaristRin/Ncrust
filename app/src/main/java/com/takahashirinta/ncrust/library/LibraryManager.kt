@@ -466,7 +466,8 @@ object LibraryManager {
         }
 
         try {
-            val cloudAlbums = PlaylistApi.getSubscribedAlbums()
+            // 翻完所有页：只取第一页会让收藏数超一页时最早的专辑不显示，并让详情页误判未收藏。
+            val cloudAlbums = PlaylistApi.getAllSubscribedAlbums()
             Log.i(TAG, "refreshFromCloud: albums=${cloudAlbums.size}")
             synchronized(albumsLock) {
                 cachedAlbums = cloudAlbums.map {
