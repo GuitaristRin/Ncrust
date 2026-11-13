@@ -309,6 +309,30 @@ class PlaybackService : MediaLibraryService() {
                 Log.e("PlaybackService", "AudioSink error: ${audioSinkError.message}", audioSinkError)
                 onPlaybackError?.invoke(currentSongIdFromPlayer())
             }
+
+            /**
+             * #34「蓝牙耳机卡顿」的唯一可靠观测点：每次音频欠载打一行，报障时只抓这一行就够判断方向。
+             *
+             * - `bufferSizeMs` 小、`elapsedSinceLastFeedMs` 也小 → 喂得及时但缓冲太浅，问题在网络取流。
+             * - `elapsedSinceLastFeedMs` 大（几百 ms 以上）→ 音频线程长时间没被喂，通常是主线程被占
+             *   或熄屏后 CPU 被省电策略压住，与网络无关；这时改缓冲参数没有用。
+             * 两首之间的自然切换也会出现少量欠载，所以只在连续出现时才算问题——日志本身带时间戳，
+             * 值不值得管由抓包的人合并看。
+             */
+            override fun onAudioUnderrun(
+                eventTime: AnalyticsListener.EventTime,
+                bufferSize: Int,
+                bufferSizeMs: Long,
+                elapsedSinceLastFeedMs: Long
+            ) {
+                Log.w(
+                    "PlaybackService",
+                    "audio underrun songId=${currentSongIdFromPlayer()} " +
+                        "buffer=${bufferSize}B/${bufferSizeMs}ms " +
+                        "elapsedSinceLastFeed=${elapsedSinceLastFeedMs}ms " +
+                        "playing=${player.isPlaying} offload=${player.audioFormat?.sampleMimeType ?: "-"}"
+                )
+            }
         })
         createNotificationChannel()
         startProgressUpdates()
