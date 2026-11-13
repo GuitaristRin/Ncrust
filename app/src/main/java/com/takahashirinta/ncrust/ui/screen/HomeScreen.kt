@@ -37,6 +37,7 @@ import com.takahashirinta.ncrust.account.SessionMonitor
 import com.takahashirinta.ncrust.account.SessionState
 import com.takahashirinta.ncrust.cache.ContentCache
 import com.takahashirinta.ncrust.network.PlaylistApi
+import com.takahashirinta.ncrust.ui.components.PlaylistMenuTarget
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
@@ -70,6 +71,8 @@ fun HomeScreen(
     onSongClick: (SongItem) -> Unit,
     onPlaylistClick: (Long) -> Unit = {},
     onPlayPlaylist: (Long) -> Unit = {},
+    // 长按推荐歌单：弹出与库页同一张操作表（播放 / 队列 / 收藏），由 MainScreen 统一组装。
+    onShowPlaylistMenu: (PlaylistMenuTarget) -> Unit = {},
     onPlayDailyAll: ((List<SongItem>) -> Unit)? = null,
     onSongInsertNext: (SongItem) -> Unit = {},
     onSongAppendToQueue: (SongItem) -> Unit = {},
@@ -305,6 +308,7 @@ fun HomeScreen(
                                     PlaylistTile(
                                         playlist = pl,
                                         onClick = { onPlaylistClick(pl.id) },
+                                        onLongClick = { onShowPlaylistMenu(PlaylistMenuTarget(pl.id, pl.name, pl.coverUrl, pl.trackCount)) },
                                         onPlayAll = { onPlayPlaylist(pl.id) }
                                     )
                                 }
@@ -452,8 +456,9 @@ private fun SongGridTile(song: SongItem, onClick: () -> Unit, onLongClick: () ->
 
 /** 推荐歌单大 tile：160dp 方封面 + 圆播放按钮。 */
 @Composable
-private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit, onPlayAll: () -> Unit) {    val strings = LocalStrings.current
-    Column(modifier = Modifier.width(160.dp).clickable { onClick() }) {
+private fun PlaylistTile(playlist: PlaylistApi.PlaylistCard, onClick: () -> Unit, onLongClick: () -> Unit, onPlayAll: () -> Unit) {
+    val strings = LocalStrings.current
+    Column(modifier = Modifier.width(160.dp).combinedClickableFallback(onClick, onLongClick)) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             AsyncImage(
                 model = CoverUrls.small(playlist.coverUrl),

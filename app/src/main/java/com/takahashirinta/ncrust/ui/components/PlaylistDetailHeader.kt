@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LibraryAdd
+import androidx.compose.material.icons.filled.LibraryAddCheck
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +37,10 @@ fun PlaylistDetailHeader(
     complete: Boolean, management: Boolean, owned: Boolean,
     onPlay: (() -> Unit)?, onEditTracks: (() -> Unit)?, onEdit: () -> Unit, onDelete: () -> Unit,
     dimmed: () -> Float = { 0f },
+    // 他人歌单的收藏状态：null = 不提供收藏入口（未开实验开关、本人歌单或状态未知）。
+    subscribed: Boolean? = null,
+    subscribing: Boolean = false,
+    onToggleSubscribe: () -> Unit = {},
 ) {
     val s = LocalStrings.current
     val colors = LocalMetroColors.current
@@ -66,7 +72,8 @@ fun PlaylistDetailHeader(
             Spacer(Modifier.height(12.dp))
             MetroText(s.playlists.incomplete, style = type.caption, color = colors.onSurfaceVariant)
         }
-        if (management && (onEditTracks != null || owned)) {
+        val canSubscribe = management && !owned && subscribed != null
+        if (management && (onEditTracks != null || owned || canSubscribe)) {
             Spacer(Modifier.height(16.dp))
             Row(
                 Modifier.fillMaxWidth().graphicsLayer { alpha = 1f - 0.62f * dimmed().coerceIn(0f, 1f) },
@@ -74,6 +81,13 @@ fun PlaylistDetailHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val pad = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+                // 他人歌单的首个按钮是收藏；状态翻转靠图标与文字，不做颜色过渡。
+                if (canSubscribe) MetroButton(
+                    if (subscribed == true) s.playlists.subscribedLabel else s.playlists.subscribe, onToggleSubscribe,
+                    Modifier.weight(1f, fill = false), enabled = !subscribing,
+                    leadingIcon = if (subscribed == true) Icons.Default.LibraryAddCheck else Icons.Default.LibraryAdd,
+                    contentPadding = pad, textStyle = type.bodyMedium
+                )
                 // 本人歌单进「编辑曲目」；别人的歌单同一位置只做选择（把歌加进自己的歌单）。
                 if (onEditTracks != null) MetroButton(
                     if (owned) s.playlists.editTracks else s.playlists.selectTracks, onEditTracks,

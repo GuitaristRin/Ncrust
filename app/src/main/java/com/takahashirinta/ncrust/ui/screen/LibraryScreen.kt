@@ -59,6 +59,7 @@ import com.takahashirinta.ncrust.ui.components.PlayAllDialog
 import com.takahashirinta.ncrust.ui.components.SongCard
 import com.takahashirinta.ncrust.ui.components.SongCardStyle
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
+import com.takahashirinta.ncrust.ui.components.PlaylistMenuTarget
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import kotlinx.coroutines.launch
 import android.widget.Toast
@@ -73,6 +74,8 @@ fun LibraryScreen(
     onSongInsertNext: (SongItem) -> Unit = {},
     onSongAppendToQueue: (SongItem) -> Unit = {},
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
+    // 播放列表长按：自下而上的操作表。本页只给本页特有的动作，播放 / 队列 / 收藏由 MainScreen 追加。
+    onShowPlaylistMenu: (PlaylistMenuTarget, List<SongMenuAction>) -> Unit = { _, _ -> },
     // 「单曲」tab 的整列操作：全量曲目由本屏按红心 id 表补齐（分页列表只有已加载的首页），
     // 拿到之后仍然交给 MainScreen 既有的队列函数，别在这里自己拼队列。
     onPlayAllSongs: (List<SongItem>) -> Unit = {},
@@ -106,10 +109,11 @@ fun LibraryScreen(
     val playlistManagement by PlaylistManager.enabled.collectAsState()
     var isLoadingPlaylists by remember { mutableStateOf(false) }
     var playlistError by remember { mutableStateOf<String?>(null) }
-    // 播放列表批量选择：长按任意本人歌单进入，勾选后一次性删除（逐个走完整备份+读回）。
+    // 播放列表批量选择：从长按操作表的「多选」进入，勾选后一次性删除（逐个走完整备份+读回）。
     var selectingPlaylists by remember { mutableStateOf(false) }
     var selectedPlaylistIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var confirmingBatchDelete by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf<PlaylistApi.PlaylistInfo?>(null) }
     val playlistBatch by PlaylistManager.batch.collectAsState()
 
     // 整列播放：全量详情按红心 id 表分批补齐（N 首可能上千，非瞬时），期间按钮禁用 + 文案变化，
@@ -169,6 +173,8 @@ fun LibraryScreen(
                     playlistOwnerId = userId
                     playlists = result.items
                     playlistComplete = result.complete
+                    // 同一份列表也是首页 / 搜索 / 详情判断「已收藏」的依据。
+                    PlaylistManager.publishLibrary(userId, result, credential)
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (e: Exception) {
@@ -247,6 +253,14 @@ fun LibraryScreen(
                 selectedPlaylistIds = emptySet()
             },
             onDismiss = { confirmingBatchDelete = false }
+        )
+    }
+    confirmingDelete?.let { item ->
+        PlaylistConfirmDialog(
+            text = strings.playlists.deleteHint(item.name),
+            confirmLabel = strings.playlists.delete,
+            onConfirm = { confirmingDelete = null; PlaylistManager.deletePlaylists(listOf(item.id)) },
+            onDismiss = { confirmingDelete = null }
         )
     }
     PlaylistBatchDialog(playlistBatch, PlaylistManager::dismissBatch)
@@ -427,16 +441,28 @@ fun LibraryScreen(
                         selectedPlaylistIds = if (item.id in selectedPlaylistIds) selectedPlaylistIds - item.id
                         else selectedPlaylistIds + item.id
                     },
-                    // 只有本人歌单可被管理；收藏来的歌单长按不进入选择态，避免给出做不到的操作。
                     onLongPress = { item ->
-                        if (playlistManagement && item.isOwnedBy(playlistOwnerId)) {
-                            // 选择态里长按等同点按切换，不能把已有选择重置成这一项。
-                            selectedPlaylistIds = when {
-                                !selectingPlaylists -> setOf(item.id)
-                                item.id in selectedPlaylistIds -> selectedPlaylistIds - item.id
-                                else -> selectedPlaylistIds + item.id
-                            }
-                            selectingPlaylists = true
+                        if (selectingPlaylists) {
+                            // 选择态里长按等同点按切换，不在多选中途弹菜单。
+                            if (item.isOwnedBy(playlistOwnerId)) selectedPlaylistIds =
+                                if (item.id in selectedPlaylistIds) selectedPlaylistIds - item.id else selectedPlaylistIds + item.id
+                        } else {
+                            val manageable = playlistManagement && item.isOwnedBy(playlistOwnerId)
+                            onShowPlaylistMenu(
+                                PlaylistMenuTarget(item.id, item.name, item.coverImgUrl, item.trackCount),
+                                if (manageable) listOf(
+                                    SongMenuAction(Icons.Default.Edit, strings.playlists.editInfo) {
+                                        PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.EDIT, playlistId = item.id))
+                                    },
+                                    SongMenuAction(Icons.Default.Checklist, strings.playlists.selectMultiple) {
+                                        selectedPlaylistIds = setOf(item.id)
+                                        selectingPlaylists = true
+                                    },
+                                    SongMenuAction(Icons.Default.DeleteOutline, strings.playlists.delete) {
+                                        confirmingDelete = item
+                                    }
+                                ) else emptyList()
+                            )
                         }
                     },
                     onSelectAll = {

@@ -34,6 +34,14 @@ interface NcmApi {
     ): SearchResponse
 
     @FormUrlEncoded
+    @POST("api/cloudsearch/pc")
+    suspend fun searchPlaylist(
+        @Field("s") keyword: String,
+        @Field("type") type: Int = 1000,
+        @Field("limit") limit: Int = 30
+    ): SearchResponse
+
+    @FormUrlEncoded
     @POST("api/v3/song/detail")
     suspend fun getSongDetail(
         @Field("c") c: String

@@ -233,6 +233,8 @@ private fun PlaylistPageBody(
                 PlaylistPanelMode.REMOVE -> p.remove
                 PlaylistPanelMode.DELETE -> p.delete
                 PlaylistPanelMode.REORDER -> p.sortTracks
+                PlaylistPanelMode.SUBSCRIBE -> p.subscribe
+                PlaylistPanelMode.UNSUBSCRIBE -> p.unsubscribe
             }, style = LocalMetroTypography.current.title.copy(fontSize = 22.sp), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
@@ -326,6 +328,7 @@ private fun PlaylistEditorBody(state: PlaylistPanelState, onDraft: ((PlaylistDra
                 MetroText(when (mode) {
                     PlaylistPanelMode.DELETE -> p.deleteHint(state.snapshot?.info?.name.orEmpty())
                     PlaylistPanelMode.REORDER -> p.reorderHint(state.request.songIds.size)
+                    PlaylistPanelMode.SUBSCRIBE, PlaylistPanelMode.UNSUBSCRIBE -> state.snapshot?.info?.name.orEmpty()
                     else -> p.removeHint(state.request.songIds.size)
                 }, style = LocalMetroTypography.current.bodyLarge)
             }
@@ -335,12 +338,15 @@ private fun PlaylistEditorBody(state: PlaylistPanelState, onDraft: ((PlaylistDra
             PlaylistPanelMode.EDIT -> p.save
             PlaylistPanelMode.DELETE -> p.delete
             PlaylistPanelMode.REORDER -> p.saveOrder
+            PlaylistPanelMode.SUBSCRIBE -> p.subscribe
+            PlaylistPanelMode.UNSUBSCRIBE -> p.unsubscribe
             else -> p.remove
         }
         val owned = state.snapshot?.info?.isOwnedBy(state.ownerId) == true
         val enabled = !state.busy && when {
             editing -> state.draft.valid
             mode == PlaylistPanelMode.REORDER -> owned && state.request.songIds.isNotEmpty()
+            mode == PlaylistPanelMode.SUBSCRIBE || mode == PlaylistPanelMode.UNSUBSCRIBE -> state.snapshot != null && !owned
             else -> owned
         }
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {

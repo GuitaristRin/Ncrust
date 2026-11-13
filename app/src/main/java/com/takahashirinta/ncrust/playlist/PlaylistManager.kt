@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
-enum class PlaylistPanelMode { ADD, CREATE, EDIT, REMOVE, DELETE, REORDER }
+enum class PlaylistPanelMode { ADD, CREATE, EDIT, REMOVE, DELETE, REORDER, SUBSCRIBE, UNSUBSCRIBE }
 data class PlaylistPanelRequest(val mode: PlaylistPanelMode, val songIds: List<Long> = emptyList(), val playlistId: Long = 0)
 /**
  * [background] = 任务在后台跑、面板不占屏：已经在页内确认过的动作（移除、保存顺序、从选择器加入）
@@ -33,13 +33,16 @@ data class PlaylistPanelState(
     val working: Boolean get() = background && (loading || busy)
 }
 
-enum class PlaylistNoticeKind { ADDED, REMOVED, REORDERED, CREATED, SAVED, DELETED }
+enum class PlaylistNoticeKind { ADDED, REMOVED, REORDERED, CREATED, SAVED, DELETED, SUBSCRIBED, UNSUBSCRIBED }
 
 /** 轻提示只携带类型和数字，文案由界面按当前语言生成；[serial] 让相同内容的两次提示也能各自出现。 */
 data class PlaylistNotice(
     val serial: Long, val kind: PlaylistNoticeKind,
     val count: Int = 0, val name: String = "", val playlistId: Long? = null
 )
+
+/** 当前账号的「我的歌单」列表（自建 + 收藏），供各处判断某个歌单是否已收藏。 */
+data class PlaylistLibrary(val ownerId: Long, val collection: PlaylistCollection)
 
 /** 批量删除的进度与汇总。逐个歌单走完整的「备份 → 提交 → 读回」，不并发、不合并请求。 */
 data class PlaylistBatch(
@@ -62,6 +65,8 @@ object PlaylistManager {
     val revision = _revision.asStateFlow()
     private val _notice = MutableStateFlow<PlaylistNotice?>(null)
     val notice = _notice.asStateFlow()
+    private val _library = MutableStateFlow<PlaylistLibrary?>(null)
+    val library = _library.asStateFlow()
     @Volatile private var noticeSerial = 0L
     private fun notify(kind: PlaylistNoticeKind, count: Int = 0, name: String = "", playlistId: Long? = null) {
         _notice.value = PlaylistNotice(++noticeSerial, kind, count, name, playlistId)
@@ -92,6 +97,7 @@ object PlaylistManager {
             cookie = ""
             pendingCommand = null
             _state.value = PlaylistPanelState()
+            _library.value = null
             _revision.update { it + 1 }
         }
     }
@@ -163,7 +169,9 @@ object PlaylistManager {
                 }
                 val snapshot = if (request.playlistId > 0) gateway.snapshot(request.playlistId) else null
                 if (!current(token, credential)) return@launch
-                if (snapshot != null && !snapshot.info.isOwnedBy(uid)) throw PlaylistRequestException(PlaylistProblem.PERMISSION)
+                // 收藏 / 取消收藏只对他人歌单；其余写入只对本人歌单。
+                val subscription = request.mode == PlaylistPanelMode.SUBSCRIBE || request.mode == PlaylistPanelMode.UNSUBSCRIBE
+                if (snapshot != null && snapshot.info.isOwnedBy(uid) == subscription) throw PlaylistRequestException(PlaylistProblem.PERMISSION)
                 publish(token, credential) { it.copy(loading = false, ownerId = uid, snapshot = snapshot,
                     targetName = snapshot?.info?.name.orEmpty()) }
                 if (current(token, credential)) submit()
@@ -278,6 +286,8 @@ object PlaylistManager {
             PlaylistPanelMode.REMOVE -> PlaylistAction.REMOVE
             PlaylistPanelMode.DELETE -> PlaylistAction.DELETE
             PlaylistPanelMode.REORDER -> PlaylistAction.REORDER
+            PlaylistPanelMode.SUBSCRIBE -> PlaylistAction.SUBSCRIBE
+            PlaylistPanelMode.UNSUBSCRIBE -> PlaylistAction.UNSUBSCRIBE
         }
         // 排序带的是整个歌单的新顺序：和其他动作一样走 request.songIds，但不带 draft。
         val command = PlaylistCommand(action, if (action == PlaylistAction.ADD) targetId else request.playlistId,
@@ -318,6 +328,8 @@ object PlaylistManager {
                 val finished = _state.value
                 val name = (result.snapshot?.info?.name ?: command.draft?.name ?: finished.targetName).orEmpty()
                 notify(noticeKindFor(command.action), command.songIds.size, name, result.playlistId)
+                if (command.action == PlaylistAction.SUBSCRIBE || command.action == PlaylistAction.UNSUBSCRIBE)
+                    applySubscription(command.action == PlaylistAction.SUBSCRIBE, command.playlistId, finished.snapshot, credential)
                 pendingCommand = null
                 publish(token, credential) { PlaylistPanelState() }
             } else {
@@ -332,8 +344,53 @@ object PlaylistManager {
         PlaylistAction.REORDER -> PlaylistNoticeKind.REORDERED
         PlaylistAction.CREATE -> PlaylistNoticeKind.CREATED
         PlaylistAction.DELETE -> PlaylistNoticeKind.DELETED
+        PlaylistAction.SUBSCRIBE -> PlaylistNoticeKind.SUBSCRIBED
+        PlaylistAction.UNSUBSCRIBE -> PlaylistNoticeKind.UNSUBSCRIBED
         else -> PlaylistNoticeKind.SAVED
     }
+    /** 库页读到列表后发布；凭据已变（切号）的结果直接丢弃。 */
+    fun publishLibrary(ownerId: Long, collection: PlaylistCollection, credential: String) {
+        if (ownerId > 0 && credential.isNotEmpty() && credential == RetrofitClient.getCookie().orEmpty())
+            _library.value = PlaylistLibrary(ownerId, collection)
+    }
+
+    /** 首页 / 搜索 / 详情需要收藏状态而库页没读过时补读一次；失败保持「未知」。 */
+    fun refreshLibrary() {
+        if (!_enabled.value) return
+        val credential = RetrofitClient.getCookie().orEmpty()
+        if (credential.isEmpty()) return
+        scope.launch {
+            try {
+                val gateway = NetworkPlaylistGateway(credential)
+                val uid = gateway.userId()
+                if (uid > 0) publishLibrary(uid, gateway.collection(uid), credential)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { }
+        }
+    }
+
+    /** true 已收藏 / false 未收藏 / null 列表未读到或不完整，界面不据此给出确定状态。 */
+    fun subscriptionOf(library: PlaylistLibrary?, id: Long): Boolean? {
+        val collection = library?.collection ?: return null
+        val item = collection.items.firstOrNull { it.id == id }
+        return when {
+            item != null -> !item.isOwnedBy(library.ownerId)
+            collection.complete -> false
+            else -> null
+        }
+    }
+
+    /** 读回确认后先就地更新列表，让各页按钮立刻翻转，再补读一次服务端列表作准。 */
+    private fun applySubscription(subscribed: Boolean, id: Long, snapshot: PlaylistSnapshot?, credential: String) {
+        _library.update { library ->
+            library ?: return@update null
+            val rest = library.collection.items.filterNot { it.id == id }
+            val items = if (subscribed && snapshot != null) rest + snapshot.info.copy(subscribed = true) else rest
+            if (credential == RetrofitClient.getCookie().orEmpty()) library.copy(collection = library.collection.copy(items = items)) else library
+        }
+        refreshLibrary()
+    }
+
     private fun current(token: Long, credential: String) = token == generation && credential == RetrofitClient.getCookie().orEmpty()
     private fun publish(token: Long, credential: String, transform: (PlaylistPanelState) -> PlaylistPanelState) {
         _state.update { if (current(token, credential)) transform(it) else it }
@@ -344,6 +401,8 @@ object PlaylistManager {
         PlaylistAction.REMOVE -> PlaylistPanelMode.REMOVE
         PlaylistAction.DELETE -> PlaylistPanelMode.DELETE
         PlaylistAction.REORDER -> PlaylistPanelMode.REORDER
+        PlaylistAction.SUBSCRIBE -> PlaylistPanelMode.SUBSCRIBE
+        PlaylistAction.UNSUBSCRIBE -> PlaylistPanelMode.UNSUBSCRIBE
         else -> PlaylistPanelMode.EDIT
     }, command.songIds, command.playlistId)
 

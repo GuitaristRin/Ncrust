@@ -91,6 +91,8 @@ fun PlaylistDetailScreen(
     val revision by PlaylistManager.revision.collectAsState()
     val management by PlaylistManager.enabled.collectAsState()
     val task by PlaylistManager.state.collectAsState()
+    val library by PlaylistManager.library.collectAsState()
+    LaunchedEffect(management, playlistId) { if (management && library == null) PlaylistManager.refreshLibrary() }
     var showPlayAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -266,7 +268,16 @@ fun PlaylistDetailScreen(
                 onEditTracks = if (songs.isNotEmpty()) ({ if (!editing) enterEdit() }) else null,
                 onEdit = { if (!editing) PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.EDIT, playlistId = playlistId)) },
                 onDelete = { if (!editing) confirmingDelete = true },
-                dimmed = { editProgress.value }
+                dimmed = { editProgress.value },
+                // 「我的歌单」列表为准；列表还没读到时退回详情里的 subscribed 字段。
+                subscribed = if (snapshot == null || userId <= 0) null
+                    else PlaylistManager.subscriptionOf(library, playlistId) ?: snapshot?.info?.subscribed,
+                subscribing = busyHere,
+                onToggleSubscribe = {
+                    val subscribed = PlaylistManager.subscriptionOf(library, playlistId) ?: snapshot?.info?.subscribed == true
+                    PlaylistManager.perform(PlaylistPanelRequest(
+                        if (subscribed) PlaylistPanelMode.UNSUBSCRIBE else PlaylistPanelMode.SUBSCRIBE, playlistId = playlistId))
+                }
             )
         },
         content = {

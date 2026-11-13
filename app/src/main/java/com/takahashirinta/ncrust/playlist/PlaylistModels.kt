@@ -15,7 +15,11 @@ data class PlaylistCollection(val items: List<PlaylistInfo>, val complete: Boole
  * [REORDER] 没有独立端点：它复用 `manipulate/tracks` 的 `op="update"` 变体提交**整表顺序**，
  * 语义属推断（见 `spec/api/playlist-edit.md`），因此只能在内容完整时使用，且必须整表读回。
  */
-enum class PlaylistAction { CREATE, ADD, REMOVE, REORDER, NAME, DESCRIPTION, PRIVACY, DELETE }
+/**
+ * [SUBSCRIBE] / [UNSUBSCRIBE] 作用于**他人**歌单，确认依据是「我的歌单」列表里目标 ID 的出现或消失，
+ * 见 `spec/api/endpoints.md` 歌单写操作节。
+ */
+enum class PlaylistAction { CREATE, ADD, REMOVE, REORDER, NAME, DESCRIPTION, PRIVACY, DELETE, SUBSCRIBE, UNSUBSCRIBE }
 enum class PlaylistProblem { LOGIN, PERMISSION, RATE_LIMIT, NETWORK, REJECTED, INCOMPLETE, ACCOUNT_CHANGED, INVALID }
 enum class PlaylistOutcome { CONFIRMED, PENDING, PARTIAL, FAILED }
 

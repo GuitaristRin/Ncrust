@@ -1,19 +1,25 @@
 package com.takahashirinta.ncrust.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.CoverUrls
+import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import io.github.takahashirinta.kanesumi.controls.MetroBottomSheet
 import io.github.takahashirinta.kanesumi.controls.MetroDivider
 import io.github.takahashirinta.kanesumi.core.insets.metroNavigationBarsPadding
@@ -28,9 +34,58 @@ data class SongMenuAction(
     val onClick: () -> Unit
 )
 
+/** 播放列表操作表的抬头信息；首页卡片、搜索结果与库页行各自只带得出这些字段。 */
+data class PlaylistMenuTarget(
+    val id: Long,
+    val name: String,
+    val coverUrl: String?,
+    val trackCount: Int = -1,
+    val creator: String? = null
+)
+
 @Composable
 fun SongMenuSheet(
     song: SongItem,
+    actions: List<SongMenuAction>,
+    onDismiss: () -> Unit
+) {
+    ActionMenuSheet(
+        coverUrl = song.album?.picUrl,
+        placeholder = Icons.Default.MusicNote,
+        title = song.name,
+        subtitle = song.artists?.joinToString("/") { it.name } ?: "",
+        caption = song.album?.name,
+        actions = actions,
+        onDismiss = onDismiss
+    )
+}
+
+/** 播放列表长按的自下而上操作表：与歌曲菜单同一版式，只换抬头。 */
+@Composable
+fun PlaylistMenuSheet(
+    target: PlaylistMenuTarget,
+    actions: List<SongMenuAction>,
+    onDismiss: () -> Unit
+) {
+    val s = LocalStrings.current
+    ActionMenuSheet(
+        coverUrl = target.coverUrl,
+        placeholder = Icons.AutoMirrored.Filled.QueueMusic,
+        title = target.name,
+        subtitle = target.creator.orEmpty(),
+        caption = target.trackCount.takeIf { it >= 0 }?.let { s.trackCount(it) },
+        actions = actions,
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+private fun ActionMenuSheet(
+    coverUrl: String?,
+    title: String,
+    subtitle: String,
+    caption: String?,
+    placeholder: ImageVector,
     actions: List<SongMenuAction>,
     onDismiss: () -> Unit
 ) {
@@ -46,12 +101,17 @@ fun SongMenuSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 直角封面，贴屏左边缘，112dp = 2x 迷你播放栏封面高
-                AsyncImage(
-                    model = CoverUrls.small(song.album?.picUrl),
-                    contentDescription = null,
-                    modifier = Modifier.size(112.dp),
-                    contentScale = ContentScale.Crop
-                )
+                // 无封面时放类型图标：深色主题下次级表面与面板底色接近，空方块会被读成「缺了一块」。
+                Box(Modifier.size(112.dp).background(LocalMetroColors.current.surfaceVariant), contentAlignment = Alignment.Center) {
+                    if (coverUrl.isNullOrBlank()) MetroIcon(placeholder, contentDescription = null,
+                        tint = LocalMetroColors.current.onSurfaceVariant, sizeDp = 40.dp)
+                    else AsyncImage(
+                        model = CoverUrls.small(coverUrl),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -60,25 +120,26 @@ fun SongMenuSheet(
                     verticalArrangement = Arrangement.Center
                 ) {
                     MetroText(
-                        song.name,
+                        title,
                         color = LocalMetroColors.current.onBackground,
                         style = LocalMetroTypography.current.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.height(4.dp))
-                    MetroText(
-                        song.artists?.joinToString("/") { it.name } ?: "",
-                        color = LocalMetroColors.current.primary,
-                        style = LocalMetroTypography.current.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    val albumName = song.album?.name
-                    if (!albumName.isNullOrEmpty()) {
+                    if (subtitle.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        MetroText(
+                            subtitle,
+                            color = LocalMetroColors.current.primary,
+                            style = LocalMetroTypography.current.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (!caption.isNullOrEmpty()) {
                         Spacer(Modifier.height(2.dp))
                         MetroText(
-                            albumName,
+                            caption,
                             color = LocalMetroColors.current.onSurfaceVariant,
                             style = LocalMetroTypography.current.bodySmall,
                             maxLines = 1,
@@ -96,7 +157,7 @@ fun SongMenuSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
+                    .clickable(role = Role.Button) {
                         action.onClick()
                         onDismiss()
                     }

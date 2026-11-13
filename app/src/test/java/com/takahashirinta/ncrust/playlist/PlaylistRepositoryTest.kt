@@ -34,6 +34,7 @@ class PlaylistRepositoryTest {
                 PlaylistAction.REMOVE -> data = data.copy(trackIds = data.trackIds - command.songIds.toSet())
                 PlaylistAction.REORDER -> data = data.copy(trackIds = command.songIds)
                 PlaylistAction.DELETE -> deleted = true
+                PlaylistAction.SUBSCRIBE, PlaylistAction.UNSUBSCRIBE -> Unit
             }
             return PlaylistWriteResult.Success(JSONObject().put("code", 200).put("id", 42))
         }

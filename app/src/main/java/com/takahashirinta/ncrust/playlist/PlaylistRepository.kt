@@ -69,6 +69,21 @@ class PlaylistRepository(
                 return edited.copy(confirmedFields = edited.confirmedFields + PlaylistAction.CREATE)
             }
             if (target == null) return failed(PlaylistProblem.INVALID)
+            if (command.action == PlaylistAction.SUBSCRIBE || command.action == PlaylistAction.UNSUBSCRIBE) {
+                val wanted = command.action == PlaylistAction.SUBSCRIBE
+                val info = gateway.snapshot(target).info
+                guard()
+                // 收藏只对他人歌单有意义；作者未知时同样不提交，避免把自建歌单当成收藏处理。
+                if (info.creatorUserId <= 0 || info.creatorUserId == uid) return failed(PlaylistProblem.PERMISSION, target)
+                val before = gateway.collection(uid)
+                guard()
+                if (!before.complete) return failed(PlaylistProblem.INCOMPLETE, target)
+                // 已处于目标状态就不再写：重复点按或多设备同步后不产生多余请求。
+                if (before.items.any { it.id == target } == wanted) return PlaylistResult(PlaylistOutcome.CONFIRMED, target)
+                submitted = true
+                val written = submit(command)
+                return verifySubscription(target, uid, wanted, problemOf(written))
+            }
             val snapshot = owned(target, uid)
             guard()
             return when (command.action) {
@@ -188,6 +203,8 @@ class PlaylistRepository(
             val uid = gateway.userId()
             if (uid <= 0) return failed(PlaylistProblem.LOGIN, id)
             if (command.action == PlaylistAction.DELETE) return verifyDelete(id, uid, failure)
+            if (command.action == PlaylistAction.SUBSCRIBE || command.action == PlaylistAction.UNSUBSCRIBE)
+                return verifySubscription(id, uid, command.action == PlaylistAction.SUBSCRIBE, failure)
             if (command.action == PlaylistAction.REORDER) return reorderVerify(command, uid, failure)
             val snapshot = owned(id, uid)
             if (command.action == PlaylistAction.ADD || command.action == PlaylistAction.REMOVE) {
@@ -222,6 +239,24 @@ class PlaylistRepository(
         val absent = list.complete && list.items.none { it.id == id }
         return PlaylistResult(if (absent) PlaylistOutcome.CONFIRMED else PlaylistOutcome.PENDING, id,
             problem = if (list.complete) failure else PlaylistProblem.INCOMPLETE)
+    }
+
+    /**
+     * 收藏状态只认「我的歌单」列表：目标出现在列表里即已收藏（部分列表里出现也算正面证据），
+     * 「已取消」则要求列表完整且不含目标。业务码只用来区分「被拒绝」与「待确认」。
+     */
+    private suspend fun verifySubscription(id: Long, uid: Long, wanted: Boolean, failure: PlaylistProblem?): PlaylistResult {
+        guard()
+        val list = gateway.collection(uid)
+        guard()
+        val present = list.items.any { it.id == id }
+        return when {
+            present && wanted -> PlaylistResult(PlaylistOutcome.CONFIRMED, id)
+            !present && !wanted && list.complete -> PlaylistResult(PlaylistOutcome.CONFIRMED, id)
+            !list.complete -> PlaylistResult(PlaylistOutcome.PENDING, id, problem = PlaylistProblem.INCOMPLETE)
+            failure != null && failure != PlaylistProblem.NETWORK -> failed(failure, id)
+            else -> PlaylistResult(PlaylistOutcome.PENDING, id, problem = failure)
+        }
     }
 
     private suspend fun submit(command: PlaylistCommand): PlaylistWriteResult {

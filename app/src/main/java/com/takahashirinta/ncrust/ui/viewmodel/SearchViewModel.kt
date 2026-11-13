@@ -22,6 +22,9 @@ class SearchViewModel : ViewModel() {
     private val _artists = MutableStateFlow<List<ArtistSearchItem>>(emptyList())
     val artists: StateFlow<List<ArtistSearchItem>> = _artists
 
+    private val _playlists = MutableStateFlow<List<PlaylistSearchItem>>(emptyList())
+    val playlists: StateFlow<List<PlaylistSearchItem>> = _playlists
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
@@ -66,18 +69,28 @@ class SearchViewModel : ViewModel() {
                     _songs.value = response.result?.songs ?: emptyList()
                     _albums.value = emptyList()
                     _artists.value = emptyList()
+                    _playlists.value = emptyList()
                 }
                 10 -> {
                     val response = RetrofitClient.api.searchAlbum(keyword = _query.value, type = 10)
                     _albums.value = response.result?.albums ?: emptyList()
                     _songs.value = emptyList()
                     _artists.value = emptyList()
+                    _playlists.value = emptyList()
                 }
                 100 -> {
                     val response = RetrofitClient.api.searchArtist(keyword = _query.value, type = 100)
                     _artists.value = response.result?.artists ?: emptyList()
                     _songs.value = emptyList()
                     _albums.value = emptyList()
+                    _playlists.value = emptyList()
+                }
+                1000 -> {
+                    val response = RetrofitClient.api.searchPlaylist(keyword = _query.value, type = 1000)
+                    _playlists.value = response.result?.playlists.orEmpty().filter { it.id > 0 }
+                    _songs.value = emptyList()
+                    _albums.value = emptyList()
+                    _artists.value = emptyList()
                 }
             }
         } catch (e: Exception) {
@@ -97,5 +110,6 @@ class SearchViewModel : ViewModel() {
         _songs.value = emptyList()
         _albums.value = emptyList()
         _artists.value = emptyList()
+        _playlists.value = emptyList()
     }
 }

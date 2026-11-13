@@ -34,12 +34,18 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.takahashirinta.ncrust.library.LibraryManager
 import com.takahashirinta.ncrust.library.SearchHistoryManager
+import com.takahashirinta.ncrust.ui.components.PlaylistArtwork
+import com.takahashirinta.ncrust.ui.components.PlaylistMenuTarget
 import com.takahashirinta.ncrust.network.SongItem
 import com.takahashirinta.ncrust.network.model.AlbumItem
 import com.takahashirinta.ncrust.network.model.ArtistItem
@@ -75,6 +81,9 @@ fun SearchScreen(
     onSongClick: (SongItem) -> Unit,
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
+    onPlaylistClick: (PlaylistMenuTarget) -> Unit = {},
+    // 歌单结果长按：与首页 / 库页同一张自下而上的操作表。
+    onShowPlaylistMenu: (PlaylistMenuTarget) -> Unit = {},
     onInsertNext: (SongItem) -> Unit = {},
     onAppendToQueue: (SongItem) -> Unit = {},
     onShowSongMenu: (SongItem, List<SongMenuAction>) -> Unit = { _, _ -> },
@@ -87,12 +96,13 @@ fun SearchScreen(
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
     val artists by viewModel.artists.collectAsState()
+    val playlists by viewModel.playlists.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val currentType by viewModel.currentType.collectAsState()
     val context = LocalContext.current
     val strings = LocalStrings.current
-    val categories = listOf(strings.searchCategoryTracks, strings.searchCategoryAlbums, strings.searchCategoryArtists)
+    val categories = listOf(strings.searchCategoryTracks, strings.searchCategoryAlbums, strings.searchCategoryArtists, strings.searchCategoryPlaylists)
 
     val currentThemeColor = themeColorForIndex(themeIndex)
     val desaturatedFill = desaturateColor(
@@ -116,11 +126,13 @@ fun SearchScreen(
     var songHistory by remember { mutableStateOf(SearchHistoryManager.getSongs(context)) }
     var albumHistory by remember { mutableStateOf(SearchHistoryManager.getAlbums(context)) }
     var artistHistory by remember { mutableStateOf(SearchHistoryManager.getArtists(context)) }
+    var playlistHistory by remember { mutableStateOf(SearchHistoryManager.getPlaylists(context)) }
 
     fun refreshHistory() {
         songHistory = SearchHistoryManager.getSongs(context)
         albumHistory = SearchHistoryManager.getAlbums(context)
         artistHistory = SearchHistoryManager.getArtists(context)
+        playlistHistory = SearchHistoryManager.getPlaylists(context)
     }
 
     LaunchedEffect(query) {
@@ -128,7 +140,7 @@ fun SearchScreen(
     }
 
     val showHistory = query.isEmpty() &&
-        (songHistory.isNotEmpty() || albumHistory.isNotEmpty() || artistHistory.isNotEmpty())
+        (songHistory.isNotEmpty() || albumHistory.isNotEmpty() || artistHistory.isNotEmpty() || playlistHistory.isNotEmpty())
 
     Box(modifier = Modifier.fillMaxSize()) {
         // 背景由 MainScreen 外层 Box 统一填充，此处不重复画一层
@@ -336,29 +348,74 @@ fun SearchScreen(
                         }
                     }
 
+                    if (playlistHistory.isNotEmpty()) {
+                        item {
+                            SearchHistorySectionHeader(
+                                title = strings.searchCategoryPlaylists,
+                                onClear = {
+                                    SearchHistoryManager.clearSection(context, SearchHistoryManager.TYPE_PLAYLIST)
+                                    refreshHistory()
+                                },
+                                clearLabel = strings.searchHistoryClear
+                            )
+                        }
+                        items(playlistHistory, key = { "p_${it.id}" }) { item ->
+                            val target = PlaylistMenuTarget(item.id, item.title, item.coverUrl, creator = item.subtitle)
+                            SearchHistoryItemCard(
+                                item = item,
+                                onClick = { dismissKeyboard(); onPlaylistClick(target) },
+                                menuContent = { onDismiss ->
+                                    MetroDropdownMenuItem(
+                                        text = strings.playlists.open,
+                                        textColor = LocalMetroColors.current.onBackground,
+                                        onClick = { dismissKeyboard(); onDismiss(); onPlaylistClick(target) },
+                                    )
+                                    MetroDropdownMenuItem(
+                                        text = strings.searchHistoryDelete,
+                                        textColor = Color.Red.copy(alpha = 0.85f),
+                                        onClick = {
+                                            onDismiss()
+                                            SearchHistoryManager.remove(context, SearchHistoryManager.TYPE_PLAYLIST, item.id)
+                                            refreshHistory()
+                                        },
+                                    )
+                                }
+                            )
+                        }
+                    }
+
                         }
                     }
                     SearchContentState.Results -> {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            MetroTabRow(
-                                items = categories.map { MetroTabItem(it) },
-                                selectedTabIndex = when (currentType) {
-                                    1 -> 0
-                                    10 -> 1
-                                    100 -> 2
-                                    else -> 0
-                                },
-                                onTabSelected = { index ->
-                                    viewModel.onTypeChanged(
-                                        when (index) {
-                                            0 -> 1
-                                            1 -> 10
-                                            2 -> 100
-                                            else -> 1
-                                        }
-                                    )
-                                }
-                            )
+                            // 四个分类等分宽度：320dp 窄屏下日语 / 俄语的长标签会折行被裁，放不下时逐级缩小字号。
+                            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                val measurer = rememberTextMeasurer()
+                                val tabWidth = with(LocalDensity.current) { (maxWidth / categories.size).roundToPx() }
+                                val tabStyle = remember(categories, tabWidth) { fittingTabStyle(measurer, categories, tabWidth) }
+                                MetroTabRow(
+                                    items = categories.map { MetroTabItem(it) },
+                                    textStyle = tabStyle,
+                                    selectedTabIndex = when (currentType) {
+                                        1 -> 0
+                                        10 -> 1
+                                        100 -> 2
+                                        1000 -> 3
+                                        else -> 0
+                                    },
+                                    onTabSelected = { index ->
+                                        viewModel.onTypeChanged(
+                                            when (index) {
+                                                0 -> 1
+                                                1 -> 10
+                                                2 -> 100
+                                                3 -> 1000
+                                                else -> 1
+                                            }
+                                        )
+                                    }
+                                )
+                            }
 
                 error?.let {
                     MetroText(
@@ -532,6 +589,43 @@ fun SearchScreen(
                             }
                         }
                     }
+
+                    1000 -> {
+                        if (playlists.isEmpty() && !isLoading) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                MetroText(
+                                    text = strings.searchPlaylistsEmpty,
+                                    color = LocalMetroColors.current.onSurfaceVariant,
+                                    style = TextStyle(fontSize = 16.sp),
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
+                                flingBehavior = rememberMetroFlingBehavior()
+                            ) {
+                                items(playlists, key = { it.id }) { playlist ->
+                                    val target = PlaylistMenuTarget(playlist.id, playlist.name.orEmpty(), playlist.coverImgUrl,
+                                        playlist.trackCount ?: -1, playlist.creator?.nickname)
+                                    PlaylistSearchRow(
+                                        target = target,
+                                        onClick = {
+                                            SearchHistoryManager.addPlaylist(context, playlist)
+                                            dismissKeyboard(); onPlaylistClick(target)
+                                        },
+                                        onLongClick = {
+                                            SearchHistoryManager.addPlaylist(context, playlist)
+                                            dismissKeyboard(); onShowPlaylistMenu(target)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
                         }
                     }
@@ -678,4 +772,42 @@ fun SongSearchItem(
             }
         }
     )
+}
+
+/** 搜索结果里的歌单行：版式与专辑结果一致（72dp 直角封面、单行标题），点按打开，长按出操作表。 */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun PlaylistSearchRow(target: PlaylistMenuTarget, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val strings = LocalStrings.current
+    val colors = LocalMetroColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(vertical = 10.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PlaylistArtwork(target.coverUrl, Modifier.size(72.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            MetroText(target.name, color = colors.onBackground, style = LocalMetroTypography.current.bodyLarge,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (!target.creator.isNullOrEmpty()) MetroText(target.creator, color = colors.onSurfaceVariant,
+                style = LocalMetroTypography.current.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (target.trackCount >= 0) MetroText(strings.trackCount(target.trackCount), color = colors.onSurfaceVariant,
+            style = LocalMetroTypography.current.bodySmall)
+    }
+}
+
+/**
+ * 等分标签的字号：MetroTabRow 的标签不限行数，放不下会折成两行并被 48dp 行高裁掉。
+ * 以选中态（Medium，更宽）逐级量 14 → 12sp，取第一个让所有标签单行放下的字号。
+ */
+internal fun fittingTabStyle(measurer: TextMeasurer, titles: List<String>, tabWidthPx: Int): TextStyle {
+    val size = listOf(14, 13, 12).firstOrNull { sp ->
+        val probe = TextStyle(fontSize = sp.sp, fontWeight = FontWeight.Medium)
+        titles.all { measurer.measure(it, probe, constraints = Constraints(maxWidth = tabWidthPx)).lineCount == 1 }
+    } ?: 12
+    return TextStyle(fontSize = size.sp, fontWeight = FontWeight.Normal)
 }

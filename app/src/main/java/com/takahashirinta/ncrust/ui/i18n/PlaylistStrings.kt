@@ -20,6 +20,8 @@ data class PlaylistStrings(
     val discardOrder: String, val discardOrderHint: String, val dragToReorder: String, val working: String,
     val noticeAdded: (String) -> String, val noticeRemoved: (Int) -> String, val noticeReordered: String,
     val noticeCreated: (String) -> String, val noticeSaved: String, val noticeDeleted: (Int) -> String, val view: String,
+    val subscribe: String, val unsubscribe: String, val subscribedLabel: String, val selectMultiple: String,
+    val noticeSubscribed: (String) -> String, val noticeUnsubscribed: (String) -> String,
     val playlistSelectionCount: (Int) -> String,
     val batchDeleteHint: (Int) -> String, val batchProgress: (Int, Int) -> String,
     val batchSummary: (Int, Int) -> String

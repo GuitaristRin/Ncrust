@@ -127,4 +127,6 @@ private fun noticeText(notice: PlaylistNotice, p: PlaylistStrings): String = whe
     PlaylistNoticeKind.CREATED -> p.noticeCreated(notice.name)
     PlaylistNoticeKind.SAVED -> p.noticeSaved
     PlaylistNoticeKind.DELETED -> p.noticeDeleted(maxOf(1, notice.count))
+    PlaylistNoticeKind.SUBSCRIBED -> p.noticeSubscribed(notice.name)
+    PlaylistNoticeKind.UNSUBSCRIBED -> p.noticeUnsubscribed(notice.name)
 }

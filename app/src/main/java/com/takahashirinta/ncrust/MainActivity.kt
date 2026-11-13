@@ -30,6 +30,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.LibraryAdd
+import androidx.compose.material.icons.filled.LibraryAddCheck
+import androidx.compose.material.icons.filled.PlayArrow
 import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.runtime.*
@@ -71,6 +76,9 @@ import io.github.takahashirinta.kanesumi.structure.sidebar.MetroSidebar
 import io.github.takahashirinta.kanesumi.structure.sidebar.MetroSidebarItem
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
+import com.takahashirinta.ncrust.ui.components.PlaylistMenuSheet
+import com.takahashirinta.ncrust.ui.components.PlaylistMenuTarget
+import com.takahashirinta.ncrust.ui.screen.BatchQueueAction
 import com.takahashirinta.ncrust.ui.components.PlaylistManagementOverlay
 import com.takahashirinta.ncrust.ui.components.PlaylistNoticeHost
 import com.takahashirinta.ncrust.playlist.PlaylistManager
@@ -419,6 +427,9 @@ fun MainScreen(
 
     var menuSong by remember { mutableStateOf<SongItem?>(null) }
     var menuSongActions by remember { mutableStateOf<List<SongMenuAction>>(emptyList()) }
+    // 播放列表长按操作表：各页只给本页特有的动作（编辑、删除、多选），播放 / 队列 / 收藏在这里统一追加。
+    var menuPlaylist by remember { mutableStateOf<PlaylistMenuTarget?>(null) }
+    var menuPlaylistActions by remember { mutableStateOf<List<SongMenuAction>>(emptyList()) }
 
     var playbackQueue by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var currentQueueIndex by remember { mutableIntStateOf(-1) }
@@ -998,24 +1009,6 @@ fun MainScreen(
         expandCard()
     }
 
-    fun loadPlaylistAndPlay(playlistId: Long) {
-        val credential = RetrofitClient.getCookie().orEmpty()
-        coroutineScope.launch {
-            try {
-                val metadata = com.takahashirinta.ncrust.playlist.PlaylistReadApi(credential).snapshot(playlistId)
-                val songs = PlaylistApi.getPlaylistDetail(playlistId, credential)
-                if (credential != RetrofitClient.getCookie().orEmpty()) return@launch
-                if (metadata.idsComplete && songs.map { it.id } == metadata.trackIds && songs.isNotEmpty()) {
-                    playPlaylistFrom(songs, songs.first().id)
-                } else Toast.makeText(context, playlistStrings.playlists.incomplete, Toast.LENGTH_SHORT).show()
-            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-            catch (_: Exception) {
-                if (credential == RetrofitClient.getCookie().orEmpty())
-                    Toast.makeText(context, playlistStrings.playlists.network, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     /**
      * 主页「我的电台」入口: 进入真正的私人 FM(INFINITY 播放模式)。
      * 主数据源是网易私人 FM 流(getPersonalFm), 失败时兜底每日推荐,
@@ -1076,6 +1069,28 @@ fun MainScreen(
         playbackQueue = playbackQueue + newSongs
         if (playMode == QueueModes.SHUFFLE) generateShuffledIndices()
         persistSession()
+    }
+
+    fun loadPlaylistAndPlay(playlistId: Long, action: BatchQueueAction = BatchQueueAction.PLAY_NOW) {
+        val credential = RetrofitClient.getCookie().orEmpty()
+        coroutineScope.launch {
+            try {
+                val metadata = com.takahashirinta.ncrust.playlist.PlaylistReadApi(credential).snapshot(playlistId)
+                val songs = PlaylistApi.getPlaylistDetail(playlistId, credential)
+                if (credential != RetrofitClient.getCookie().orEmpty()) return@launch
+                if (metadata.idsComplete && songs.map { it.id } == metadata.trackIds && songs.isNotEmpty()) {
+                    when (action) {
+                        BatchQueueAction.PLAY_NOW -> playPlaylistFrom(songs, songs.first().id)
+                        BatchQueueAction.INSERT_NEXT -> insertAllNext(songs)
+                        BatchQueueAction.APPEND -> appendAllToQueue(songs)
+                    }
+                } else Toast.makeText(context, playlistStrings.playlists.incomplete, Toast.LENGTH_SHORT).show()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                if (credential == RetrofitClient.getCookie().orEmpty())
+                    Toast.makeText(context, playlistStrings.playlists.network, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     // 切换播放模式：顺序循环 → 单曲 → 乱序 → 顺序线性 → 相似无限(FM)，循环。
@@ -1517,6 +1532,7 @@ fun MainScreen(
                             onSongInsertNext = { insertNext(it) },
                             onSongAppendToQueue = { appendToQueue(it) },
                             onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
+                            onShowPlaylistMenu = { target -> menuPlaylist = target; menuPlaylistActions = emptyList() },
                             // 主页「我的电台」入口: 之前一直没传, HomeScreen 的 FM 卡因此永不渲染
                             onPlayFm = { startFm() }
                         )
@@ -1554,6 +1570,7 @@ fun MainScreen(
                             onInsertAllSongsNext = { insertAllNext(it) },
                             onAppendAllSongs = { appendAllToQueue(it) },
                             onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
+                            onShowPlaylistMenu = { target, actions -> menuPlaylist = target; menuPlaylistActions = actions },
                             refreshTrigger = cookieRefreshTrigger
                         )
 
@@ -1561,6 +1578,8 @@ fun MainScreen(
                             onSongClick = { playSongItem(it) },
                             onAlbumClick = { albumId -> navController.navigate(NavRoutes.album(albumId)) },
                             onArtistClick = { artistId -> navController.navigate(NavRoutes.artist(artistId)) },
+                            onPlaylistClick = { target -> navController.navigate(NavRoutes.playlist(target.id, target.name, target.coverUrl.orEmpty())) },
+                            onShowPlaylistMenu = { target -> menuPlaylist = target; menuPlaylistActions = emptyList() },
                             onInsertNext = { insertNext(it) },
                             onAppendToQueue = { appendToQueue(it) },
                             onShowSongMenu = { song, actions -> menuSong = song; menuSongActions = actions },
@@ -1703,6 +1722,43 @@ fun MainScreen(
                         },
                     ),
                     onDismiss = { menuSong = null }
+                )
+            }
+        }
+
+        menuPlaylist?.let { target ->
+            val menuStrings = LocalStrings.current
+            val playlistManagement by PlaylistManager.enabled.collectAsState()
+            val playlistLibrary by PlaylistManager.library.collectAsState()
+            // 收藏状态来自「我的歌单」列表；库页没读过时补读一次，读到前不给「取消收藏」。
+            LaunchedEffect(target.id, playlistManagement) {
+                if (playlistManagement && playlistLibrary == null) PlaylistManager.refreshLibrary()
+            }
+            val owned = playlistLibrary?.let { library ->
+                library.collection.items.firstOrNull { it.id == target.id }?.isOwnedBy(library.ownerId)
+            } == true
+            val subscribed = PlaylistManager.subscriptionOf(playlistLibrary, target.id) == true
+            Box(Modifier.fillMaxSize().zIndex(2f)) {
+                PlaylistMenuSheet(
+                    target = target,
+                    actions = listOf(
+                        SongMenuAction(Icons.Default.PlayArrow, menuStrings.playAllButton) {
+                            loadPlaylistAndPlay(target.id)
+                        },
+                        SongMenuAction(Icons.AutoMirrored.Filled.PlaylistPlay, menuStrings.actionInsertNext) {
+                            loadPlaylistAndPlay(target.id, BatchQueueAction.INSERT_NEXT)
+                        },
+                        SongMenuAction(Icons.AutoMirrored.Filled.QueueMusic, menuStrings.actionAppendToQueue) {
+                            loadPlaylistAndPlay(target.id, BatchQueueAction.APPEND)
+                        },
+                    ) + (if (playlistManagement && !owned) listOf(
+                        if (subscribed) SongMenuAction(Icons.Default.LibraryAddCheck, menuStrings.playlists.unsubscribe) {
+                            PlaylistManager.perform(PlaylistPanelRequest(PlaylistPanelMode.UNSUBSCRIBE, playlistId = target.id))
+                        } else SongMenuAction(Icons.Default.LibraryAdd, menuStrings.playlists.subscribe) {
+                            PlaylistManager.perform(PlaylistPanelRequest(PlaylistPanelMode.SUBSCRIBE, playlistId = target.id))
+                        }
+                    ) else emptyList()) + menuPlaylistActions,
+                    onDismiss = { menuPlaylist = null }
                 )
             }
         }

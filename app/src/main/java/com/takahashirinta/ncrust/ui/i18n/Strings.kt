@@ -77,10 +77,12 @@ data class Strings(
     val searchCategoryTracks: String,
     val searchCategoryAlbums: String,
     val searchCategoryArtists: String,
+    val searchCategoryPlaylists: String,
     val searchPlaceholder: String,
     val searchSongsEmpty: String,
     val searchAlbumsEmpty: String,
     val searchArtistsEmpty: String,
+    val searchPlaylistsEmpty: String,
 
     // Player controls
     val prevButton: String,

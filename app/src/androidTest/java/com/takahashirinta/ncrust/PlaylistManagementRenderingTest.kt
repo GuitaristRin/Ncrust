@@ -188,6 +188,8 @@ class PlaylistManagementRenderingTest {
                 PlaylistPanelMode.REMOVE -> strings.playlists.remove
                 PlaylistPanelMode.DELETE -> strings.playlists.delete
                 PlaylistPanelMode.REORDER -> strings.playlists.sortTracks
+                PlaylistPanelMode.SUBSCRIBE -> strings.playlists.subscribe
+                PlaylistPanelMode.UNSUBSCRIBE -> strings.playlists.unsubscribe
             }
             awaitUi { nodes().any { it.text?.toString() == title } }
         }

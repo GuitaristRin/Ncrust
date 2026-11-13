@@ -22,7 +22,7 @@
 
 | 路径 | 方法 | 参数 | 用途 |
 |---|---|---|---|
-| `/api/cloudsearch/pc` | POST 表单 | `s`, `type`(1 歌曲 / 10 专辑 / 100 歌手), `limit` | 三类搜索 |
+| `/api/cloudsearch/pc` | POST 表单 | `s`, `type`(1 歌曲 / 10 专辑 / 100 歌手 / 1000 歌单), `limit` | 四类搜索；歌单结果在 `result.playlists[]`（`id`,`name`,`coverImgUrl`,`trackCount`,`creator.nickname`） |
 | `/api/v3/song/detail` | POST 表单 | `c` = `[{"id":N},…]` | 批量歌曲详情 |
 | `/api/song/lyric` | POST 表单 | `id`, `cp=false`, `tv=-1`, `lv=-1`, `rv=0`, `kv=0`, `yv=0`, `ytv=0`, `yrv=0` | 歌词（`lrc` + `tlyric`） |
 | `/api/v1/album/{id}` | GET | — | 专辑详情 |
@@ -61,6 +61,7 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
 | `/eapi/playlist/update/name` | `id`,`name` | 歌单改名 |
 | `/eapi/playlist/desc/update` | `id`,`desc` | 改歌单简介 |
 | `/eapi/playlist/update/privacy` | `id`,`privacy`(0/10) | 改歌单隐私 |
+| `/eapi/playlist/subscribe` / `/eapi/playlist/unsubscribe` | `id` | 收藏 / 取消收藏他人歌单（**未经真实账号验证**，见下节） |
 
 **官方客户端指纹**（`EapiPostOfficial`，用于 `/eapi/radio/like`）：iOS UA；设备字段
 `os=iphone`,`appver=8.9.60`,`deviceId`,`osver`,`versioncode=140`,`mobilename`,`buildver`,
@@ -94,6 +95,11 @@ POST 表单 `params=<hex>`；加密见 `fixtures/crypto`。
   本轮仅验证 200 首样本，`>1000` 首仍待验证。批量 502 不证明整批已加入，须读回确认目标集合。
 - **归属判定**：`creator.userId == 我 && !subscribed`。收藏的他人歌单里 `creator.userId` 是原作者，
   不能据此判归属。非本人 pid 删除回 401；`remove` 批删对非本人回 200 但不生效，不能拿它判权限。
+- **收藏歌单**：路径来自官方 9.6.22（`subscribe` 带 body `checkToken`，取消收藏为
+  `playlist/unsubscribe/?id=`，见 [playlist-edit.md](playlist-edit.md)）与 api-enhanced `playlist_subscribe.js`。
+  本端用 eapi 表单 `id`，与其他歌单写入一样**不带 `checkToken`**，因此可能和旧收藏通道一样被事后回滚。
+  客户端约束：只在实验开关打开时可用；本人歌单不能收藏；写前读完整的「我的歌单」列表，已处于目标状态就不提交；
+  写后重新读列表，目标 ID 出现（收藏）或消失（取消）才算确认，列表不完整为「待确认」，业务码不当成功依据。
 - **响应缓存**：写成功后必须失效本地 `ContentCache` 的歌单详情，否则「改名成功但详情仍是旧名」
   （服务端 detail 本身有陈旧缓存）。
 

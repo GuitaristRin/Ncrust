@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.takahashirinta.ncrust.network.AlbumSearchItem
 import com.takahashirinta.ncrust.network.ArtistSearchItem
+import com.takahashirinta.ncrust.network.PlaylistSearchItem
 import com.takahashirinta.ncrust.network.SongItem
 
 object SearchHistoryManager {
@@ -15,6 +16,7 @@ object SearchHistoryManager {
     const val TYPE_SONG = 1
     const val TYPE_ALBUM = 10
     const val TYPE_ARTIST = 100
+    const val TYPE_PLAYLIST = 1000
 
     data class HistoryItem(
         val id: Long,
@@ -54,9 +56,20 @@ object SearchHistoryManager {
         )
     )
 
+    fun addPlaylist(context: Context, playlist: PlaylistSearchItem) = add(
+        context, TYPE_PLAYLIST,
+        HistoryItem(
+            id = playlist.id,
+            title = playlist.name.orEmpty(),
+            coverUrl = playlist.coverImgUrl,
+            subtitle = playlist.creator?.nickname
+        )
+    )
+
     fun getSongs(context: Context) = getAll(context, TYPE_SONG)
     fun getAlbums(context: Context) = getAll(context, TYPE_ALBUM)
     fun getArtists(context: Context) = getAll(context, TYPE_ARTIST)
+    fun getPlaylists(context: Context) = getAll(context, TYPE_PLAYLIST)
 
     fun remove(context: Context, type: Int, id: Long) {
         val key = keyFor(type)
@@ -92,6 +105,7 @@ object SearchHistoryManager {
     private fun keyFor(type: Int) = when (type) {
         TYPE_SONG -> "songs"
         TYPE_ALBUM -> "albums"
+        TYPE_PLAYLIST -> "playlists"
         else -> "artists"
     }
 

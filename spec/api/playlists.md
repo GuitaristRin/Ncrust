@@ -74,5 +74,6 @@ HTTP 200 本身不足以确认成功；非成功 HTTP 也不能因 body.code=200
 - `song_order_update.js`：`/api/playlist/manipulate/tracks` + `op=update`，与旧正典的非 add 风险记录冲突；不开放云端重排。
 - `playlist_order_update.js`：weapi `/api/playlist/order/update` + `ids`，只改变歌单列表顺序。
 - `playlist_subscribe.js`：eapi `/api/playlist/subscribe` / `unsubscribe`，订阅有 checkToken 配置；不等于红心收藏歌曲。
+  Android 已在实验开关后接入（写前读列表、写后读回确认，见 [endpoints.md](endpoints.md) 歌单写操作节），**仍未做真实账号写入验证**。
 - `playlist_cover_update.js`：先上传，再 weapi `/api/playlist/cover/update` + `id,coverImgId`；尚无本项目验证。
 - 上游创建歌单默认走 weapi，删除使用 weapi `playlist/remove`；本项目旧封装采用 eapi 创建和单个 `playlist/delete`。通道不同不自动判定哪一个错误；真实写入核验前不替换现有封装。

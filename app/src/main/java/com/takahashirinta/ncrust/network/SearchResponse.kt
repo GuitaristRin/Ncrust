@@ -13,7 +13,8 @@ data class SearchResponse(
 data class SearchResult(
     @SerializedName("songs") val songs: List<SongItem>?,
     @SerializedName("albums") val albums: List<AlbumSearchItem>?,
-    @SerializedName("artists") val artists: List<ArtistSearchItem>?
+    @SerializedName("artists") val artists: List<ArtistSearchItem>?,
+    @SerializedName("playlists") val playlists: List<PlaylistSearchItem>? = null
 )
 
 // @Immutable：Compose 视 List<T> 为 unstable 参数，会强制每次重组重新比较；
@@ -31,6 +32,21 @@ data class SongItem(
     // 详情接口把它放在与 songs[] 并列的 privileges[] 里，由 PlaylistApi 按 id 关联后填进来；
     // 拿不到就是 null，判定规则已考虑 privilege 缺省。
     @SerializedName("privilege") val privilege: SongPrivilege? = null
+)
+
+/** `cloudsearch type=1000` 的歌单结果；字段可能缺失，全部按可空读取。 */
+@Immutable
+data class PlaylistSearchItem(
+    @SerializedName("id") val id: Long,
+    @SerializedName("name") val name: String?,
+    @SerializedName("coverImgUrl") val coverImgUrl: String?,
+    @SerializedName("trackCount") val trackCount: Int?,
+    @SerializedName("creator") val creator: PlaylistSearchCreator?
+)
+
+@Immutable
+data class PlaylistSearchCreator(
+    @SerializedName("nickname") val nickname: String?
 )
 
 @Immutable

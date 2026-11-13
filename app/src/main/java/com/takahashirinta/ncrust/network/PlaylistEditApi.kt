@@ -88,6 +88,8 @@ object PlaylistEditApi {
     private const val UPDATE_NAME_PATH = "/eapi/playlist/update/name"
     private const val UPDATE_DESC_PATH = "/eapi/playlist/desc/update"
     private const val UPDATE_PRIVACY_PATH = "/eapi/playlist/update/privacy"
+    private const val SUBSCRIBE_PATH = "/eapi/playlist/subscribe"
+    private const val UNSUBSCRIBE_PATH = "/eapi/playlist/unsubscribe"
 
     /** 隐私取值只有这两个；传别的值会被 400「错误的歌单隐私类型」拒绝。 */
     const val PRIVACY_PUBLIC = 0
@@ -124,6 +126,9 @@ object PlaylistEditApi {
             PlaylistAction.DESCRIPTION -> UPDATE_DESC_PATH to mapOf("id" to id, "desc" to draft!!.description)
             PlaylistAction.PRIVACY -> UPDATE_PRIVACY_PATH to privacyPayload(command.playlistId, draft!!.privacy)
             PlaylistAction.DELETE -> DELETE_PATH to mapOf("pid" to id)
+            // 未经真实账号验证：只由协调层在写前 / 写后读取「我的歌单」列表确认，见 PlaylistRepository.subscription。
+            PlaylistAction.SUBSCRIBE -> SUBSCRIBE_PATH to mapOf("id" to id)
+            PlaylistAction.UNSUBSCRIBE -> UNSUBSCRIBE_PATH to mapOf("id" to id)
         }
         return write(path, payload, cookie)
     }
