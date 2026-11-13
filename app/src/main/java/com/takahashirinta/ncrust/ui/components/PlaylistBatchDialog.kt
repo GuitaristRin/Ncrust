@@ -1,18 +1,18 @@
 package com.takahashirinta.ncrust.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.playlist.PlaylistBatch
-import com.takahashirinta.ncrust.playlist.PlaylistProblem
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
 import io.github.takahashirinta.kanesumi.controls.MetroDialog
 import io.github.takahashirinta.kanesumi.controls.MetroDivider
-import io.github.takahashirinta.kanesumi.controls.MetroProgressIndicator
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroColors
 import io.github.takahashirinta.kanesumi.core.theme.LocalMetroTypography
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
@@ -29,52 +29,41 @@ fun PlaylistConfirmDialog(text: String, confirmLabel: String, onConfirm: () -> U
         MetroText(text, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp))
         MetroDivider()
         Row(Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(1f).clickable { onDismiss() }.padding(vertical = 16.dp),
+            Box(Modifier.weight(1f).clickable(role = Role.Button) { onDismiss() }.padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center) {
-                MetroText(s.cancel, color = colors.onSurfaceVariant)
+                MetroText(s.cancel, color = colors.onBackground)
             }
-            Box(Modifier.weight(1f).clickable { onConfirm() }.padding(vertical = 16.dp),
+            // 确认格铺强调色：与取消格在形状上就分得开，前景按亮度取黑/白保证对比度。
+            Box(Modifier.weight(1f).background(colors.primary).clickable(role = Role.Button) { onConfirm() }.padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center) {
-                MetroText(confirmLabel, color = colors.primary)
+                MetroText(confirmLabel, color = playlistTextColor(colors.primary), maxLines = 1)
             }
         }
     }
 }
 
 /**
- * 批量删除的进度/汇总。逐个歌单提交，所以这里既显示进度也如实汇总失败数量，
+ * 批量删除的失败汇总。进度由轻提示条承接（[PlaylistNoticeHost]），全部确认删除也只给轻提示；
+ * 只有存在未完成项时才弹这个对话框，如实给出已删除 / 未完成数量与第一个失败原因，
  * 不把「提交了 N 个」说成「删除了 N 个」。
  */
 @Composable
 fun PlaylistBatchDialog(batch: PlaylistBatch, onDismiss: () -> Unit) {
-    if (!batch.visible) return
+    if (!batch.visible || batch.running) return
     val s = LocalStrings.current
     val p = s.playlists
     val colors = LocalMetroColors.current
-    MetroDialog(onDismissRequest = { if (!batch.running) onDismiss() }) {
+    MetroDialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             MetroText(p.delete, style = LocalMetroTypography.current.title.copy(fontSize = 20.sp))
-            if (batch.running) {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetroProgressIndicator(sizeDp = 18.dp)
-                    MetroText(p.batchProgress(batch.done, batch.total), color = colors.onSurfaceVariant)
-                }
-            } else {
-                MetroText(p.batchSummary(batch.deleted, batch.failed),
-                    color = if (batch.failed > 0) colors.primary else colors.onSurfaceVariant)
-                batch.problem?.let {
-                    MetroText(playlistProblemText(it, p), color = colors.onSurfaceVariant)
-                }
-            }
+            MetroText(p.batchSummary(batch.deleted, batch.failed), color = colors.onBackground)
+            batch.problem?.let { MetroText(playlistProblemText(it, p), color = colors.onSurfaceVariant) }
         }
-        if (!batch.running) {
-            MetroDivider()
-            Box(Modifier.fillMaxWidth().clickable { onDismiss() }.padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center) {
-                MetroText(p.done, color = colors.primary)
-            }
+        MetroDivider()
+        Box(Modifier.fillMaxWidth().clickable { onDismiss() }.padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center) {
+            MetroText(p.done, color = colors.primary)
         }
     }
 }

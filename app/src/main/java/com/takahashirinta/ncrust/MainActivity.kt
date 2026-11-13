@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import com.takahashirinta.ncrust.ui.BottomOverlayInsetDp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
@@ -70,6 +72,7 @@ import io.github.takahashirinta.kanesumi.structure.sidebar.MetroSidebarItem
 import com.takahashirinta.ncrust.ui.components.SongMenuAction
 import com.takahashirinta.ncrust.ui.components.SongMenuSheet
 import com.takahashirinta.ncrust.ui.components.PlaylistManagementOverlay
+import com.takahashirinta.ncrust.ui.components.PlaylistNoticeHost
 import com.takahashirinta.ncrust.playlist.PlaylistManager
 import com.takahashirinta.ncrust.playlist.PlaylistPanelMode
 import com.takahashirinta.ncrust.playlist.PlaylistPanelRequest
@@ -1685,7 +1688,7 @@ fun MainScreen(
                     // 统一在这里追加"分享/转到歌手/转到专辑": 所有长按菜单(首页/歌单/
                     // 专辑/歌手/收藏/搜索)与全屏播放器点歌名自动获得入口, 各 Screen 无需感知。
                     actions = menuSongActions + (if (playlistManagement) listOf(
-                        SongMenuAction(Icons.Default.LibraryMusic, menuStrings.playlists.add) {
+                        SongMenuAction(Icons.AutoMirrored.Filled.PlaylistAdd, menuStrings.playlists.add) {
                             PlaylistManager.open(PlaylistPanelRequest(PlaylistPanelMode.ADD, listOf(song.id)))
                         }
                     ) else emptyList()) + listOf(
@@ -1719,6 +1722,16 @@ fun MainScreen(
                 PlaylistManager.close()
                 navController.navigate(NavRoutes.playlist(id))
             }
+            PlaylistNoticeHost(
+                onOpen = { id -> navController.navigate(NavRoutes.playlist(id)) },
+                onDeleted = { id ->
+                    val entry = navController.currentBackStackEntry
+                    if (entry?.destination?.route == NavRoutes.PLAYLIST && entry.arguments?.getLong("playlistId") == id)
+                        navController.popBackStack()
+                },
+                // 叠在迷你播放条与底栏之上；系统导航栏由 navigationBarsPadding 补偿。
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = BottomOverlayInsetDp - 8.dp)
+            )
         }
     }
     }

@@ -14,6 +14,11 @@ import java.io.FileOutputStream
 
 enum class PlaylistPanelMode { ADD, CREATE, EDIT, REMOVE, DELETE, REORDER }
 data class PlaylistPanelRequest(val mode: PlaylistPanelMode, val songIds: List<Long> = emptyList(), val playlistId: Long = 0)
+/**
+ * [background] = 任务在后台跑、面板不占屏：已经在页内确认过的动作（移除、保存顺序、从选择器加入）
+ * 不再弹第二个全屏面板。进度与结果由 [PlaylistManager.notice] 的轻提示承接；只有待确认、
+ * 部分完成和失败才把面板调出来，让用户核对。
+ */
 data class PlaylistPanelState(
     val visible: Boolean = false, val request: PlaylistPanelRequest? = null,
     val loading: Boolean = false, val busy: Boolean = false, val ownerId: Long = 0,
@@ -21,7 +26,19 @@ data class PlaylistPanelState(
     val snapshot: PlaylistSnapshot? = null,
     val draft: PlaylistDraft = PlaylistDraft("", "", 10),
     val problem: PlaylistProblem? = null, val result: PlaylistResult? = null,
-    val backupFile: File? = null
+    val backupFile: File? = null,
+    val background: Boolean = false, val targetName: String = ""
+) {
+    /** 后台任务进行中（含读取上下文阶段）；页面据此禁用同一歌单上的写入口。 */
+    val working: Boolean get() = background && (loading || busy)
+}
+
+enum class PlaylistNoticeKind { ADDED, REMOVED, REORDERED, CREATED, SAVED, DELETED }
+
+/** 轻提示只携带类型和数字，文案由界面按当前语言生成；[serial] 让相同内容的两次提示也能各自出现。 */
+data class PlaylistNotice(
+    val serial: Long, val kind: PlaylistNoticeKind,
+    val count: Int = 0, val name: String = "", val playlistId: Long? = null
 )
 
 /** 批量删除的进度与汇总。逐个歌单走完整的「备份 → 提交 → 读回」，不并发、不合并请求。 */
@@ -43,6 +60,13 @@ object PlaylistManager {
     val batch = _batch.asStateFlow()
     private val _revision = MutableStateFlow(0L)
     val revision = _revision.asStateFlow()
+    private val _notice = MutableStateFlow<PlaylistNotice?>(null)
+    val notice = _notice.asStateFlow()
+    @Volatile private var noticeSerial = 0L
+    private fun notify(kind: PlaylistNoticeKind, count: Int = 0, name: String = "", playlistId: Long? = null) {
+        _notice.value = PlaylistNotice(++noticeSerial, kind, count, name, playlistId)
+    }
+    fun dismissNotice(serial: Long) { _notice.update { if (it?.serial == serial) null else it } }
     @Volatile private var cookie = ""
     @Volatile private var observedCookie = ""
     @Volatile private var generation = 0L
@@ -109,6 +133,57 @@ object PlaylistManager {
             }
         }
     }
+    /**
+     * 已在页内确认过的动作直接执行：先读账号与目标快照，再提交，面板保持隐藏。
+     * 有遗留待核对记录、读取失败或结果不是「已确认」时才调出面板，绝不静默吞掉。
+     */
+    fun perform(request: PlaylistPanelRequest) {
+        if (!_enabled.value) return
+        accountChanged()
+        if (_state.value.busy || _state.value.loading || _state.value.result?.outcome in listOf(PlaylistOutcome.PENDING, PlaylistOutcome.PARTIAL)) {
+            _state.update { it.copy(visible = true, background = false) }
+            return
+        }
+        cookie = RetrofitClient.getCookie().orEmpty()
+        val token = ++generation
+        val credential = cookie
+        _state.value = PlaylistPanelState(request = request, loading = true, background = true)
+        scope.launch {
+            try {
+                if (credential.isEmpty()) throw PlaylistRequestException(PlaylistProblem.LOGIN)
+                val gateway = NetworkPlaylistGateway(credential)
+                val uid = gateway.userId()
+                if (!current(token, credential)) return@launch
+                restore(uid)?.let { restored ->
+                    pendingCommand = restored
+                    publish(token, credential) { PlaylistPanelState(visible = true, request = requestFor(restored), ownerId = uid,
+                        draft = restored.draft ?: PlaylistDraft("", "", 10),
+                        result = PlaylistResult(PlaylistOutcome.PENDING, restored.playlistId.takeIf { it > 0 }, problem = PlaylistProblem.INCOMPLETE)) }
+                    return@launch
+                }
+                val snapshot = if (request.playlistId > 0) gateway.snapshot(request.playlistId) else null
+                if (!current(token, credential)) return@launch
+                if (snapshot != null && !snapshot.info.isOwnedBy(uid)) throw PlaylistRequestException(PlaylistProblem.PERMISSION)
+                publish(token, credential) { it.copy(loading = false, ownerId = uid, snapshot = snapshot,
+                    targetName = snapshot?.info?.name.orEmpty()) }
+                if (current(token, credential)) submit()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                publish(token, credential) { it.copy(loading = false, background = false, visible = true,
+                    problem = (error as? PlaylistRequestException)?.problem ?: PlaylistProblem.NETWORK) }
+            }
+        }
+    }
+
+    /** 选择器里点中目标后立即收起面板，写入转到后台，完成后由轻提示报告。 */
+    fun submitInBackground(targetId: Long) {
+        val state = _state.value
+        if (state.busy || state.loading || state.result != null) return
+        val name = state.collection.items.firstOrNull { it.id == targetId }?.name.orEmpty()
+        _state.update { it.copy(background = true, visible = false, targetName = name) }
+        submit(targetId)
+    }
+
     fun updateDraft(change: (PlaylistDraft) -> PlaylistDraft) {
         _state.update { if (it.busy) it else it.copy(draft = change(it.draft)) }
     }
@@ -171,7 +246,13 @@ object PlaylistManager {
                 }
                 _batch.update { it.copy(done = index + 1, deleted = deleted, failed = failed, problem = problem) }
             }
-            _batch.update { it.copy(running = false) }
+            // 全部确认删除时只给轻提示；有未完成项才保留汇总对话框，并带上第一个失败原因。
+            if (failed == 0 && deleted == ids.size) {
+                _batch.value = PlaylistBatch()
+                notify(PlaylistNoticeKind.DELETED, deleted, playlistId = ids.singleOrNull())
+            } else {
+                _batch.update { it.copy(running = false) }
+            }
             _revision.update { it + 1 }
         }
     }
@@ -232,8 +313,26 @@ object PlaylistManager {
             else clearPending(owner)
             result.playlistId?.let { ContentCache.invalidatePlaylist(it) }
             _revision.update { it + 1 }
-            publish(token, credential) { it.copy(busy = false, result = result, snapshot = result.snapshot ?: it.snapshot) }
+            if (result.outcome == PlaylistOutcome.CONFIRMED) {
+                // 已确认就不再留一页「已确认完成」等用户点：收起面板，用轻提示报告结果。
+                val finished = _state.value
+                val name = (result.snapshot?.info?.name ?: command.draft?.name ?: finished.targetName).orEmpty()
+                notify(noticeKindFor(command.action), command.songIds.size, name, result.playlistId)
+                pendingCommand = null
+                publish(token, credential) { PlaylistPanelState() }
+            } else {
+                publish(token, credential) { it.copy(busy = false, result = result, snapshot = result.snapshot ?: it.snapshot,
+                    visible = true, background = false) }
+            }
         }
+    }
+    private fun noticeKindFor(action: PlaylistAction) = when (action) {
+        PlaylistAction.ADD -> PlaylistNoticeKind.ADDED
+        PlaylistAction.REMOVE -> PlaylistNoticeKind.REMOVED
+        PlaylistAction.REORDER -> PlaylistNoticeKind.REORDERED
+        PlaylistAction.CREATE -> PlaylistNoticeKind.CREATED
+        PlaylistAction.DELETE -> PlaylistNoticeKind.DELETED
+        else -> PlaylistNoticeKind.SAVED
     }
     private fun current(token: Long, credential: String) = token == generation && credential == RetrofitClient.getCookie().orEmpty()
     private fun publish(token: Long, credential: String, transform: (PlaylistPanelState) -> PlaylistPanelState) {

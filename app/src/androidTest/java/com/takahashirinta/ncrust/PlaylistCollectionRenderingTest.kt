@@ -4,9 +4,6 @@ import android.graphics.Bitmap
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -80,10 +77,11 @@ class PlaylistCollectionRenderingTest {
             render(scenario, false) {
                 Column(Modifier.fillMaxSize()) {
                     PlaylistEditBar(
-                        selectionCount = 1, owned = true, sorting = false, canSort = true, busy = false,
-                        onExit = {}, onSelectAll = {}, onRemove = {}, onAddTo = {},
-                        onStartSorting = {}, onSaveOrder = {}, onCancelSorting = {}
+                        progress = { 1f }, selectionCount = 1, totalCount = songs.size, owned = true,
+                        orderChanged = false, busy = false,
+                        onExit = {}, onToggleAll = {}, onRemove = {}, onAddTo = {}, onSaveOrder = {}
                     )
+                    val colors = LocalMetroColors.current
                     songs.forEachIndexed { index, song ->
                         SwipeRevealRow(
                             open = index == 1,
@@ -91,20 +89,16 @@ class PlaylistCollectionRenderingTest {
                             actionLabel = zhCN.playlists.removeShort,
                             onAction = {}
                         ) {
+                            // 选中标记画在封面上（第一行已选），不再占行尾槽位。
                             SongCard(song = song, style = SongCardStyle.COMPACT,
-                                actions = ({
-                                    MetroIcon(
-                                        if (index == 0) Icons.Default.CheckBox
-                                        else Icons.Default.CheckBoxOutlineBlank,
-                                        contentDescription = null, sizeDp = 24.dp
-                                    )
-                                }),
+                                coverModifier = Modifier.selectionMark({ 1f }, index == 0, colors.primary, colors.onPrimary),
                                 onClick = {})
                         }
                     }
                 }
             }
             awaitUi { nodes().any { it.text?.toString() == zhCN.playlists.removeShort } }
+            assertTrue(nodes().any { it.contentDescription?.toString() == zhCN.playlists.remove })
             screenshot("edit-row-swipe")
         }
     }
@@ -141,10 +135,13 @@ class PlaylistCollectionRenderingTest {
                         {}, {}, {}, { deleteRequests++ })
                 }
             }
-            reveal(zhCN.playlists.manage)
+            revealDescription(zhCN.playlists.manage)
             assertFalse(nodes().any { it.text?.toString() == zhCN.playlists.delete })
+            // 曲目编辑与信息编辑是两个入口，文案必须不同。
+            assertTrue(nodes().any { it.text?.toString() == zhCN.playlists.editTracks })
+            assertTrue(nodes().any { it.text?.toString() == zhCN.playlists.editInfo })
             screenshot("detail-light")
-            click(zhCN.playlists.manage)
+            clickDescription(zhCN.playlists.manage)
             awaitUi { nodes().any { it.text?.toString() == zhCN.playlists.delete } }
             screenshot("detail-menu")
             click(zhCN.playlists.delete)
@@ -156,7 +153,8 @@ class PlaylistCollectionRenderingTest {
                 }
             }
             reveal(zhCN.playlists.selectTracks)
-            assertFalse(nodes().any { it.text?.toString() == zhCN.playlists.manage })
+            assertFalse(nodes().any { it.contentDescription?.toString() == zhCN.playlists.manage })
+            assertFalse(nodes().any { it.text?.toString() == zhCN.playlists.editInfo })
             screenshot("detail-subscribed")
             render(scenario, false) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -262,6 +260,17 @@ class PlaylistCollectionRenderingTest {
         idle()
     }
     private fun click(text: String) { reveal(text); activate(nodes().first { it.text?.toString() == text && it.isVisibleToUser }) }
+    private fun revealDescription(label: String) {
+        repeat(7) {
+            if (nodes().any { it.contentDescription?.toString() == label && it.isVisibleToUser }) return
+            nodes().firstOrNull { it.isScrollable }?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+            idle()
+        }
+    }
+    private fun clickDescription(label: String) {
+        revealDescription(label)
+        activate(nodes().first { it.contentDescription?.toString() == label && it.isVisibleToUser })
+    }
 
     private fun screenshot(name: String, backgroundY: Int = view!!.height / 2) {
         val ready = CountDownLatch(1)

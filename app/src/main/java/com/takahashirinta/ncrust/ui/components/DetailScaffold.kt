@@ -13,6 +13,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.*
@@ -60,6 +62,8 @@ fun DetailScaffold(
     onRetry: (() -> Unit)? = null,
     // 上下文工具条（如歌单编辑态）。绘制在返回箭头之上，非空时由调用方自带返回/退出入口。
     topBar: (@Composable BoxScope.() -> Unit)? = null,
+    // 需要读取布局（如拖拽排序、自动滚动）的页面传入自己的列表状态。
+    listState: LazyListState? = null,
     header: @Composable () -> Unit,
     content: LazyListScope.() -> Unit
 ) {
@@ -129,10 +133,11 @@ fun DetailScaffold(
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
+                            state = listState ?: rememberLazyListState(),
                             contentPadding = PaddingValues(bottom = BottomOverlayInsetDp),
                             flingBehavior = rememberMetroFlingBehavior()
                         ) {
-                            item { header() }
+                            item(key = DetailHeaderKey) { header() }
                             content()
                         }
                     }
@@ -171,6 +176,9 @@ fun TopScrimIconButton(
         alignment = alignment
     )
 }
+
+/** 页头在列表中的固定 key；拖拽排序据此把它排除在可交换目标之外。 */
+const val DetailHeaderKey = "detail-header"
 
 private enum class DetailScaffoldState { Loading, Error, Content }
 

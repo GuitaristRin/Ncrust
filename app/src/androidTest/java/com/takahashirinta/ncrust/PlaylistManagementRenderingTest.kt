@@ -115,27 +115,40 @@ class PlaylistManagementRenderingTest {
                 Box(Modifier.statusBarsPadding().padding(20.dp)) {
                     // 选择入口已并入页内编辑态工具条：批量动作只在有选中项时可用。
                     PlaylistEditBar(
-                        selectionCount = count.value, owned = true, sorting = false, canSort = true, busy = false,
-                        onExit = { count.value = 0 }, onSelectAll = { count.value = 2 },
+                        progress = { 1f }, selectionCount = count.value, totalCount = 2, owned = true,
+                        orderChanged = false, busy = false,
+                        onExit = { count.value = 0 }, onToggleAll = { count.value = if (count.value == 2) 0 else 2 },
                         onRemove = { submitted = count.value }, onAddTo = { submitted = count.value },
-                        onStartSorting = {}, onSaveOrder = {}, onCancelSorting = {}
+                        onSaveOrder = {}
                     )
                 }
             }) {}
-            assertFalse(nodes().first { it.text?.toString() == zhCN.playlists.add }.isEnabled)
-            click(zhCN.playlists.selectAll)
+            // 工具条动作是带 contentDescription 的图标按钮。
+            assertFalse(byDescription(zhCN.playlists.add).isEnabled)
+            assertFalse(byDescription(zhCN.playlists.remove).isEnabled)
+            activate(byDescription(zhCN.playlists.selectAll))
             awaitUi { nodes().any { it.text?.toString() == zhCN.playlists.selectionCount(2) } }
-            click(zhCN.playlists.add)
+            activate(byDescription(zhCN.playlists.add))
             assertEquals(2, submitted)
             screenshot("batch-selection")
             render(scenario, mutableStateOf(seed(PlaylistPanelMode.EDIT)), zhCN, true, body = {
                 PlaylistEditBar(
-                    selectionCount = 2, owned = false, sorting = false, canSort = false, busy = false,
-                    onExit = {}, onSelectAll = {}, onRemove = {}, onAddTo = {},
-                    onStartSorting = {}, onSaveOrder = {}, onCancelSorting = {}
+                    progress = { 1f }, selectionCount = 2, totalCount = 2, owned = false,
+                    orderChanged = false, busy = false,
+                    onExit = {}, onToggleAll = {}, onRemove = {}, onAddTo = {}, onSaveOrder = {}
                 )
             }) {}
-            assertFalse(nodes().any { it.text?.toString() == zhCN.playlists.remove })
+            assertFalse(nodes().any { it.contentDescription?.toString() == zhCN.playlists.remove || it.text?.toString() == zhCN.playlists.remove })
+            // 顺序被拖动过时整条切换为保存顺序，选择动作暂停。
+            render(scenario, mutableStateOf(seed(PlaylistPanelMode.EDIT)), zhCN, false, body = {
+                PlaylistEditBar(
+                    progress = { 1f }, selectionCount = 0, totalCount = 2, owned = true,
+                    orderChanged = true, busy = false,
+                    onExit = {}, onToggleAll = {}, onRemove = {}, onAddTo = {}, onSaveOrder = {}
+                )
+            }) {}
+            assertTrue(nodes().any { it.text?.toString() == zhCN.playlists.saveOrder })
+            assertFalse(nodes().any { it.contentDescription?.toString() == zhCN.playlists.remove })
         }
     }
 
@@ -212,6 +225,16 @@ class PlaylistManagementRenderingTest {
             view.rootWindowInsets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom
             else @Suppress("DEPRECATION") view.rootWindowInsets.stableInsetBottom
         return node.isVisibleToUser && bounds.top >= 0 && bounds.bottom <= view.height - bottom
+    }
+    private fun byDescription(label: String): AccessibilityNodeInfo {
+        val node = nodes().first { it.contentDescription?.toString() == label && it.isVisibleToUser }
+        var target = node
+        while (!target.isClickable) target = target.parent ?: return node
+        return target
+    }
+    private fun activate(node: AccessibilityNodeInfo) {
+        assertTrue(node.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+        idle()
     }
     private fun click(text: String) {
         reveal(text, button = true)

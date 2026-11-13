@@ -1,5 +1,6 @@
 package com.takahashirinta.ncrust.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -249,6 +250,11 @@ fun LibraryScreen(
         )
     }
     PlaylistBatchDialog(playlistBatch, PlaylistManager::dismissBatch)
+    // 选择态下系统返回先退出选择，而不是离开页面；切到别的分类也退出。
+    BackHandler(enabled = selectingPlaylists) { selectingPlaylists = false; selectedPlaylistIds = emptySet() }
+    LaunchedEffect(selectedCategory, playlistManagement) {
+        if (selectedCategory != 2 || !playlistManagement) { selectingPlaylists = false; selectedPlaylistIds = emptySet() }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
     ResponsiveContent {
@@ -424,12 +430,18 @@ fun LibraryScreen(
                     // 只有本人歌单可被管理；收藏来的歌单长按不进入选择态，避免给出做不到的操作。
                     onLongPress = { item ->
                         if (playlistManagement && item.isOwnedBy(playlistOwnerId)) {
+                            // 选择态里长按等同点按切换，不能把已有选择重置成这一项。
+                            selectedPlaylistIds = when {
+                                !selectingPlaylists -> setOf(item.id)
+                                item.id in selectedPlaylistIds -> selectedPlaylistIds - item.id
+                                else -> selectedPlaylistIds + item.id
+                            }
                             selectingPlaylists = true
-                            selectedPlaylistIds = setOf(item.id)
                         }
                     },
                     onSelectAll = {
-                        selectedPlaylistIds = playlists.filter { it.isOwnedBy(playlistOwnerId) }.map { it.id }.toSet()
+                        val ownedIds = playlists.filter { it.isOwnedBy(playlistOwnerId) }.map { it.id }.toSet()
+                        selectedPlaylistIds = if (selectedPlaylistIds.containsAll(ownedIds)) emptySet() else ownedIds
                     },
                     onCancelSelect = { selectingPlaylists = false; selectedPlaylistIds = emptySet() },
                     onDeleteSelected = { if (selectedPlaylistIds.isNotEmpty()) confirmingBatchDelete = true }

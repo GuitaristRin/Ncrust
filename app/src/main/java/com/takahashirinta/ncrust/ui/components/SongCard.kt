@@ -48,7 +48,9 @@ fun SongCard(
     onShowMenu: (() -> Unit)? = null,
     actions: (@Composable RowScope.() -> Unit)? = null,
     isCurrentPlaying: Boolean = false,
-    showCover: Boolean = true
+    showCover: Boolean = true,
+    // 叠加在封面上的绘制（如编辑态选中标记）；只作用于封面，不改变行布局。
+    coverModifier: Modifier = Modifier
 ) {
     val strings = LocalStrings.current
     val artistStr = song.artists?.joinToString("/") { it.name } ?: strings.unknownArtist
@@ -80,7 +82,7 @@ fun SongCard(
                         contentDescription = strings.coverDesc,
                         // 纯色占位:避免低端机解码完成前出现"空方块"闪变(Metro 不做 crossfade,直接落图)
                         placeholder = ColorPainter(LocalMetroColors.current.surfaceVariant),
-                        modifier = Modifier.size(actualCoverSize),
+                        modifier = Modifier.size(actualCoverSize).then(coverModifier),
                         contentScale = ContentScale.Crop
                     )
                     Spacer(Modifier.width(14.dp))

@@ -5,9 +5,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Deselect
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.PlaylistRemove
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.takahashirinta.ncrust.ui.i18n.LocalStrings
@@ -18,90 +28,110 @@ import io.github.takahashirinta.kanesumi.core.theme.MetroIcon
 import io.github.takahashirinta.kanesumi.core.theme.MetroText
 
 /**
- * 歌单内的编辑态工具条。**不用长按进入**：长按仍是歌曲菜单，编辑由歌单页头的显式入口进入，
- * 进入后点按选中、按住上下滑动连选。
+ * 歌单内编辑态的上下文工具条：固定一行 56dp，选中数变化、顺序变化都不改变它的高度。
  *
- * 排序是独立子态：它要提交整表顺序（见 `spec/api/playlist-edit.md`），与选择互斥，
- * 所以两者不共用一套手势。
+ * 旧版是「文字动作 ×4 + 提示行 + 有选中项时再长出一行按钮」，条高随状态跳；现在动作收成图标
+ * （带 contentDescription），顺序被拖动过时整条切换为「顺序已调整 · 保存顺序」，此时选择动作
+ * 不可用——整表顺序与逐首移除不能混在同一次提交里。
+ *
+ * [progress] 0→1 自上方滑入，只在 graphicsLayer 读取。
  */
 @Composable
 fun PlaylistEditBar(
-    modifier: Modifier = Modifier,
+    progress: () -> Float,
     selectionCount: Int,
+    totalCount: Int,
     owned: Boolean,
-    sorting: Boolean,
-    canSort: Boolean,
+    orderChanged: Boolean,
     busy: Boolean,
     onExit: () -> Unit,
-    onSelectAll: () -> Unit,
+    onToggleAll: () -> Unit,
     onRemove: () -> Unit,
     onAddTo: () -> Unit,
-    onStartSorting: () -> Unit,
     onSaveOrder: () -> Unit,
-    onCancelSorting: () -> Unit
+    modifier: Modifier = Modifier,
 ) {
     val s = LocalStrings.current
     val p = s.playlists
     val colors = LocalMetroColors.current
-    val caption = LocalMetroTypography.current.caption
-    Column(modifier.background(colors.surface).statusBarsPadding()) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                val t = progress()
+                translationY = -size.height * (1f - t)
+                alpha = t
+            }
+            .background(colors.surface)
+            .statusBarsPadding()
+    ) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 4.dp, end = 4.dp),
+            Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            MetroIconButton(
-                onClick = { if (sorting) onCancelSorting() else onExit() },
-                enabled = !busy
-            ) {
-                MetroIcon(Icons.Default.Close, contentDescription = if (sorting) s.cancel else s.playlists.done,
-                    tint = colors.onBackground)
+            MetroIconButton(onClick = onExit) {
+                MetroIcon(Icons.Default.Close, contentDescription = p.done, tint = colors.onBackground)
             }
             MetroText(
-                if (sorting) p.sortTracks else p.selectionCount(selectionCount),
-                color = colors.onBackground, maxLines = 1,
+                when {
+                    orderChanged -> p.orderChanged
+                    selectionCount == 0 -> p.selectTracks
+                    else -> p.selectionCount(selectionCount)
+                },
+                color = colors.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = LocalMetroTypography.current.title.copy(fontSize = 18.sp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).padding(start = 4.dp)
             )
-            if (sorting) {
+            if (orderChanged) {
                 BarTextAction(p.saveOrder, enabled = !busy, onClick = onSaveOrder, primary = true)
             } else {
-                BarTextAction(p.selectAll, enabled = !busy, onClick = onSelectAll)
-                if (canSort) BarTextAction(p.sortTracks, enabled = !busy, onClick = onStartSorting)
-                BarTextAction(s.playlists.done, enabled = !busy, onClick = onExit, primary = true)
-            }
-        }
-        // 首次进入编辑态且没有选中项时提示手势，避免用户以为只能一首一首点。
-        if (!sorting && selectionCount == 0) {
-            MetroText(p.editHint, color = colors.onSurfaceVariant, maxLines = 2, style = caption,
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 10.dp))
-        }
-        if (!sorting && selectionCount > 0) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (owned) PlaylistButton(p.remove, onRemove, Modifier.weight(1f),
-                    enabled = !busy, containerColor = colors.surfaceVariant, contentColor = colors.onBackground)
-                PlaylistButton(p.add, onAddTo, Modifier.weight(1f),
-                    enabled = !busy, containerColor = colors.surfaceVariant, contentColor = colors.onBackground)
+                val all = totalCount > 0 && selectionCount == totalCount
+                BarIconAction(if (all) Icons.Default.Deselect else Icons.Default.SelectAll, p.selectAll,
+                    enabled = !busy && totalCount > 0, onClick = onToggleAll)
+                BarIconAction(Icons.AutoMirrored.Filled.PlaylistAdd, p.add, enabled = !busy && selectionCount > 0, onClick = onAddTo)
+                if (owned) BarIconAction(Icons.Default.PlaylistRemove, p.remove,
+                    enabled = !busy && selectionCount > 0, onClick = onRemove)
             }
         }
     }
 }
 
-/** 文字型动作：直角、无背板，主操作用强调色。 */
+@Composable
+internal fun BarIconAction(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    val colors = LocalMetroColors.current
+    MetroIconButton(onClick = onClick, enabled = enabled) {
+        MetroIcon(icon, contentDescription = label,
+            tint = if (enabled) colors.onBackground else colors.onSurfaceVariant.copy(alpha = 0.5f))
+    }
+}
+
+/**
+ * 文字型动作：直角、无背板。主操作铺强调色、前景按亮度取黑/白——强调色直接作文字色时，
+ * 浅色底上的云杉绿 / 琥珀只有约 2:1 对比度，读不清。
+ */
 @Composable
 internal fun BarTextAction(text: String, enabled: Boolean, onClick: () -> Unit, primary: Boolean = false) {
     val colors = LocalMetroColors.current
+    if (primary) {
+        Box(Modifier.padding(horizontal = 8.dp)) {
+            Box(
+                Modifier
+                    .background(if (enabled) colors.primary else colors.surfaceVariant)
+                    .clickable(enabled = enabled, onClick = onClick)
+                    .semantics { role = Role.Button }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                MetroText(text, color = if (enabled) playlistTextColor(colors.primary) else colors.onSurfaceVariant)
+            }
+        }
+        return
+    }
     Box(
         Modifier
             .clickable(enabled = enabled, onClick = onClick)
+            .semantics { role = Role.Button }
             .padding(horizontal = 12.dp, vertical = 12.dp)
     ) {
-        MetroText(text, color = when {
-            !enabled -> colors.onSurfaceVariant
-            primary -> colors.primary
-            else -> colors.onBackground
-        })
+        MetroText(text, color = if (enabled) colors.onBackground else colors.onSurfaceVariant)
     }
 }
