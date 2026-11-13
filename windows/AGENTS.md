@@ -223,6 +223,8 @@ activatable class id 激活音效，类要在 winmd 里可见。构建会自动�
 封面）在创建时就用 `MediaItemDisplayProperties` 挂到条目上，URL 则在 `Binding` 事件里、
 拿着 deferral 调用 `SongUrlResolver`。预取窗口对齐 Android 的 60s（`MaxPrefetchTime`，M0 验证）。
 元数据跟着条目走，所以 Android `5247497` 修过的元数据串歌问题在结构上不会出现。
+**取不到 URL 时必须由引擎自己跳过**（`PlaybackEngine.SkipUnopenable`）：不 SetUri 的条目既不报
+`ItemFailed` 也不前进，`MediaPlaybackList` 没有任何「主动跳过这一项」的接口（实测，见「已知的坑」）。
 
 **音质降级**：`ItemFailed` 时交给 `QualityLadder`：沿阶梯降一级，按 `songId@level` 在 3s 内去重，
 然后在原位置重建条目；已经失败过的高音质 URL 不会再用。`standard` 也失败就跳到下一首。
@@ -557,6 +559,11 @@ Kanesumi.Xaml 的 M1 控件（见 `KANESUMI_XAML.md`）。
   并且窗口类是 `ApplicationFrameWindow`。
 - **UWP 窗口在还原状态下可能截到一整块空白**：实测第一次截图是纯 `#222222`，
   窗口只有 514x359，最大化请求也不一定生效。用 `tools/shot/Shot.ps1`（`SetWindowPos` 摆成固定尺寸再截）。
+- **不 SetUri 的 `MediaBinder` 条目既失败不了也前进不了**：取链判定「没有可播 URL」时如果只是
+  完成 deferral 而不设 URI，这一项会一直停在「打开中」，`MediaPlaybackList` 既不报 `ItemFailed`
+  也不切下一项 —— 界面表现为进度停在 0:00、不跳歌、不提示（实测 1.0.3 / 2026-11-13，#40）。
+  `PlaybackEngine.SkipUnopenable` 负责主动跳过；同一项还要用 `ItemInfo.SkipRequested` 防止
+  「主动跳过」和 `ItemFailed` 各处理一遍。
 - **MediaPlayer / MediaPlaybackList 的事件在后台线程触发**：回调里直接改 XAML 会
   `RPC_E_WRONG_THREAD` 崩溃。`PlaybackEngine` 统一封送到 UI 线程（`CoreDispatcher.RunAsync`），
   公开事件都在 UI 线程触发；`MediaBinder.Binding` 仍在后台，只能读闭包捕获的不可变参数。

@@ -202,7 +202,13 @@ namespace Ncrust.Playback
             };
             _list.ItemFailed += OnItemFailedBackground;
             _player.MediaEnded += (sender, args) => OnUi(OnMediaEnded);
-            _player.MediaFailed += (sender, args) => OnUi(() => PlaybackError?.Invoke(_currentSongId));
+            _player.MediaFailed += (sender, args) => OnUi(() =>
+            {
+                // 播放器级失败只在这里出现（条目级走 ItemFailed）。日志是 #40 这类报告唯一能定位的线索：
+                // 起播就卡住时，要么这里有记录（数据源 / 解码），要么连这里都没有（条目压根没开）。
+                App.Trace($"media failed songId={_currentSongId} error={args.Error} message={args.ErrorMessage}");
+                PlaybackError?.Invoke(_currentSongId);
+            });
             _player.PlaybackSession.PlaybackStateChanged += (sender, args) => OnUi(OnPlaybackStateChanged);
             _player.PlaybackSession.BufferingStarted += (sender, args) => OnUi(() => BufferingChanged?.Invoke(true));
             _player.PlaybackSession.BufferingEnded += (sender, args) => OnUi(() => BufferingChanged?.Invoke(false));
@@ -392,6 +398,10 @@ namespace Ncrust.Playback
             var binder = new MediaBinder { Token = song.Id + "@" + level };
             var info = new ItemInfo(song, level);
 
+            // Binding 在条目被播放器**打开时**才触发，那时下面这个槽位已经填好；
+            // 「没有可播 URL」的分支要靠它把这一项主动判死（见 SkipUnopenable）。
+            MediaPlaybackItem created = null;
+
             // Binding 在后台线程触发：只用闭包捕获的 song / level，不读共享字典。
             // 会话是否有效也在这一刻读（判定结果只影响原因文案）：设置项「非会员遇到 VIP 歌曲」
             // 需要它决定是播试听还是跳过。
@@ -400,6 +410,8 @@ namespace Ncrust.Playback
             binder.Binding += async (sender, args) =>
             {
                 var deferral = args.GetDeferral();
+                // 有值表示「这一项注定开不了」：deferral 完成后由引擎主动跳过。
+                EntitlementReason? skipReason = null;
                 try
                 {
                     var result = await _resolver.ResolveAsync(song.Id, level, sessionValid, song.Privilege);
@@ -442,21 +454,38 @@ namespace Ncrust.Playback
                     }
                     else
                     {
-                        // 不可播，或设置要求跳过试听：不 SetUri，条目会走 ItemFailed → 由那里统一跳歌并说明原因。
-                        // （不是为了「失败」而失败：MediaPlaybackList 没有「主动跳过这一项」的接口。）
+                        // 不可播，或设置要求跳过试听：不 SetUri 的话这一项**永远不会开**，
+                        // 而 MediaPlaybackList 没有「主动跳过这一项」的接口。实测（1.0.3，2026-11-13）
+                        // 不 SetUri 的条目既不报 ItemFailed、播放器也不推进 —— 进度停在 0:00、
+                        // 不跳歌、不提示，就是 #40 报的「直接卡住」。所以这里主动判死，别再指望失败事件。
+                        skipReason = result.Entitlement is PlaybackEntitlement.Unavailable unavailable
+                            ? unavailable.Reason
+                            : result.Entitlement is PlaybackEntitlement.Trial trial
+                                ? trial.Reason
+                                : EntitlementReason.Unknown;
                     }
                 }
                 catch
                 {
-                    // 取链失败：不 SetUri，条目会走 ItemFailed → 降级。
+                    // 取链整个抛出去（网络 / 解析）：同样没有 URI 可设，按「这一项开不了」处理，
+                    // 否则条目卡在打开中、队列永远不前进。原因无从判断，记 unknown。
+                    skipReason = EntitlementReason.Unknown;
                 }
                 finally
                 {
                     deferral.Complete();
                 }
+
+                // 必须等 deferral 完成之后再动播放列表：Binding 期间改 _list 会把打开中的条目拽掉。
+                if (skipReason.HasValue)
+                {
+                    var reason = skipReason.Value;
+                    OnUi(() => SkipUnopenable(created, info, reason));
+                }
             };
 
             var item = new MediaPlaybackItem(MediaSource.CreateFromMediaBinder(binder));
+            created = item;
 
             var props = item.GetDisplayProperties();
             props.Type = MediaPlaybackType.Music;
@@ -659,6 +688,68 @@ namespace Ncrust.Playback
             }
 
             Next();
+        }
+
+        /// <summary>
+        /// 条目没拿到可播 URL（无版权 / 需要会员 / 设置要求跳过试听 / 取链整个抛错）时由引擎主动推进。
+        ///
+        /// 与 <see cref="SkipUnplayable"/> 的区别：那条路是「播放器报了这一项失败」，而这里根本没有失败事件
+        /// —— 不 SetUri 的 <see cref="MediaPlaybackItem"/> 会一直停在「打开中」，
+        /// <see cref="MediaPlaybackList"/> 既不报 ItemFailed 也不前进（实测 1.0.3 / 2026-11-13：进度停在
+        /// 0:00、不跳歌、不提示，即 #40 报的「未开通黑胶播 VIP 歌直接卡住」）。所以不能只等事件，
+        /// 必须自己把队列推下去。
+        /// </summary>
+        private void SkipUnopenable(MediaPlaybackItem item, ItemInfo info, EntitlementReason reason)
+        {
+            if (info.SkipRequested)
+            {
+                return; // ItemFailed 也到了：同一项只处理一次。
+            }
+
+            info.SkipRequested = true;
+            App.Trace($"skip(no url) songId={info.Song.Id} level={info.Level} reason={reason}");
+            PlaybackError?.Invoke(info.Song.Id);
+
+            if (item == null || !_infoByItem.ContainsKey(item))
+            {
+                return; // 窗口已经重建过，这一项不在播放列表里了。
+            }
+
+            if (!ReferenceEquals(CurrentInfo(), info))
+            {
+                // 只是预载的下一首开不了：从窗口里摘掉，队列前进时再按新的一首补。
+                _infoByItem.Remove(item);
+                var stale = _list.Items.IndexOf(item);
+                if (stale >= 0)
+                {
+                    _list.Items.RemoveAt(stale);
+                }
+
+                return;
+            }
+
+            // 当前曲：提示一次原因，再按队列推进并重建窗口（不用 Next()：列表此刻是坏的，
+            // MoveNext 指不到下一项）。
+            Raise(_notices.SkipNotice(info.Song.Id, info.Song.Name, reason));
+
+            if (++_consecutiveFailures >= Math.Max(1, _session.Queue.Songs.Count))
+            {
+                _player.Pause();
+                return;
+            }
+
+            _player.Pause();
+            if (_session.Queue.MoveNext() != null)
+            {
+                PlayCurrent();
+                return;
+            }
+
+            if (_session.Queue.Mode == PlaybackMode.Infinity)
+            {
+                _advanceWhenFed = true;
+                LaunchInfinity();
+            }
         }
 
         private void SetCurrentSong(SongItem song)
@@ -901,6 +992,9 @@ namespace Ncrust.Playback
 
             /// <summary>取链的权益判定（跳歌提示的原因取自它）；还没取链时为 null。</summary>
             public PlaybackEntitlement Entitlement { get; set; }
+
+            /// <summary>已经按「开不了」处理过（主动跳过 / ItemFailed），避免同一项被处理两次。</summary>
+            public bool SkipRequested { get; set; }
 
             public string DisplayLevel => ActualLevel ?? Level;
         }
