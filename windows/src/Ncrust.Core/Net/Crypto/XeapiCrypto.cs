@@ -120,9 +120,8 @@ namespace Ncrust.Core.Net.Crypto
     /// </summary>
     public static class XeapiCrypto
     {
-        /// <summary>公钥请求与业务请求共用的官方 Android UA。</summary>
-        public const string AndroidUserAgent =
-            "NeteaseMusic/9.5.61.260802021928(9005061);Dalvik/2.1.0 (Linux; U; Android 12; HBN-AL00 Build/cd737a2.0)";
+        /// <summary>公钥请求与业务请求共用的官方 Android UA；唯一来源是 <see cref="Ncrust.Core.Net.XeapiIdentity"/>。</summary>
+        public const string AndroidUserAgent = Ncrust.Core.Net.XeapiIdentity.UserAgent;
 
         private const string SignKey =
             "mUHCwVNWJbunMqAHf5MImuirT6plvs6VSFW62MGHstFQxhBGdEoIhLItH3djc4+FB/OKty3+lL2rGeoFBpVe5g==";

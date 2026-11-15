@@ -19,42 +19,34 @@ public class LibraryApiTests
 {
     [Theory]
     [InlineData("{\"code\":200}", true)]
-    [InlineData("{\"code\":404}", false)]
-    [InlineData("not json", false)]
-    public async Task LikeSong_ChecksBusinessCode(string body, bool expected)
+    [InlineData("{\"code\":502}", true)]
+    [InlineData("{\"code\":524,\"message\":\"当前环境异常，已取消喜欢\"}", false)]
+    [InlineData("{\"code\":500}", false)]
+    public async Task LikeSong_ChecksXeapiBusinessCode(string body, bool expected)
     {
-        // 这些用例的 NcmHttp 没有 XeapiState（xeapi 直接失败），走的仍是 weapi → eapi 回退链。
-        var api = new LibraryApi(Router("/eapi/radio/like", body));
+        var handler = new XeapiHandler(businessJson: _ => body);
+        var api = new LibraryApi(new NcmHttp(handler, handler.State));
 
         Assert.Equal(expected, await api.LikeSongAsync(123, like: true));
+        Assert.Single(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
     }
 
+    /// <summary>
+    /// 旧 weapi / eapi radio/like 的写入会被服务端事后回滚（spec/api/xeapi.md §6），
+    /// 1.0.4 起不再回退：没有 xeapi 状态时直接失败、一个请求都不发，由上层保留待同步。
+    /// </summary>
     [Fact]
-    public async Task LikeSong_FallsBackToWeapiWhenXeapiUnavailable()
+    public async Task LikeSong_WithoutXeapiState_FailsWithoutTouchingLegacyChannels()
     {
         var seen = new List<string>();
         var api = new LibraryApi(new NcmHttp(new Handler(path =>
         {
             seen.Add(path);
-            return Json(path == "/weapi/radio/like" ? "{\"code\":200}" : "{\"code\":500}");
+            return Json("{\"code\":200}");
         })));
 
-        Assert.True(await api.LikeSongAsync(123, like: true));
-        Assert.Equal(new[] { "/weapi/radio/like" }, seen);
-    }
-
-    [Fact]
-    public async Task LikeSong_FallsBackToEapiWhenWeapiRejected()
-    {
-        var seen = new List<string>();
-        var api = new LibraryApi(new NcmHttp(new Handler(path =>
-        {
-            seen.Add(path);
-            return Json(path == "/eapi/radio/like" ? "{\"code\":200}" : "{\"code\":-460}");
-        })));
-
-        Assert.True(await api.LikeSongAsync(123, like: true));
-        Assert.Equal(new[] { "/weapi/radio/like", "/eapi/radio/like" }, seen);
+        Assert.False(await api.LikeSongAsync(123, like: true));
+        Assert.Empty(seen);
     }
 
     /// <summary>
@@ -114,15 +106,67 @@ public class LibraryApiTests
     }
 
     [Fact]
-    public async Task LikeSong_FallsBackToWeapiWhenXeapiRejected()
+    public async Task LikeSong_XeapiRejected_DoesNotFallBackToLegacyChannels()
     {
-        var handler = new XeapiHandler(businessJson: _ => "{\"code\":500}");
-        var http = new NcmHttp(handler, handler.State);
+        var handler = new XeapiHandler(businessJson: _ => "{\"code\":524}");
+        var api = new LibraryApi(new NcmHttp(handler, handler.State));
+
+        Assert.False(await api.LikeSongAsync(123, like: true));
+        Assert.Single(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
+        Assert.DoesNotContain(handler.Requests, r => r.Path == "/weapi/radio/like");
+        Assert.DoesNotContain(handler.Requests, r => r.Path == "/eapi/radio/like");
+    }
+
+    [Fact]
+    public async Task LikeSong_HttpError_IsFailureNotBusinessBody()
+    {
+        var handler = new XeapiHandler(businessJson: _ => "{\"code\":200}")
+        {
+            BusinessStatus = HttpStatusCode.BadGateway,
+        };
+        var api = new LibraryApi(new NcmHttp(handler, handler.State));
+
+        Assert.False(await api.LikeSongAsync(123, like: true));
+        Assert.Single(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
+    }
+
+    /// <summary>
+    /// 身份自洽（spec/api/xeapi.md §3.3）：UA、x-appver、cookie appver、公钥请求 appVersion 同一版本，
+    /// x-osver / cookie osver 与 UA 里的 Android 版本一致；设备 cookie 只补 mobilename / versioncode。
+    /// </summary>
+    [Fact]
+    public async Task LikeSong_IdentityIsSelfConsistent()
+    {
+        var handler = new XeapiHandler();
+        var http = new NcmHttp(handler, handler.State)
+        {
+            Cookie = "MUSIC_U=u-value; MUSIC_A=a-value; appver=1.0.0; osver=16",
+        };
         var api = new LibraryApi(http);
 
-        Assert.True(await api.LikeSongAsync(123, like: true));
-        Assert.Contains(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
-        Assert.Contains(handler.Requests, r => r.Path == "/weapi/radio/like");
+        Assert.True(await api.LikeSongAsync(1, like: true));
+
+        var like = Assert.Single(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
+        var key = Assert.Single(handler.Requests, r => r.Path == "/api/bsr/sk/get");
+        Assert.Equal(XeapiIdentity.UserAgent, like.Header("User-Agent"));
+        Assert.Equal(XeapiIdentity.UserAgent, key.Header("User-Agent"));
+        Assert.StartsWith("NeteaseMusic/" + XeapiIdentity.AppVersion + ".", XeapiIdentity.UserAgent);
+        Assert.Contains("Android " + XeapiIdentity.OsVersion + ";", XeapiIdentity.UserAgent);
+        Assert.Equal(XeapiIdentity.AppVersion, like.Header("x-appver"));
+        Assert.Equal(XeapiIdentity.OsVersion, like.Header("x-osver"));
+        Assert.Equal(XeapiIdentity.AppVersion, key.Form("appVersion"));
+        Assert.Equal("a-value", like.Header("x-music-a"));
+        Assert.False(like.HasHeader("x-music-tu"));
+
+        var cookie = like.Header("Cookie").Split(';')
+            .Select(part => part.Trim().Split('=', 2))
+            .ToDictionary(pair => pair[0], pair => pair[1]);
+        Assert.Equal(XeapiIdentity.AppVersion, cookie["appver"]);
+        Assert.Equal(XeapiIdentity.OsVersion, cookie["osver"]);
+        Assert.Equal(XeapiIdentity.Model, cookie["mobilename"]);
+        Assert.Equal(XeapiIdentity.BuildNo, cookie["versioncode"]);
+        Assert.False(cookie.ContainsKey("brand"));
+        Assert.False(cookie.ContainsKey("resolution"));
     }
 
     [Fact]
@@ -193,39 +237,54 @@ public class LibraryApiTests
     }
 
     /// <summary>
-    /// 业务响应解不开 → 清会话 + 强制刷新公钥（带上旧 version）后重试一次。
+    /// 业务响应解不开：服务端可能已执行写入，所以**不重放**（只发一次），本次判失败；
+    /// 公钥标记失效，下一次请求强制刷新并带上旧 version。
     /// </summary>
     [Fact]
-    public async Task LikeSong_RefreshesPublicKeyWhenResponseCannotBeDecrypted()
+    public async Task LikeSong_UndecryptableResponse_IsNotReplayed_AndNextRequestRefreshesKey()
     {
         var handler = new XeapiHandler { UndecryptableBusinessResponses = 1 };
         var api = new LibraryApi(new NcmHttp(handler, handler.State));
 
-        Assert.True(await api.LikeSongAsync(5, like: true));
+        Assert.False(await api.LikeSongAsync(5, like: true));
+        Assert.Single(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
+        Assert.Single(handler.Requests, r => r.Path == "/api/bsr/sk/get");
+        Assert.True(handler.State.KeyInvalidated);
+
+        Assert.True(await api.LikeSongAsync(6, like: true));
 
         Assert.Equal(2, handler.Requests.Count(r => r.Path == "/xeapi/v1/radio/like"));
         var keyRequests = handler.Requests.Where(r => r.Path == "/api/bsr/sk/get").ToList();
         Assert.Equal(2, keyRequests.Count);
         Assert.DoesNotContain("currentKeyVersion=1000000000000", keyRequests[0].Body);
         Assert.Contains("currentKeyVersion=1000000000000", keyRequests[1].Body);
+        Assert.False(handler.State.KeyInvalidated);
     }
 
-    /// <summary>易盾 token 取不到时按协议发空串（不是不发这个头），也不阻断写入。</summary>
+    /// <summary>
+    /// 易盾 token 取不到时**不提交**写入（Android 19bf30c 的客户端保护，Windows 1.0.4 同步）：
+    /// 缺必需字段的写入不发出去，由上层保留待同步。
+    /// </summary>
     [Fact]
-    public async Task LikeSong_SendsEmptyAntiCheatTokenWhenFetchFails()
+    public async Task LikeSong_MissingAntiCheatToken_DoesNotSubmit()
     {
         var handler = new XeapiHandler(antiCheatToken: null);
         var api = new LibraryApi(new NcmHttp(handler, handler.State));
 
-        Assert.True(await api.LikeSongAsync(1, like: true));
+        Assert.False(await api.LikeSongAsync(1, like: true));
 
-        var like = Assert.Single(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
-        Assert.True(like.HasHeader("X-antiCheatToken"));
-        Assert.Equal(string.Empty, like.Header("X-antiCheatToken"));
-        // 体里也照样补一个空的 checkToken（官方两处都发，值同步）。
-        Assert.Contains(
-            "&checkToken=\"",
-            FakeXeapiServer.DecryptBusinessPlaintext(like.Form("C"), like.Form("S")));
+        Assert.DoesNotContain(handler.Requests, r => r.Path == "/xeapi/v1/radio/like");
+    }
+
+    /// <summary>服务端在风控 / 参数错时直接回明文 JSON：照样读出业务码，不当成「解不开」。</summary>
+    [Fact]
+    public async Task LikeSong_PlainJsonResponse_IsReadAsBusinessBody()
+    {
+        var handler = new XeapiHandler { PlainBusinessJson = "{\"code\":524}" };
+        var api = new LibraryApi(new NcmHttp(handler, handler.State));
+
+        Assert.False(await api.LikeSongAsync(1, like: true));
+        Assert.False(handler.State.KeyInvalidated);
     }
 
     /// <summary>响应头下发会话后，下一次请求要按会话模式走（<c>R = version|ssid</c>，动态密钥换成 sskey）。</summary>
@@ -441,6 +500,12 @@ public class LibraryApiTests
         /// <summary>接下来 N 次业务请求返回不可解密的响应体（模拟公钥 / 会话失效）。</summary>
         public int UndecryptableBusinessResponses { get; set; }
 
+        /// <summary>业务请求的 HTTP 状态（模拟网关错误）。</summary>
+        public HttpStatusCode BusinessStatus { get; set; } = HttpStatusCode.OK;
+
+        /// <summary>非空时业务请求直接回这段未加密 JSON（模拟服务端风控时的明文响应）。</summary>
+        public string? PlainBusinessJson { get; set; }
+
         public XeapiState State { get; }
 
         public string DeviceId => State.DeviceId;
@@ -477,6 +542,16 @@ public class LibraryApiTests
                 case "/weapi/radio/like":
                     return Json("{\"code\":200}");
                 default:
+                    if (BusinessStatus != HttpStatusCode.OK)
+                    {
+                        return new HttpResponseMessage(BusinessStatus) { Content = new StringContent("<html>bad gateway</html>") };
+                    }
+
+                    if (PlainBusinessJson != null)
+                    {
+                        return Json(PlainBusinessJson);
+                    }
+
                     if (UndecryptableBusinessResponses > 0)
                     {
                         UndecryptableBusinessResponses--;

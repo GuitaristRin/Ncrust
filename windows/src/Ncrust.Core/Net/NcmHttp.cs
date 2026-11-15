@@ -403,13 +403,16 @@ namespace Ncrust.Core.Net
         /// <summary>
         /// xeapi POST —— 官方 Android 9.x 的请求加密层（协议见 <c>spec/api/xeapi.md</c>）。
         /// <paramref name="uri"/> 是 <c>/api/…</c> 形态，会被改写成 <c>/xeapi/…</c> 并打到
-        /// <see cref="InterfaceUrl"/>。<paramref name="antiCheat"/> 为 true 时现取易盾 token
-        /// （不缓存，取不到发空串，不阻断请求）。官方写入把同一份 token **同时**放进加密体的
-        /// <c>checkToken</c> 字段与 <c>X-antiCheatToken</c> 头（协议 §6）——只放头、体里没有
-        /// <c>checkToken</c> 时服务端把写入判为异常环境、事后回滚（「收藏隔天消失」）。
+        /// <see cref="InterfaceUrl"/>。<paramref name="antiCheat"/> 为 true 时现取易盾 token、不缓存，
+        /// 同一份 token **同时**放进加密体的 <c>checkToken</c> 与 <c>X-antiCheatToken</c> 头（协议 §6）。
         ///
-        /// 返回解密后的 JSON 文本。响应解不开说明公钥或会话已失效：清会话、强制刷新公钥
-        /// （带上旧 version）后重试一次，再失败才抛 <see cref="HttpRequestException"/>。
+        /// 写入安全约束（与 Android 2026-10-29 结论一致，参 spec/api/xeapi.md §6「Android 写入失败与待确认状态」）：
+        /// - token 取不到（空串）时**不发送**请求，直接抛 <see cref="XeapiWriteNotSubmittedException"/>，
+        ///   由上层保留待同步；不再沿用上游「发空串」的兼容行为。
+        /// - HTTP 非 2xx 一律抛错，不把错误页当业务体解析。
+        /// - 响应解不开时**不自动重放**：服务端可能已执行这次写入。只清会话并标记公钥失效，
+        ///   下一次请求再刷新；本次抛 <see cref="HttpRequestException"/>。
+        /// - 服务端在参数错 / 风控时可能直接回明文 JSON，原样返回让调用方拿得到业务码。
         /// </summary>
         public async Task<string> XeapiPostAsync(
             string uri,
@@ -420,55 +423,58 @@ namespace Ncrust.Core.Net
             var state = Xeapi;
             if (state == null)
             {
-                throw new InvalidOperationException("未配置 XeapiState，无法发送 xeapi 请求");
+                throw new XeapiWriteNotSubmittedException("未配置 XeapiState，无法发送 xeapi 请求");
             }
 
             var pairs = new List<KeyValuePair<string, string>>(payload ?? EmptyPairs());
-            // 官方在业务体末尾补 `checkToken`（顺序：… trackId, like, time, checkToken）。
             string? antiCheatToken = null;
             if (antiCheat)
             {
                 antiCheatToken = await FetchAntiCheatTokenAsync(cancellationToken).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(antiCheatToken))
+                {
+                    throw new XeapiWriteNotSubmittedException("取不到反作弊 token，写入未提交");
+                }
+
+                pairs.RemoveAll(pair => pair.Key == "checkToken");
                 pairs.Add(new KeyValuePair<string, string>("checkToken", antiCheatToken));
             }
 
             var keyState = await state
-                .EnsureKeyStateAsync(FetchPublicKeyAsync, false, cancellationToken)
+                .EnsureKeyStateAsync(FetchPublicKeyAsync, state.KeyInvalidated, cancellationToken)
                 .ConfigureAwait(false);
             if (keyState == null)
             {
-                throw new HttpRequestException("取 xeapi 公钥失败");
+                throw new XeapiWriteNotSubmittedException("取 xeapi 公钥失败");
             }
 
-            for (var attempt = 0; ; attempt++)
+            var request = XeapiCrypto.EncryptRequest(pairs, keyState, XeapiRandom.Create(), state.Session);
+            using (var response = await SendXeapiAsync(uri, request.Body, state, antiCheatToken, cancellationToken)
+                .ConfigureAwait(false))
             {
-                // 每次重试都要新的临时密钥对与 IV：旧的那份已经证明服务端不认。
-                var request = XeapiCrypto.EncryptRequest(pairs, keyState, XeapiRandom.Create(), state.Session);
-                using (var response = await SendXeapiAsync(uri, request.Body, state, antiCheatToken, cancellationToken)
-                    .ConfigureAwait(false))
+                CaptureSession(state, response);
+                var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
                 {
-                    CaptureSession(state, response);
-                    var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                    if (XeapiCrypto.TryDecryptResponse(bytes, out var json))
-                    {
-                        return json;
-                    }
+                    throw new HttpRequestException("xeapi http=" + (int)response.StatusCode);
                 }
 
-                if (attempt >= 1)
+                if (XeapiCrypto.TryDecryptResponse(bytes, out var json))
                 {
-                    throw new HttpRequestException("xeapi 响应解密失败（已刷新过一次公钥）");
+                    return json;
                 }
 
-                state.ClearSession();
-                keyState = await state
-                    .EnsureKeyStateAsync(FetchPublicKeyAsync, true, cancellationToken)
-                    .ConfigureAwait(false);
-                if (keyState == null)
+                var plain = Encoding.UTF8.GetString(bytes).Trim();
+                if (plain.StartsWith("{", StringComparison.Ordinal) || plain.StartsWith("[", StringComparison.Ordinal))
                 {
-                    throw new HttpRequestException("刷新 xeapi 公钥失败");
+                    return plain;
                 }
             }
+
+            // 响应不可读不能证明服务端没执行写入：不重放，只让下一次请求刷新公钥。
+            state.ClearSession();
+            state.InvalidateKey();
+            throw new HttpRequestException("xeapi 响应解密失败；写入未重放");
         }
 
         public async Task<string> GetAsync(
@@ -553,7 +559,7 @@ namespace Ncrust.Core.Net
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
             var body = XeapiCrypto.FormEncode(new[]
             {
-                new KeyValuePair<string, string>("appVersion", "9.5.61"),
+                new KeyValuePair<string, string>("appVersion", XeapiIdentity.AppVersion),
                 new KeyValuePair<string, string>("currentKeyVersion", currentKeyVersion ?? string.Empty),
                 new KeyValuePair<string, string>("deviceId", state.DeviceId),
                 new KeyValuePair<string, string>("nonce", nonce),
@@ -574,7 +580,7 @@ namespace Ncrust.Core.Net
                     Content = content,
                 })
                 {
-                    request.Headers.TryAddWithoutValidation("User-Agent", XeapiCrypto.AndroidUserAgent);
+                    request.Headers.TryAddWithoutValidation("User-Agent", XeapiIdentity.UserAgent);
                     request.Headers.TryAddWithoutValidation("Cookie", "deviceId=" + state.DeviceId);
                     using (var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false))
                     {
@@ -648,11 +654,15 @@ namespace Ncrust.Core.Net
 
             // 同名以后者为准：登录 cookie 原串在前，Android 客户端指纹在后（协议 §3.3）。
             cookie.Set("os", "android")
-                .Set("osver", "16")
-                .Set("appver", "9.1.65")
+                .Set("osver", XeapiIdentity.OsVersion)
+                .Set("appver", XeapiIdentity.AppVersion)
                 .Set("buildver", buildver)
                 .Set("deviceId", state.DeviceId)
                 .Set("sDeviceId", state.DeviceId);
+            foreach (var device in XeapiIdentity.DeviceCookies)
+            {
+                cookie.Set(device.Key, device.Value);
+            }
 
             var content = CreateFormContent(body);
             var request = new HttpRequestMessage(HttpMethod.Post, InterfaceUrl + XeapiPath(uri))
@@ -660,18 +670,31 @@ namespace Ncrust.Core.Net
                 Content = content,
             };
 
-            request.Headers.TryAddWithoutValidation("User-Agent", XeapiCrypto.AndroidUserAgent);
+            request.Headers.TryAddWithoutValidation("User-Agent", XeapiIdentity.UserAgent);
             request.Headers.TryAddWithoutValidation("X-Client-Enc-State", "ENCRYPTED");
             request.Headers.TryAddWithoutValidation("x-aeapi", "true");
             request.Headers.TryAddWithoutValidation("x-deviceid", state.DeviceId);
             request.Headers.TryAddWithoutValidation("x-sdeviceid", state.DeviceId);
             request.Headers.TryAddWithoutValidation("x-os", "android");
-            request.Headers.TryAddWithoutValidation("x-osver", "16");
-            request.Headers.TryAddWithoutValidation("x-appver", "9.1.65");
+            request.Headers.TryAddWithoutValidation("x-osver", XeapiIdentity.OsVersion);
+            request.Headers.TryAddWithoutValidation("x-appver", XeapiIdentity.AppVersion);
             request.Headers.TryAddWithoutValidation("x-buildver", buildver);
             if (!string.IsNullOrEmpty(musicU))
             {
                 request.Headers.TryAddWithoutValidation("x-music-u", musicU);
+            }
+
+            // 官方 icustomconfig/j0 把 MUSIC_A / MUSIC_TU 也镜像成头；有 cookie 才发。
+            var musicA = cookie.Get("MUSIC_A");
+            if (!string.IsNullOrEmpty(musicA))
+            {
+                request.Headers.TryAddWithoutValidation("x-music-a", musicA);
+            }
+
+            var musicTu = cookie.Get("MUSIC_TU");
+            if (!string.IsNullOrEmpty(musicTu))
+            {
+                request.Headers.TryAddWithoutValidation("x-music-tu", musicTu);
             }
 
             if (antiCheatToken != null)
@@ -695,7 +718,7 @@ namespace Ncrust.Core.Net
                 using (var request = new HttpRequestMessage(
                     HttpMethod.Get, "https://ac.dun.163yun.com/v3/b?pn=YD00000558929251"))
                 {
-                    request.Headers.TryAddWithoutValidation("User-Agent", XeapiCrypto.AndroidUserAgent);
+                    request.Headers.TryAddWithoutValidation("User-Agent", XeapiIdentity.UserAgent);
                     using (var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false))
                     {
                         var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -705,7 +728,7 @@ namespace Ncrust.Core.Net
             }
             catch
             {
-                // 取不到就发空串（上游同样处理），不阻断写入。
+                // 返回空串；XeapiPostAsync 据此不提交写入、保留待同步。
                 return string.Empty;
             }
         }

@@ -33,6 +33,7 @@ namespace Ncrust.Core.Net
         private XeapiKeyState? _keyState;
         private long _nextUpdateTime;
         private long _refreshGeneration;
+        private volatile bool _keyInvalidated;
 
         public XeapiState(ISettingsStore settings)
         {
@@ -105,6 +106,14 @@ namespace Ncrust.Core.Net
         public void ClearSession() => Session = null;
 
         /// <summary>
+        /// 公钥被标记失效（上一次业务响应解不开）。下一次请求据此强制刷新；刷新成功（<see cref="Save"/>）后清除。
+        /// 写入不在当次重放——服务端可能已执行（参 spec/api/xeapi.md §6）。
+        /// </summary>
+        public bool KeyInvalidated => _keyInvalidated;
+
+        public void InvalidateKey() => _keyInvalidated = true;
+
+        /// <summary>
         /// 解析公钥接口解密后的 JSON。缺 <c>sk</c> 视为失败（协议 §2）——没有它 <c>S</c>
         /// 就缺一半明文，服务端不会认。
         /// </summary>
@@ -153,6 +162,7 @@ namespace Ncrust.Core.Net
             _settings.SetString(NextUpdateTimeKey, state.NextUpdateTime.ToString(CultureInfo.InvariantCulture));
 
             _keyState = state;
+            _keyInvalidated = false;
             _nextUpdateTime = state.NextUpdateTime;
         }
 

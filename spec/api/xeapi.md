@@ -75,10 +75,10 @@ Content-Type: application/x-www-form-urlencoded;charset=utf-8
 X-Client-Enc-State: ENCRYPTED
 x-aeapi: true
 x-deviceid / x-sdeviceid: <deviceId>
-x-os: android    x-osver: 16    x-appver: 9.1.65    x-buildver: <秒级时间戳前 10 位>
+x-os: android    x-osver: <与 UA 同一系统版本>    x-appver: <与 UA 同一版本号>    x-buildver: <秒级时间戳前 10 位>
 x-music-u: <MUSIC_U>          （已登录时）
 X-antiCheatToken: <易盾 token>（收藏写入带上，见 §5）
-Cookie: <登录 cookie>; os=android; osver=16; appver=9.1.65; buildver=<同上>; deviceId=<id>; sDeviceId=<id>
+Cookie: <登录 cookie>; os=android; osver=<同 x-osver>; appver=<同 x-appver>; buildver=<同上>; deviceId=<id>; sDeviceId=<id>
 ```
 
 `deviceId` 每台设备生成一次后持久化（32 位小写 hex），公钥请求与业务请求用同一个。
@@ -98,6 +98,13 @@ UA 里机型说 Android 12 而 `x-osver` 说 16）在真实客户端不可能出
 （机型 / 品牌 / 分辨率 / versioncode）；`channel`、`packageType`、`screenType` 是网易内部取值，臆造等于
 制造新的不一致，故不发送。`x-music-a` / `x-music-tu` 仅在 cookie 里存在时镜像成请求头；`x-appkey`
 在云音乐 App 里 `appKey()` 恒为空，官方同样不发。
+
+两端取值（单一来源：Android `XeapiIdentity.kt`、Windows `XeapiIdentity.cs`）：版本号统一 `9.5.61`。
+Android 的系统版本、机型、品牌、分辨率取设备真值；Windows 没有 Android 设备可取，固定为 UA 中的
+`Android 12; HBN-AL00`，`x-osver` / cookie `osver` 随之为 `12`，设备 cookie 只发能从 UA 自洽推出的
+`mobilename=HBN-AL00`、`versioncode=9005061`，`brand` / `resolution` 不臆造（Windows 1.0.4 起）。
+身份统一后 Android 真机复测仍回 524（8064b45），说明它不是该次 524 的触发点；`checkToken` 来源
+（官方原生 `securityGetToken` vs Ncrust 的 web 侧易盾 token）是下一个待验证差异。
 
 ### 3.4 响应与会话
 
@@ -153,12 +160,13 @@ trackId=<id>&time=3&alg=itembased&like=<true|false>
 
 Android 收藏只允许提交 xeapi `/api/v1/radio/like`。网络、公钥、解密或业务码失败均保留待同步，
 不得回退 weapi/eapi 的旧 `radio/like`。解不开响应只标记公钥失效供下次请求刷新，
-不自动重放本次写入；服务端可能已接收第一次请求。Windows 当前仍有旧通道回退，尚待跟进。
+不自动重放本次写入；服务端可能已接收第一次请求。Windows 自 1.0.4 起同一口径：去掉 weapi/eapi 回退，响应不可读不重放（公钥标记失效、下次请求刷新），HTTP 非 2xx 判失败，token 缺失不提交。
 Android 还要求现取的反作弊 token 非空；取不到时不提交收藏写入，保留待同步，
 不再沿用 §5 的上游空串兼容行为。这是缺少必需字段时的客户端保护，不是本次历史回滚原因的实证。
 
 同一设备的收藏写入按序执行，排队时已被更新意图替代的请求不发送；旧请求不得清除新意图。
-刷新展示保留尚未确认的收藏/取消方向。立即读回一致仅证明当时可见，不能证明隔日不会回滚。
+刷新展示保留尚未确认的收藏/取消方向。两端（Android `PendingLikeWrites`、Windows `LibraryManager`）
+一致：普通刷新不清待同步，读取期间发生本地变更时丢弃该快照，重试方向只取待同步表。立即读回一致仅证明当时可见，不能证明隔日不会回滚。
 应用内部保留有限的脱敏事件记录用于后续调查，不含凭证、token 或设备标识。
 
 > **`checkToken` 必须进体**（2026-10-16 两端官方包实证）。REA 反编译 Android 9.6.08：
