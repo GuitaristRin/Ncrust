@@ -232,6 +232,114 @@ public class LibraryManagerTests
         Assert.Equal(new long[] { 1, 2 }, songs.Select(s => s.Id));
     }
 
+    // ── 收藏意图（同 Android PendingLikeWrites，spec/api/xeapi.md §6）──────────────────────
+
+    /// <summary>重试方向只取待同步表：首屏之后未加载详情的待收藏不能被反推成取消。</summary>
+    [Fact]
+    public async Task RetryPending_UsesRecordedDirection_NotLoadedSongs()
+    {
+        var store = new InMemoryFileStore();
+        await store.WriteTextAsync("library.json",
+            "{\"songs\":[],\"albums\":[],\"likedIds\":[],\"pending\":{\"7\":true}}");
+        var cloud = new FakeCloud();
+        var manager = new LibraryManager(store, cloud, () => true);
+
+        await manager.RetryPendingSyncAsync();
+
+        Assert.Equal(new[] { (7L, true) }, cloud.LikeCalls);
+        Assert.False(manager.IsSongPendingSync(7));
+    }
+
+    [Fact]
+    public async Task Refresh_KeepsPendingLike_WhenCloudLags()
+    {
+        var cloud = new FakeCloud { LikeOk = false };
+        cloud.LikedIds.Add(10);
+        cloud.Songs[10] = Song(10);
+        var manager = new LibraryManager(new InMemoryFileStore(), cloud, () => true);
+        await manager.SaveSongAsync(Song(1));
+
+        Assert.True(await manager.RefreshFromCloudAsync());
+
+        Assert.Equal(new long[] { 1, 10 }, manager.GetSavedSongs().Select(s => s.Id));
+        Assert.Equal(new long[] { 1, 10 }, manager.GetLikedSongIds());
+        Assert.True(manager.IsSongPendingSync(1)); // 普通刷新不确认写入
+    }
+
+    [Fact]
+    public async Task Refresh_KeepsPendingUnlike_WhenCloudLags()
+    {
+        var cloud = new FakeCloud();
+        cloud.LikedIds.AddRange(new long[] { 1, 10 });
+        cloud.Songs[1] = Song(1);
+        cloud.Songs[10] = Song(10);
+        var manager = new LibraryManager(new InMemoryFileStore(), cloud, () => true);
+        await manager.RefreshFromCloudAsync();
+        cloud.LikeOk = false;
+        await manager.RemoveSongAsync(1);
+
+        await manager.RefreshFromCloudAsync();
+
+        Assert.Equal(new long[] { 10 }, manager.GetSavedSongs().Select(s => s.Id));
+        Assert.Equal(new long[] { 10 }, manager.GetLikedSongIds());
+        Assert.True(manager.IsSongPendingSync(1));
+    }
+
+    /// <summary>刷新读取期间本地已确认了新收藏：开始前拍下的旧快照不能把它抹掉。</summary>
+    [Fact]
+    public async Task Refresh_DiscardsSnapshotStartedBeforeLocalChange()
+    {
+        var cloud = new FakeCloud();
+        var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        cloud.LikedGate = gate;
+        var manager = new LibraryManager(new InMemoryFileStore(), cloud, () => true);
+
+        var refresh = manager.RefreshFromCloudAsync();
+        await cloud.LikedGateEntered.Task;
+        await manager.SaveSongAsync(Song(2)); // 写入 + 读回确认，清掉待同步
+        Assert.False(manager.IsSongPendingSync(2));
+        gate.SetResult(true);
+        await refresh;
+
+        Assert.Equal(new long[] { 2 }, manager.GetSavedSongs().Select(s => s.Id));
+    }
+
+    /// <summary>
+    /// 写入串行：在途旧请求完成后不能清新意图；排队期间被替代的意图不发送。
+    /// 收藏(在途) → 取消(排队) → 再收藏(排队)：网络上只出现两次「收藏」，最后一次自己的读回才清待同步。
+    /// </summary>
+    [Fact]
+    public async Task Likes_AreSerialized_AndStaleIntentsNeitherSendNorClear()
+    {
+        var cloud = new FakeCloud();
+        var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        cloud.LikeGate = gate;
+        var manager = new LibraryManager(new InMemoryFileStore(), cloud, () => true);
+
+        var first = manager.SaveSongAsync(Song(1));
+        await cloud.LikeGateEntered.Task;
+        var second = manager.RemoveSongAsync(1);
+        var third = manager.SaveSongAsync(Song(1));
+        Assert.True(manager.IsSongPendingSync(1));
+
+        gate.SetResult(true);
+        await Task.WhenAll(first, second, third);
+
+        Assert.Equal(new[] { (1L, true), (1L, true) }, cloud.LikeCalls);
+        Assert.True(manager.IsSongSaved(1));
+        Assert.False(manager.IsSongPendingSync(1));
+    }
+
+    [Fact]
+    public void MergePendingLikeIds_PutsPendingLikesFirst_AndDropsPendingUnlikes()
+    {
+        var merged = LibraryManager.MergePendingLikeIds(
+            new long[] { 1, 2, 3 },
+            new Dictionary<long, bool> { [9] = true, [2] = false, [3] = true });
+
+        Assert.Equal(new long[] { 9, 3, 1 }, merged);
+    }
+
     [Fact]
     public async Task SubscribeAlbum_ReplacesAndPushes()
     {        var cloud = new FakeCloud();
@@ -301,6 +409,16 @@ public class LibraryManagerTests
 
         public bool AlbumsThrow { get; set; }
 
+        /// <summary>非空时第一次读红心 id 先拍快照、再等这个闸门（模拟读取在途时发生本地变更）。</summary>
+        public TaskCompletionSource<bool>? LikedGate { get; set; }
+
+        public TaskCompletionSource<bool> LikedGateEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>非空时第一次收藏写入等这个闸门（模拟写入在途）。</summary>
+        public TaskCompletionSource<bool>? LikeGate { get; set; }
+
+        public TaskCompletionSource<bool> LikeGateEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public List<(long Id, bool Like)> LikeCalls { get; } = new();
 
         public List<(long Id, bool Sub)> SubCalls { get; } = new();
@@ -308,10 +426,21 @@ public class LibraryManagerTests
         public Task<long> GetCurrentUserIdAsync(CancellationToken cancellationToken) =>
             Task.FromResult(UserId);
 
-        public Task<LikedIdsResult> GetLikedTrackIdsAsync(long uid, CancellationToken cancellationToken) =>
-            Task.FromResult(LikedFailure
+        public async Task<LikedIdsResult> GetLikedTrackIdsAsync(long uid, CancellationToken cancellationToken)
+        {
+            var result = LikedFailure
                 ? LikedIdsResult.Failure("boom")
-                : LikedIdsResult.Success(LikedIds.ToList()));
+                : LikedIdsResult.Success(LikedIds.ToList());
+            var gate = LikedGate;
+            if (gate != null)
+            {
+                LikedGate = null;
+                LikedGateEntered.TrySetResult(true);
+                await gate.Task;
+            }
+
+            return result;
+        }
 
         public Task<IReadOnlyList<SongItem>> GetSongsByIdsAsync(
             IReadOnlyList<long> ids,
@@ -326,12 +455,20 @@ public class LibraryManagerTests
                 ? throw new System.Exception("albums boom")
                 : Task.FromResult((IReadOnlyList<CloudAlbum>)Albums.ToList());
 
-        public Task<bool> LikeSongAsync(long songId, bool like, CancellationToken cancellationToken)
+        public async Task<bool> LikeSongAsync(long songId, bool like, CancellationToken cancellationToken)
         {
             LikeCalls.Add((songId, like));
+            var gate = LikeGate;
+            if (gate != null)
+            {
+                LikeGate = null;
+                LikeGateEntered.TrySetResult(true);
+                await gate.Task;
+            }
+
             if (!LikeOk)
             {
-                return Task.FromResult(false);
+                return false;
             }
 
             if (like)
@@ -346,7 +483,7 @@ public class LibraryManagerTests
                 LikedIds.Remove(songId);
             }
 
-            return Task.FromResult(true);
+            return true;
         }
 
         public Task<bool> SubscribeAlbumAsync(long albumId, bool subscribe, CancellationToken cancellationToken)

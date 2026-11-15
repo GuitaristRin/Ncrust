@@ -81,6 +81,13 @@ namespace Ncrust.Core.Library
         private List<long> _likedIds = new List<long>();
         private Dictionary<long, bool> _pending = new Dictionary<long, bool>();
 
+        // 每次收藏意图的身份（参 Android PendingLikeWrites）：写入按序执行，排队时已被新意图替代的
+        // 请求不发送，旧请求的读回也不能清掉新意图。_revision 在记录 / 清除意图时递增，
+        // 刷新据此丢弃读取期间发生过本地变更的快照。
+        private readonly Dictionary<long, long> _intentRevision = new Dictionary<long, long>();
+        private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
+        private long _revision;
+
         public LibraryManager(IFileStore files, ILibraryCloud cloud, Func<bool>? isLoggedIn = null)
         {
             _files = files ?? throw new ArgumentNullException(nameof(files));
@@ -150,6 +157,8 @@ namespace Ncrust.Core.Library
         public async Task SaveSongAsync(SongItem song, CancellationToken cancellationToken = default)
         {
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
+            var push = _isLoggedIn();
+            long intent = 0;
             bool added;
             lock (_lock)
             {
@@ -157,6 +166,10 @@ namespace Ncrust.Core.Library
                 if (added)
                 {
                     _songs.Insert(0, song);
+                    if (push)
+                    {
+                        intent = RecordIntentLocked(song.Id, true);
+                    }
                 }
             }
 
@@ -165,17 +178,19 @@ namespace Ncrust.Core.Library
                 return;
             }
 
+            // 意图先落盘再调度网络（同 Android）：进程被杀也不丢待同步。
             await PersistAsync(cancellationToken).ConfigureAwait(false);
-            if (_isLoggedIn())
+            if (push)
             {
-                await PushLikeAsync(song.Id, true, cancellationToken).ConfigureAwait(false);
+                await SubmitLikeAsync(song.Id, true, intent, cancellationToken).ConfigureAwait(false);
             }
         }
 
         public async Task SaveSongsAsync(IReadOnlyList<SongItem> songs, CancellationToken cancellationToken = default)
         {
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
-            var added = new List<SongItem>();
+            var push = _isLoggedIn();
+            var added = new List<(long Id, long Intent)>();
             lock (_lock)
             {
                 foreach (var song in songs)
@@ -183,7 +198,7 @@ namespace Ncrust.Core.Library
                     if (_songs.All(existing => existing.Id != song.Id))
                     {
                         _songs.Insert(0, song);
-                        added.Add(song);
+                        added.Add((song.Id, push ? RecordIntentLocked(song.Id, true) : 0));
                     }
                 }
             }
@@ -194,11 +209,11 @@ namespace Ncrust.Core.Library
             }
 
             await PersistAsync(cancellationToken).ConfigureAwait(false);
-            if (_isLoggedIn())
+            if (push)
             {
-                foreach (var song in added)
+                foreach (var item in added)
                 {
-                    await PushLikeAsync(song.Id, true, cancellationToken).ConfigureAwait(false);
+                    await SubmitLikeAsync(item.Id, true, item.Intent, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
@@ -206,10 +221,19 @@ namespace Ncrust.Core.Library
         public async Task RemoveSongAsync(long songId, CancellationToken cancellationToken = default)
         {
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
+            var push = _isLoggedIn();
+            long intent = 0;
             bool removed;
             lock (_lock)
             {
                 removed = _songs.RemoveAll(song => song.Id == songId) > 0;
+                if (removed)
+                {
+                    if (push)
+                    {
+                        intent = RecordIntentLocked(songId, false);
+                    }
+                }
             }
 
             if (!removed)
@@ -218,9 +242,9 @@ namespace Ncrust.Core.Library
             }
 
             await PersistAsync(cancellationToken).ConfigureAwait(false);
-            if (_isLoggedIn())
+            if (push)
             {
-                await PushLikeAsync(songId, false, cancellationToken).ConfigureAwait(false);
+                await SubmitLikeAsync(songId, false, intent, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -282,15 +306,23 @@ namespace Ncrust.Core.Library
 
             var anySuccess = false;
 
+            long refreshRevision;
+            lock (_lock)
+            {
+                refreshRevision = _revision;
+            }
+
             var liked = await _cloud.GetLikedTrackIdsAsync(uid, cancellationToken).ConfigureAwait(false);
             if (liked.IsSuccess)
             {
-                var ids = liked.Ids;
+                Dictionary<long, bool> pendingAtRead;
                 lock (_lock)
                 {
-                    _likedIds = ids.ToList();
+                    pendingAtRead = new Dictionary<long, bool>(_pending);
                 }
 
+                // 待确认的收藏 / 取消照本地意图显示：读延迟不能抹掉待同步项，也不能恢复待取消项。
+                var ids = MergePendingLikeIds(liked.Ids, pendingAtRead);
                 var firstBatch = ids.Count > LikedBatchSize
                     ? ids.Take(LikedBatchSize).ToList()
                     : ids.ToList();
@@ -309,15 +341,27 @@ namespace Ncrust.Core.Library
 
                 // 详情批量拉取失败时不能用空列表覆盖（firstBatch 非空却拿到空 = 异常）；
                 // 云端确认「收藏为空」时才允许清空。
-                if (firstBatch.Count == 0 || firstSongs.Count > 0)
+                lock (_lock)
                 {
-                    lock (_lock)
+                    // 读取期间发生过本地变更（新意图或写入确认）：这份快照已过时，保留更新的本地状态。
+                    if (_revision == refreshRevision)
                     {
-                        _songs = firstSongs.ToList();
+                        if (firstBatch.Count == 0 || firstSongs.Count > 0)
+                        {
+                            var retained = _songs.Where(song => _pending.TryGetValue(song.Id, out var desired) && desired);
+                            var seen = new HashSet<long>();
+                            _songs = retained.Concat(firstSongs)
+                                .Where(song => seen.Add(song.Id))
+                                .Where(song => !_pending.TryGetValue(song.Id, out var desired) || desired)
+                                .ToList();
+                        }
+
+                        _likedIds = MergePendingLikeIds(liked.Ids, _pending);
                     }
                 }
 
-                ReconcilePending(ids);
+                // 普通刷新不能确认在途写入（可能读到写入前的状态），故不清待同步；
+                // 只有串行写任务自己的读回才清除与其身份一致的意图。
                 anySuccess = true;
             }
 
@@ -497,51 +541,136 @@ namespace Ncrust.Core.Library
             CancellationToken cancellationToken) =>
             _cloud.GetSongsByIdsAsync(ids, cancellationToken);
 
-        /// <summary>重试所有待同步的点赞操作，方向依据当前本地收藏状态。</summary>
+        /// <summary>
+        /// 重试所有待同步的点赞操作。期望方向**只取待同步表记下的那一个**，不能拿 <see cref="IsSongSaved"/>
+        /// 反推：首屏之后未加载详情的收藏不在 <c>_songs</c> 里，反推会把待收藏误发成取消（同 Android
+        /// <c>planPendingLikeRetries</c>）。
+        /// </summary>
         public async Task RetryPendingSyncAsync(CancellationToken cancellationToken = default)
         {
+            await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
             if (!_isLoggedIn())
             {
                 return;
             }
 
-            List<long> ids;
+            List<KeyValuePair<long, bool>> plans;
             lock (_lock)
             {
-                ids = _pending.Keys.ToList();
+                plans = _pending.ToList();
             }
 
-            foreach (var songId in ids)
+            foreach (var plan in plans)
             {
-                bool desired;
+                long intent;
                 lock (_lock)
                 {
-                    desired = _songs.Any(song => song.Id == songId);
+                    // 计划之后用户又改了方向：以新意图为准，这一条不再重试。
+                    if (!_pending.TryGetValue(plan.Key, out var desired) || desired != plan.Value)
+                    {
+                        continue;
+                    }
+
+                    intent = RecordIntentLocked(plan.Key, plan.Value);
                 }
 
-                await PushLikeAsync(songId, desired, cancellationToken).ConfigureAwait(false);
+                await SubmitLikeAsync(plan.Key, plan.Value, intent, cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private async Task<bool> PushLikeAsync(long songId, bool like, CancellationToken cancellationToken)
+        /// <summary>待确认收藏排在前面，待取消的剔除（同 Android <c>mergePendingLikeIds</c>）。</summary>
+        internal static List<long> MergePendingLikeIds(IReadOnlyList<long> cloud, IReadOnlyDictionary<long, bool> pending)
         {
-            MarkPending(songId, like);
-            await PersistAsync(cancellationToken).ConfigureAwait(false);
-
-            var ok = await _cloud.LikeSongAsync(songId, like, cancellationToken).ConfigureAwait(false);
-            if (!ok)
+            var seen = new HashSet<long>();
+            var result = new List<long>(cloud.Count + pending.Count);
+            foreach (var pair in pending)
             {
-                return false;
+                if (pair.Value && seen.Add(pair.Key))
+                {
+                    result.Add(pair.Key);
+                }
             }
 
-            var verified = await VerifyLikeAsync(songId, like, cancellationToken).ConfigureAwait(false);
-            if (verified)
+            foreach (var id in cloud)
             {
-                MarkPending(songId, null);
-                await PersistAsync(cancellationToken).ConfigureAwait(false);
+                if (seen.Add(id) && !(pending.TryGetValue(id, out var desired) && !desired))
+                {
+                    result.Add(id);
+                }
             }
 
-            return verified;
+            return result;
+        }
+
+        private long RecordIntentLocked(long songId, bool like)
+        {
+            _pending[songId] = like;
+            var intent = ++_revision;
+            _intentRevision[songId] = intent;
+            return intent;
+        }
+
+        private bool IsCurrentIntentLocked(long songId, long intent) =>
+            _pending.ContainsKey(songId) &&
+            _intentRevision.TryGetValue(songId, out var current) &&
+            current == intent;
+
+        private bool IsCurrentIntent(long songId, long intent)
+        {
+            lock (_lock)
+            {
+                return IsCurrentIntentLocked(songId, intent);
+            }
+        }
+
+        /// <summary>
+        /// 串行提交一次收藏意图。排队时已被替代的意图不发送；写入或读回期间被替代的，结果不清除新意图。
+        /// 写入未获确认一律保留待同步——不重放、不回退旧通道（参 spec/api/xeapi.md §6）。
+        /// </summary>
+        private async Task<bool> SubmitLikeAsync(long songId, bool like, long intent, CancellationToken cancellationToken)
+        {
+            await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (!IsCurrentIntent(songId, intent))
+                {
+                    return false;
+                }
+
+                var ok = await _cloud.LikeSongAsync(songId, like, cancellationToken).ConfigureAwait(false);
+                if (!ok || !IsCurrentIntent(songId, intent))
+                {
+                    return false;
+                }
+
+                if (!await VerifyLikeAsync(songId, like, cancellationToken).ConfigureAwait(false))
+                {
+                    return false;
+                }
+
+                bool cleared;
+                lock (_lock)
+                {
+                    cleared = IsCurrentIntentLocked(songId, intent);
+                    if (cleared)
+                    {
+                        _pending.Remove(songId);
+                        _intentRevision.Remove(songId);
+                        _revision++;
+                    }
+                }
+
+                if (cleared)
+                {
+                    await PersistAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                return cleared;
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         private async Task<bool> VerifyLikeAsync(long songId, bool like, CancellationToken cancellationToken)
@@ -555,36 +684,6 @@ namespace Ncrust.Core.Library
             catch
             {
                 return false;
-            }
-        }
-
-        private void MarkPending(long songId, bool? desired)
-        {
-            lock (_lock)
-            {
-                if (desired == null)
-                {
-                    _pending.Remove(songId);
-                }
-                else
-                {
-                    _pending[songId] = desired.Value;
-                }
-            }
-        }
-
-        private void ReconcilePending(IReadOnlyList<long> cloudLikedIds)
-        {
-            var cloudSet = new HashSet<long>(cloudLikedIds);
-            lock (_lock)
-            {
-                foreach (var songId in _pending.Keys.ToList())
-                {
-                    if (_pending[songId] == cloudSet.Contains(songId))
-                    {
-                        _pending.Remove(songId);
-                    }
-                }
             }
         }
 

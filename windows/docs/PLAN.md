@@ -58,7 +58,9 @@ Android 逐像素一致；Kanesumi.Xaml 提供 token 与基础控件，页面层
 - [x] `Lyrics/LyricsCache`（200 条，落 `IFileStore`）
 - [x] `Search/SearchHistory`（每类 10 条、14 天过期，落 `IFileStore`）
 - [x] `Library/LibraryManager`：喜欢的歌曲 / 收藏专辑云同步，**云端读失败不覆盖本地**、待同步表；
-      `LibraryApi` / `ApiLibraryCloud` + 红心 ids / 收藏专辑 / like / sub album 端点已补
+      `LibraryApi` / `ApiLibraryCloud` + 红心 ids / 收藏专辑 / like / sub album 端点已补；
+      1.0.4 起与 Android 同口径：收藏只走 xeapi（无旧通道回退、不重放、token 缺失不提交），
+      意图串行提交、刷新保留待同步，收藏专辑翻页取全量（参 `spec/api/xeapi.md` §3.3 / §6）
 
 ### 1.6 音效
 
