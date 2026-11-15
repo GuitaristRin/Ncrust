@@ -64,7 +64,7 @@ namespace Ncrust.Core.Api
             _songs.GetSongDetailAsync(ids, cancellationToken);
 
         public Task<IReadOnlyList<CloudAlbum>> GetSubscribedAlbumsAsync(CancellationToken cancellationToken) =>
-            _albums.GetSubscribedAlbumsAsync(100, 0, cancellationToken);
+            _albums.GetAllSubscribedAlbumsAsync(cancellationToken: cancellationToken);
 
         public Task<bool> LikeSongAsync(long songId, bool like, CancellationToken cancellationToken) =>
             _library.LikeSongAsync(songId, like, cancellationToken);

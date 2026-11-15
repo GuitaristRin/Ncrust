@@ -392,6 +392,33 @@ public class LibraryApiTests
         Assert.Equal(12, albums[0].SongCount);
     }
 
+    /// <summary>收藏专辑翻到短页为止（同 Android 9acf753）：超过一页的账号不再丢最早的专辑。</summary>
+    [Fact]
+    public async Task AllSubscribedAlbums_PagesUntilShortPage()
+    {
+        var calls = 0;
+        var api = new AlbumApi(new NcmHttp(new Handler(path =>
+        {
+            if (path != "/eapi/album/sublist")
+            {
+                return Json("{}");
+            }
+
+            calls++;
+            return Json(calls switch
+            {
+                1 => "{\"code\":200,\"data\":[{\"id\":1},{\"id\":2}]}",
+                2 => "{\"code\":200,\"data\":[{\"id\":3},{\"id\":4}]}",
+                _ => "{\"code\":200,\"data\":[{\"id\":5}]}",
+            });
+        })));
+
+        var albums = await api.GetAllSubscribedAlbumsAsync(pageSize: 2);
+
+        Assert.Equal(new long[] { 1, 2, 3, 4, 5 }, albums.Select(a => a.AlbumId));
+        Assert.Equal(3, calls);
+    }
+
     private static NcmHttp Router(string path, string body) =>
         new(new Handler(p => p == path ? Json(body) : Json("{}")));
 

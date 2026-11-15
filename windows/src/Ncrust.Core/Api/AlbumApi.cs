@@ -35,6 +35,33 @@ namespace Ncrust.Core.Api
         }
 
         /// <summary>
+        /// 拉取**全部**收藏专辑：<c>album/sublist</c> 单次只返回一页，只取第一页时收藏数超过一页的账号
+        /// 最早的若干张既不显示，专辑页也会把它判成未收藏。按 <paramref name="pageSize"/> 翻页到短页为止，
+        /// <paramref name="maxPages"/> 只防服务端异常时无限翻页（同 Android 9acf753 <c>getAllSubscribedAlbums</c>）。
+        /// </summary>
+        public async Task<IReadOnlyList<CloudAlbum>> GetAllSubscribedAlbumsAsync(
+            int pageSize = 100,
+            int maxPages = 30,
+            CancellationToken cancellationToken = default)
+        {
+            var all = new List<CloudAlbum>(pageSize);
+            var offset = 0;
+            for (var page = 0; page < maxPages; page++)
+            {
+                var items = await GetSubscribedAlbumsAsync(pageSize, offset, cancellationToken).ConfigureAwait(false);
+                all.AddRange(items);
+                if (items.Count < pageSize)
+                {
+                    break;
+                }
+
+                offset += items.Count;
+            }
+
+            return all;
+        }
+
+        /// <summary>
         /// 云端「我收藏的专辑」/eapi/album/sublist。eapi 的 data 直接是专辑数组，
         /// 老结构是 <c>data.albums</c>，都兜底。
         /// </summary>
